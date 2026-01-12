@@ -8,8 +8,8 @@ services:
     ports:
       - "5678:5678"
     volumes:
-      # 持久化数据目录
-      - ./data:/app/data
+      # 持久化数据目录（使用命名卷）
+      - huobao-data:/app/data
       # 挂载配置文件（可选，如需自定义配置请取消注释）
       # - ./configs/config.yaml:/app/configs/config.yaml:ro
     environment:
@@ -23,6 +23,10 @@ services:
       start_period: 10s
     networks:
       - huobao-network
+
+volumes:
+  huobao-data:
+    driver: local
 
 networks:
   huobao-network:

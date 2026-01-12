@@ -83,12 +83,11 @@ RUN cp ./configs/config.example.yaml ./configs/config.yaml
 # 复制数据库迁移文件
 COPY migrations ./migrations/
 
-# 创建数据目录
-RUN mkdir -p /app/data/storage && \
-    chown -R app:app /app
-
 # 切换到非 root 用户
 USER app
+
+# 创建数据目录（在 app 用户下创建，确保权限正确）
+RUN mkdir -p /app/data/storage
 
 # 暴露端口
 EXPOSE 5678
