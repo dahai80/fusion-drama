@@ -346,7 +346,7 @@
                     <span>生成中...</span>
                     <el-tag type="warning" size="small" style="margin-top: 8px;">{{ scene.image_generation_status === 'pending' ? '排队中' : '处理中' }}</el-tag>
                   </div>
-                  <div v-else-if="scene.image_generation_status === 'failed'" class="scene-placeholder failed">
+                  <div v-else-if="scene.image_generation_status === 'failed'" class="scene-placeholder failed" @click="generateSceneImage(scene.id)" style="cursor: pointer;">
                     <el-icon :size="64"><WarningFilled /></el-icon>
                     <span>生成失败</span>
                     <el-tag type="danger" size="small" style="margin-top: 8px;">点击重新生成</el-tag>
@@ -1353,10 +1353,19 @@ const batchGenerateSceneImages = async () => {
   
   batchGeneratingScenes.value = true
   try {
-    for (const sceneId of selectedSceneIds.value) {
-      await generateSceneImage(sceneId.toString())
+    const promises = selectedSceneIds.value.map(sceneId => 
+      generateSceneImage(sceneId.toString())
+    )
+    const results = await Promise.allSettled(promises)
+    
+    const successCount = results.filter(r => r.status === 'fulfilled').length
+    const failCount = results.filter(r => r.status === 'rejected').length
+    
+    if (failCount === 0) {
+      ElMessage.success(`批量生成完成！成功生成 ${successCount} 个场景`)
+    } else {
+      ElMessage.warning(`生成完成：成功 ${successCount} 个，失败 ${failCount} 个`)
     }
-    ElMessage.success('批量生成完成！')
   } catch (error: any) {
     ElMessage.error(error.message || '批量生成失败')
   } finally {
