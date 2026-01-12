@@ -2,6 +2,8 @@ package database
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/drama-generator/backend/domain/models"
@@ -14,6 +16,13 @@ import (
 
 func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	dsn := cfg.DSN()
+
+	if cfg.Type == "sqlite" {
+		dbDir := filepath.Dir(dsn)
+		if err := os.MkdirAll(dbDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create database directory: %w", err)
+		}
+	}
 
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
