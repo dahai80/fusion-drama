@@ -59,3 +59,7 @@ web/.env.local
 
 # Config file (use config.example.yaml as template)
 configs/config.yaml
+
+# Docker publish documentation (optional)
+DOCKER_PUBLISH.md
+build.sh

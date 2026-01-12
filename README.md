@@ -339,7 +339,108 @@ go run main.go
 
 ## 📦 部署指南
 
-### 🏭 生产环境部署
+### 🐳 Docker 部署（推荐）
+
+使用 Docker 部署是最简单快捷的方式，已内置默认配置，开箱即用。
+
+#### 快速体验（推荐新手）
+
+```bash
+# 从 Docker Hub 拉取并运行
+docker run -d \
+  --name huobao-drama \
+  -p 5678:5678 \
+  --restart unless-stopped \
+  huobao/huobao-drama:latest
+```
+
+访问: `http://localhost:5678` 即可开始使用！
+
+#### 方式一：使用 Docker Compose
+
+```bash
+# 启动服务（使用内置配置）
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+```
+
+**自定义配置**（可选）：
+```bash
+# 1. 取消 docker-compose.yml 中配置文件挂载的注释
+# 2. 复制并修改配置文件
+cp configs/config.example.yaml configs/config.yaml
+vim configs/config.yaml
+
+# 3. 重启服务
+docker-compose up -d
+```
+
+#### 方式二：使用 Docker 命令
+
+**基础启动**（使用内置配置）：
+```bash
+docker run -d \
+  --name huobao-drama \
+  -p 5678:5678 \
+  -v $(pwd)/data:/app/data \
+  --restart unless-stopped \
+  huobao/huobao-drama:latest
+```
+
+**自定义配置启动**：
+```bash
+# 挂载自定义配置文件
+docker run -d \
+  --name huobao-drama \
+  -p 5678:5678 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/configs/config.yaml:/app/configs/config.yaml:ro \
+  --restart unless-stopped \
+  huobao/huobao-drama:latest
+```
+
+**查看日志**：
+```bash
+docker logs -f huobao-drama
+```
+
+#### 方式三：本地构建镜像
+
+```bash
+# 1. 构建镜像
+docker build -t huobao-drama:latest .
+
+# 2. 运行容器
+docker run -d \
+  --name huobao-drama \
+  -p 5678:5678 \
+  -v $(pwd)/data:/app/data \
+  --restart unless-stopped \
+  huobao-drama:latest
+```
+
+#### 镜像仓库
+
+**Docker Hub**（国际）:
+```bash
+docker pull huobao/huobao-drama:latest
+```
+
+**Docker 部署优势：**
+- ✅ 开箱即用，内置默认配置
+- ✅ 环境一致性，避免依赖问题
+- ✅ 一键启动，无需安装 Go、Node.js、FFmpeg
+- ✅ 易于迁移和扩展
+- ✅ 自动健康检查和重启
+
+---
+
+### 🏭 传统部署方式
 
 #### 1. 编译构建
 
