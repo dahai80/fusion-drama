@@ -284,7 +284,7 @@ ai:
 
 ```bash
 # 克隆项目
-git clone <repository-url>
+git clone https://github.com/chatfire-AI/huobao-drama.git
 cd huobao-drama
 
 # 安装Go依赖
