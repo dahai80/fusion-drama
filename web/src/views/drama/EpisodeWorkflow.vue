@@ -878,10 +878,18 @@ const hasExtractedData = computed(() => {
 })
 
 const allImagesGenerated = computed(() => {
-  if (!hasExtractedData.value) return false
+  // 如果没有提取任何数据，允许跳过（可能是空章节或用户想直接进入拆解分镜）
+  if (!hasExtractedData.value) return true
   
-  const allCharsHaveImages = currentEpisode.value?.characters?.every(char => char.image_url) || false
-  const allScenesHaveImages = currentEpisode.value?.scenes?.every(scene => scene.image_url) || false
+  const characters = currentEpisode.value?.characters || []
+  const scenes = currentEpisode.value?.scenes || []
+  
+  // 如果角色和场景都为空，允许跳过
+  if (characters.length === 0 && scenes.length === 0) return true
+  
+  // 检查所有有数据的项是否都已生成图片
+  const allCharsHaveImages = characters.length === 0 || characters.every(char => char.image_url)
+  const allScenesHaveImages = scenes.length === 0 || scenes.every(scene => scene.image_url)
   
   return allCharsHaveImages && allScenesHaveImages
 })

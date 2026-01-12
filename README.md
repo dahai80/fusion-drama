@@ -511,9 +511,6 @@ A: 确保FFmpeg已安装并在PATH环境变量中。运行 `ffmpeg -version` 验
 ### Q: 前端无法连接后端API？
 A: 检查后端是否启动，端口是否正确。开发模式下前端代理配置在 `web/vite.config.ts`。
 
-### Q: 豆包AI调用失败？
-A: 检查 `configs/config.yaml` 中的 `api_key` 是否正确，网络是否通畅。
-
 ### Q: 数据库表未创建？
 A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成功。
 
