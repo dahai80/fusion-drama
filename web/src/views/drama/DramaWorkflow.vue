@@ -683,10 +683,6 @@ const fixImageUrl = (url: string | undefined | null): string => {
   if (!url) return ''
   // 如果是blob URL，直接返回
   if (url.startsWith('blob:')) return url
-  // 强制使用HTTP协议访问MinIO，避免HTTPS导致的SSL错误
-  if (url.includes('redfile.chatfire.site') || url.includes('cf.chatfire.site')) {
-    return url.replace(/^https:/i, 'http:')
-  }
   return url
 }
 

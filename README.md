@@ -1,4 +1,4 @@
-# 🎬 Chatfire Anime - AI短剧生成平台
+# 🎬 Huobao Drama - AI短剧生成平台
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 📖 项目简介
 
-Chatfire Anime 是一个基于AI的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
+Huobao Drama 是一个基于AI的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
 
 ### 🎯 核心价值
 
@@ -76,7 +76,7 @@ Chatfire Anime 是一个基于AI的短剧自动化生产平台，实现从剧本
 ## 🏗️ 项目结构
 
 ```
-chatfire-anime/
+huobao-drama/
 ├── api/                    # API 层
 │   ├── handlers/          # HTTP 请求处理器
 │   ├── middlewares/       # 中间件（CORS、日志等）
@@ -168,7 +168,7 @@ ffmpeg -version
 
 ```yaml
 app:
-  name: "Chatfire Anime"
+  name: "Huobao Drama"
   mode: "development"  # development / production
   port: 5678
 
@@ -202,7 +202,7 @@ logging:
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd chatfire-anime
+cd huobao-drama
 
 # 安装Go依赖
 go mod download
@@ -267,18 +267,18 @@ npm run build
 cd ..
 
 # 2. 编译后端
-go build -o chatfire-anime .
+go build -o huobao-drama .
 ```
 
 生成文件：
-- `chatfire-anime` - 后端可执行文件
+- `huobao-drama` - 后端可执行文件
 - `web/dist/` - 前端静态文件（已嵌入后端）
 
 #### 2. 准备部署文件
 
 需要上传到服务器的文件：
 ```
-chatfire-anime          # 后端可执行文件
+huobao-drama            # 后端可执行文件
 configs/config.yaml     # 配置文件
 data/                   # 数据目录（可选，首次运行自动创建）
 ```
@@ -287,39 +287,39 @@ data/                   # 数据目录（可选，首次运行自动创建）
 
 ```bash
 # 上传文件到服务器
-scp chatfire-anime user@server:/opt/chatfire-anime/
-scp configs/config.yaml user@server:/opt/chatfire-anime/configs/
+scp huobao-drama user@server:/opt/huobao-drama/
+scp configs/config.yaml user@server:/opt/huobao-drama/configs/
 
 # SSH登录服务器
 ssh user@server
 
 # 修改配置文件
-cd /opt/chatfire-anime
+cd /opt/huobao-drama
 vim configs/config.yaml
 # 设置mode为production
 # 配置域名和存储路径
 
 # 赋予执行权限
-chmod +x chatfire-anime
+chmod +x huobao-drama
 
 # 启动服务
-./chatfire-anime
+./huobao-drama
 ```
 
 #### 4. 使用 systemd 管理服务
 
-创建服务文件 `/etc/systemd/system/chatfire-anime.service`:
+创建服务文件 `/etc/systemd/system/huobao-drama.service`:
 
 ```ini
 [Unit]
-Description=Chatfire Anime Service
+Description=Huobao Drama Service
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/opt/chatfire-anime
-ExecStart=/opt/chatfire-anime/chatfire-anime
+WorkingDirectory=/opt/huobao-drama
+ExecStart=/opt/huobao-drama/huobao-drama
 Restart=on-failure
 RestartSec=10
 
@@ -330,9 +330,9 @@ WantedBy=multi-user.target
 启动服务：
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable chatfire-anime
-sudo systemctl start chatfire-anime
-sudo systemctl status chatfire-anime
+sudo systemctl enable huobao-drama
+sudo systemctl start huobao-drama
+sudo systemctl status huobao-drama
 ```
 
 #### 5. Nginx 反向代理
@@ -351,7 +351,7 @@ server {
 
     # 静态文件直接访问
     location /static/ {
-        alias /opt/chatfire-anime/data/storage/;
+        alias /opt/huobao-drama/data/storage/;
     }
 }
 ```
@@ -458,7 +458,7 @@ cd web && npm run dev               # 启动前端开发服务器
 
 # 编译构建
 cd web && npm run build && cd ..    # 构建前端
-go build -o chatfire-anime .        # 编译后端
+go build -o huobao-drama .          # 编译后端
 
 # 依赖管理
 go mod download                     # 下载Go依赖
@@ -473,7 +473,7 @@ cd web && npm run lint && cd ..     # 前端代码检查
 # 清理
 go clean                            # 清理Go构建缓存
 rm -rf web/dist                     # 清理前端构建产物
-rm -f chatfire-anime                # 删除可执行文件
+rm -f huobao-drama                  # 删除可执行文件
 
 # 测试
 go test ./...                       # 运行Go测试
@@ -545,7 +545,7 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 
 ## 📧 联系方式
 ## 项目交流群
-![项目交流群](./drama.png)
+![项目交流群](drama.png)
 - 提交 [Issue](../../issues)
 - 发送邮件至项目维护者
 
@@ -555,6 +555,6 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 
 **⭐ 如果这个项目对你有帮助，请给一个Star！**
 
-Made with ❤️ by Chatfire Team
+Made with ❤️ by Huobao Team
 
 </div>

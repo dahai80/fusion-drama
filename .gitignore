@@ -47,12 +47,15 @@ tmp/
 temp/
 
 # Data (database and uploaded files)
-../../GolandProjects/huobao-drama/data/drama_generator.db
-../../GolandProjects/huobao-drama/data/storage/videos/*
-!../../GolandProjects/huobao-drama/data/storage/videos/.gitkeep
+data/drama_generator.db
+data/storage/videos/*
+!data/storage/videos/.gitkeep
 
 # Frontend build output
-../../GolandProjects/huobao-drama/web/dist/
-../../GolandProjects/huobao-drama/web/node_modules/
-../../GolandProjects/huobao-drama/web/.vite/
-../../GolandProjects/huobao-drama/web/.env.local
+web/dist/
+web/node_modules/
+web/.vite/
+web/.env.local
+
+# Config file (use config.example.yaml as template)
+configs/config.yaml
