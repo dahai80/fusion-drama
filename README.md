@@ -164,32 +164,54 @@ ffmpeg -version
 
 ### ⚙️ 配置文件
 
-编辑 `configs/config.yaml`：
+复制并编辑配置文件：
+
+```bash
+cp configs/config.example.yaml configs/config.yaml
+vim configs/config.yaml
+```
+
+配置文件格式（`configs/config.yaml`）：
 
 ```yaml
 app:
-  name: "Huobao Drama"
-  mode: "development"  # development / production
+  name: "Huobao Drama API"
+  version: "1.0.0"
+  debug: true  # 开发环境设为true，生产环境设为false
+
+server:
   port: 5678
+  host: "0.0.0.0"
+  cors_origins:
+    - "http://localhost:3012"
+  read_timeout: 600
+  write_timeout: 600
 
 database:
   type: "sqlite"
   path: "./data/drama_generator.db"
+  max_idle: 10
+  max_open: 100
 
 storage:
   type: "local"
   local_path: "./data/storage"
   base_url: "http://localhost:5678/static"
 
-logging:
-  level: "info"
-  output: "stdout"
+ai:
+  default_text_provider: "openai"
+  default_image_provider: "openai"
+  default_video_provider: "doubao"
 ```
 
 **重要配置项：**
-- `ai.doubao.api_key`: 豆包AI的API密钥（**必需**）
+- `app.debug`: 调试模式开关（开发环境建议设为true）
+- `server.port`: 服务运行端口
+- `server.cors_origins`: 允许跨域访问的前端地址
+- `database.path`: SQLite数据库文件路径
 - `storage.local_path`: 本地文件存储路径
-- `app.port`: 服务运行端口
+- `storage.base_url`: 静态资源访问URL
+- `ai.default_*_provider`: AI服务提供商配置（在Web界面中配置具体的API Key）
 
 ### 📥 安装依赖
 
