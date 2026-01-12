@@ -1,0 +1,462 @@
+package ffmpeg
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/drama-generator/backend/pkg/logger"
+)
+
+type FFmpeg struct {
+	log     *logger.Logger
+	tempDir string
+}
+
+func NewFFmpeg(log *logger.Logger) *FFmpeg {
+	tempDir := filepath.Join(os.TempDir(), "drama-video-merge")
+	os.MkdirAll(tempDir, 0755)
+
+	return &FFmpeg{
+		log:     log,
+		tempDir: tempDir,
+	}
+}
+
+type VideoClip struct {
+	URL        string
+	Duration   float64
+	StartTime  float64
+	EndTime    float64
+	Transition map[string]interface{}
+}
+
+type MergeOptions struct {
+	OutputPath string
+	Clips      []VideoClip
+}
+
+func (f *FFmpeg) MergeVideos(opts *MergeOptions) (string, error) {
+	if len(opts.Clips) == 0 {
+		return "", fmt.Errorf("no video clips to merge")
+	}
+
+	f.log.Infow("Starting video merge with trimming", "clips_count", len(opts.Clips))
+
+	// 下载并裁剪所有视频片段
+	trimmedPaths := make([]string, 0, len(opts.Clips))
+	downloadedPaths := make([]string, 0, len(opts.Clips))
+
+	for i, clip := range opts.Clips {
+		// 下载原始视频
+		downloadPath := filepath.Join(f.tempDir, fmt.Sprintf("download_%d_%d.mp4", time.Now().Unix(), i))
+		localPath, err := f.downloadVideo(clip.URL, downloadPath)
+		if err != nil {
+			f.cleanup(downloadedPaths)
+			f.cleanup(trimmedPaths)
+			return "", fmt.Errorf("failed to download clip %d: %w", i, err)
+		}
+		downloadedPaths = append(downloadedPaths, localPath)
+
+		// 裁剪视频片段（根据StartTime和EndTime）
+		trimmedPath := filepath.Join(f.tempDir, fmt.Sprintf("trimmed_%d_%d.mp4", time.Now().Unix(), i))
+		err = f.trimVideo(localPath, trimmedPath, clip.StartTime, clip.EndTime)
+		if err != nil {
+			f.cleanup(downloadedPaths)
+			f.cleanup(trimmedPaths)
+			return "", fmt.Errorf("failed to trim clip %d: %w", i, err)
+		}
+		trimmedPaths = append(trimmedPaths, trimmedPath)
+
+		f.log.Infow("Clip trimmed",
+			"index", i,
+			"start", clip.StartTime,
+			"end", clip.EndTime,
+			"duration", clip.EndTime-clip.StartTime)
+	}
+
+	// 清理下载的原始文件
+	f.cleanup(downloadedPaths)
+
+	// 确保输出目录存在
+	outputDir := filepath.Dir(opts.OutputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		f.cleanup(trimmedPaths)
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// 合并裁剪后的视频片段（支持转场效果）
+	err := f.concatenateVideosWithTransitions(trimmedPaths, opts.Clips, opts.OutputPath)
+
+	// 清理裁剪后的临时文件
+	f.cleanup(trimmedPaths)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to concatenate videos: %w", err)
+	}
+
+	f.log.Infow("Video merge completed", "output", opts.OutputPath)
+	return opts.OutputPath, nil
+}
+
+func (f *FFmpeg) downloadVideo(url, destPath string) (string, error) {
+	f.log.Infow("Downloading video", "url", url, "dest", destPath)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to download: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	out, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %w", err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to save file: %w", err)
+	}
+
+	return destPath, nil
+}
+
+func (f *FFmpeg) trimVideo(inputPath, outputPath string, startTime, endTime float64) error {
+	f.log.Infow("Trimming video",
+		"input", inputPath,
+		"output", outputPath,
+		"start", startTime,
+		"end", endTime)
+
+	// 如果startTime和endTime都为0，或者endTime <= startTime，直接复制整个视频
+	if (startTime == 0 && endTime == 0) || endTime <= startTime {
+		f.log.Infow("No valid trim range, copying entire video")
+
+		cmd := exec.Command("ffmpeg",
+			"-i", inputPath,
+			"-c", "copy",
+			"-y",
+			outputPath,
+		)
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			f.log.Errorw("FFmpeg copy failed", "error", err, "output", string(output))
+			return fmt.Errorf("ffmpeg copy failed: %w, output: %s", err, string(output))
+		}
+
+		f.log.Infow("Video copied successfully", "output", outputPath)
+		return nil
+	}
+
+	// 使用FFmpeg裁剪视频
+	// -i: 输入文件
+	// -ss: 开始时间（秒）
+	// -to: 结束时间（秒）或使用-t指定持续时间
+	// -c copy: 直接复制流，不重新编码（速度快）
+	// -avoid_negative_ts 1: 避免负时间戳问题
+	var cmd *exec.Cmd
+	if endTime > 0 {
+		// 有明确的结束时间
+		cmd = exec.Command("ffmpeg",
+			"-i", inputPath,
+			"-ss", fmt.Sprintf("%.2f", startTime),
+			"-to", fmt.Sprintf("%.2f", endTime),
+			"-c", "copy",
+			"-avoid_negative_ts", "1",
+			"-y", // 覆盖输出文件
+			outputPath,
+		)
+	} else {
+		// 只有开始时间，裁剪到视频末尾
+		cmd = exec.Command("ffmpeg",
+			"-i", inputPath,
+			"-ss", fmt.Sprintf("%.2f", startTime),
+			"-c", "copy",
+			"-avoid_negative_ts", "1",
+			"-y",
+			outputPath,
+		)
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("FFmpeg trim failed", "error", err, "output", string(output))
+		return fmt.Errorf("ffmpeg trim failed: %w, output: %s", err, string(output))
+	}
+
+	f.log.Infow("Video trimmed successfully", "output", outputPath)
+	return nil
+}
+
+func (f *FFmpeg) concatenateVideosWithTransitions(inputPaths []string, clips []VideoClip, outputPath string) error {
+	if len(inputPaths) == 0 {
+		return fmt.Errorf("no input paths")
+	}
+
+	// 如果只有一个视频，直接复制
+	if len(inputPaths) == 1 {
+		f.log.Infow("Only one clip, copying directly")
+		return f.copyFile(inputPaths[0], outputPath)
+	}
+
+	// 检查是否有转场效果
+	hasTransitions := false
+	for _, clip := range clips {
+		if clip.Transition != nil && len(clip.Transition) > 0 {
+			hasTransitions = true
+			break
+		}
+	}
+
+	// 如果没有转场效果，使用简单拼接
+	if !hasTransitions {
+		f.log.Infow("No transitions, using simple concatenation")
+		return f.concatenateVideos(inputPaths, outputPath)
+	}
+
+	// 使用xfade滤镜添加转场效果
+	f.log.Infow("Merging with transitions", "clips_count", len(inputPaths))
+	return f.mergeWithXfade(inputPaths, clips, outputPath)
+}
+
+func (f *FFmpeg) concatenateVideos(inputPaths []string, outputPath string) error {
+	// 创建文件列表
+	listFile := filepath.Join(f.tempDir, fmt.Sprintf("filelist_%d.txt", time.Now().Unix()))
+	defer os.Remove(listFile)
+
+	var content strings.Builder
+	for _, path := range inputPaths {
+		content.WriteString(fmt.Sprintf("file '%s'\n", path))
+	}
+
+	if err := os.WriteFile(listFile, []byte(content.String()), 0644); err != nil {
+		return fmt.Errorf("failed to create file list: %w", err)
+	}
+
+	// 使用FFmpeg合并视频
+	// -f concat: 使用concat demuxer
+	// -safe 0: 允许不安全的文件路径
+	// -i: 输入文件列表
+	// -c copy: 直接复制流，不重新编码（速度快）
+	cmd := exec.Command("ffmpeg",
+		"-f", "concat",
+		"-safe", "0",
+		"-i", listFile,
+		"-c", "copy",
+		"-y", // 覆盖输出文件
+		outputPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("FFmpeg failed", "error", err, "output", string(output))
+		return fmt.Errorf("ffmpeg execution failed: %w, output: %s", err, string(output))
+	}
+
+	f.log.Infow("FFmpeg concatenation completed", "output", outputPath)
+	return nil
+}
+
+func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPath string) error {
+	// 使用xfade滤镜进行转场
+	// 构建输入参数
+	args := []string{}
+	for _, path := range inputPaths {
+		args = append(args, "-i", path)
+	}
+
+	// 构建filter_complex
+	// 例如: [0:v][1:v]xfade=transition=fade:duration=1:offset=5[v01];[v01][2:v]xfade=transition=fade:duration=1:offset=10[out]
+	var filterParts []string
+	var offset float64 = 0
+
+	for i := 0; i < len(inputPaths)-1; i++ {
+		// 获取当前片段的时长
+		clipDuration := clips[i].Duration
+		if clips[i].EndTime > 0 && clips[i].StartTime >= 0 {
+			clipDuration = clips[i].EndTime - clips[i].StartTime
+		}
+
+		// 获取转场类型和时长
+		transitionType := "fade"  // 默认淡入淡出
+		transitionDuration := 1.0 // 默认转场时长为1秒
+
+		if clips[i].Transition != nil {
+			// 读取转场类型
+			if tType, ok := clips[i].Transition["type"].(string); ok && tType != "" {
+				transitionType = f.mapTransitionType(tType)
+				f.log.Infow("Using transition type", "type", tType, "mapped", transitionType)
+			}
+			// 读取转场时长
+			if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+				transitionDuration = tDuration
+			}
+		}
+
+		// 计算转场开始的时间点
+		// 转场在两个片段的交界处，从前一个片段结束前 transitionDuration/2 开始
+		// 这样转场效果会平均分布在两个片段的交界处
+		offset += clipDuration - (transitionDuration / 2)
+		if offset < 0 {
+			offset = 0
+		}
+
+		f.log.Infow("Transition settings",
+			"clip_index", i,
+			"type", transitionType,
+			"duration", transitionDuration,
+			"offset", offset,
+			"clip_duration", clipDuration)
+
+		var inputLabel, outputLabel string
+		if i == 0 {
+			inputLabel = fmt.Sprintf("[0:v][1:v]")
+		} else {
+			inputLabel = fmt.Sprintf("[v%02d][%d:v]", i-1, i+1)
+		}
+
+		if i == len(inputPaths)-2 {
+			outputLabel = "[outv]"
+		} else {
+			outputLabel = fmt.Sprintf("[v%02d]", i)
+		}
+
+		filterPart := fmt.Sprintf("%sxfade=transition=%s:duration=%.1f:offset=%.1f%s",
+			inputLabel, transitionType, transitionDuration, offset, outputLabel)
+		filterParts = append(filterParts, filterPart)
+	}
+
+	filterComplex := strings.Join(filterParts, ";")
+
+	// 音频处理：直接concat连接，不做交叉淡入淡出
+	// 这样可以避免音频提前播放的问题
+	var audioConcat strings.Builder
+	for i := 0; i < len(inputPaths); i++ {
+		audioConcat.WriteString(fmt.Sprintf("[%d:a]", i))
+	}
+	audioConcat.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[outa]", len(inputPaths)))
+
+	fullFilter := filterComplex + ";" + audioConcat.String()
+
+	// 构建完整命令
+	args = append(args,
+		"-filter_complex", fullFilter,
+		"-map", "[outv]",
+		"-map", "[outa]",
+		"-c:v", "libx264",
+		"-preset", "medium",
+		"-crf", "23",
+		"-c:a", "aac",
+		"-b:a", "128k",
+		"-y",
+		outputPath,
+	)
+
+	f.log.Infow("Running FFmpeg with transitions", "filter", fullFilter)
+
+	cmd := exec.Command("ffmpeg", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("FFmpeg xfade failed", "error", err, "output", string(output))
+		return fmt.Errorf("ffmpeg xfade failed: %w, output: %s", err, string(output))
+	}
+
+	f.log.Infow("Video merged with transitions successfully")
+	return nil
+}
+
+func (f *FFmpeg) mapTransitionType(transType string) string {
+	// 将前端传入的转场类型映射为FFmpeg xfade支持的类型
+	// FFmpeg xfade支持的完整转场列表: https://ffmpeg.org/ffmpeg-filters.html#xfade
+	switch strings.ToLower(transType) {
+	// 淡入淡出类
+	case "fade", "fadein", "fadeout":
+		return "fade"
+	case "fadeblack":
+		return "fadeblack"
+	case "fadewhite":
+		return "fadewhite"
+	case "fadegrays":
+		return "fadegrays"
+
+	// 滑动类
+	case "slideleft":
+		return "slideleft"
+	case "slideright":
+		return "slideright"
+	case "slideup":
+		return "slideup"
+	case "slidedown":
+		return "slidedown"
+
+	// 擦除类
+	case "wipeleft":
+		return "wipeleft"
+	case "wiperight":
+		return "wiperight"
+	case "wipeup":
+		return "wipeup"
+	case "wipedown":
+		return "wipedown"
+
+	// 圆形类
+	case "circleopen":
+		return "circleopen"
+	case "circleclose":
+		return "circleclose"
+
+	// 矩形打开/关闭类
+	case "horzopen":
+		return "horzopen"
+	case "horzclose":
+		return "horzclose"
+	case "vertopen":
+		return "vertopen"
+	case "vertclose":
+		return "vertclose"
+
+	// 其他特效
+	case "dissolve":
+		return "dissolve"
+	case "distance":
+		return "distance"
+	case "pixelize":
+		return "pixelize"
+
+	default:
+		return "fade" // 默认淡入淡出
+	}
+}
+
+func (f *FFmpeg) copyFile(src, dst string) error {
+	cmd := exec.Command("cp", src, dst)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("File copy failed", "error", err, "output", string(output))
+		return fmt.Errorf("copy failed: %w", err)
+	}
+	return nil
+}
+
+func (f *FFmpeg) cleanup(paths []string) {
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil {
+			f.log.Warnw("Failed to cleanup file", "path", path, "error", err)
+		}
+	}
+}
+
+func (f *FFmpeg) CleanupTempDir() error {
+	return os.RemoveAll(f.tempDir)
+}

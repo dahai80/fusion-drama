@@ -1,0 +1,28 @@
+app:
+  name: "Drama Generator"
+  version: "1.0.0"
+  debug: false
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+  cors_origins:
+    - "http://localhost:8080"
+  read_timeout: 600
+  write_timeout: 600
+
+database:
+  type: "sqlite"
+  path: "/data/drama.db"
+  max_idle: 10
+  max_open: 100
+
+storage:
+  type: "local"
+  local_path: "/data/storage"
+  base_url: "http://localhost:8080/static"
+
+ai:
+  default_text_provider: "openai"
+  default_image_provider: "openai"
+  default_video_provider: "doubao"

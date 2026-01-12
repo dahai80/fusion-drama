@@ -1,0 +1,58 @@
+# Binaries
+bin/
+drama-generator
+backend
+*.exe
+*.dll
+*.so
+*.dylib
+drama-generator.exe
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+
+# Data (database and uploaded files)
+../../GolandProjects/huobao-drama/data/drama_generator.db
+../../GolandProjects/huobao-drama/data/storage/videos/*
+!../../GolandProjects/huobao-drama/data/storage/videos/.gitkeep
+
+# Frontend build output
+../../GolandProjects/huobao-drama/web/dist/
+../../GolandProjects/huobao-drama/web/node_modules/
+../../GolandProjects/huobao-drama/web/.vite/
+../../GolandProjects/huobao-drama/web/.env.local
