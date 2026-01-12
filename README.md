@@ -181,12 +181,6 @@ storage:
   local_path: "./data/storage"
   base_url: "http://localhost:5678/static"
 
-ai:
-  doubao:
-    base_url: "https://ark.cn-beijing.volces.com/api/v3"
-    api_key: "YOUR_DOUBAO_API_KEY"  # 替换为你的豆包API Key
-    default_model: "ep-20241206xxxxx"
-
 logging:
   level: "info"
   output: "stdout"
