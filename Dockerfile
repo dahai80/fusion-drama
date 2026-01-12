@@ -20,6 +20,10 @@ RUN npm run build
 # ==================== 阶段2: 构建后端 ====================
 FROM golang:1.23-alpine AS backend-builder
 
+# 配置 Go 代理（国内镜像加速）
+ENV GOPROXY=https://goproxy.cn,direct \
+    GO111MODULE=on
+
 # 安装必要的构建工具（包括 gcc、musl-dev 和 sqlite-dev 用于 CGO）
 RUN apk add --no-cache \
     git \
