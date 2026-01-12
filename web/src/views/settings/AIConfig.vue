@@ -14,6 +14,7 @@
         <ConfigList 
           :configs="configs" 
           :loading="loading"
+          :show-test-button="true"
           @edit="handleEdit"
           @delete="handleDelete"
           @toggle-active="handleToggleActive"
@@ -25,10 +26,10 @@
         <ConfigList 
           :configs="configs" 
           :loading="loading"
+          :show-test-button="false"
           @edit="handleEdit"
           @delete="handleDelete"
           @toggle-active="handleToggleActive"
-          @test="handleTest"
         />
       </el-tab-pane>
       
@@ -36,10 +37,10 @@
         <ConfigList 
           :configs="configs" 
           :loading="loading"
+          :show-test-button="false"
           @edit="handleEdit"
           @delete="handleDelete"
           @toggle-active="handleToggleActive"
-          @test="handleTest"
         />
       </el-tab-pane>
     </el-tabs>
@@ -143,7 +144,7 @@
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button @click="testConnection" :loading="testing">测试连接</el-button>
+        <el-button v-if="form.service_type === 'text'" @click="testConnection" :loading="testing">测试连接</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">
           {{ isEdit ? '保存' : '创建' }}
         </el-button>

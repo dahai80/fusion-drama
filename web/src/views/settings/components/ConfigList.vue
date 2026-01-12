@@ -15,7 +15,7 @@
           <el-tag v-else type="info" size="small">已禁用</el-tag>
         </div>
         <div class="config-actions">
-          <el-button text @click="$emit('test', config)" :icon="Connection">
+          <el-button v-if="showTestButton" text @click="$emit('test', config)" :icon="Connection">
             测试
           </el-button>
           <el-button text @click="$emit('edit', config)" :icon="Edit">
@@ -101,6 +101,7 @@ import type { AIServiceConfig } from '@/types/ai'
 defineProps<{
   configs: AIServiceConfig[]
   loading: boolean
+  showTestButton?: boolean
 }>()
 
 defineEmits<{
