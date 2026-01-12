@@ -4,6 +4,7 @@
 
 **基于 Go + Vue3 的全栈AI短剧自动化生产平台**
 
+
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -622,8 +623,11 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 
 ---
 
+## API配置站点
+2分钟完成配置：[API聚合站点](https://api.chatfire.site/models)
+
 ## 📧 联系方式
-商务联系：V：dangbao1117
+商务联系V：dangbao1117
 ## 项目交流群
 ![项目交流群](drama.png)
 - 提交 [Issue](../../issues)
