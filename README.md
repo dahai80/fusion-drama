@@ -633,7 +633,9 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 <div align="center">
 
 **⭐ 如果这个项目对你有帮助，请给一个Star！**
+## Star History
 
+[![Star History Chart](https://api.star-history.com/svg?repos=chatfire-AI/huobao-drama&type=date&legend=top-left)](https://www.star-history.com/#chatfire-AI/huobao-drama&type=date&legend=top-left)
 Made with ❤️ by Huobao Team
 
 </div>
