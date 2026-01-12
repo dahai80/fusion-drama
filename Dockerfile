@@ -9,7 +9,7 @@ WORKDIR /app/web
 COPY web/package*.json ./
 
 # 安装前端依赖（包括 devDependencies，构建需要）
-RUN npm ci
+RUN npm install
 
 # 复制前端源码
 COPY web/ ./
