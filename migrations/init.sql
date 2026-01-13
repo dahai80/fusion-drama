@@ -445,12 +445,14 @@ CREATE INDEX IF NOT EXISTS idx_asset_collection_relations_collection_id ON asset
 CREATE TABLE IF NOT EXISTS ai_service_configs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     service_type TEXT NOT NULL, -- text, image, video
+    provider TEXT, -- openai, gemini, volcengine, etc.
     name TEXT NOT NULL,
     base_url TEXT NOT NULL,
     api_key TEXT NOT NULL,
     model TEXT,
     endpoint TEXT,
     query_endpoint TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
     is_default INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1,
     settings TEXT, -- JSON存储
@@ -489,7 +491,8 @@ INSERT OR IGNORE INTO ai_service_providers (name, display_name, service_type, de
 ('openai-dalle', 'OpenAI DALL-E', 'image', 'https://api.openai.com/v1', 'OpenAI DALL-E图片生成'),
 ('openai-sora', 'OpenAI Sora', 'video', 'https://api.openai.com/v1', 'OpenAI Sora视频生成'),
 ('midjourney', 'Midjourney', 'image', '', 'Midjourney图片生成'),
-('stable-diffusion', 'Stable Diffusion', 'image', '', 'Stable Diffusion图片生成'),
+('doubao-image', '豆包(火山引擎)', 'image', 'https://ark.cn-beijing.volces.com', '火山引擎豆包图片生成'),
+('gemini-image', 'Google Gemini', 'image', 'https://generativelanguage.googleapis.com', 'Google Gemini原生图片生成(base64)'),
 ('runway', 'Runway', 'video', '', 'Runway视频生成'),
 ('pika', 'Pika Labs', 'video', '', 'Pika视频生成'),
 ('doubao', '豆包(火山引擎)', 'video', 'https://ark.cn-beijing.volces.com', '火山引擎豆包视频生成'),

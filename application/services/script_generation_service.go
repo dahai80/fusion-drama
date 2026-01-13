@@ -185,17 +185,17 @@ func (s *ScriptGenerationService) GenerateCharacters(req *GenerateCharactersRequ
 		count = 5
 	}
 
-	systemPrompt := `你是一个专业的角色设计师，擅长创作立体丰富的剧中角色。
+	systemPrompt := `你是一个专业的角色分析师，擅长从剧本中提取和分析角色信息。
 
-你的任务是根据提供的剧本大纲，创作符合故事需求的角色设定。
+你的任务是根据提供的剧本内容，提取并整理剧中出现的所有角色的详细设定。
 
 要求：
-1. 角色必须服务于大纲中的故事情节和冲突
-2. 角色性格鲜明，有辨识度，符合故事类型
-3. 每个角色都有清晰的动机和目标，与大纲中的矛盾冲突相关
-4. 角色之间有合理的关系和联系
-5. 外貌描述必须极其详细，便于AI绘画生成角色形象
-6. 根据大纲的关键场景，合理设置角色数量（通常3-6个主要角色）
+1. 仔细阅读剧本，识别所有出现的角色
+2. 根据剧本中的对话、行为和描述，总结角色的性格特点
+3. 提取角色在剧本中的关键信息：背景、动机、目标、关系等
+4. 角色之间的关系必须基于剧本中的实际描述
+5. 外貌描述必须极其详细，如果剧本中有描述则使用，如果没有则根据角色设定合理推断，便于AI绘画生成角色形象
+6. 优先提取主要角色和重要配角，次要角色可以简略
 
 请严格按照以下 JSON 格式输出，不要添加任何其他文字：
 
@@ -213,21 +213,21 @@ func (s *ScriptGenerationService) GenerateCharacters(req *GenerateCharactersRequ
 }
 
 注意：
-- 角色数量根据故事复杂度确定，不要过多
-- 每个角色都要与大纲中的故事线有明确关联
+- 必须基于剧本内容提取角色，不要凭空创作
+- 优先提取主要角色和重要配角，数量根据剧本实际情况确定
 - description、personality、appearance、voice_style都必须详细描述，字数要充足
 - appearance外貌描述是重中之重，必须极其详细具体，要能让AI准确生成角色形象
-- 避免模糊描述，多用具体的视觉特征和细节`
+- 如果剧本中角色信息不完整，可以根据角色设定合理补充，但要符合剧本整体风格`
 
 	outlineText := req.Outline
 	if outlineText == "" {
 		outlineText = fmt.Sprintf("剧名：%s\n简介：%s\n类型：%s", drama.Title, drama.Description, drama.Genre)
 	}
 
-	userPrompt := fmt.Sprintf(`剧本大纲：
+	userPrompt := fmt.Sprintf(`剧本内容：
 %s
 
-请创作 %d 个角色的详细设定。`, outlineText, count)
+请从剧本中提取并整理最多 %d 个主要角色的详细设定。`, outlineText, count)
 
 	temperature := req.Temperature
 	if temperature == 0 {

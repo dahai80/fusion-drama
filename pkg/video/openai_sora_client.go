@@ -83,7 +83,7 @@ func (c *OpenAISoraClient) GenerateVideo(imageURL, prompt string, opts ...VideoO
 
 	writer.Close()
 
-	endpoint := c.BaseURL + "/v1/videos"
+	endpoint := c.BaseURL + "/videos"
 	req, err := http.NewRequest("POST", endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

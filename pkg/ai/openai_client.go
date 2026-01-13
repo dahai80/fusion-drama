@@ -91,30 +91,48 @@ func (c *OpenAIClient) ChatCompletion(messages []ChatMessage, options ...func(*C
 func (c *OpenAIClient) sendChatRequest(req *ChatCompletionRequest) (*ChatCompletionResponse, error) {
 	jsonData, err := json.Marshal(req)
 	if err != nil {
+		fmt.Printf("OpenAI: Failed to marshal request: %v\n", err)
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	url := c.BaseURL + c.Endpoint
+
+	// 打印请求信息
+	fmt.Printf("OpenAI: Sending request to: %s\n", url)
+	fmt.Printf("OpenAI: BaseURL=%s, Endpoint=%s, Model=%s\n", c.BaseURL, c.Endpoint, c.Model)
+	requestPreview := string(jsonData)
+	if len(jsonData) > 300 {
+		requestPreview = string(jsonData[:300]) + "..."
+	}
+	fmt.Printf("OpenAI: Request body: %s\n", requestPreview)
+
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
+		fmt.Printf("OpenAI: Failed to create request: %v\n", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 
+	fmt.Printf("OpenAI: Executing HTTP request...\n")
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
+		fmt.Printf("OpenAI: HTTP request failed: %v\n", err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	fmt.Printf("OpenAI: Received response with status: %d\n", resp.StatusCode)
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		fmt.Printf("OpenAI: Failed to read response body: %v\n", err)
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("OpenAI: API error (status %d): %s\n", resp.StatusCode, string(body))
 		var errResp ErrorResponse
 		if err := json.Unmarshal(body, &errResp); err != nil {
 			return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
@@ -122,10 +140,24 @@ func (c *OpenAIClient) sendChatRequest(req *ChatCompletionRequest) (*ChatComplet
 		return nil, fmt.Errorf("API error: %s", errResp.Error.Message)
 	}
 
+	// 打印响应体用于调试
+	bodyPreview := string(body)
+	if len(body) > 500 {
+		bodyPreview = string(body[:500]) + "..."
+	}
+	fmt.Printf("OpenAI: Response body: %s\n", bodyPreview)
+
 	var chatResp ChatCompletionResponse
 	if err := json.Unmarshal(body, &chatResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		errorPreview := string(body)
+		if len(body) > 200 {
+			errorPreview = string(body[:200])
+		}
+		fmt.Printf("OpenAI: Failed to parse response: %v\n", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w, body preview: %s", err, errorPreview)
 	}
+
+	fmt.Printf("OpenAI: Successfully parsed response, choices count: %d\n", len(chatResp.Choices))
 
 	return &chatResp, nil
 }
@@ -176,6 +208,8 @@ func (c *OpenAIClient) GenerateText(prompt string, systemPrompt string, options 
 }
 
 func (c *OpenAIClient) TestConnection() error {
+	fmt.Printf("OpenAI: TestConnection called with BaseURL=%s, Endpoint=%s, Model=%s\n", c.BaseURL, c.Endpoint, c.Model)
+
 	messages := []ChatMessage{
 		{
 			Role:    "user",
@@ -184,5 +218,10 @@ func (c *OpenAIClient) TestConnection() error {
 	}
 
 	_, err := c.ChatCompletion(messages, WithMaxTokens(10))
+	if err != nil {
+		fmt.Printf("OpenAI: TestConnection failed: %v\n", err)
+	} else {
+		fmt.Printf("OpenAI: TestConnection succeeded\n")
+	}
 	return err
 }

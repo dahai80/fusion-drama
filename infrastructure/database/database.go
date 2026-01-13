@@ -11,7 +11,6 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
@@ -25,7 +24,7 @@ func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	gormConfig := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: NewCustomLogger(),
 	}
 
 	var db *gorm.DB

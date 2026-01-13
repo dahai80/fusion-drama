@@ -9,7 +9,7 @@
       </template>
     </el-page-header>
 
-    <el-tabs v-model="activeTab" @tab-change="loadConfigs">
+    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
       <el-tab-pane label="文本生成" name="text">
         <ConfigList 
           :configs="configs" 
@@ -114,7 +114,11 @@
 
         <el-form-item label="Base URL" prop="base_url">
           <el-input v-model="form.base_url" placeholder="https://api.openai.com" />
-          <div class="form-tip">API 服务的基础地址</div>
+          <div class="form-tip">
+            API 服务的基础地址，如 Chatfire: https://api.chatfire.site/v1，Gemini: https://generativelanguage.googleapis.com（无需 /v1）
+            <br>
+            完整调用路径: {{ fullEndpointExample }}
+          </div>
         </el-form-item>
 
         <el-form-item label="API Key" prop="api_key">
@@ -125,16 +129,6 @@
             placeholder="sk-..."
           />
           <div class="form-tip">您的 API 密钥</div>
-        </el-form-item>
-
-        <el-form-item label="端点路径" prop="endpoint">
-          <el-input v-model="form.endpoint" placeholder="/v1/chat/completions" />
-          <div class="form-tip">API 端点路径，默认为 /v1/chat/completions</div>
-        </el-form-item>
-
-        <el-form-item v-if="form.service_type === 'video'" label="查询端点" prop="query_endpoint">
-          <el-input v-model="form.query_endpoint" placeholder="/v1/video/task/{taskId}" />
-          <div class="form-tip">异步任务查询端点（仅视频服务需要），支持 {taskId} 占位符</div>
         </el-form-item>
 
         <el-form-item v-if="isEdit" label="启用状态">
@@ -181,8 +175,6 @@ const form = reactive<CreateAIConfigRequest & { is_active?: boolean, provider?: 
   base_url: '',
   api_key: '',
   model: [],  // 改为数组支持多选
-  endpoint: '/v1/chat/completions',
-  query_endpoint: '',  // 异步查询端点
   priority: 0,  // 默认优先级为0
   is_active: true
 })
@@ -197,10 +189,54 @@ interface ProviderConfig {
 
 const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
   text: [
-    { id: 'openai', name: 'OpenAI', models: ['gpt-5.2', 'gemini-3-pro-preview'], disabled: true }
+    { id: 'openai', name: 'OpenAI', models: ['gpt-5.2', 'gemini-3-pro-preview'] },
+    { 
+      id: 'chatfire', 
+      name: 'Chatfire', 
+      models: [
+        'gpt-4o',
+        'claude-sonnet-4-5-20250929',
+        'doubao-seed-1-8-251228',
+        'kimi-k2-thinking',
+        'gemini-3-pro',
+        'gemini-2.5-pro',
+        'gemini-3-pro-preview'
+      ]
+    },
+    { 
+      id: 'gemini', 
+      name: 'Google Gemini', 
+      models: [
+        'gemini-2.5-pro',
+        'gemini-3-pro-preview'
+      ]
+    }
   ],
   image: [
-    { id: 'openai', name: 'OpenAI', models: ['nano-banana-pro', 'doubao-seedream-4-5-251128'] }
+    { 
+      id: 'volcengine', 
+      name: '火山引擎', 
+      models: [
+        'doubao-seedream-4-5-251128',
+        'doubao-seedream-4-0-250828',
+      ]
+    },
+    { 
+      id: 'chatfire', 
+      name: 'Chatfire', 
+      models: [
+        'doubao-seedream-4-5-251128',
+        'nano-banana-pro',
+      ]
+    },
+    { 
+      id: 'gemini', 
+      name: 'Google Gemini', 
+      models: [
+        'gemini-3-pro-image-preview',
+      ]
+    },
+    { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] }
   ],
   video: [
     { 
@@ -212,6 +248,19 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
         'doubao-seedance-1-0-lite-t2v-250428',
         'doubao-seedance-1-0-pro-250528',
         'doubao-seedance-1-0-pro-fast-251015'
+      ]
+    },
+    { 
+      id: 'chatfire', 
+      name: 'Chatfire', 
+      models: [
+        'doubao-seedance-1-5-pro-251215',
+        'doubao-seedance-1-0-lite-i2v-250428',
+        'doubao-seedance-1-0-lite-t2v-250428',
+        'doubao-seedance-1-0-pro-250528',
+        'doubao-seedance-1-0-pro-fast-251015',
+        'sora',
+        'sora-pro'
       ]
     },
     { id: 'openai', name: 'OpenAI', models: ['sora-2', 'sora-2-pro'] },
@@ -229,6 +278,41 @@ const availableModels = computed(() => {
   if (!form.provider) return []
   const provider = availableProviders.value.find(p => p.id === form.provider)
   return provider?.models || []
+})
+
+// 完整端点示例
+const fullEndpointExample = computed(() => {
+  const baseUrl = form.base_url || 'https://api.example.com'
+  const provider = form.provider
+  const serviceType = form.service_type
+  
+  let endpoint = ''
+  
+  if (serviceType === 'text') {
+    if (provider === 'gemini' || provider === 'google') {
+      endpoint = '/v1beta/models/{model}:generateContent'
+    } else {
+      endpoint = '/chat/completions'
+    }
+  } else if (serviceType === 'image') {
+    if (provider === 'gemini' || provider === 'google') {
+      endpoint = '/v1beta/models/{model}:generateContent'
+    } else {
+      endpoint = '/images/generations'
+    }
+  } else if (serviceType === 'video') {
+    if (provider === 'chatfire') {
+      endpoint = '/video/generations'
+    } else if (provider === 'doubao' || provider === 'volcengine' || provider === 'volces') {
+      endpoint = '/contents/generations/tasks'
+    } else if (provider === 'openai') {
+      endpoint = '/videos'
+    } else {
+      endpoint = '/video/generations'
+    }
+  }
+  
+  return baseUrl + endpoint
 })
 
 const rules: FormRules = {
@@ -274,17 +358,39 @@ const loadConfigs = async () => {
   }
 }
 
+// 生成随机配置名称
+const generateConfigName = (provider: string, serviceType: AIServiceType): string => {
+  const providerNames: Record<string, string> = {
+    'chatfire': 'ChatFire',
+    'openai': 'OpenAI',
+    'gemini': 'Gemini',
+    'google': 'Google'
+  }
+  
+  const serviceNames: Record<AIServiceType, string> = {
+    'text': '文本',
+    'image': '图片',
+    'video': '视频'
+  }
+  
+  const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+  const providerName = providerNames[provider] || provider
+  const serviceName = serviceNames[serviceType] || serviceType
+  
+  return `${providerName}-${serviceName}-${randomNum}`
+}
+
 const showCreateDialog = () => {
   isEdit.value = false
   editingId.value = undefined
   resetForm()
   form.service_type = activeTab.value
-  // 根据服务类型设置默认端点路径
-  form.endpoint = getDefaultEndpoint(activeTab.value)
-  // 文本生成默认选择openai
-  if (activeTab.value === 'text') {
-    form.provider = 'openai'
-  }
+  // 默认选择 chatfire
+  form.provider = 'chatfire'
+  // 设置默认 base_url
+  form.base_url = 'https://api.chatfire.site/v1'
+  // 自动生成随机配置名称
+  form.name = generateConfigName('chatfire', activeTab.value)
   dialogVisible.value = true
 }
 
@@ -292,26 +398,13 @@ const handleEdit = (config: AIServiceConfig) => {
   isEdit.value = true
   editingId.value = config.id
   
-  // 根据模型名称推断厂商
-  const inferProvider = (model: string, serviceType: AIServiceType): string => {
-    const providers = providerConfigs[serviceType]
-    for (const provider of providers) {
-      if (provider.models.includes(model)) {
-        return provider.id
-      }
-    }
-    return providers[0]?.id || ''
-  }
-  
   Object.assign(form, {
     service_type: config.service_type,
-    provider: inferProvider(Array.isArray(config.model) ? config.model[0] : config.model, config.service_type),
+    provider: config.provider || 'chatfire',  // 直接使用配置中的 provider，默认为 chatfire
     name: config.name,
     base_url: config.base_url,
     api_key: config.api_key,
     model: Array.isArray(config.model) ? config.model : [config.model],  // 统一转换为数组
-    endpoint: config.endpoint,
-    query_endpoint: config.query_endpoint || '',
     priority: config.priority || 0,
     is_active: config.is_active
   })
@@ -359,7 +452,7 @@ const testConnection = async () => {
       base_url: form.base_url,
       api_key: form.api_key,
       model: form.model,
-      endpoint: form.endpoint
+      provider: form.provider
     })
     ElMessage.success('连接测试成功！')
   } catch (error: any) {
@@ -376,7 +469,7 @@ const handleTest = async (config: AIServiceConfig) => {
       base_url: config.base_url,
       api_key: config.api_key,
       model: config.model,
-      endpoint: config.endpoint
+      provider: config.provider
     })
     ElMessage.success('连接测试成功！')
   } catch (error: any) {
@@ -397,11 +490,10 @@ const handleSubmit = async () => {
       if (isEdit.value && editingId.value) {
         const updateData: UpdateAIConfigRequest = {
           name: form.name,
+          provider: form.provider,
           base_url: form.base_url,
           api_key: form.api_key,
           model: form.model,
-          endpoint: form.endpoint,
-          query_endpoint: form.query_endpoint,
           priority: form.priority,
           is_active: form.is_active
         }
@@ -422,16 +514,36 @@ const handleSubmit = async () => {
   })
 }
 
+const handleTabChange = (tabName: string | number) => {
+  // 标签页切换时重新加载对应服务类型的配置
+  activeTab.value = tabName as AIServiceType
+  loadConfigs()
+}
+
 const handleProviderChange = () => {
   // 切换厂商时清空已选模型
   form.model = []
+  
+  // 根据厂商自动设置默认 base_url
+  if (form.provider === 'gemini' || form.provider === 'google') {
+    form.base_url = 'https://api.chatfire.site'
+  } else {
+    // openai, chatfire 等其他厂商
+    form.base_url = 'https://api.chatfire.site/v1'
+  }
+  
+  // 仅在新建配置时自动更新名称
+  if (!isEdit.value) {
+    form.name = generateConfigName(form.provider, form.service_type)
+  }
 }
 
-// 根据服务类型获取默认端点路径
+// getDefaultEndpoint 已移除，端点由后端根据 provider 自动设置
+// 保留该函数定义以避免编译错误
 const getDefaultEndpoint = (serviceType: AIServiceType): string => {
   switch (serviceType) {
     case 'text':
-      return '/v1/chat/completions'
+      return ''
     case 'image':
       return '/v1/images/generations'
     case 'video':
@@ -450,8 +562,6 @@ const resetForm = () => {
     base_url: '',
     api_key: '',
     model: [],  // 改为空数组
-    endpoint: getDefaultEndpoint(serviceType),
-    query_endpoint: '',
     priority: 0,
     is_active: true
   })

@@ -3,6 +3,9 @@
 # ==================== 阶段1: 构建前端 ====================
 FROM node:20-alpine AS frontend-builder
 
+# 配置 npm 镜像源（国内加速）
+RUN npm config set registry https://registry.npmmirror.com
+
 WORKDIR /app/web
 
 # 复制前端依赖文件
@@ -59,14 +62,11 @@ RUN apk add --no-cache \
     tzdata \
     ffmpeg \
     sqlite-libs \
+    wget \
     && rm -rf /var/cache/apk/*
 
 # 设置时区
 ENV TZ=Asia/Shanghai
-
-# 创建非 root 用户
-RUN addgroup -g 1000 app && \
-    adduser -D -u 1000 -G app app
 
 WORKDIR /app
 
@@ -83,10 +83,7 @@ RUN cp ./configs/config.example.yaml ./configs/config.yaml
 # 复制数据库迁移文件
 COPY migrations ./migrations/
 
-# 切换到非 root 用户
-USER app
-
-# 创建数据目录（在 app 用户下创建，确保权限正确）
+# 创建数据目录（root 用户运行，无需权限设置）
 RUN mkdir -p /app/data/storage
 
 # 暴露端口

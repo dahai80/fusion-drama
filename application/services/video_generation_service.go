@@ -414,24 +414,33 @@ func (s *VideoGenerationService) getVideoClient(provider string, modelName strin
 	// 使用配置中的信息创建客户端
 	baseURL := config.BaseURL
 	apiKey := config.APIKey
-	endpoint := config.Endpoint
-	queryEndpoint := config.QueryEndpoint
 	model := modelName
 	if model == "" && len(config.Model) > 0 {
 		model = config.Model[0]
 	}
 
+	// 根据 provider 自动设置默认端点
+	var endpoint string
+	var queryEndpoint string
+
 	switch provider {
-	case "doubao":
+	case "chatfire":
+		endpoint = "/video/generations"
+		queryEndpoint = "/v1/video/task/{taskId}"
+		return video.NewChatfireClient(baseURL, apiKey, model, endpoint, queryEndpoint), nil
+	case "doubao", "volcengine", "volces":
+		endpoint = "/contents/generations/tasks"
+		queryEndpoint = "/generations/tasks/{taskId}"
 		return video.NewVolcesArkClient(baseURL, apiKey, model, endpoint, queryEndpoint), nil
+	case "openai":
+		// OpenAI Sora 使用 /v1/videos 端点
+		return video.NewOpenAISoraClient(baseURL, apiKey, model), nil
 	case "runway":
 		return video.NewRunwayClient(baseURL, apiKey, model), nil
 	case "pika":
 		return video.NewPikaClient(baseURL, apiKey, model), nil
 	case "minimax":
 		return video.NewMinimaxClient(baseURL, apiKey, model), nil
-	case "openai":
-		return video.NewOpenAISoraClient(baseURL, apiKey, model), nil
 	default:
 		return nil, fmt.Errorf("unsupported video provider: %s", provider)
 	}

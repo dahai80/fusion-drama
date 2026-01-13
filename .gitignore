@@ -63,3 +63,5 @@ configs/config.yaml
 # Docker publish documentation (optional)
 DOCKER_PUBLISH.md
 build.sh
+/data/storage/
+/web/package-lock.json

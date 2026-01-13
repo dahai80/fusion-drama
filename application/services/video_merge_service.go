@@ -297,6 +297,10 @@ func (s *VideoMergeService) getVideoClient(provider string) (video.VideoClient, 
 		model = config.Model[0]
 	}
 
+	// 根据 provider 自动设置默认端点
+	var endpoint string
+	var queryEndpoint string
+
 	switch provider {
 	case "runway":
 		return video.NewRunwayClient(config.BaseURL, config.APIKey, model), nil
@@ -306,10 +310,18 @@ func (s *VideoMergeService) getVideoClient(provider string) (video.VideoClient, 
 		return video.NewOpenAISoraClient(config.BaseURL, config.APIKey, model), nil
 	case "minimax":
 		return video.NewMinimaxClient(config.BaseURL, config.APIKey, model), nil
+	case "chatfire":
+		endpoint = "/video/generations"
+		queryEndpoint = "/v1/video/task/{taskId}"
+		return video.NewChatfireClient(config.BaseURL, config.APIKey, model, endpoint, queryEndpoint), nil
 	case "doubao", "volces", "ark":
-		return video.NewVolcesArkClient(config.BaseURL, config.APIKey, model, config.Endpoint, config.QueryEndpoint), nil
+		endpoint = "/contents/generations/tasks"
+		queryEndpoint = "/generations/tasks/{taskId}"
+		return video.NewVolcesArkClient(config.BaseURL, config.APIKey, model, endpoint, queryEndpoint), nil
 	default:
-		return video.NewVolcesArkClient(config.BaseURL, config.APIKey, model, config.Endpoint, config.QueryEndpoint), nil
+		endpoint = "/contents/generations/tasks"
+		queryEndpoint = "/generations/tasks/{taskId}"
+		return video.NewVolcesArkClient(config.BaseURL, config.APIKey, model, endpoint, queryEndpoint), nil
 	}
 }
 

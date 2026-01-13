@@ -10,6 +10,7 @@ import (
 type AIServiceConfig struct {
 	ID            uint       `gorm:"primaryKey;autoIncrement" json:"id"`
 	ServiceType   string     `gorm:"type:varchar(50);not null" json:"service_type"` // text, image, video
+	Provider      string     `gorm:"type:varchar(50)" json:"provider"`              // openai, gemini, volcengine, etc.
 	Name          string     `gorm:"type:varchar(100);not null" json:"name"`
 	BaseURL       string     `gorm:"type:varchar(255);not null" json:"base_url"`
 	APIKey        string     `gorm:"type:varchar(255);not null" json:"api_key"`
