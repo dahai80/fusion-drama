@@ -419,14 +419,14 @@ func (s *VideoGenerationService) getVideoClient(provider string, modelName strin
 		model = config.Model[0]
 	}
 
-	// 根据 provider 自动设置默认端点
+	// 根据配置中的 provider 创建对应的客户端
 	var endpoint string
 	var queryEndpoint string
 
-	switch provider {
+	switch config.Provider {
 	case "chatfire":
 		endpoint = "/video/generations"
-		queryEndpoint = "/v1/video/task/{taskId}"
+		queryEndpoint = "/video/task/{taskId}"
 		return video.NewChatfireClient(baseURL, apiKey, model, endpoint, queryEndpoint), nil
 	case "doubao", "volcengine", "volces":
 		endpoint = "/contents/generations/tasks"

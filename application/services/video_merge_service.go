@@ -297,11 +297,11 @@ func (s *VideoMergeService) getVideoClient(provider string) (video.VideoClient, 
 		model = config.Model[0]
 	}
 
-	// 根据 provider 自动设置默认端点
+	// 根据配置中的 provider 创建对应的客户端
 	var endpoint string
 	var queryEndpoint string
 
-	switch provider {
+	switch config.Provider {
 	case "runway":
 		return video.NewRunwayClient(config.BaseURL, config.APIKey, model), nil
 	case "pika":
@@ -312,7 +312,7 @@ func (s *VideoMergeService) getVideoClient(provider string) (video.VideoClient, 
 		return video.NewMinimaxClient(config.BaseURL, config.APIKey, model), nil
 	case "chatfire":
 		endpoint = "/video/generations"
-		queryEndpoint = "/v1/video/task/{taskId}"
+		queryEndpoint = "/video/task/{taskId}"
 		return video.NewChatfireClient(config.BaseURL, config.APIKey, model, endpoint, queryEndpoint), nil
 	case "doubao", "volces", "ark":
 		endpoint = "/contents/generations/tasks"

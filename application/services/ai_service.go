@@ -71,7 +71,18 @@ func (s *AIService) CreateConfig(req *CreateAIConfigRequest) (*models.AIServiceC
 			} else if req.ServiceType == "image" {
 				endpoint = "/v1beta/models/{model}:generateContent"
 			}
-		case "openai", "chatfire":
+		case "openai":
+			if req.ServiceType == "text" {
+				endpoint = "/chat/completions"
+			} else if req.ServiceType == "image" {
+				endpoint = "/images/generations"
+			} else if req.ServiceType == "video" {
+				endpoint = "/videos"
+				if queryEndpoint == "" {
+					queryEndpoint = "/videos/{taskId}"
+				}
+			}
+		case "chatfire":
 			if req.ServiceType == "text" {
 				endpoint = "/chat/completions"
 			} else if req.ServiceType == "image" {
@@ -79,7 +90,14 @@ func (s *AIService) CreateConfig(req *CreateAIConfigRequest) (*models.AIServiceC
 			} else if req.ServiceType == "video" {
 				endpoint = "/video/generations"
 				if queryEndpoint == "" {
-					queryEndpoint = "/v1/video/task/{taskId}"
+					queryEndpoint = "/video/task/{taskId}"
+				}
+			}
+		case "doubao", "volcengine", "volces":
+			if req.ServiceType == "video" {
+				endpoint = "/contents/generations/tasks"
+				if queryEndpoint == "" {
+					queryEndpoint = "/generations/tasks/{taskId}"
 				}
 			}
 		default:
@@ -188,13 +206,23 @@ func (s *AIService) UpdateConfig(configID uint, req *UpdateAIConfigRequest) (*mo
 			if serviceType == "text" || serviceType == "image" {
 				updates["endpoint"] = "/v1beta/models/{model}:generateContent"
 			}
-		case "openai", "chatfire":
+		case "openai":
+			if serviceType == "text" {
+				updates["endpoint"] = "/chat/completions"
+			} else if serviceType == "image" {
+				updates["endpoint"] = "/images/generations"
+			} else if serviceType == "video" {
+				updates["endpoint"] = "/videos"
+				updates["query_endpoint"] = "/videos/{taskId}"
+			}
+		case "chatfire":
 			if serviceType == "text" {
 				updates["endpoint"] = "/chat/completions"
 			} else if serviceType == "image" {
 				updates["endpoint"] = "/images/generations"
 			} else if serviceType == "video" {
 				updates["endpoint"] = "/video/generations"
+				updates["query_endpoint"] = "/video/task/{taskId}"
 			}
 		}
 	} else if req.Endpoint != "" {
