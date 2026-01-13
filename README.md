@@ -437,6 +437,26 @@ docker pull huobao/huobao-drama:latest
 - ✅ 一键启动，无需安装 Go、Node.js、FFmpeg
 - ✅ 易于迁移和扩展
 - ✅ 自动健康检查和重启
+- ✅ 自动处理文件权限，无需手动配置
+
+**📝 数据持久化说明：**
+
+Docker 部署使用命名卷 `huobao-data` 存储数据库和上传文件：
+- 数据会自动持久化，重启容器不会丢失
+- 容器内 `app` 用户自动拥有完整读写权限
+- 无需担心传统部署中的权限问题
+
+如需备份数据：
+```bash
+# 查看卷位置
+docker volume inspect huobao-drama_huobao-data
+
+# 备份数据
+docker run --rm -v huobao-drama_huobao-data:/data -v $(pwd):/backup alpine tar czf /backup/huobao-data-backup.tar.gz -C /data .
+
+# 恢复数据
+docker run --rm -v huobao-drama_huobao-data:/data -v $(pwd):/backup alpine tar xzf /backup/huobao-data-backup.tar.gz -C /data
+```
 
 ---
 
@@ -483,6 +503,12 @@ vim configs/config.yaml
 # 设置mode为production
 # 配置域名和存储路径
 
+# 创建数据目录并设置权限（重要！）
+# 注意：将 YOUR_USER 替换为实际运行服务的用户名（如 www-data、ubuntu、deploy 等）
+sudo mkdir -p /opt/huobao-drama/data/storage
+sudo chown -R YOUR_USER:YOUR_USER /opt/huobao-drama/data
+sudo chmod -R 755 /opt/huobao-drama/data
+
 # 赋予执行权限
 chmod +x huobao-drama
 
@@ -501,11 +527,14 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
+User=YOUR_USER
 WorkingDirectory=/opt/huobao-drama
 ExecStart=/opt/huobao-drama/huobao-drama
 Restart=on-failure
 RestartSec=10
+
+# 环境变量（可选）
+# Environment="GIN_MODE=release"
 
 [Install]
 WantedBy=multi-user.target
@@ -518,6 +547,37 @@ sudo systemctl enable huobao-drama
 sudo systemctl start huobao-drama
 sudo systemctl status huobao-drama
 ```
+
+**⚠️ 常见问题：SQLite 写权限错误**
+
+如果遇到 `attempt to write a readonly database` 错误：
+
+```bash
+# 1. 确认当前运行服务的用户
+sudo systemctl status huobao-drama | grep "Main PID"
+ps aux | grep huobao-drama
+
+# 2. 修复权限（将 YOUR_USER 替换为实际用户名）
+sudo chown -R YOUR_USER:YOUR_USER /opt/huobao-drama/data
+sudo chmod -R 755 /opt/huobao-drama/data
+
+# 3. 验证权限
+ls -la /opt/huobao-drama/data
+# 应该显示所有者为运行服务的用户
+
+# 4. 重启服务
+sudo systemctl restart huobao-drama
+```
+
+**原因说明**：
+- SQLite 需要对数据库文件 **和** 所在目录都有写权限
+- 需要在目录中创建临时文件（如 `-wal`、`-journal`）
+- **关键**：确保 systemd 配置中的 `User` 与数据目录所有者一致
+
+**常用用户名**：
+- Ubuntu/Debian: `www-data`、`ubuntu`
+- CentOS/RHEL: `nginx`、`apache`
+- 自定义部署: `deploy`、`app`、当前登录用户
 
 #### 5. Nginx 反向代理
 
