@@ -7,7 +7,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 [功能特性](#功能特性) • [快速开始](#快速开始) • [部署指南](#部署指南)
 
@@ -15,17 +15,19 @@
 
 ---
 
-## 📖 项目简介
+## 📖 项目简介 / About
 
 Huobao Drama 是一个基于AI的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
 
-### 🎯 核心价值
+Huobao Drama is an AI-powered short drama production platform that automates the entire workflow from script generation, character design, storyboarding to video composition.
 
-- **🤖 AI驱动**：使用大语言模型自动生成剧本、角色设定和分镜脚本
-- **🎨 智能创作**：AI绘图生成角色形象和场景背景
-- **📹 视频生成**：基于文生视频模型自动生成分镜视频
-- **⚡ 批量处理**：支持批量生成和异步任务处理
-- **🔄 工作流**：完整的短剧制作工作流，从创意到成片一站式完成
+### 🎯 核心价值 / Core Features
+
+- **🤖 AI驱动 / AI-Driven**：使用大语言模型自动生成剧本、角色设定和分镜脚本 | Automatic script, character, and storyboard generation using large language models
+- **🎨 智能创作 / Intelligent Creation**：AI绘图生成角色形象和场景背景 | AI-generated character portraits and scene backgrounds
+- **📹 视频生成 / Video Generation**：基于文生视频模型自动生成分镜视频 | Automatic storyboard video generation using text-to-video models
+- **⚡ 批量处理 / Batch Processing**：支持批量生成和异步任务处理 | Support for batch generation and asynchronous task processing
+- **🔄 工作流 / Workflow**：完整的短剧制作工作流，从创意到成片一站式完成 | Complete production workflow from idea to final video
 
 ### 🛠️ 技术架构
 
@@ -38,19 +40,30 @@ Huobao Drama 是一个基于AI的短剧自动化生产平台，实现从剧本�
 └── 基础设施层 (Database, External Services)
 ```
 
+### 🎥 作品展示 / Demo Videos
+
+体验 AI 短剧生成效果：
+
+<div align="center">
+
+**示例作品 1**
+
+<video src="https://ffile.chatfire.site/cf/public/20260114094337396.mp4" controls width="640"></video>
+
+**示例作品 2**
+
+<video src="https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4" controls width="640"></video>
+
+[点击观看视频 1](https://ffile.chatfire.site/cf/public/20260114094337396.mp4) | [点击观看视频 2](https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4)
+
+</div>
+
 ---
 
 ## ✨ 功能特性
 
-### 📝 剧本创作
-- ✅ AI自动生成剧本大纲
-- ✅ 智能角色设定和关系图谱
-- ✅ 分集剧情自动拆分
-- ✅ 剧本编辑和版本管理
-
 ### 🎭 角色管理
 - ✅ AI生成角色形象
-- ✅ 角色库复用
 - ✅ 批量角色生成
 - ✅ 角色图片上传和管理
 
@@ -64,135 +77,12 @@ Huobao Drama 是一个基于AI的短剧自动化生产平台，实现从剧本�
 - ✅ 图生视频自动生成
 - ✅ 视频合成和剪辑
 - ✅ 转场效果
-- ✅ 批量视频处理
 
 ### 📦 资源管理
 - ✅ 素材库统一管理
 - ✅ 本地存储支持
 - ✅ 资源导入导出
 - ✅ 任务进度追踪
-
----
-
-## 🏗️ 项目结构
-
-```
-huobao-drama/
-├── api/                           # API 层 - HTTP 接口
-│   ├── handlers/                  # 请求处理器 (16个)
-│   │   ├── ai_config.go          # AI服务配置
-│   │   ├── drama.go              # 剧本管理
-│   │   ├── scene.go              # 场景管理
-│   │   ├── storyboard.go         # 分镜管理
-│   │   ├── character_library.go  # 角色库管理
-│   │   ├── image_generation.go   # 图片生成
-│   │   ├── video_generation.go   # 视频生成
-│   │   ├── video_merge.go        # 视频合成
-│   │   ├── script_generation.go  # 剧本生成
-│   │   ├── frame_prompt.go       # 分镜提示词
-│   │   ├── asset.go              # 资源管理
-│   │   ├── task.go               # 任务管理
-│   │   └── upload.go             # 文件上传
-│   ├── middlewares/               # 中间件
-│   │   ├── cors.go               # CORS 跨域
-│   │   ├── logger.go             # 日志记录
-│   │   └── ratelimit.go          # 限流控制
-│   └── routes/                    # 路由注册
-│       └── routes.go
-│
-├── application/                   # 应用服务层 - 业务逻辑
-│   └── services/                  # 业务服务 (15个)
-│       ├── ai_service.go         # AI服务管理
-│       ├── drama_service.go      # 剧本业务
-│       ├── storyboard_service.go # 分镜业务
-│       ├── character_library_service.go  # 角色库
-│       ├── image_generation_service.go   # 图片生成
-│       ├── video_generation_service.go   # 视频生成
-│       ├── video_merge_service.go        # 视频合成
-│       ├── script_generation_service.go  # 剧本生成
-│       ├── frame_prompt_service.go       # 分镜提示词
-│       ├── storyboard_composition_service.go # 分镜合成
-│       ├── resource_transfer_service.go  # 资源转移
-│       ├── asset_service.go      # 资源管理
-│       ├── task_service.go       # 任务调度
-│       └── upload_service.go     # 上传处理
-│
-├── domain/                        # 领域层 - 数据模型
-│   └── models/                    # 领域模型 (10个)
-│       ├── drama.go              # 剧本模型 (Drama, Episode, Character, Scene)
-│       ├── frame_prompt.go       # 分镜提示词
-│       ├── image_generation.go   # 图片生成任务
-│       ├── video_generation.go   # 视频生成任务
-│       ├── video_merge.go        # 视频合成任务
-│       ├── character_library.go  # 角色库
-│       ├── asset.go              # 资源模型
-│       ├── task.go               # 异步任务
-│       ├── timeline.go           # 时间线
-│       └── ai_config.go          # AI配置
-│
-├── infrastructure/                # 基础设施层
-│   ├── database/                 # 数据库
-│   │   ├── database.go           # 连接管理
-│   │   └── repositories/         # 数据仓储
-│   ├── external/                 # 外部服务
-│   │   ├── ffmpeg/               # FFmpeg 视频处理
-│   │   ├── midjourney/           # Midjourney 图片生成
-│   │   └── openai/               # OpenAI 服务
-│   ├── scheduler/                # 调度器
-│   │   └── resource_transfer_scheduler.go  # 资源转移调度
-│   └── storage/                  # 存储
-│       └── local_storage.go      # 本地文件存储
-│
-├── pkg/                          # 公共包 - 工具库
-│   ├── ai/                       # AI 客户端
-│   │   └── openai_client.go     # OpenAI 封装
-│   ├── config/                   # 配置管理
-│   │   └── config.go
-│   ├── image/                    # 图片处理
-│   │   └── image_client.go      # 图片生成客户端
-│   ├── logger/                   # 日志工具
-│   │   └── logger.go
-│   ├── response/                 # HTTP 响应
-│   │   └── response.go
-│   ├── utils/                    # 工具函数
-│   │   └── json_parser.go
-│   └── video/                    # 视频处理
-│       ├── video_client.go       # 视频生成客户端
-│       ├── minimax_client.go     # MiniMax 视频生成
-│       ├── openai_sora_client.go # OpenAI Sora
-│       └── volces_ark_client.go  # 火山引擎视频生成
-│
-├── web/                          # 前端项目 (Vue 3 + TypeScript)
-│   ├── src/
-│   │   ├── api/                  # API 调用 (9个接口模块)
-│   │   ├── assets/               # 静态资源
-│   │   ├── components/           # Vue 组件
-│   │   ├── router/               # 路由配置
-│   │   ├── stores/               # Pinia 状态管理
-│   │   ├── types/                # TypeScript 类型定义 (8个)
-│   │   ├── utils/                # 工具函数
-│   │   ├── views/                # 页面视图 (28个页面)
-│   │   ├── App.vue               # 根组件
-│   │   └── main.ts               # 入口文件
-│   ├── public/                   # 公共资源
-│   ├── index.html                # HTML 模板
-│   ├── package.json              # 依赖配置
-│   ├── vite.config.ts            # Vite 配置
-│   ├── tailwind.config.js        # TailwindCSS 配置
-│   └── tsconfig.json             # TypeScript 配置
-│
-├── configs/                      # 配置文件
-│   └── config.example.yaml       # 配置模板
-├── data/                         # 运行时数据 (gitignore)
-│   ├── drama_generator.db        # SQLite 数据库
-│   └── storage/                  # 文件存储
-├── migrations/                   # 数据库迁移
-│   └── init.sql
-├── main.go                       # 程序入口
-├── go.mod                        # Go 模块定义
-├── go.sum                        # 依赖版本锁定
-└── README.md                     # 项目文档
-```
 
 ---
 
@@ -766,9 +656,22 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 
 ---
 
-## 📄 许可证
+## � 更新日志 / Changelog
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+### v1.0.1 (2026-01-14)
+
+#### 🐛 Bug Fixes / 问题修复
+- 修复 视频生成 API 响应解析问题
+- 修复视频生成客户端选择逻辑
+
+#### ✨ Features / 新增功能
+- 添加 OpenAI Sora 视频端点配置（/videos 和 /videos/{taskId}）
+- 优化错误处理，支持 JSON 对象和字符串格式的错误响应
+
+#### 🔧 Improvements / 改进
+- 完善视频生成服务的 provider 识别
+- 优化客户端请求格式（支持 Sora/Doubao 模型）
+- 改进日志输出，便于调试
 
 ---
 
