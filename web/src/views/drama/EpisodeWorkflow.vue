@@ -1,32 +1,39 @@
 <template>
-  <div class="episode-workflow-container">
-    <div class="workflow-header">
-      <div class="header-left">
-        <el-button :icon="ArrowLeft" @click="goBack">{{ $t('workflow.backToProject') }}</el-button>
-        <h1>{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
-      </div>
-      <div class="steps-inline">
-        <div class="custom-steps">
-          <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
-            <div class="step-circle">1</div>
-            <span class="step-text">{{ $t('workflow.steps.content') }}</span>
+  <div class="page-container">
+    <div class="content-wrapper animate-fade-in">
+      <header class="page-header">
+        <div class="header-content">
+          <div class="header-left">
+            <button class="back-btn" @click="$router.back()">
+              <el-icon><ArrowLeft /></el-icon>
+              <span>{{ $t('workflow.backToProject') }}</span>
+            </button>
+            <div class="nav-divider"></div>
+            <h1 class="header-title">{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
           </div>
-          <el-icon class="step-arrow"><ArrowRight /></el-icon>
-          <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
-            <div class="step-circle">2</div>
-            <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
+          <div class="header-center">
+            <div class="custom-steps">
+              <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
+                <div class="step-circle">1</div>
+                <span class="step-text">{{ $t('workflow.steps.content') }}</span>
+              </div>
+              <el-icon class="step-arrow"><ArrowRight /></el-icon>
+              <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
+                <div class="step-circle">2</div>
+                <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
+              </div>
+              <el-icon class="step-arrow"><ArrowRight /></el-icon>
+              <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
+                <div class="step-circle">3</div>
+                <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
+              </div>
+            </div>
           </div>
-          <el-icon class="step-arrow"><ArrowRight /></el-icon>
-          <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
-            <div class="step-circle">3</div>
-            <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
+          <div class="header-right">
+            <el-button :icon="Setting" circle @click="showModelConfigDialog" :title="$t('workflow.modelConfig')" />
           </div>
         </div>
-      </div>
-      <div class="header-right">
-        <el-button :icon="Setting" circle @click="showModelConfigDialog" :title="$t('workflow.modelConfig')" />
-      </div>
-    </div>
+      </header>
 
     <!-- 阶段 0: 章节内容 + 提取角色场景 -->
     <el-card v-show="currentStep === 0" shadow="never" class="stage-card stage-card-fullscreen">
@@ -89,28 +96,28 @@
             
             <!-- 角色列表 -->
             <div v-if="hasCharacters" style="margin-bottom: 16px;">
-              <h4 style="margin-bottom: 8px; color: #606266;">{{ $t('workflow.extractedCharacters') }}：</h4>
+              <h4 class="extracted-title">{{ $t('workflow.extractedCharacters') }}：</h4>
               <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <el-tag 
                   v-for="char in currentEpisode?.characters" 
                   :key="char.id"
                   type="info"
                 >
-                  {{ char.name }} <span v-if="char.role" style="color: #909399; margin-left: 4px;">({{ char.role }})</span>
+                  {{ char.name }} <span v-if="char.role" class="secondary-text">({{ char.role }})</span>
                 </el-tag>
               </div>
             </div>
             
             <!-- 场景列表 -->
             <div v-if="currentEpisode?.scenes && currentEpisode.scenes.length > 0">
-              <h4 style="margin-bottom: 8px; color: #606266;">{{ $t('workflow.extractedScenes') }}：</h4>
+              <h4 class="extracted-title">{{ $t('workflow.extractedScenes') }}：</h4>
               <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                 <el-tag 
                   v-for="scene in currentEpisode.scenes" 
                   :key="scene.id"
                   type="warning"
                 >
-                  {{ scene.location }} <span style="color: #909399; margin-left: 4px;">· {{ scene.time }}</span>
+                  {{ scene.location }} <span class="secondary-text">· {{ scene.time }}</span>
                 </el-tag>
               </div>
             </div>
@@ -445,9 +452,19 @@
                 {{ row.movement || '-' }}
               </template>
             </el-table-column>
-            <el-table-column :label="$t('storyboard.table.location')" width="150" show-overflow-tooltip>
+            <el-table-column :label="$t('storyboard.table.location')" width="150">
               <template #default="{ row }">
-                {{ row.location || '-' }}
+                <el-popover 
+                  placement="right" 
+                  :width="300" 
+                  trigger="hover"
+                  :content="row.action || '-'"
+                >
+                  <template #reference>
+                    <!-- 单行打点 -->
+                    <span class="overflow-tooltip">{{ row.location || '-' }}</span>
+                  </template>
+                </el-popover>
               </template>
             </el-table-column>
             <el-table-column :label="$t('storyboard.table.character')" width="100">
@@ -458,9 +475,19 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('storyboard.table.action')" show-overflow-tooltip>
+            <el-table-column :label="$t('storyboard.table.action')">
               <template #default="{ row }">
-                {{ row.action || '-' }}
+                <el-popover 
+                  placement="right" 
+                  :width="300" 
+                  trigger="hover"
+                  :content="row.action || '-'"
+                >
+                  <template #reference>
+                    <!-- 单行打点 -->
+                    <span class="overflow-tooltip">{{ row.action || '-' }}</span>
+                  </template>
+                </el-popover>
               </template>
             </el-table-column>
             <el-table-column :label="$t('storyboard.table.duration')" width="80">
@@ -522,7 +549,7 @@
                   <span style="font-size: 12px;">{{ percentage }}%</span>
                 </template>
               </el-progress>
-              <div style="margin-top: 8px; font-size: 12px; color: #909399; text-align: center;">
+              <div class="task-message">
                 {{ taskMessage }}
               </div>
             </div>
@@ -708,7 +735,7 @@
               :value="model.modelName"
             />
           </el-select>
-          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+          <div class="model-tip">
             {{ $t('workflow.textModelTip') }}
           </div>
         </el-form-item>
@@ -722,7 +749,7 @@
               :value="model.modelName"
             />
           </el-select>
-          <div style="margin-top: 8px; font-size: 12px; color: #909399;">
+          <div class="model-tip">
             {{ $t('workflow.modelConfigTip') }}
           </div>
         </el-form-item>
@@ -761,6 +788,7 @@
         </template>
       </el-upload>
     </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -794,6 +822,7 @@ import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig } from '@/types/ai'
 import { imageAPI } from '@/api/image'
 import type { Drama } from '@/types/drama'
+import PageHeader from '@/components/common/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1715,53 +1744,108 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.episode-workflow-container {
-  padding: 24px;
-  background: #f5f7fa;
+/* ========================================
+   Page Layout / 页面布局 - 紧凑边距
+   ======================================== */
+.page-container {
   min-height: 100vh;
+  background: var(--bg-primary);
+  padding: var(--space-2) var(--space-3);
+  transition: background var(--transition-normal);
 }
 
-.workflow-header {
+@media (min-width: 768px) {
+  .page-container {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: var(--space-4) var(--space-5);
+  }
+}
+
+.content-wrapper {
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Header styles matching PageHeader component */
+.page-header {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.header-content {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  justify-content: space-between;
+  gap: var(--space-4);
+}
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
 
-    h1 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 600;
-    }
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--border-secondary);
   }
+}
 
-  .steps-inline {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    margin: 0 20px;
-  }
+.nav-divider {
+  width: 1px;
+  height: 2rem;
+  background: var(--border-primary);
+}
 
-  .header-right {
-    flex-shrink: 0;
-  }
+.header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.header-right {
+  flex-shrink: 0;
 }
 
 .workflow-card {
-  margin-bottom: 24px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e8e8e8;
+  margin-bottom: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-primary);
 
   :deep(.el-card__body) {
     padding: 0;
@@ -1779,29 +1863,29 @@ onMounted(() => {
     gap: 8px;
     padding: 8px 16px;
     border-radius: 20px;
-    background: #f0f0f0;
+    background: var(--bg-card-hover);
     transition: all 0.3s;
 
     &.active {
-      background: #e6f7ff;
+      background: var(--accent-light);
       
       .step-circle {
-        background: #1890ff;
-        color: white;
+        background: var(--accent);
+        color: var(--text-inverse);
       }
     }
 
     &.current {
-      background: #1890ff;
-      color: white;
+      background: var(--accent);
+      color: var(--text-inverse);
       
       .step-circle {
-        background: white;
-        color: #1890ff;
+        background: var(--bg-card);
+        color: var(--accent);
       }
       
       .step-text {
-        color: white;
+        color: var(--text-inverse);
       }
     }
 
@@ -1812,8 +1896,8 @@ onMounted(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #d9d9d9;
-      color: #666;
+      background: var(--border-secondary);
+      color: var(--text-secondary);
       font-weight: 600;
       transition: all 0.3s;
     }
@@ -1826,7 +1910,7 @@ onMounted(() => {
   }
 
   .step-arrow {
-    color: #d9d9d9;
+    color: var(--border-secondary);
   }
 }
 
@@ -1858,7 +1942,7 @@ onMounted(() => {
 
       p {
         margin: 0;
-        color: #909399;
+        color: var(--text-muted);
         font-size: 14px;
       }
     }
@@ -1867,7 +1951,7 @@ onMounted(() => {
 
 .stage-body {
   padding: 32px;
-  background: white;
+  background: var(--bg-card);
 }
 
 .action-buttons {
@@ -1905,9 +1989,9 @@ onMounted(() => {
     align-items: center;
     margin-bottom: 16px;
     padding: 16px;
-    background: #fafafa;
+    background: var(--bg-secondary);
     border-radius: 8px;
-    border: 1px solid #e8e8e8;
+    border: 1px solid var(--border-primary);
 
     .section-title {
       display: flex;
@@ -1921,10 +2005,10 @@ onMounted(() => {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary);
 
         .el-icon {
-          color: #409eff;
+          color: var(--accent);
           font-size: 18px;
         }
       }
@@ -1947,18 +2031,41 @@ onMounted(() => {
   text-align: center;
 }
 
+.extracted-title {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.secondary-text {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.task-message {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.model-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .fixed-card {
   height: 100%;
   display: flex;
   flex-direction: column;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e8e8e8;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-card);
   transition: all 0.2s;
 
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-card-hover);
   }
 
   :deep(.el-card__body) {
@@ -1970,8 +2077,8 @@ onMounted(() => {
 
   .card-header {
     padding: 14px;
-    background: #fafafa;
-    border-bottom: 1px solid #e8e8e8;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1984,7 +2091,7 @@ onMounted(() => {
         margin: 0 0 4px 0;
         font-size: 14px;
         font-weight: 600;
-        color: #333;
+        color: var(--text-primary);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -2003,7 +2110,7 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f8f9fa;
+    background: var(--bg-secondary);
 
     .char-image,
     .scene-image {
@@ -2025,12 +2132,12 @@ onMounted(() => {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #a0a0a0;
+      color: var(--text-muted);
       padding: 20px;
       
       &.generating {
-        color: #e6a23c;
-        background: #fdf6ec;
+        color: var(--warning);
+        background: var(--warning-light);
         
         .rotating {
           animation: rotating 2s linear infinite;
@@ -2038,8 +2145,8 @@ onMounted(() => {
       }
       
       &.failed {
-        color: #f56c6c;
-        background: #fef0f0;
+        color: var(--error);
+        background: var(--error-light);
       }
       position: relative;
       z-index: 1;
@@ -2057,8 +2164,8 @@ onMounted(() => {
 
   .card-actions {
     padding: 10px;
-    background: white;
-    border-top: 1px solid #e8e8e8;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-primary);
     display: flex;
     justify-content: center;
     gap: 8px;
@@ -2099,9 +2206,9 @@ onMounted(() => {
     transition: all 0.3s;
 
     &:hover {
-      border-color: #409eff;
+      border-color: var(--accent);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: var(--shadow-lg);
     }
 
     .el-image {
@@ -2113,7 +2220,8 @@ onMounted(() => {
       padding: 8px;
       text-align: center;
       font-size: 12px;
-      background: #f5f7fa;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
     }
   }
 }
@@ -2142,5 +2250,80 @@ onMounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ========================================
+   Dark Mode / 深色模式
+   ======================================== */
+:deep(.el-card) {
+  background: var(--bg-card);
+  border-color: var(--border-primary);
+}
+
+:deep(.el-card__header) {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+}
+
+:deep(.el-table) {
+  --el-table-bg-color: var(--bg-card);
+  --el-table-header-bg-color: var(--bg-secondary);
+  --el-table-tr-bg-color: var(--bg-card);
+  --el-table-row-hover-bg-color: var(--bg-card-hover);
+  --el-table-border-color: var(--border-primary);
+  --el-table-text-color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+:deep(.el-table th.el-table__cell),
+:deep(.el-table td.el-table__cell) {
+  background: var(--bg-card);
+  border-color: var(--border-primary);
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
+  background: var(--bg-secondary);
+}
+
+:deep(.el-table__header-wrapper th) {
+  background: var(--bg-secondary) !important;
+  color: var(--text-secondary);
+}
+
+:deep(.el-dialog) {
+  background: var(--bg-card);
+}
+
+:deep(.el-dialog__header) {
+  background: var(--bg-card);
+}
+
+:deep(.el-form-item__label) {
+  color: var(--text-primary);
+}
+
+:deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+
+:deep(.el-input__inner) {
+  color: var(--text-primary);
+}
+
+:deep(.el-textarea__inner) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+
+:deep(.el-select-dropdown) {
+  background: var(--bg-elevated);
+  border-color: var(--border-primary);
+}
+
+:deep(.el-upload-dragger) {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
 }
 </style>

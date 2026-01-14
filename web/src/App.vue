@@ -1,14 +1,17 @@
 <template>
   <router-view />
+  <!-- <AppLayout>
+    <router-view />
+  </AppLayout> -->
 </template>
 
 <script setup lang="ts">
-// 开源版本 - 无需用户认证
+import AppLayout from '@/components/common/AppLayout.vue'
 </script>
 
 <style>
 #app {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
 }
 </style>

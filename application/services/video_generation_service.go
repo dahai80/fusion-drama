@@ -505,6 +505,18 @@ func (s *VideoGenerationService) GenerateVideoFromImage(imageGenID uint) (*model
 		return nil, fmt.Errorf("image is not ready")
 	}
 
+	// 获取关联的Storyboard以获取时长
+	var duration *int
+	if imageGen.StoryboardID != nil {
+		var storyboard models.Storyboard
+		if err := s.db.Where("id = ?", *imageGen.StoryboardID).First(&storyboard).Error; err == nil {
+			duration = &storyboard.Duration
+			s.log.Infow("Using storyboard duration for video generation",
+				"storyboard_id", *imageGen.StoryboardID,
+				"duration", storyboard.Duration)
+		}
+	}
+
 	req := &GenerateVideoRequest{
 		DramaID:      fmt.Sprintf("%d", imageGen.DramaID),
 		StoryboardID: imageGen.StoryboardID,
@@ -512,6 +524,7 @@ func (s *VideoGenerationService) GenerateVideoFromImage(imageGenID uint) (*model
 		ImageURL:     *imageGen.ImageURL,
 		Prompt:       imageGen.Prompt,
 		Provider:     "doubao",
+		Duration:     duration,
 	}
 
 	return s.GenerateVideo(req)

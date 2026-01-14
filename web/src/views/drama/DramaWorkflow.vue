@@ -1327,12 +1327,17 @@ onMounted(() => {
 <style scoped>
 .workflow-container {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: #f8fafc;
+  transition: background var(--transition-normal);
+}
+
+.dark .workflow-container {
+  background: #0f172a;
 }
 
 .workflow-header {
-  background: #ffffff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-primary);
   padding: 10px 24px;
   margin-bottom: 0;
 }
@@ -1352,20 +1357,20 @@ onMounted(() => {
 }
 
 .back-btn {
-  color: #606266;
+  color: var(--text-secondary);
   padding: 0;
   margin-right: 4px;
 }
 
 .back-btn:hover {
-  color: #409eff;
+  color: #0ea5e9;
 }
 
 .drama-title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
   white-space: nowrap;
 }
 

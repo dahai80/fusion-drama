@@ -1,61 +1,48 @@
 <template>
-  <div class="drama-management">
-    <div class="page-header">
-      <div class="header-left">
-        <el-button :icon="ArrowLeft" @click="router.back()">{{ $t('common.back') }}</el-button>
-        <div class="drama-info">
-          <h1>{{ drama?.title }}</h1>
-        </div>
-      </div>
-    </div>
+  <div class="page-container">
+    <div class="content-wrapper animate-fade-in">
+      <!-- Page Header / 页面头部 -->
+      <PageHeader
+        :title="drama?.title || ''"
+        :subtitle="drama?.description || $t('drama.management.overview')"
+        :show-back="true"
+        :back-text="$t('common.back')"
+      />
 
-    <el-tabs v-model="activeTab" class="management-tabs">
+      <!-- Tabs / 标签页 -->
+      <div class="tabs-wrapper">
+        <el-tabs v-model="activeTab" class="management-tabs">
       <!-- 项目概览 -->
       <el-tab-pane :label="$t('drama.management.overview')" name="overview">
-        <el-row :gutter="20">
-          <el-col :span="8">
-            <el-card shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <el-icon :size="24" color="#409eff"><Document /></el-icon>
-                  <span>{{ $t('drama.management.episodeStats') }}</span>
-                </div>
-              </template>
-              <div class="stat-content">
-                <div class="stat-number">{{ episodesCount }}</div>
-                <div class="stat-label">{{ $t('drama.management.episodesCreated') }}</div>
-              </div>
-            </el-card>
-          </el-col>
-          <el-col :span="8">
-            <el-card shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <el-icon :size="24" color="#67c23a"><User /></el-icon>
-                  <span>{{ $t('drama.management.characterStats') }}</span>
-                </div>
-              </template>
-              <div class="stat-content">
-                <div class="stat-number">{{ charactersCount }}</div>
-                <div class="stat-label">{{ $t('drama.management.charactersCreated') }}</div>
-              </div>
-            </el-card>
-          </el-col>
-          <el-col :span="8">
-            <el-card shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <el-icon :size="24" color="#e6a23c"><Picture /></el-icon>
-                  <span>{{ $t('drama.management.sceneStats') }}</span>
-                </div>
-              </template>
-              <div class="stat-content">
-                <div class="stat-number">{{ scenesCount }}</div>
-                <div class="stat-label">{{ $t('drama.management.sceneLibraryCount') }}</div>
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
+        <div class="stats-grid">
+          <StatCard
+            :label="$t('drama.management.episodeStats')"
+            :value="episodesCount"
+            :icon="Document"
+            icon-color="var(--accent)"
+            icon-bg="var(--accent-light)"
+            value-color="var(--accent)"
+            :description="$t('drama.management.episodesCreated')"
+          />
+          <StatCard
+            :label="$t('drama.management.characterStats')"
+            :value="charactersCount"
+            :icon="User"
+            icon-color="var(--success)"
+            icon-bg="var(--success-light)"
+            value-color="var(--success)"
+            :description="$t('drama.management.charactersCreated')"
+          />
+          <StatCard
+            :label="$t('drama.management.sceneStats')"
+            :value="scenesCount"
+            :icon="Picture"
+            icon-color="var(--warning)"
+            icon-bg="var(--warning-light)"
+            value-color="var(--warning)"
+            :description="$t('drama.management.sceneLibraryCount')"
+          />
+        </div>
 
         <!-- 引导卡片：无章节时显示 -->
         <el-alert
@@ -75,7 +62,7 @@
 
         <el-card shadow="never" style="margin-top: 20px;">
           <template #header>
-            <h3>{{ $t('drama.management.projectInfo') }}</h3>
+            <h3 class="card-title">{{ $t('drama.management.projectInfo') }}</h3>
           </template>
           <el-descriptions :column="2" border>
             <el-descriptions-item :label="$t('drama.management.projectName')">{{ drama?.title }}</el-descriptions-item>
@@ -101,7 +88,7 @@
           style="margin-top: 40px;"
         >
           <template #image>
-            <el-icon :size="80" color="#409eff"><Document /></el-icon>
+            <el-icon :size="80" class="empty-icon"><Document /></el-icon>
           </template>
           <el-button type="primary" :icon="Plus" @click="createNewEpisode">
             {{ $t('drama.management.createFirstEpisode') }}
@@ -205,9 +192,10 @@
 
         <el-empty v-if="scenes.length === 0" :description="$t('drama.management.noScenes')" />
       </el-tab-pane>
-    </el-tabs>
+        </el-tabs>
+      </div>
 
-    <!-- 添加角色对话框 -->
+      <!-- 添加角色对话框 -->
     <el-dialog v-model="addCharacterDialogVisible" :title="$t('character.add')" width="600px">
       <el-form :model="newCharacter" label-width="100px">
         <el-form-item :label="$t('character.name')">
@@ -251,6 +239,7 @@
         <el-button type="primary" @click="addScene">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -261,6 +250,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Document, User, Picture, Plus } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import type { Drama } from '@/types/drama'
+import { PageHeader, StatCard, EmptyState } from '@/components/common'
 
 const router = useRouter()
 const route = useRoute()
@@ -547,93 +537,126 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.drama-management {
-  padding: 20px;
-  background: #f5f7fa;
+/* ========================================
+   Page Layout / 页面布局 - 紧凑边距
+   ======================================== */
+.page-container {
   min-height: 100vh;
+  background: var(--bg-primary);
+  padding: var(--space-2) var(--space-3);
+  transition: background var(--transition-normal);
 }
 
-.page-header {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+@media (min-width: 768px) {
+  .page-container {
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+@media (min-width: 1024px) {
+  .page-container {
+    padding: var(--space-4) var(--space-5);
+  }
 }
 
-.drama-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.content-wrapper {
+  margin: 0 auto;
+  width: 100%;
 }
 
-.drama-info h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
+/* ========================================
+   Stats Grid / 统计网格 - 紧凑间距
+   ======================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-.management-tabs {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+@media (min-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
 }
 
+@media (min-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ========================================
+   Tabs Wrapper / 标签页容器 - 紧凑内边距
+   ======================================== */
+.tabs-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-card);
+}
+
+@media (min-width: 768px) {
+  .tabs-wrapper {
+    padding: var(--space-4);
+  }
+}
+
+/* ========================================
+   Tab Header / 标签页头部
+   ======================================== */
 .tab-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .tab-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
 .tab-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 1.125rem;
   font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-}
-
-.stat-content {
-  text-align: center;
-  padding: 20px 0;
-}
-
-.stat-number {
-  font-size: 36px;
-  font-weight: 700;
-  color: #409eff;
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-}
-
+/* ========================================
+   Character & Scene Cards / 角色场景卡片
+   ======================================== */
 .character-card, .scene-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: all var(--transition-normal);
+}
+
+.character-card:hover, .scene-card:hover {
+  border-color: var(--border-secondary);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.character-card :deep(.el-card__body),
+.scene-card :deep(.el-card__body) {
+  padding: 0;
 }
 
 .character-preview, .scene-preview {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 180px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8eaf0 100%);
-  margin: -20px -20px 12px -20px;
+  height: 160px;
+  background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
   overflow: hidden;
 }
 
@@ -641,37 +664,135 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform var(--transition-normal);
+}
+
+.character-card:hover .character-preview img,
+.scene-card:hover .scene-preview img {
+  transform: scale(1.05);
 }
 
 .scene-placeholder {
-  color: #c0c4cc;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .character-info, .scene-info {
   text-align: center;
-  margin-bottom: 12px;
+  padding: var(--space-4);
 }
 
 .character-info h4, .scene-info h4 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+  margin: 0 0 var(--space-2) 0;
+  font-size: 1rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .desc {
-  font-size: 13px;
-  color: #606266;
-  margin: 8px 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: var(--space-2) 0;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
 .character-actions, .scene-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: center;
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.empty-icon {
+  color: var(--accent);
+}
+
+/* ========================================
+   Dark Mode / 深色模式
+   ======================================== */
+.dark .tabs-wrapper {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-card) {
+  background: var(--bg-card);
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-card__header) {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-table) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-table th),
+.dark :deep(.el-table tr) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-table td),
+.dark :deep(.el-table th) {
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-descriptions) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-descriptions__label) {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-descriptions__content) {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-descriptions__cell) {
+  border-color: var(--border-primary);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-dialog) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-dialog__header) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-form-item__label) {
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+
+.dark :deep(.el-input__inner) {
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-textarea__inner) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
 }
 </style>

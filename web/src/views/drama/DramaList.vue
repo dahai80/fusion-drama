@@ -1,123 +1,166 @@
 <template>
-  <div class="drama-list-container">
-    <div class="page-header-wrapper">
-      <div class="page-header">
-        <div>
-          <h2>{{ $t('drama.title') }}</h2>
-          <p class="subtitle">{{ $t('drama.totalProjects', { count: total }) }}</p>
-        </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
+  <!-- Drama List Page - Refactored with modern minimalist design -->
+  <!-- 短剧列表页面 - 使用现代简约设计重构 -->
+  <div class="page-container">
+    <div class="content-wrapper animate-fade-in">
+      <!-- Page Header / 页面头部 -->
+      <PageHeader
+        :title="$t('drama.title')"
+        :subtitle="$t('drama.totalProjects', { count: total })"
+      >
+        <template #actions>
           <LanguageSwitcher />
-          <el-alert
-            type="info"
-            :closable="false"
-            show-icon
-            style="padding: 8px 12px;"
+          <ThemeToggle />
+          <el-button @click="showAIConfig = true" class="header-btn">
+            <el-icon><Setting /></el-icon>
+            <span class="btn-text">{{ $t('drama.aiConfig') }}</span>
+          </el-button>
+          <el-button type="primary" @click="handleCreate" class="header-btn primary">
+            <el-icon><Plus /></el-icon>
+            <span class="btn-text">{{ $t('drama.createNew') }}</span>
+          </el-button>
+        </template>
+      </PageHeader>
+
+      <!-- Project Grid / 项目网格 -->
+      <div v-loading="loading" class="projects-grid" :class="{ 'is-empty': !loading && dramas.length === 0 }">
+        <!-- Empty state / 空状态 -->
+        <EmptyState
+          v-if="!loading && dramas.length === 0"
+          :title="$t('drama.empty')"
+          :description="$t('drama.emptyHint')"
+          :icon="Film"
+        >
+          <el-button type="primary" @click="handleCreate">
+            <el-icon><Plus /></el-icon>
+            {{ $t('drama.createNew') }}
+          </el-button>
+        </EmptyState>
+
+        <!-- Project Cards / 项目卡片列表 -->
+        <ProjectCard
+          v-for="drama in dramas"
+          :key="drama.id"
+          :title="drama.title"
+          :description="drama.description"
+          :updated-at="drama.updated_at"
+          :episode-count="drama.total_episodes || 0"
+          @click="viewDrama(drama.id)"
+        >
+          <template #actions>
+            <ActionButton 
+              :icon="Edit" 
+              :tooltip="$t('common.edit')" 
+              @click="editDrama(drama.id)" 
+            />
+            <el-popconfirm
+              :title="$t('drama.deleteConfirm')"
+              :confirm-button-text="$t('common.confirm')"
+              :cancel-button-text="$t('common.cancel')"
+              @confirm="deleteDrama(drama.id)"
+            >
+              <template #reference>
+                <el-button 
+                  :icon="Delete" 
+                  class="action-button danger"
+                  link
+                />
+              </template>
+            </el-popconfirm>
+          </template>
+          </ProjectCard>
+      </div>
+
+      <!-- Edit Dialog / 编辑对话框 -->
+      <el-dialog
+        v-model="editDialogVisible"
+        :title="$t('drama.editProject')"
+        width="520px"
+        :close-on-click-modal="false"
+        class="edit-dialog"
+      >
+        <el-form 
+          :model="editForm" 
+          label-position="top"
+          v-loading="editLoading"
+          class="edit-form"
+        >
+          <el-form-item :label="$t('drama.projectName')" required>
+            <el-input 
+              v-model="editForm.title" 
+              :placeholder="$t('drama.projectNamePlaceholder')"
+              size="large"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('drama.projectDesc')">
+            <el-input
+              v-model="editForm.description"
+              type="textarea"
+              :rows="4"
+              :placeholder="$t('drama.projectDescPlaceholder')"
+              resize="none"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="editDialogVisible = false" size="large">{{ $t('common.cancel') }}</el-button>
+            <el-button 
+              type="primary" 
+              @click="saveEdit" 
+              :loading="editLoading"
+              size="large"
+            >
+              {{ $t('common.save') }}
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
+
+      <!-- Create Drama Dialog / 创建短剧弹窗 -->
+      <CreateDramaDialog 
+        v-model="createDialogVisible" 
+        @created="loadDramas" 
+      />
+
+      <!-- AI Config Dialog / AI配置弹窗 -->
+      <AIConfigDialog v-model="showAIConfig" />
+    </div>
+
+    <!-- Sticky Pagination / 吸底分页器 -->
+    <div v-if="total > 0" class="pagination-sticky">
+      <div class="pagination-inner">
+        <div class="pagination-info">
+          <span class="pagination-total">{{ $t('drama.totalProjects', { count: total }) }}</span>
+        </div>
+        <div class="pagination-controls">
+          <el-pagination
+            v-model:current-page="queryParams.page"
+            v-model:page-size="queryParams.page_size"
+            :total="total"
+            :page-sizes="[12, 24, 36, 48]"
+            :pager-count="5"
+            layout="prev, pager, next"
+            @size-change="loadDramas"
+            @current-change="loadDramas"
+          />
+        </div>
+        <div class="pagination-size">
+          <span class="size-label">{{ $t('common.perPage') }}</span>
+          <el-select 
+            v-model="queryParams.page_size" 
+            size="small"
+            class="size-select"
+            @change="loadDramas"
           >
-            <template #title>
-              <span style="font-size: 13px;">{{ $t('drama.aiConfigTip') }}</span>
-            </template>
-          </el-alert>
-          <el-button type="warning" @click="goToAIConfig" :icon="Setting">{{ $t('drama.aiConfig') }}</el-button>
-          <el-button type="primary" @click="handleCreate" :icon="Plus">{{ $t('drama.createNew') }}</el-button>
+            <el-option :value="12" label="12" />
+            <el-option :value="24" label="24" />
+            <el-option :value="36" label="36" />
+            <el-option :value="48" label="48" />
+          </el-select>
         </div>
       </div>
     </div>
-
-    <div v-loading="loading" class="dramas-grid">
-      <el-empty v-if="!loading && dramas.length === 0" :description="$t('drama.empty')" />
-      
-      <el-card 
-        v-for="drama in dramas" 
-        :key="drama.id" 
-        class="drama-card" 
-        shadow="hover"
-        @click="viewDrama(drama.id)"
-      >
-        <div class="drama-cover">
-          <div class="cover-overlay"></div>
-          <img v-if="drama.thumbnail" :src="drama.thumbnail" :alt="drama.title" />
-          <div v-else class="cover-placeholder">
-            <el-icon :size="64"><Film /></el-icon>
-            <p>{{ $t('drama.noCover') }}</p>
-          </div>
-        </div>
-
-        <div class="drama-info">
-          <div class="info-header">
-            <h3 class="drama-title">{{ drama.title }}</h3>
-            <el-tag v-if="drama.genre" class="genre-tag" size="small">{{ drama.genre }}</el-tag>
-          </div>
-          
-          <p class="drama-description">{{ drama.description || $t('drama.noDescription') }}</p>
-          
-          <div class="drama-footer">
-            <div class="meta-info">
-              <span class="meta-item">
-                <el-icon><Clock /></el-icon>
-                {{ formatDate(drama.updated_at) }}
-              </span>
-            </div>
-            
-            <div class="drama-actions" @click.stop>
-              <el-button size="small" text @click="editDrama(drama.id)">
-                <el-icon><Edit /></el-icon>
-              </el-button>
-              <el-button size="small" text type="primary" @click="viewDrama(drama.id)">
-                <el-icon><View /></el-icon>
-              </el-button>
-              <el-popconfirm
-                :title="$t('drama.deleteConfirm')"
-                @confirm="deleteDrama(drama.id)"
-              >
-                <template #reference>
-                  <el-button size="small" text type="danger">
-                    <el-icon><Delete /></el-icon>
-                  </el-button>
-                </template>
-              </el-popconfirm>
-            </div>
-          </div>
-        </div>
-      </el-card>
-    </div>
-
-    <el-pagination
-      v-if="total > 0"
-      v-model:current-page="queryParams.page"
-      v-model:page-size="queryParams.page_size"
-      :total="total"
-      :page-sizes="[12, 24, 36, 48]"
-      layout="total, sizes, prev, pager, next, jumper"
-      @size-change="loadDramas"
-      @current-change="loadDramas"
-    />
-
-    <!-- 编辑对话框 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      title="编辑项目"
-      width="600px"
-      :close-on-click-modal="false"
-    >
-      <el-form :model="editForm" label-width="80px" v-loading="editLoading">
-        <el-form-item label="项目名称" required>
-          <el-input v-model="editForm.title" placeholder="请输入项目名称" />
-        </el-form-item>
-        <el-form-item label="项目描述">
-          <el-input
-            v-model="editForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入项目描述"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveEdit" :loading="editLoading">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -125,9 +168,18 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Clock, Film, Setting } from '@element-plus/icons-vue'
+import { 
+  Plus, 
+  Film, 
+  Setting, 
+  Edit, 
+  View, 
+  Delete,
+  InfoFilled 
+} from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
-import type { Drama, DramaListQuery, DramaStatus } from '@/types/drama'
+import type { Drama, DramaListQuery } from '@/types/drama'
+import { PageHeader, ProjectCard, ThemeToggle, ActionButton, CreateDramaDialog, EmptyState, AIConfigDialog } from '@/components/common'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
@@ -140,6 +192,11 @@ const queryParams = ref<DramaListQuery>({
   page_size: 12
 })
 
+// Create dialog state / 创建弹窗状态
+const createDialogVisible = ref(false)
+const showAIConfig = ref(false)
+
+// Load drama list / 加载短剧列表
 const loadDramas = async () => {
   loading.value = true
   try {
@@ -153,18 +210,11 @@ const loadDramas = async () => {
   }
 }
 
-const handleCreate = () => {
-  router.push('/dramas/create')
-}
+// Navigation handlers / 导航处理
+const handleCreate = () => createDialogVisible.value = true
+const viewDrama = (id: string) => router.push(`/dramas/${id}`)
 
-const goToAIConfig = () => {
-  router.push('/settings/ai-config')
-}
-
-const viewDrama = (id: string) => {
-  router.push(`/dramas/${id}`)
-}
-
+// Edit dialog state / 编辑对话框状态
 const editDialogVisible = ref(false)
 const editLoading = ref(false)
 const editForm = ref({
@@ -173,6 +223,7 @@ const editForm = ref({
   description: ''
 })
 
+// Open edit dialog / 打开编辑对话框
 const editDrama = async (id: string) => {
   editLoading.value = true
   editDialogVisible.value = true
@@ -191,6 +242,7 @@ const editDrama = async (id: string) => {
   }
 }
 
+// Save edit changes / 保存编辑更改
 const saveEdit = async () => {
   if (!editForm.value.title) {
     ElMessage.warning('请输入项目名称')
@@ -213,6 +265,7 @@ const saveEdit = async () => {
   }
 }
 
+// Delete drama / 删除短剧
 const deleteDrama = async (id: string) => {
   try {
     await dramaAPI.delete(id)
@@ -223,243 +276,239 @@ const deleteDrama = async (id: string) => {
   }
 }
 
-
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString()
-}
-
 onMounted(() => {
   loadDramas()
 })
 </script>
 
 <style scoped>
-.drama-list-container {
+/* ========================================
+   Page Layout / 页面布局 - 紧凑边距
+   ======================================== */
+.page-container {
   min-height: 100vh;
-  background: #f5f5f5;
-  padding: 24px;
-  max-width: 1400px;
+  background: var(--bg-primary);
+  padding: var(--space-2) var(--space-3);
+  transition: background var(--transition-normal);
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: var(--space-4) var(--space-5);
+  }
+}
+
+.content-wrapper {
   margin: 0 auto;
+  width: 100%;
 }
 
-.page-header-wrapper {
-  margin-bottom: 32px;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 0;
-}
-
-.page-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  font-weight: 600;
-  color: #303133;
-  letter-spacing: -0.5px;
-}
-
-.subtitle {
-  margin: 0;
-  color: #64748b;
-  font-size: 15px;
+/* ========================================
+   Header Buttons / 头部按钮
+   ======================================== */
+.header-btn {
+  border-radius: var(--radius-lg);
   font-weight: 500;
 }
 
-.dramas-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
-  min-height: 400px;
+.header-btn.primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #0284c7 100%);
+  border: none;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
 }
 
-.drama-card {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 8px;
-  overflow: hidden;
-  background: white;
-  border: 1px solid #e8e8e8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+.header-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45);
 }
 
-.drama-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #409eff;
+@media (max-width: 640px) {
+  .btn-text {
+    display: none;
+  }
+  
+  .header-btn {
+    padding: 0.5rem 0.75rem;
+  }
 }
 
-.drama-cover {
-  position: relative;
-  width: 100%;
-  height: 180px;
-  overflow: hidden;
-  background: linear-gradient(135deg, #409eff 0%, #66b1ff 100%);
+/* ========================================
+   Projects Grid / 项目网格 - 紧凑间距
+   ======================================== */
+.projects-grid {
+  display: flex;
+  /* grid-template-columns: repeat(2, 1fr); */
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  min-height: 300px;
+  padding-bottom: 4rem;
 }
 
-.cover-overlay {
-  position: absolute;
-  top: 0;
+@media (min-width: 640px) {
+  .projects-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+  }
+}
+
+@media (min-width: 900px) {
+  .projects-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+@media (min-width: 1200px) {
+  .projects-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (min-width: 1500px) {
+  .projects-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.projects-grid.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ========================================
+   Sticky Pagination / 吸底分页器
+   ======================================== */
+.pagination-sticky {
+  position: fixed;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.2) 100%);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 1;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-primary);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.drama-card:hover .cover-overlay {
-  opacity: 1;
+.dark .pagination-sticky {
+  background: rgba(10, 15, 26, 0.9);
+  border-top: 1px solid var(--border-primary);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.drama-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.drama-card:hover .drama-cover img {
-  transform: scale(1.05);
-}
-
-.cover-placeholder {
-  width: 100%;
-  height: 100%;
+.pagination-inner {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: white;
-  opacity: 0.8;
+  justify-content: flex-end;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
 }
 
-.cover-placeholder p {
-  margin: 0;
-  font-size: 13px;
+@media (min-width: 768px) {
+  .pagination-inner {
+    padding: var(--space-3) var(--space-6);
+  }
+}
+
+.pagination-info {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .pagination-info {
+    display: block;
+  }
+}
+
+.pagination-total {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
-.drama-info {
-  padding: 20px;
+.pagination-controls {
+  display: flex;
 }
 
-.info-header {
+.pagination-size {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
 }
 
-.drama-title {
-  margin: 0;
-  font-size: 16px;
+.size-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .size-label {
+    display: block;
+  }
+}
+
+.size-select {
+  width: 4.5rem;
+}
+
+.size-select :deep(.el-input__wrapper) {
+  height: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+/* ========================================
+   Edit Dialog / 编辑对话框
+   ======================================== */
+.edit-dialog :deep(.el-dialog) {
+  border-radius: var(--radius-xl);
+}
+
+.edit-dialog :deep(.el-dialog__header) {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  margin-right: 0;
+}
+
+.edit-dialog :deep(.el-dialog__title) {
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #303133;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.3px;
-  flex: 1;
+  color: var(--text-primary);
 }
 
-.genre-tag {
-  background: #409eff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 2px 8px;
+.edit-dialog :deep(.el-dialog__body) {
+  padding: 1.5rem;
+}
+
+.edit-form :deep(.el-form-item__label) {
   font-weight: 500;
-  font-size: 11px;
-  flex-shrink: 0;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
 }
 
-.drama-description {
-  margin: 0 0 16px 0;
-  font-size: 13px;
-  color: #64748b;
-  line-height: 1.6;
-  height: 42px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.drama-footer {
+.dialog-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid #e0e0e0;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
-.meta-info {
-  flex: 1;
+/* Delete button style */
+.action-button.danger {
+  padding: 0.5rem;
+  color: var(--text-muted);
 }
 
-.meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.meta-item .el-icon {
-  font-size: 14px;
-}
-
-.drama-actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.drama-actions .el-button {
-  padding: 6px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.drama-actions .el-button:hover {
-  background: #f0f0f0;
-}
-
-.drama-actions .el-button.is-text[type="primary"]:hover {
-  background: #ecf5ff;
-  color: #409eff;
-}
-
-.drama-actions .el-button.is-text[type="danger"]:hover {
-  background: #fef0f0;
-  color: #f56c6c;
-}
-
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  margin-top: 32px;
-  padding: 20px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e4e7ed;
+.action-button.danger:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 </style>
