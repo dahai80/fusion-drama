@@ -155,7 +155,7 @@ func (c *ChatfireClient) GenerateVideo(imageURL, prompt string, opts ...VideoOpt
 				Type string `json:"type"`
 				Text string `json:"text,omitempty"`
 				URL  string `json:"url,omitempty"`
-			}{Type: "image", URL: imageURL})
+			}{Type: "image_url", URL: imageURL})
 		}
 
 		jsonData, err = json.Marshal(reqBody)
