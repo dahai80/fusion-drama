@@ -1,15 +1,24 @@
 <template>
-  <div class="ai-config-container">
-    <el-page-header @back="goBack" :title="$t('aiConfig.back')">
-      <template #content>
-        <div class="page-header">
-          <h2>{{ $t('aiConfig.title') }}</h2>
-          <el-button type="primary" @click="showCreateDialog" :icon="Plus">{{ $t('aiConfig.addConfig') }}</el-button>
-        </div>
-      </template>
-    </el-page-header>
+  <div class="page-container">
+    <div class="content-wrapper animate-fade-in">
+      <!-- Page Header / 页面头部 -->
+      <PageHeader
+        :title="$t('aiConfig.title')"
+        :subtitle="$t('aiConfig.subtitle') || '管理 AI 服务配置'"
+        :show-back="true"
+        :back-text="$t('common.back')"
+      >
+        <template #actions>
+          <el-button type="primary" @click="showCreateDialog">
+            <el-icon><Plus /></el-icon>
+            <span>{{ $t('aiConfig.addConfig') }}</span>
+          </el-button>
+        </template>
+      </PageHeader>
 
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+      <!-- Tabs / 标签页 -->
+      <div class="tabs-wrapper">
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="config-tabs">
       <el-tab-pane :label="$t('aiConfig.tabs.text')" name="text">
         <ConfigList 
           :configs="configs" 
@@ -43,9 +52,11 @@
           @toggle-active="handleToggleActive"
         />
       </el-tab-pane>
-    </el-tabs>
+        </el-tabs>
+      </div>
 
-    <el-dialog
+      <!-- Edit/Create Dialog / 编辑创建弹窗 -->
+      <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? $t('aiConfig.editConfig') : $t('aiConfig.addConfig')"
       width="600px"
@@ -144,6 +155,7 @@
         </el-button>
       </template>
     </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -151,8 +163,9 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, ArrowLeft } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
+import { PageHeader } from '@/components/common'
 import type { AIServiceConfig, AIServiceType, CreateAIConfigRequest, UpdateAIConfigRequest } from '@/types/ai'
 import ConfigList from './components/ConfigList.vue'
 
@@ -578,43 +591,150 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ai-config-container {
-  padding: 24px;
+/* ========================================
+   Page Layout / 页面布局 - 紧凑边距
+   ======================================== */
+.page-container {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: var(--space-2) var(--space-3);
+  transition: background var(--transition-normal);
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-container {
+    padding: var(--space-4) var(--space-5);
+  }
+}
+
+.content-wrapper {
   max-width: 1200px;
   margin: 0 auto;
 }
 
-:deep(.el-page-header__header) {
-  display: flex;
-  align-items: center;
-  padding-bottom: 20px;
+/* ========================================
+   Tabs / 标签页 - 紧凑内边距
+   ======================================== */
+.tabs-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-card);
 }
 
-:deep(.el-page-header__left) {
-  display: flex;
-  align-items: center;
-  height: 100%;
+@media (min-width: 768px) {
+  .tabs-wrapper {
+    padding: var(--space-4);
+  }
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  width: 100%;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-  flex: 1;
-}
-
+/* ========================================
+   Form Tips / 表单提示
+   ======================================== */
 .form-tip {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* ========================================
+   Dialog / 弹窗
+   ======================================== */
+:deep(.el-dialog) {
+  border-radius: 0.75rem;
+}
+
+:deep(.el-dialog__header) {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  margin-right: 0;
+}
+
+:deep(.el-dialog__title) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+:deep(.el-dialog__body) {
+  padding: 1.5rem;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-primary);
+}
+
+/* ========================================
+   Dark Mode / 深色模式
+   ======================================== */
+.dark .tabs-wrapper {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-dialog) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-dialog__header) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-dialog__body) {
+  background: var(--bg-card);
+}
+
+.dark :deep(.el-form-item__label) {
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-input__wrapper) {
+  background: var(--bg-secondary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+
+.dark :deep(.el-input__inner) {
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-input__inner::placeholder) {
+  color: var(--text-muted);
+}
+
+.dark :deep(.el-select .el-input__wrapper) {
+  background: var(--bg-secondary);
+}
+
+.dark :deep(.el-textarea__inner) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+
+.dark :deep(.el-input-number) {
+  background: var(--bg-secondary);
+}
+
+.dark :deep(.el-switch__core) {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+}
+
+.dark :deep(.el-button--default) {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.dark :deep(.el-button--default:hover) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-secondary);
 }
 </style>

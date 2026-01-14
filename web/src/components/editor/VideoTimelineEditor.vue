@@ -26,7 +26,7 @@
     <div class="editor-workspace">
       <!-- 预览区域 -->
       <div class="preview-panel">
-        <div class="video-preview">
+        <div class="video-preview" @click="togglePlay">
           <video 
             ref="previewPlayer"
             :src="currentPreviewUrl"
@@ -41,6 +41,10 @@
             :class="[`transition-${transitionState.type}`, { 'transition-in': transitionState.phase === 'in', 'transition-out': transitionState.phase === 'out' }]"
             :style="{ animationDuration: transitionState.duration + 's' }"
           ></div>
+          <!-- 播放/暂停图标覆盖层 -->
+          <div class="video-play-overlay" :class="{ hidden: isPlaying }" v-if="currentPreviewUrl">
+            <el-icon :size="64"><VideoPlay /></el-icon>
+          </div>
           <div class="preview-overlay" v-if="!currentPreviewUrl">
             <el-empty :description="$t('video.dragToTimeline')" />
           </div>
@@ -154,7 +158,18 @@
           @dragover.prevent
           @click="clickTimeline($event)"
         >
-          <div class="track-label">{{ $t('video.videoTrack') }}</div>
+          <div class="track-label">
+            <span>{{ $t('video.videoTrack') }}</span>
+            <el-button 
+              type="text" 
+              size="small" 
+              @click.stop="clearAllClips"
+              :disabled="timelineClips.length === 0"
+              :title="$t('video.clearTrack')"
+            >
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </div>
           <div class="track-clips">
             <!-- 视频片段 -->
             <div
@@ -926,6 +941,17 @@ const removeClip = (clip: TimelineClip) => {
   }
 }
 
+const clearAllClips = () => {
+  if (timelineClips.value.length === 0) return
+  
+  timelineClips.value = []
+  audioClips.value = []
+  selectedClipId.value = null
+  selectedAudioClipId.value = null
+  currentTime.value = 0
+  ElMessage.success('已清空轨道')
+}
+
 const updateClipOrders = () => {
   timelineClips.value.forEach((clip, index) => {
     clip.order = index
@@ -1356,6 +1382,14 @@ const pauseTimeline = () => {
   }
 }
 
+const togglePlay = () => {
+  if (isPlaying.value) {
+    pauseTimeline()
+  } else {
+    playTimeline()
+  }
+}
+
 // 键盘快捷键
 const handleKeyPress = (event: KeyboardEvent) => {
   // 如果在输入框中，不处理快捷键
@@ -1665,16 +1699,16 @@ defineExpose({
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
-  color: #333;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 
   .editor-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 10px 16px;
-    background: #f5f5f5;
-    border: 1px solid #e0e0e0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
 
     .toolbar-left {
       display: flex;
@@ -1684,7 +1718,7 @@ defineExpose({
       .time-display {
         font-family: 'Courier New', monospace;
         font-size: 14px;
-        color: #666;
+        color: var(--text-secondary);
         min-width: 160px;
       }
     }
@@ -1699,8 +1733,8 @@ defineExpose({
       flex: 0 0 500px;
       display: flex;
       flex-direction: column;
-      background: #fff;
-      border: 1px solid #e0e0e0;
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
 
       .video-preview {
         flex: 1;
@@ -1725,7 +1759,35 @@ defineExpose({
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(245, 245, 245, 0.95);
+          background: var(--bg-secondary);
+        }
+
+        .video-play-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.3);
+          cursor: pointer;
+          transition: opacity 0.3s ease;
+          z-index: 5;
+
+          .el-icon {
+            color: white;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+          }
+
+          &.hidden {
+            opacity: 0;
+          }
+
+          &:hover {
+            background: rgba(0, 0, 0, 0.4);
+          }
         }
         
         .transition-overlay {
@@ -1861,8 +1923,8 @@ defineExpose({
 
       .preview-controls {
         padding: 12px 16px;
-        background: #f5f5f5;
-        border: 1px solid #e0e0e0;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
       }
     }
 
@@ -1870,7 +1932,7 @@ defineExpose({
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: #fff;
+      background: var(--bg-card);
       overflow: hidden;
 
       .library-header {
@@ -1878,8 +1940,8 @@ defineExpose({
         justify-content: space-between;
         align-items: center;
         padding: 12px 16px;
-        background: #f5f5f5;
-        border: 1px solid #e0e0e0;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
 
         .header-left {
           display: flex;
@@ -1890,12 +1952,12 @@ defineExpose({
             margin: 0;
             font-size: 14px;
             font-weight: 500;
-            color: #333;
+            color: var(--text-primary);
           }
 
           span {
             font-size: 12px;
-            color: #999;
+            color: var(--text-muted);
           }
         }
       }
@@ -1915,26 +1977,26 @@ defineExpose({
         }
 
         &::-webkit-scrollbar-track {
-          background: #f0f0f0;
+          background: var(--bg-secondary);
           border-radius: 4px;
         }
 
         &::-webkit-scrollbar-thumb {
-          background: #d0d0d0;
+          background: var(--border-secondary);
           border-radius: 4px;
           
           &:hover {
-            background: #c0c0c0;
+            background: var(--border-primary);
           }
         }
 
         .media-item {
           position: relative;
-          background: #f5f5f5;
+          background: var(--bg-secondary);
           border-radius: 6px;
           overflow: hidden;
           cursor: move;
-          border: 1px solid var(--el-border-color);
+          border: 1px solid var(--border-primary);
           transition: all 0.3s;
 
           &:hover {
@@ -1960,7 +2022,7 @@ defineExpose({
             position: relative;
             width: 100%;
             aspect-ratio: 16/9;
-            background: #f0f0f0;
+            background: var(--bg-card-hover);
             cursor: pointer;
 
             video {
@@ -2017,13 +2079,13 @@ defineExpose({
             .media-title {
               font-size: 12px;
               font-weight: 500;
-              color: #333;
+              color: var(--text-primary);
               margin-bottom: 4px;
             }
 
             .media-desc {
               font-size: 11px;
-              color: #999;
+              color: var(--text-muted);
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -2038,16 +2100,16 @@ defineExpose({
     flex: 0 0 280px;
     display: flex;
     flex-direction: column;
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
 
     .timeline-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 8px 12px;
-      background: #f5f5f5;
-      border: 1px solid #e0e0e0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
 
       .zoom-controls {
         display: flex;
@@ -2056,7 +2118,7 @@ defineExpose({
 
         .zoom-level {
           font-size: 12px;
-          color: #999;
+          color: var(--text-muted);
           min-width: 50px;
           text-align: right;
         }
@@ -2068,12 +2130,12 @@ defineExpose({
       position: relative;
       overflow-x: auto;
       overflow-y: hidden;
-      background: #fafafa;
+      background: var(--bg-primary);
 
       .timeline-ruler {
         height: 30px;
-        background: #fff;
-        border: 1px solid #e0e0e0;
+        background: var(--bg-card);
+        border: 1px solid var(--border-primary);
         position: relative;
 
         .ruler-tick {
@@ -2083,11 +2145,11 @@ defineExpose({
 
           .tick-mark {
             width: 1px;
-            background: #d0d0d0;
+            background: var(--border-secondary);
 
             &.major {
               height: 20px;
-              background: #b0b0b0;
+              background: var(--border-primary);
             }
 
             &.minor {
@@ -2101,7 +2163,7 @@ defineExpose({
             top: 2px;
             left: 4px;
             font-size: 10px;
-            color: #999;
+            color: var(--text-muted);
             font-family: 'Courier New', monospace;
           }
         }
@@ -2117,8 +2179,8 @@ defineExpose({
         .playhead-line {
           width: 2px;
           height: 100%;
-          background: #3498db;
-          box-shadow: 0 0 8px rgba(52, 152, 219, 0.6);
+          background: var(--accent);
+          box-shadow: 0 0 8px rgba(14, 165, 233, 0.6);
         }
 
         .playhead-handle {
@@ -2127,17 +2189,17 @@ defineExpose({
           left: -6px;
           width: 14px;
           height: 14px;
-          background: #3498db;
+          background: var(--accent);
           border-radius: 50%;
-          border: 2px solid #fff;
+          border: 2px solid var(--bg-card);
         }
       }
 
       .timeline-track {
         position: relative;
         height: 80px;
-        background: #f5f5f5;
-        border: 1px solid #e0e0e0;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
 
         .track-label {
           position: absolute;
@@ -2149,9 +2211,9 @@ defineExpose({
           align-items: center;
           padding-left: 12px;
           font-size: 12px;
-          color: #666;
-          background: #fff;
-          border: 1px solid #e0e0e0;
+          color: var(--text-secondary);
+          background: var(--bg-card);
+          border: 1px solid var(--border-primary);
           z-index: 50;
         }
 
@@ -2164,7 +2226,7 @@ defineExpose({
             position: absolute;
             top: 8px;
             bottom: 8px;
-            background: #3a5f7d;
+            background: var(--accent);
             border-radius: 4px;
             border: 2px solid transparent;
             cursor: move;
@@ -2172,13 +2234,13 @@ defineExpose({
             overflow: hidden;
 
             &:hover {
-              border-color: #5a9fd4;
-              box-shadow: 0 2px 8px rgba(90, 159, 212, 0.3);
+              border-color: var(--accent-hover);
+              box-shadow: var(--shadow-md);
             }
 
             &.selected {
-              border-color: #3498db;
-              box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+              border-color: var(--accent);
+              box-shadow: var(--shadow-glow);
             }
 
             .clip-content {
@@ -2191,7 +2253,7 @@ defineExpose({
               .clip-thumbnail {
                 width: 60px;
                 height: 100%;
-                background: #f0f0f0;
+                background: var(--bg-card-hover);
                 border-radius: 3px;
                 overflow: hidden;
                 flex-shrink: 0;
@@ -2211,7 +2273,7 @@ defineExpose({
                 .clip-title {
                   font-size: 11px;
                   font-weight: 500;
-                  color: #333;
+                  color: var(--text-inverse);
                   margin-bottom: 2px;
                   white-space: nowrap;
                   overflow: hidden;
@@ -2220,7 +2282,8 @@ defineExpose({
 
                 .clip-duration {
                   font-size: 10px;
-                  color: #666;
+                  color: var(--text-inverse);
+                  opacity: 0.8;
                 }
               }
             }
@@ -2263,7 +2326,7 @@ defineExpose({
               transition: opacity 0.2s;
 
               &:hover {
-                background: #e74c3c;
+                background: var(--error);
               }
             }
 
@@ -2305,7 +2368,7 @@ defineExpose({
               top: 100%;
               margin-top: 4px;
               font-size: 10px;
-              color: #666;
+              color: var(--text-secondary);
               white-space: nowrap;
               background: rgba(0, 0, 0, 0.8);
               padding: 2px 6px;
@@ -2331,31 +2394,31 @@ defineExpose({
           padding-right: 8px;
 
           .el-button {
-            color: #999;
+            color: var(--text-muted);
             
             &:hover {
-              color: #409eff;
+              color: var(--accent);
             }
           }
         }
 
         .audio-clip {
-          background: #5d4a7a;
+          background: #7c3aed;
 
           &:hover {
-            border-color: #8b6fb3;
-            box-shadow: 0 2px 8px rgba(139, 111, 179, 0.3);
+            border-color: #a78bfa;
+            box-shadow: var(--shadow-md);
           }
 
           &.selected {
-            border-color: #9b59b6;
-            box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.3);
+            border-color: #8b5cf6;
+            box-shadow: var(--shadow-glow);
           }
 
           .audio-waveform {
             width: 60px;
             height: 100%;
-            background: linear-gradient(135deg, #8e44ad 0%, #3498db 100%);
+            background: linear-gradient(135deg, #8b5cf6 0%, var(--accent) 100%);
             border-radius: 3px;
             display: flex;
             align-items: center;
@@ -2384,7 +2447,7 @@ defineExpose({
 
       .progress-message {
         font-size: 14px;
-        color: #606266;
+        color: var(--text-secondary);
         font-weight: 500;
       }
     }
@@ -2392,7 +2455,7 @@ defineExpose({
     .progress-tips {
       margin-top: 20px;
       padding: 12px;
-      background: #f5f7fa;
+      background: var(--bg-secondary);
       border-radius: 6px;
 
       p {
@@ -2401,7 +2464,7 @@ defineExpose({
         align-items: center;
         gap: 8px;
         font-size: 13px;
-        color: #606266;
+        color: var(--text-secondary);
 
         .el-icon {
           font-size: 16px;

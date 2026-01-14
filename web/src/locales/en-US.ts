@@ -52,7 +52,8 @@ export default {
     name: 'Name',
     description: 'Description',
     createdAt: 'Created At',
-    updatedAt: 'Updated At'
+    updatedAt: 'Updated At',
+    perPage: 'Per Page'
   },
   settings: {
     title: 'Settings',
@@ -110,13 +111,23 @@ export default {
     }
   },
   drama: {
-    title: 'Drama Management',
+    title: 'My Drama Projects',
     create: 'Create Project',
     totalProjects: 'Total {count} projects',
-    createNew: 'Create New Project',
-    aiConfig: 'AI Configuration',
-    aiConfigTip: 'Please configure AI services before creating a project',
-    empty: 'No projects yet, click the button above to create a new project',
+    createNew: 'Create Project',
+    createDesc: 'Fill in basic information to create your drama project',
+    aiConfig: 'AI Config',
+    aiConfigTip: 'Please configure AI service before creating a project',
+    empty: 'No projects yet',
+    emptyHint: 'Click "Create Project" button above to start your first drama',
+    editProject: 'Edit Project',
+    projectName: 'Project Name',
+    projectNamePlaceholder: 'Enter project name',
+    projectDesc: 'Project Description',
+    projectDescPlaceholder: 'Enter project description (optional)',
+    deleteConfirm: 'Are you sure you want to delete this project?',
+    noCover: 'No cover',
+    noDescription: 'No description',
     status: {
       draft: 'Draft',
       production: 'In Production',
@@ -632,6 +643,7 @@ export default {
     dragToTimeline: 'Drag scenes to timeline to start editing',
     videoTrack: 'Video Track',
     audioTrack: 'Audio Track',
+    clearTrack: 'Clear Track',
     soundAndMusic: 'Sound & Music',
     soundMusicInDev: 'Sound & Music feature in development',
     noMergeYet: 'No videos merged yet',

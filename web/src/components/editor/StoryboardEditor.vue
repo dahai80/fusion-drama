@@ -332,8 +332,11 @@
           <div class="param-section" v-if="currentShot">
             <div class="param-group">
               <label>视频预览</label>
-              <div class="video-preview" v-if="currentShot.video_url">
-                <video :src="currentShot.video_url" controls style="width: 100%;" />
+              <div class="video-preview" v-if="currentShot.video_url" @click="toggleVideoPlay">
+                <video ref="videoPlayerRef" :src="currentShot.video_url" style="width: 100%;" @ended="videoPlaying = false" />
+                <div class="video-play-overlay" :class="{ hidden: videoPlaying }">
+                  <el-icon :size="48"><VideoPlay /></el-icon>
+                </div>
               </div>
               <div v-else class="video-placeholder">
                 <el-icon><VideoCamera /></el-icon>
@@ -443,6 +446,19 @@ const selectedCharacters = ref<string[]>([])
 const availableCharacters = ref<any[]>([])
 const backgroundPrompt = ref('')
 const backgroundsCache = ref<Background[]>([])
+const videoPlayerRef = ref<HTMLVideoElement | null>(null)
+const videoPlaying = ref(false)
+
+const toggleVideoPlay = () => {
+  if (!videoPlayerRef.value) return
+  if (videoPlaying.value) {
+    videoPlayerRef.value.pause()
+    videoPlaying.value = false
+  } else {
+    videoPlayerRef.value.play()
+    videoPlaying.value = true
+  }
+}
 
 const router = useRouter()
 
@@ -752,22 +768,22 @@ watch(() => currentShot.value, () => {
 .storyboard-editor {
   display: flex;
   height: 100vh;
-  background: #f5f7fa;
-  color: #303133;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
 .left-panel {
   width: 280px;
   flex-shrink: 0;
-  background: #ffffff;
+  background: var(--bg-card);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #e4e7ed;
+  border-right: 1px solid var(--border-primary);
 
   .panel-header {
     padding: 16px;
-    border-bottom: 1px solid #e4e7ed;
+    border-bottom: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -782,7 +798,7 @@ watch(() => currentShot.value, () => {
       margin: 0;
       font-size: 14px;
       font-weight: 600;
-      color: #303133;
+      color: var(--text-primary);
     }
   }
 
@@ -796,35 +812,35 @@ watch(() => currentShot.value, () => {
       gap: 12px;
       padding: 12px;
       margin-bottom: 8px;
-      background: #f5f7fa;
+      background: var(--bg-secondary);
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s;
-      border: 1px solid #e4e7ed;
+      border: 1px solid var(--border-primary);
 
       &:hover {
-        background: #ecf5ff;
-        border-color: #c6e2ff;
+        background: var(--accent-light);
+        border-color: var(--accent);
       }
 
       &.active {
-        background: #ecf5ff;
-        border-color: #409eff;
-        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+        background: var(--accent-light);
+        border-color: var(--accent);
+        box-shadow: var(--shadow-md);
       }
 
       .scene-number {
         flex-shrink: 0;
         width: 32px;
         height: 32px;
-        background: #409eff;
+        background: var(--accent);
         border-radius: 4px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: 600;
         font-size: 12px;
-        color: #ffffff;
+        color: var(--text-inverse);
       }
 
       .scene-content {
@@ -839,7 +855,7 @@ watch(() => currentShot.value, () => {
 
           .time-location {
             font-size: 11px;
-            color: #909399;
+            color: var(--text-muted);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -848,7 +864,7 @@ watch(() => currentShot.value, () => {
 
         .scene-desc {
           font-size: 12px;
-          color: #606266;
+          color: var(--text-secondary);
           line-height: 1.4;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -864,8 +880,8 @@ watch(() => currentShot.value, () => {
         height: 40px;
         border-radius: 4px;
         overflow: hidden;
-        background: #f0f2f5;
-        border: 1px solid #dcdfe6;
+        background: var(--bg-card-hover);
+        border: 1px solid var(--border-primary);
       }
     }
   }
@@ -876,12 +892,12 @@ watch(() => currentShot.value, () => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  background: var(--bg-primary);
 
   .preview-header {
     padding: 12px 20px;
-    background: #ffffff;
-    border-bottom: 1px solid #e4e7ed;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -893,7 +909,7 @@ watch(() => currentShot.value, () => {
 
       .shot-type {
         font-size: 14px;
-        color: #606266;
+        color: var(--text-secondary);
       }
     }
   }
@@ -912,11 +928,11 @@ watch(() => currentShot.value, () => {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #ffffff;
+      background: var(--bg-card);
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid #e4e7ed;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      border: 1px solid var(--border-primary);
+      box-shadow: var(--shadow-md);
 
       .preview-image {
         width: 100%;
@@ -933,7 +949,7 @@ watch(() => currentShot.value, () => {
 
       .preview-placeholder {
         text-align: center;
-        color: #909399;
+        color: var(--text-muted);
 
         p {
           margin-top: 12px;
@@ -942,7 +958,7 @@ watch(() => currentShot.value, () => {
 
         .hint {
           font-size: 12px;
-          color: #909399;
+          color: var(--text-muted);
           margin-top: 8px;
         }
       }
@@ -959,15 +975,15 @@ watch(() => currentShot.value, () => {
 
   .timeline-panel {
     height: 140px;
-    background: #ffffff;
-    border-top: 1px solid #e4e7ed;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-primary);
 
     .timeline-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 8px 16px;
-      border-bottom: 1px solid #e4e7ed;
+      border-bottom: 1px solid var(--border-primary);
 
       .timeline-tools {
         display: flex;
@@ -976,7 +992,7 @@ watch(() => currentShot.value, () => {
 
         .timecode {
           font-size: 12px;
-          color: #909399;
+          color: var(--text-muted);
           font-family: monospace;
         }
       }
@@ -1000,22 +1016,22 @@ watch(() => currentShot.value, () => {
       }
 
       &::-webkit-scrollbar-track {
-        background: #f5f7fa;
+        background: var(--bg-secondary);
       }
 
       &::-webkit-scrollbar-thumb {
-        background: #c0c4cc;
+        background: var(--border-secondary);
         border-radius: 4px;
 
         &:hover {
-          background: #909399;
+          background: var(--border-primary);
         }
       }
 
       .timeline-ruler {
         position: relative;
         height: 20px;
-        border-bottom: 1px solid #dcdfe6;
+        border-bottom: 1px solid var(--border-primary);
         min-width: max-content;
 
         .ruler-mark {
@@ -1027,13 +1043,13 @@ watch(() => currentShot.value, () => {
             display: block;
             width: 1px;
             height: 8px;
-            background: #dcdfe6;
+            background: var(--border-primary);
             margin-bottom: 2px;
           }
 
           span {
             font-size: 10px;
-            color: #606266;
+            color: var(--text-secondary);
           }
         }
       }
@@ -1050,21 +1066,21 @@ watch(() => currentShot.value, () => {
           flex-shrink: 0;
           width: 60px;
           height: 100%;
-          background: #c6e2ff;
+          background: var(--accent-light);
           border-radius: 4px;
           cursor: pointer;
           transition: all 0.2s;
-          border: 1px solid #a0cfff;
+          border: 1px solid var(--accent);
 
           &:hover {
-            background: #a0cfff;
-            border-color: #79bbff;
+            background: var(--accent);
+            border-color: var(--accent-hover);
           }
 
           &.active {
-            background: #409eff;
-            border-color: #409eff;
-            box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: var(--shadow-glow);
           }
 
           .clip-content {
@@ -1077,12 +1093,12 @@ watch(() => currentShot.value, () => {
             .clip-number {
               font-size: 11px;
               font-weight: 600;
-              color: #303133;
+              color: var(--text-primary);
             }
           }
 
           &.active .clip-content .clip-number {
-            color: #ffffff;
+            color: var(--text-inverse);
           }
         }
       }
@@ -1093,8 +1109,8 @@ watch(() => currentShot.value, () => {
 .right-panel {
   width: 420px;
   flex-shrink: 0;
-  background: #ffffff;
-  border-left: 1px solid #e4e7ed;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
 
@@ -1106,8 +1122,8 @@ watch(() => currentShot.value, () => {
 
     :deep(.el-tabs__header) {
       margin: 0;
-      background: #ffffff;
-      border-bottom: 1px solid #e4e7ed;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-primary);
       flex-shrink: 0;
       padding: 0 8px;
     }
@@ -1120,24 +1136,24 @@ watch(() => currentShot.value, () => {
     }
 
     :deep(.el-tabs__item) {
-      color: #606266;
+      color: var(--text-secondary);
       font-size: 13px;
       font-weight: 500;
       padding: 0 20px;
       transition: all 0.3s ease;
 
       &:hover {
-        color: #409eff;
+        color: var(--accent);
       }
 
       &.is-active {
-        color: #409eff;
-        background: #ecf5ff;
+        color: var(--accent);
+        background: var(--accent-light);
       }
     }
 
     :deep(.el-tabs__active-bar) {
-      background: linear-gradient(90deg, #409eff 0%, #66b1ff 100%);
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 100%);
       height: 3px;
     }
 
@@ -1150,32 +1166,32 @@ watch(() => currentShot.value, () => {
     .section-title {
       font-size: 14px;
       font-weight: 600;
-      color: #409eff;
+      color: var(--accent);
       margin: 12px 0 10px;
       padding: 6px 10px;
-      background: #ecf5ff;
+      background: var(--accent-light);
       border-radius: 6px;
-      border-left: 3px solid #409eff;
+      border-left: 3px solid var(--accent);
     }
     
     .param-group {
       margin-bottom: 10px;
       padding: 10px;
-      background: #f5f7fa;
+      background: var(--bg-secondary);
       border-radius: 8px;
-      border: 1px solid #e4e7ed;
+      border: 1px solid var(--border-primary);
       transition: all 0.3s ease;
 
       &:hover {
-        background: #ecf5ff;
-        border-color: #c6e2ff;
-        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.08);
+        background: var(--accent-light);
+        border-color: var(--accent);
+        box-shadow: var(--shadow-sm);
       }
 
       label {
         display: block;
         font-size: 12px;
-        color: #606266;
+        color: var(--text-secondary);
         margin-bottom: 6px;
         font-weight: 600;
         letter-spacing: 0.3px;
@@ -1208,29 +1224,29 @@ watch(() => currentShot.value, () => {
     .background-preview-small {
       width: 80px;
       height: 60px;
-      background: #f0f2f5;
+      background: var(--bg-secondary);
       border-radius: 6px;
       overflow: hidden;
-      border: 1px solid #dcdfe6;
+      border: 1px solid var(--border-primary);
       flex-shrink: 0;
     }
 
     .background-placeholder-small {
       width: 80px;
       height: 60px;
-      background: #fafafa;
+      background: var(--bg-primary);
       border-radius: 6px;
-      border: 2px dashed #c0c4cc;
+      border: 2px dashed var(--border-secondary);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #909399;
+      color: var(--text-muted);
       flex-shrink: 0;
       transition: all 0.3s ease;
 
       &:hover {
-        border-color: #409eff;
-        background: #ecf5ff;
+        border-color: var(--accent);
+        background: var(--accent-light);
       }
     }
 
@@ -1248,32 +1264,60 @@ watch(() => currentShot.value, () => {
     .video-preview {
       width: 100%;
       aspect-ratio: 2/1;
-      background: #f0f2f5;
+      background: var(--bg-secondary);
       border-radius: 6px;
       overflow: hidden;
       margin-bottom: 8px;
-      border: 1px solid #dcdfe6;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border: 1px solid var(--border-primary);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      cursor: pointer;
+    }
+
+    .video-play-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.4);
+      transition: opacity 0.3s ease;
+
+      .el-icon {
+        color: white;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+      }
+
+      &.hidden {
+        opacity: 0;
+      }
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.5);
+      }
     }
 
     .background-placeholder,
     .video-placeholder {
       width: 100%;
       aspect-ratio: 2/1;
-      background: #fafafa;
+      background: var(--bg-primary);
       border-radius: 6px;
-      border: 2px dashed #c0c4cc;
+      border: 2px dashed var(--border-secondary);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #909399;
+      color: var(--text-muted);
       margin-bottom: 8px;
       transition: all 0.3s ease;
 
       &:hover {
-        border-color: #409eff;
-        background: #ecf5ff;
+        border-color: var(--accent);
+        background: var(--accent-light);
       }
 
       .el-icon {
@@ -1322,12 +1366,12 @@ watch(() => currentShot.value, () => {
     .help-text {
       margin-top: 6px;
       font-size: 11px;
-      color: #909399;
+      color: var(--text-muted);
       line-height: 1.5;
       padding: 4px 8px;
-      background: #ecf5ff;
+      background: var(--accent-light);
       border-radius: 4px;
-      border-left: 2px solid #409eff;
+      border-left: 2px solid var(--accent);
     }
 
     .character-list {
@@ -1347,8 +1391,8 @@ watch(() => currentShot.value, () => {
           transform: translateY(-2px);
           
           .avatar-wrapper {
-            border-color: #409eff;
-            box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+            border-color: var(--accent);
+            box-shadow: var(--shadow-md);
           }
         }
 
@@ -1357,19 +1401,19 @@ watch(() => currentShot.value, () => {
           height: 50px;
           border-radius: 50%;
           overflow: hidden;
-          background: #f0f2f5;
+          background: var(--bg-secondary);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #909399;
-          border: 2px solid #c0c4cc;
+          color: var(--text-muted);
+          border: 2px solid var(--border-secondary);
           transition: all 0.3s ease;
           margin-bottom: 6px;
         }
 
         .avatar-name {
           font-size: 11px;
-          color: #606266;
+          color: var(--text-secondary);
           text-align: center;
           max-width: 100%;
           overflow: hidden;
@@ -1384,16 +1428,16 @@ watch(() => currentShot.value, () => {
       .composition-placeholder {
         width: 100%;
         aspect-ratio: 2/1;
-        background: #fafafa;
+        background: var(--bg-primary);
         border-radius: 6px;
-        border: 2px dashed #c0c4cc;
+        border: 2px dashed var(--border-secondary);
         overflow: hidden;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         margin-bottom: 8px;
-        color: #909399;
+        color: var(--text-muted);
 
         .el-icon {
           font-size: 32px;
@@ -1406,7 +1450,7 @@ watch(() => currentShot.value, () => {
 
         .hint {
           font-size: 10px;
-          color: #909399;
+          color: var(--text-muted);
           margin-top: 4px;
         }
       }
@@ -1417,25 +1461,25 @@ watch(() => currentShot.value, () => {
 :deep(.el-input__wrapper),
 :deep(.el-textarea__inner),
 :deep(.el-select) {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   border-radius: 6px;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--border-primary);
   transition: all 0.3s ease;
 
   &:hover {
-    border-color: #c0c4cc;
+    border-color: var(--border-secondary);
   }
 
   &:focus,
   &.is-focus {
-    border-color: #409eff;
-    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
   }
 }
 
 :deep(.el-input__inner),
 :deep(.el-textarea__inner) {
-  color: #606266;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -1444,7 +1488,7 @@ watch(() => currentShot.value, () => {
 }
 
 :deep(.el-divider) {
-  border-color: #e4e7ed;
+  border-color: var(--border-primary);
   margin: 12px 0;
 }
 

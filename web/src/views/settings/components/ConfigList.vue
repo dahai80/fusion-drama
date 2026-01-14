@@ -125,74 +125,94 @@ const formatDate = (dateString: string) => {
 <style scoped>
 .config-list {
   display: grid;
-  gap: 16px;
+  gap: 1rem;
   min-height: 300px;
 }
 
 .config-card {
-  transition: all 0.3s;
+  transition: all 0.2s ease;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+}
+
+.config-card :deep(.el-card__body) {
+  padding: 1.25rem;
 }
 
 .config-card:hover {
-  transform: translateY(-2px);
+  border-color: var(--border-secondary);
 }
 
 .config-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .config-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .config-title h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .config-actions {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .config-info {
   display: grid;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .info-item {
   display: flex;
   align-items: center;
-  font-size: 14px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
 }
 
 .info-item label {
-  min-width: 90px;
-  color: #666;
+  min-width: 5.5rem;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
+.info-item span {
+  color: var(--text-secondary);
+}
+
 .url-text {
-  color: #409eff;
+  color: #0ea5e9 !important;
   word-break: break-all;
 }
 
 .api-key {
   font-family: monospace;
-  color: #999;
+  color: var(--text-muted) !important;
 }
 
 .time-text {
-  color: #999;
-  font-size: 13px;
+  color: var(--text-muted) !important;
+  font-size: 0.8125rem;
+}
+
+/* Dark mode overrides */
+.dark .config-card {
+  background: var(--bg-card);
+}
+
+.dark .config-card :deep(.el-card__body) {
+  background: transparent;
 }
 </style>
