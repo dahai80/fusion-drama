@@ -66,7 +66,6 @@ export default {
     deleteAsset: '删除素材',
     confirmDelete: '确认删除',
     tip: '提示',
-    edit: '编辑',
     status: '状态',
     createdAt: '创建时间',
     updatedAt: '更新时间'
