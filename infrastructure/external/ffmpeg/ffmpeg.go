@@ -276,9 +276,46 @@ func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPa
 		args = append(args, "-i", path)
 	}
 
+	// 检测每个视频是否有音频流
+	audioStreams := make([]bool, len(inputPaths))
+	hasAnyAudio := false
+	for i, path := range inputPaths {
+		audioStreams[i] = f.hasAudioStream(path)
+		if audioStreams[i] {
+			hasAnyAudio = true
+		}
+		f.log.Infow("Audio stream detection", "index", i, "path", path, "has_audio", audioStreams[i])
+	}
+	f.log.Infow("Overall audio detection", "has_any_audio", hasAnyAudio, "audio_streams", audioStreams)
+
+	// 检测视频分辨率，找到最大分辨率作为目标分辨率
+	maxWidth := 0
+	maxHeight := 0
+	for i, path := range inputPaths {
+		width, height := f.getVideoResolution(path)
+		if width > maxWidth {
+			maxWidth = width
+		}
+		if height > maxHeight {
+			maxHeight = height
+		}
+		f.log.Infow("Video resolution detection", "index", i, "width", width, "height", height)
+	}
+	f.log.Infow("Target resolution", "width", maxWidth, "height", maxHeight)
+
+	// 为每个视频流添加缩放滤镜，统一分辨率
+	var scaleFilters []string
+	for i := 0; i < len(inputPaths); i++ {
+		// 使用scale滤镜缩放到目标分辨率，pad添加黑边保持长宽比
+		scaleFilters = append(scaleFilters,
+			fmt.Sprintf("[%d:v]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2[v%d]",
+				i, maxWidth, maxHeight, maxWidth, maxHeight, i))
+	}
+
 	// 构建filter_complex
 	// 例如: [0:v][1:v]xfade=transition=fade:duration=1:offset=5[v01];[v01][2:v]xfade=transition=fade:duration=1:offset=10[out]
-	var filterParts []string
+	// 构建转场滤镜，使用缩放后的视频流
+	var transitionFilters []string
 	var offset float64 = 0
 
 	for i := 0; i < len(inputPaths)-1; i++ {
@@ -321,49 +358,99 @@ func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPa
 
 		var inputLabel, outputLabel string
 		if i == 0 {
-			inputLabel = fmt.Sprintf("[0:v][1:v]")
+			inputLabel = fmt.Sprintf("[v0][v1]")
 		} else {
-			inputLabel = fmt.Sprintf("[v%02d][%d:v]", i-1, i+1)
+			inputLabel = fmt.Sprintf("[vx%02d][v%d]", i-1, i+1)
 		}
 
 		if i == len(inputPaths)-2 {
 			outputLabel = "[outv]"
 		} else {
-			outputLabel = fmt.Sprintf("[v%02d]", i)
+			outputLabel = fmt.Sprintf("[vx%02d]", i)
 		}
 
 		filterPart := fmt.Sprintf("%sxfade=transition=%s:duration=%.1f:offset=%.1f%s",
 			inputLabel, transitionType, transitionDuration, offset, outputLabel)
-		filterParts = append(filterParts, filterPart)
+		transitionFilters = append(transitionFilters, filterPart)
 	}
 
-	filterComplex := strings.Join(filterParts, ";")
+	// 合并缩放和转场滤镜
+	var videoFilters []string
+	videoFilters = append(videoFilters, scaleFilters...)
+	videoFilters = append(videoFilters, transitionFilters...)
+	filterComplex := strings.Join(videoFilters, ";")
 
-	// 音频处理：直接concat连接，不做交叉淡入淡出
-	// 这样可以避免音频提前播放的问题
-	var audioConcat strings.Builder
-	for i := 0; i < len(inputPaths); i++ {
-		audioConcat.WriteString(fmt.Sprintf("[%d:a]", i))
+	// 音频处理：如果有任何视频包含音频流，则处理音频
+	var fullFilter string
+	if hasAnyAudio {
+		// 为没有音频的视频生成静音轨道，确保所有输入音频流一致
+		var silenceFilters []string
+		for i := 0; i < len(inputPaths); i++ {
+			if !audioStreams[i] {
+				// 计算该视频的时长
+				clipDuration := clips[i].Duration
+				if clips[i].EndTime > 0 && clips[i].StartTime >= 0 {
+					clipDuration = clips[i].EndTime - clips[i].StartTime
+				}
+				// anullsrc是源滤镜，不接受输入，使用duration参数指定时长
+				silenceFilters = append(silenceFilters,
+					fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100:duration=%.2f[a%d]", clipDuration, i))
+			}
+		}
+
+		// 拼接所有音频流（包括生成的静音流）
+		var audioConcat strings.Builder
+		for i := 0; i < len(inputPaths); i++ {
+			if audioStreams[i] {
+				audioConcat.WriteString(fmt.Sprintf("[%d:a]", i))
+			} else {
+				audioConcat.WriteString(fmt.Sprintf("[a%d]", i))
+			}
+		}
+		audioConcat.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[outa]", len(inputPaths)))
+
+		// 构建完整滤镜：先生成静音流，再拼接音频
+		if len(silenceFilters) > 0 {
+			fullFilter = filterComplex + ";" + strings.Join(silenceFilters, ";") + ";" + audioConcat.String()
+		} else {
+			fullFilter = filterComplex + ";" + audioConcat.String()
+		}
+	} else {
+		// 所有视频都无音频流，只处理视频
+		fullFilter = filterComplex
 	}
-	audioConcat.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[outa]", len(inputPaths)))
-
-	fullFilter := filterComplex + ";" + audioConcat.String()
 
 	// 构建完整命令
 	args = append(args,
 		"-filter_complex", fullFilter,
 		"-map", "[outv]",
-		"-map", "[outa]",
+	)
+
+	// 仅在有任何音频时映射音频输出
+	if hasAnyAudio {
+		args = append(args, "-map", "[outa]")
+	}
+
+	args = append(args,
 		"-c:v", "libx264",
 		"-preset", "medium",
 		"-crf", "23",
-		"-c:a", "aac",
-		"-b:a", "128k",
+	)
+
+	// 仅在有任何音频时设置音频编码参数
+	if hasAnyAudio {
+		args = append(args,
+			"-c:a", "aac",
+			"-b:a", "128k",
+		)
+	}
+
+	args = append(args,
 		"-y",
 		outputPath,
 	)
 
-	f.log.Infow("Running FFmpeg with transitions", "filter", fullFilter)
+	f.log.Infow("Running FFmpeg with transitions", "filter", fullFilter, "has_any_audio", hasAnyAudio)
 
 	cmd := exec.Command("ffmpeg", args...)
 	output, err := cmd.CombinedOutput()
@@ -437,6 +524,57 @@ func (f *FFmpeg) mapTransitionType(transType string) string {
 	default:
 		return "fade" // 默认淡入淡出
 	}
+}
+
+func (f *FFmpeg) hasAudioStream(videoPath string) bool {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "a:0",
+		"-show_entries", "stream=codec_type",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		videoPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	result := strings.TrimSpace(string(output))
+	return result == "audio"
+}
+
+func (f *FFmpeg) getVideoResolution(videoPath string) (int, int) {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=width,height",
+		"-of", "csv=p=0",
+		videoPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Warnw("Failed to get video resolution", "path", videoPath, "error", err)
+		return 1920, 1080 // 默认分辨率
+	}
+
+	result := strings.TrimSpace(string(output))
+	parts := strings.Split(result, ",")
+	if len(parts) != 2 {
+		f.log.Warnw("Invalid resolution format", "output", result)
+		return 1920, 1080
+	}
+
+	var width, height int
+	fmt.Sscanf(parts[0], "%d", &width)
+	fmt.Sscanf(parts[1], "%d", &height)
+
+	if width <= 0 || height <= 0 {
+		return 1920, 1080
+	}
+
+	return width, height
 }
 
 func (f *FFmpeg) copyFile(src, dst string) error {
