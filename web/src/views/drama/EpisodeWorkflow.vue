@@ -654,12 +654,12 @@
         <el-form-item :label="$t('common.name')">
           <el-input v-model="currentEditItem.name" disabled />
         </el-form-item>
-        <el-form-item label="Prompt">
+        <el-form-item :label="$t('workflow.imagePrompt')">
           <el-input
             v-model="editPrompt"
             type="textarea"
             :rows="6"
-placeholder="Enter AI image generation prompt..."
+            :placeholder="$t('workflow.imagePromptPlaceholder')"
           />
         </el-form-item>
       </el-form>
