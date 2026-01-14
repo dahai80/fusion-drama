@@ -146,13 +146,23 @@ func (c *ChatfireClient) GenerateVideo(imageURL, prompt string, opts ...VideoOpt
 		reqBody := ChatfireDoubaoRequest{
 			Model: model,
 		}
+
+		// 构建prompt文本（包含duration和ratio参数）
+		promptText := prompt
+		if options.AspectRatio != "" {
+			promptText += fmt.Sprintf("  --ratio %s", options.AspectRatio)
+		}
+		if options.Duration > 0 {
+			promptText += fmt.Sprintf("  --dur %d", options.Duration)
+		}
+
 		// 添加文本内容
 		reqBody.Content = append(reqBody.Content, struct {
 			Type     string                 `json:"type"`
 			Text     string                 `json:"text,omitempty"`
 			ImageURL map[string]interface{} `json:"image_url,omitempty"`
 			Role     string                 `json:"role,omitempty"`
-		}{Type: "text", Text: prompt})
+		}{Type: "text", Text: promptText})
 
 		// 处理不同的图片模式
 		// 1. 组图模式（多个reference_image）
