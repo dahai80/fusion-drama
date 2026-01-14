@@ -43,22 +43,15 @@
           :key="drama.id"
           :title="drama.title"
           :description="drama.description"
-          :cover-image="drama.thumbnail"
-          :tag="drama.genre"
           :updated-at="drama.updated_at"
+          :episode-count="drama.total_episodes || 0"
           @click="viewDrama(drama.id)"
         >
           <template #actions>
             <ActionButton 
               :icon="Edit" 
               :tooltip="$t('common.edit')" 
-              variant="primary"
               @click="editDrama(drama.id)" 
-            />
-            <ActionButton 
-              :icon="View" 
-              :tooltip="$t('common.view')" 
-              @click="viewDrama(drama.id)" 
             />
             <el-popconfirm
               :title="$t('drama.deleteConfirm')"
@@ -67,15 +60,15 @@
               @confirm="deleteDrama(drama.id)"
             >
               <template #reference>
-                <ActionButton 
+                <el-button 
                   :icon="Delete" 
-                  :tooltip="$t('common.delete')" 
-                  variant="danger"
+                  class="action-button danger"
+                  link
                 />
               </template>
             </el-popconfirm>
           </template>
-        </ProjectCard>
+          </ProjectCard>
       </div>
 
       <!-- Edit Dialog / 编辑对话框 -->
@@ -349,8 +342,8 @@ onMounted(() => {
    Projects Grid / 项目网格 - 紧凑间距
    ======================================== */
 .projects-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  /* grid-template-columns: repeat(2, 1fr); */
   gap: var(--space-2);
   margin-bottom: var(--space-4);
   min-height: 300px;
@@ -506,5 +499,16 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+/* Delete button style */
+.action-button.danger {
+  padding: 0.5rem;
+  color: var(--text-muted);
+}
+
+.action-button.danger:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 </style>

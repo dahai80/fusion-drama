@@ -1,41 +1,30 @@
 <template>
-  <!-- Project card component - Compact & refined design -->
-  <!-- 项目卡片组件 - 紧凑精致设计 -->
+  <!-- Project card component - Compact design with hover actions -->
+  <!-- 项目卡片组件 - 紧凑设计，悬停显示操作 -->
   <article 
     class="project-card"
     @click="$emit('click')"
     tabindex="0"
     @keydown.enter="$emit('click')"
   >
-    <!-- Cover image section / 封面图片区域 -->
-    <div class="card-cover">
-      <img 
-        v-if="coverImage" 
-        :src="coverImage" 
-        :alt="title"
-        class="cover-image"
-        loading="lazy"
-      />
-      <div v-else class="cover-placeholder">
-        <el-icon :size="20" class="placeholder-icon">
-          <Film />
-        </el-icon>
+    <!-- Gradient header with icon / 渐变头部区域 -->
+    <div class="card-header">
+      <el-icon class="header-icon"><Film /></el-icon>
+      <!-- Hover actions / 悬停操作区 -->
+      <div class="hover-actions" @click.stop>
+        <slot name="actions"></slot>
       </div>
-      <!-- Floating tag / 悬浮标签 -->
-      <span v-if="tag" class="floating-tag">{{ tag }}</span>
     </div>
 
     <!-- Card content / 卡片内容 -->
     <div class="card-body">
-      <div class="card-header">
-        <h3 class="card-title">{{ title }}</h3>
-        <span class="meta-time">{{ formattedDate }}</span>
-      </div>
-      <p class="card-description">{{ description || '无描述' }}</p>
+      <h3 class="card-title">{{ title }}</h3>
+      <p v-if="description" class="card-description">{{ description }}</p>
       
-      <!-- Actions / 操作区 -->
-      <div class="card-actions" @click.stop>
-        <slot name="actions"></slot>
+      <!-- Footer section / 底部区域 -->
+      <div class="card-footer">
+        <span class="meta-time">{{ formattedDate }}</span>
+        <span class="episode-label">共 {{ episodeCount }} 集</span>
       </div>
     </div>
   </article>
@@ -49,50 +38,50 @@ import { Film } from '@element-plus/icons-vue'
  * ProjectCard - Reusable project/drama card component
  * 项目卡片组件 - 可复用的项目展示卡片
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   title: string
   description?: string
-  coverImage?: string
-  tag?: string
   updatedAt: string
-}>()
+  episodeCount?: number
+}>(), {
+  description: '',
+  episodeCount: 0
+})
 
 defineEmits<{
   click: []
 }>()
 
-// Format date to relative time / 格式化日期为相对时间
+// Format date / 格式化日期
 const formattedDate = computed(() => {
   const date = new Date(props.updatedAt)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  return date.toLocaleDateString('zh-CN')
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 })
 </script>
 
 <style scoped>
 /* Card Container / 卡片容器 */
 .project-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   transition: all var(--transition-normal);
-  box-shadow: var(--shadow-card);
+  width: 200px;
 }
 
 .project-card:hover {
   border-color: var(--accent);
-  box-shadow: var(--shadow-card-hover), 0 0 0 1px var(--accent);
-  transform: translateY(-2px);
 }
 
 .project-card:focus-visible {
@@ -100,125 +89,90 @@ const formattedDate = computed(() => {
   outline-offset: 2px;
 }
 
-/* Cover Section / 封面区域 */
-.card-cover {
+/* Card Header / 卡片头部 */
+.card-header {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
+  height: 120px;
   background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
-}
-
-.cover-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform var(--transition-slow);
-}
-
-.project-card:hover .cover-image {
-  transform: scale(1.05);
-}
-
-.cover-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
 }
 
-.placeholder-icon {
-  color: rgba(255, 255, 255, 0.7);
+.header-icon {
+  font-size: 28px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
-/* Floating tag / 悬浮标签 */
-.floating-tag {
+/* Hover Actions / 悬停操作区 */
+.hover-actions {
   position: absolute;
-  top: var(--space-2);
-  left: var(--space-2);
-  padding: 0.2rem 0.5rem;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  font-size: 0.625rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  backdrop-filter: blur(8px);
-  letter-spacing: 0.02em;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: 10;
+}
+
+.project-card:hover .hover-actions {
+  opacity: 1;
 }
 
 /* Body Section / 内容区域 */
 .card-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  padding: var(--space-3);
-  gap: var(--space-1);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  padding: 12px;
+  gap: 10px;
 }
 
 .card-title {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  letter-spacing: -0.01em;
-}
-
-.meta-time {
-  font-size: 0.625rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  font-weight: 500;
 }
 
 .card-description {
   margin: 0;
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
-  -webkit-box-orient: vertical;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
 }
 
-/* Actions / 操作区 */
-.card-actions {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  margin-top: var(--space-1);
-  padding-top: var(--space-2);
+/* Footer Section / 底部区域 */
+.card-footer {
+  margin-top: auto;
+  padding-top: 8px;
   border-top: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-time,
+.episode-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 :deep(.action-button) {
-  padding: 0.25rem !important;
-  min-width: 1.5rem !important;
-  height: 1.5rem !important;
-}
-
-:deep(.action-button .el-icon) {
-  font-size: 0.75rem !important;
-}
-
-:deep(.action-button.primary:hover) {
-  color: var(--accent);
-  background: var(--accent-light);
-}
-
-:deep(.action-button.danger:hover) {
-  color: var(--error);
-  background: var(--error-light);
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  background: var(--bg-secondary) !important;
+  border: none !important;
 }
 </style>

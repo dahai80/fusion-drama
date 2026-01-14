@@ -130,6 +130,7 @@ export default {
     create: '创建项目',
     totalProjects: '共 {count} 个项目',
     createNew: '创建新项目',
+    createDesc: '开始创作您的短剧项目',
     aiConfig: 'AI配置',
     aiConfigTip: '请先配置 AI 服务后再创建项目',
     empty: '暂无项目，点击上方按钮创建新项目',
