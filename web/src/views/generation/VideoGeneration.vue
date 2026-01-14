@@ -3,21 +3,21 @@
     <el-page-header @back="goBack" class="page-header">
       <template #content>
         <div class="header-content">
-          <h2>AI 视频生成</h2>
+          <h2>{{ $t('video.title') }}</h2>
         </div>
       </template>
       <template #extra>
         <el-button type="primary" @click="showGenerateDialog = true">
           <el-icon><VideoPlay /></el-icon>
-          生成视频
+          {{ $t('video.generate') }}
         </el-button>
       </template>
     </el-page-header>
 
     <el-card shadow="never" class="filter-card">
       <el-form inline>
-        <el-form-item label="剧本">
-          <el-select v-model="filters.drama_id" placeholder="全部剧本" clearable>
+        <el-form-item :label="$t('video.filter.drama')">
+          <el-select v-model="filters.drama_id" :placeholder="$t('video.filter.allDramas')" clearable>
             <el-option
               v-for="drama in dramas"
               :key="drama.id"
@@ -27,17 +27,17 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="状态">
-          <el-select v-model="filters.status" placeholder="全部状态" clearable>
-            <el-option label="生成中" value="processing" />
-            <el-option label="已完成" value="completed" />
-            <el-option label="失败" value="failed" />
+        <el-form-item :label="$t('video.filter.status')">
+          <el-select v-model="filters.status" :placeholder="$t('video.filter.allStatus')" clearable>
+            <el-option :label="$t('video.status.processing')" value="processing" />
+            <el-option :label="$t('video.status.completed')" value="completed" />
+            <el-option :label="$t('video.status.failed')" value="failed" />
           </el-select>
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="loadVideos">查询</el-button>
-          <el-button @click="resetFilters">重置</el-button>
+          <el-button type="primary" @click="loadVideos">{{ $t('video.filter.query') }}</el-button>
+          <el-button @click="resetFilters">{{ $t('video.filter.reset') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>

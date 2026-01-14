@@ -1,28 +1,28 @@
 <template>
   <div class="character-extraction-container">
-    <el-page-header @back="goBack" title="返回项目">
+    <el-page-header @back="goBack" :title="$t('character.backToProject')">
       <template #content>
-        <h2>角色管理</h2>
+        <h2>{{ $t('character.title') }}</h2>
       </template>
     </el-page-header>
 
     <el-card shadow="never" class="main-card">
       <template #header>
         <div class="card-header">
-          <h3>角色列表</h3>
+          <h3>{{ $t('character.list') }}</h3>
           <div class="header-actions">
             <el-button @click="addCharacter">
               <el-icon><Plus /></el-icon>
-              添加角色
+              {{ $t('character.add') }}
             </el-button>
             <el-button type="primary" @click="saveCharacters" :loading="saving">
-              保存修改
+              {{ $t('character.saveChanges') }}
             </el-button>
           </div>
         </div>
       </template>
 
-      <el-empty v-if="characters.length === 0" description="角色已在剧本生成阶段创建，您可以在此查看和编辑" />
+      <el-empty v-if="characters.length === 0" :description="$t('character.empty')" />
 
       <el-row :gutter="20" v-else>
         <el-col :span="8" v-for="character in characters" :key="character.id">
@@ -38,16 +38,16 @@
             </template>
 
             <div class="character-details">
-              <p><strong>性格：</strong>{{ character.personality }}</p>
-              <p><strong>外貌：</strong>{{ character.appearance }}</p>
-              <p><strong>背景：</strong>{{ character.background }}</p>
+              <p><strong>{{ $t('character.personality') }}：</strong>{{ character.personality }}</p>
+              <p><strong>{{ $t('character.appearance') }}：</strong>{{ character.appearance }}</p>
+              <p><strong>{{ $t('character.background') }}：</strong>{{ character.background }}</p>
             </div>
 
             <template #footer>
               <el-button-group style="width: 100%">
-                <el-button size="small" @click="editCharacter(character)">编辑</el-button>
+                <el-button size="small" @click="editCharacter(character)">{{ $t('common.edit') }}</el-button>
                 <el-button size="small" type="primary" @click="generateCharacterImage(character)">
-                  生成形象
+                  {{ $t('character.generateImage') }}
                 </el-button>
               </el-button-group>
             </template>
@@ -57,7 +57,7 @@
 
       <div class="actions" v-if="characters.length > 0">
         <el-button type="success" size="large" @click="goToNextStep">
-          下一步：生成角色图片
+          {{ $t('character.nextStep') }}
         </el-button>
       </div>
     </el-card>

@@ -14,12 +14,14 @@ import (
 
 type ImageGenerationHandler struct {
 	imageService *services.ImageGenerationService
+	taskService  *services.TaskService
 	log          *logger.Logger
 }
 
 func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage) *ImageGenerationHandler {
 	return &ImageGenerationHandler{
 		imageService: services.NewImageGenerationService(db, transferService, localStorage, log),
+		taskService:  services.NewTaskService(db, log),
 		log:          log,
 	}
 }
@@ -71,18 +73,57 @@ func (h *ImageGenerationHandler) GetBackgroundsForEpisode(c *gin.Context) {
 }
 
 func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
-
 	episodeID := c.Param("episode_id")
 
-	// 同步执行场景提取
-	backgrounds, err := h.imageService.ExtractBackgroundsForEpisode(episodeID)
+	// 创建异步任务
+	task, err := h.taskService.CreateTask("background_extraction", episodeID)
 	if err != nil {
-		h.log.Errorw("Failed to extract backgrounds", "error", err)
+		h.log.Errorw("Failed to create task", "error", err)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.Success(c, backgrounds)
+	// 启动后台goroutine处理
+	go h.processBackgroundExtraction(task.ID, episodeID)
+
+	// 立即返回任务ID
+	response.Success(c, gin.H{
+		"task_id": task.ID,
+		"status":  "pending",
+		"message": "场景提取任务已创建，正在后台处理...",
+	})
+}
+
+// processBackgroundExtraction 后台处理场景提取
+func (h *ImageGenerationHandler) processBackgroundExtraction(taskID, episodeID string) {
+	h.log.Infow("Starting background extraction", "task_id", taskID, "episode_id", episodeID)
+
+	// 更新任务状态为处理中
+	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始提取场景..."); err != nil {
+		h.log.Errorw("Failed to update task status", "error", err)
+	}
+
+	// 调用实际的提取逻辑
+	backgrounds, err := h.imageService.ExtractBackgroundsForEpisode(episodeID)
+	if err != nil {
+		h.log.Errorw("Failed to extract backgrounds", "error", err, "task_id", taskID)
+		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
+			h.log.Errorw("Failed to update task error", "error", updateErr)
+		}
+		return
+	}
+
+	// 更新任务结果
+	result := gin.H{
+		"backgrounds": backgrounds,
+		"total":       len(backgrounds),
+	}
+	if err := h.taskService.UpdateTaskResult(taskID, result); err != nil {
+		h.log.Errorw("Failed to update task result", "error", err)
+		return
+	}
+
+	h.log.Infow("Background extraction completed", "task_id", taskID, "total", len(backgrounds))
 }
 
 func (h *ImageGenerationHandler) BatchGenerateForEpisode(c *gin.Context) {

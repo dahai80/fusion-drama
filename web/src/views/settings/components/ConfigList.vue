@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading" class="config-list">
-    <el-empty v-if="!loading && configs.length === 0" description="暂无配置，点击添加配置开始使用" />
+    <el-empty v-if="!loading && configs.length === 0" :description="$t('aiConfig.empty')" />
 
     <el-card 
       v-for="config in configs" 
@@ -11,30 +11,30 @@
       <div class="config-header">
         <div class="config-title">
           <h3>{{ config.name }}</h3>
-          <el-tag v-if="config.is_active" type="success" size="small">已启用</el-tag>
-          <el-tag v-else type="info" size="small">已禁用</el-tag>
+          <el-tag v-if="config.is_active" type="success" size="small">{{ $t('aiConfig.enabled') }}</el-tag>
+          <el-tag v-else type="info" size="small">{{ $t('aiConfig.disabled') }}</el-tag>
         </div>
         <div class="config-actions">
           <el-button v-if="showTestButton" text @click="$emit('test', config)" :icon="Connection">
-            测试
+            {{ $t('aiConfig.actions.test') }}
           </el-button>
           <el-button text @click="$emit('edit', config)" :icon="Edit">
-            编辑
+            {{ $t('common.edit') }}
           </el-button>
           <el-button 
             text 
             :type="config.is_active ? 'warning' : 'success'"
             @click="$emit('toggle-active', config)"
           >
-            {{ config.is_active ? '禁用' : '启用' }}
+            {{ config.is_active ? $t('aiConfig.disable') : $t('aiConfig.enable') }}
           </el-button>
           <el-popconfirm
-            title="确定删除该配置吗？"
+            :title="$t('aiConfig.messages.deleteConfirm')"
             @confirm="$emit('delete', config)"
           >
             <template #reference>
               <el-button text type="danger" :icon="Delete">
-                删除
+                {{ $t('common.delete') }}
               </el-button>
             </template>
           </el-popconfirm>
@@ -48,12 +48,12 @@
         </div>
 
         <div class="info-item">
-          <label>端点：</label>
+          <label>{{ $t('aiConfig.endpoint') }}：</label>
           <span>{{ config.endpoint || '/v1/chat/completions' }}</span>
         </div>
 
         <div v-if="config.service_type === 'video' && config.query_endpoint" class="info-item">
-          <label>查询端点：</label>
+          <label>{{ $t('aiConfig.queryEndpoint') }}：</label>
           <span>{{ config.query_endpoint }}</span>
         </div>
 

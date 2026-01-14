@@ -317,14 +317,14 @@ func (s *AIService) TestConnection(req *TestConnectionRequest) error {
 
 func (s *AIService) GetDefaultConfig(serviceType string) (*models.AIServiceConfig, error) {
 	var config models.AIServiceConfig
-	// 按优先级降序获取第一个启用的配置
-	err := s.db.Where("service_type = ? AND is_active = ?", serviceType, true).
+	// 按优先级降序获取第一个配置
+	err := s.db.Where("service_type = ?", serviceType).
 		Order("priority DESC, created_at DESC").
 		First(&config).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no active config found")
+			return nil, errors.New("no config found")
 		}
 		return nil, err
 	}
@@ -332,10 +332,10 @@ func (s *AIService) GetDefaultConfig(serviceType string) (*models.AIServiceConfi
 	return &config, nil
 }
 
-// GetConfigForModel 根据服务类型和模型名称获取优先级最高的启用配置
+// GetConfigForModel 根据服务类型和模型名称获取优先级最高的配置
 func (s *AIService) GetConfigForModel(serviceType string, modelName string) (*models.AIServiceConfig, error) {
 	var configs []models.AIServiceConfig
-	err := s.db.Where("service_type = ? AND is_active = ?", serviceType, true).
+	err := s.db.Where("service_type = ?", serviceType).
 		Order("priority DESC, created_at DESC").
 		Find(&configs).Error
 

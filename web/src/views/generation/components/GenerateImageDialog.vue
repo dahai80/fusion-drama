@@ -1,14 +1,14 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="AI 图片生成"
+:title="$t('imageDialog.title')"
     width="700px"
     :close-on-click-modal="false"
     @close="handleClose"
   >
     <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-      <el-form-item label="选择剧本" prop="drama_id">
-        <el-select v-model="form.drama_id" placeholder="选择剧本" @change="onDramaChange">
+      <el-form-item :label="$t('imageDialog.selectDrama')" prop="drama_id">
+        <el-select v-model="form.drama_id" :placeholder="$t('imageDialog.selectDrama')" @change="onDramaChange">
           <el-option
             v-for="drama in dramas"
             :key="drama.id"
@@ -18,95 +18,95 @@
         </el-select>
       </el-form-item>
 
-      <el-form-item label="选择场景" prop="scene_id">
+      <el-form-item :label="$t('imageDialog.selectScene')" prop="scene_id">
         <el-select
           v-model="form.scene_id"
-          placeholder="选择场景（可选）"
+          :placeholder="$t('imageDialog.selectSceneOptional')"
           clearable
           @change="onSceneChange"
         >
           <el-option
             v-for="scene in scenes"
             :key="scene.id"
-            :label="`场景${scene.storyboard_number}: ${scene.title}`"
+:label="$t('imageDialog.sceneLabel', { number: scene.storyboard_number, title: scene.title })"
             :value="scene.id"
           />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="提示词" prop="prompt">
+      <el-form-item :label="$t('imageDialog.prompt')" prop="prompt">
         <el-input
           v-model="form.prompt"
           type="textarea"
           :rows="6"
-          placeholder="描述你想生成的图片&#10;例如：A beautiful landscape with mountains and rivers at sunset, cinematic lighting, highly detailed"
+:placeholder="$t('imageDialog.promptPlaceholder')"
           maxlength="2000"
           show-word-limit
         />
       </el-form-item>
 
-      <el-form-item label="反向提示词">
+      <el-form-item :label="$t('imageDialog.negativePrompt')">
         <el-input
           v-model="form.negative_prompt"
           type="textarea"
           :rows="3"
-          placeholder="描述不希望出现的元素（可选）&#10;例如：blurry, low quality, watermark"
+:placeholder="$t('imageDialog.negativePromptPlaceholder')"
           maxlength="1000"
           show-word-limit
         />
       </el-form-item>
 
-      <el-form-item label="AI 服务">
-        <el-select v-model="form.provider" placeholder="选择服务">
+      <el-form-item :label="$t('imageDialog.aiService')">
+        <el-select v-model="form.provider" :placeholder="$t('imageDialog.selectService')">
           <el-option label="OpenAI/DALL-E" value="openai" />
           <el-option label="Stable Diffusion" value="stable_diffusion" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="图片尺寸">
-        <el-select v-model="form.size" placeholder="选择尺寸">
-          <el-option label="1024x1024 (正方形)" value="1024x1024" />
-          <el-option label="1792x1024 (横向)" value="1792x1024" />
-          <el-option label="1024x1792 (纵向)" value="1024x1792" />
+      <el-form-item :label="$t('imageDialog.imageSize')">
+        <el-select v-model="form.size" :placeholder="$t('imageDialog.selectSize')">
+          <el-option :label="`1024x1024 (${$t('imageDialog.square')})`" value="1024x1024" />
+          <el-option :label="`1792x1024 (${$t('imageDialog.landscape')})`" value="1792x1024" />
+          <el-option :label="`1024x1792 (${$t('imageDialog.portrait')})`" value="1024x1792" />
         </el-select>
       </el-form-item>
 
-      <el-form-item label="图片质量" v-if="form.provider === 'openai'">
+      <el-form-item :label="$t('imageDialog.imageQuality')" v-if="form.provider === 'openai'">
         <el-radio-group v-model="form.quality">
-          <el-radio label="standard">标准</el-radio>
-          <el-radio label="hd">高清</el-radio>
+          <el-radio label="standard">{{ $t('imageDialog.standard') }}</el-radio>
+          <el-radio label="hd">{{ $t('imageDialog.hd') }}</el-radio>
         </el-radio-group>
       </el-form-item>
 
-      <el-form-item label="风格" v-if="form.provider === 'openai'">
+      <el-form-item :label="$t('imageDialog.style')" v-if="form.provider === 'openai'">
         <el-radio-group v-model="form.style">
-          <el-radio label="vivid">鲜艳</el-radio>
-          <el-radio label="natural">自然</el-radio>
+          <el-radio label="vivid">{{ $t('imageDialog.vivid') }}</el-radio>
+          <el-radio label="natural">{{ $t('imageDialog.natural') }}</el-radio>
         </el-radio-group>
       </el-form-item>
 
       <el-collapse v-if="form.provider === 'stable_diffusion'">
-        <el-collapse-item title="高级设置" name="advanced">
-          <el-form-item label="采样步数">
+        <el-collapse-item :title="$t('imageDialog.advancedSettings')" name="advanced">
+          <el-form-item :label="$t('imageDialog.samplingSteps')">
             <el-slider v-model="form.steps" :min="10" :max="50" :marks="stepsMarks" />
           </el-form-item>
 
-          <el-form-item label="提示词相关性">
+          <el-form-item :label="$t('imageDialog.promptRelevance')">
             <el-slider v-model="form.cfg_scale" :min="1" :max="20" :step="0.5" :marks="cfgMarks" />
           </el-form-item>
 
-          <el-form-item label="随机种子">
-            <el-input-number v-model="form.seed" :min="-1" placeholder="留空随机" />
-            <span class="form-tip">设置相同种子可复现图片</span>
+          <el-form-item :label="$t('imageDialog.randomSeed')">
+            <el-input-number v-model="form.seed" :min="-1" :placeholder="$t('imageDialog.leaveBlankRandom')" />
+            <span class="form-tip">{{ $t('imageDialog.seedTip') }}</span>
           </el-form-item>
         </el-collapse-item>
       </el-collapse>
     </el-form>
 
     <template #footer>
-      <el-button @click="handleClose">取消</el-button>
+      <el-button @click="handleClose">{{ $t('common.cancel') }}</el-button>
       <el-button type="primary" :loading="generating" @click="handleGenerate">
-        生成图片
+        {{ $t('imageDialog.generate') }}
       </el-button>
     </template>
   </el-dialog>
@@ -115,6 +115,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { imageAPI } from '@/api/image'
 import { dramaAPI } from '@/api/drama'
 import type { Drama, Scene } from '@/types/drama'
@@ -130,6 +131,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   success: []
 }>()
+
+const { t } = useI18n()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -157,11 +160,11 @@ const form = reactive<GenerateImageRequest>({
 
 const rules: FormRules = {
   drama_id: [
-    { required: true, message: '请选择剧本', trigger: 'change' }
+    { required: true, message: t('imageDialog.pleaseSelectDrama'), trigger: 'change' }
   ],
   prompt: [
-    { required: true, message: '请输入提示词', trigger: 'blur' },
-    { min: 5, message: '提示词至少5个字符', trigger: 'blur' }
+    { required: true, message: t('imageDialog.pleaseEnterPrompt'), trigger: 'blur' },
+    { min: 5, message: t('imageDialog.promptMinLength'), trigger: 'blur' }
   ]
 }
 
@@ -174,10 +177,10 @@ const stepsMarks = {
 }
 
 const cfgMarks = {
-  1: '弱',
-  7.5: '适中',
-  15: '强',
-  20: '很强'
+  1: t('imageDialog.weak'),
+  7.5: t('imageDialog.moderate'),
+  15: t('imageDialog.strong'),
+  20: t('imageDialog.veryStrong')
 }
 
 watch(() => props.modelValue, (val) => {
@@ -274,11 +277,11 @@ const handleGenerate = async () => {
 
       await imageAPI.generateImage(params)
       
-      ElMessage.success('图片生成任务已提交，请稍后查看结果')
+      ElMessage.success(t('imageDialog.taskSubmitted'))
       emit('success')
       handleClose()
     } catch (error: any) {
-      ElMessage.error(error.message || '生成失败')
+      ElMessage.error(error.message || t('imageDialog.generateFailed'))
     } finally {
       generating.value = false
     }

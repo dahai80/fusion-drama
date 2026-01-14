@@ -5,7 +5,7 @@
         <div class="header-left-section">
           <el-button text @click="goBack" class="back-btn">
             <el-icon><ArrowLeft /></el-icon>
-            <span>返回</span>
+            <span>{{ $t('dramaWorkflow.returnToList') }}</span>
           </el-button>
           <h2 class="drama-title">{{ drama?.title }}</h2>
           <el-tag :type="getStatusType(drama?.status)" size="small">{{ getStatusText(drama?.status) }}</el-tag>
@@ -16,17 +16,17 @@
           <div class="custom-steps">
             <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
               <div class="step-circle">1</div>
-              <span class="step-text">第{{ currentEpisodeNumber }}集剧本</span>
+              <span class="step-text">{{ $t('dramaWorkflow.episodeScript', { number: currentEpisodeNumber }) }}</span>
             </div>
             <el-icon class="step-arrow"><ArrowRight /></el-icon>
             <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
               <div class="step-circle">2</div>
-              <span class="step-text">分镜拆解</span>
+              <span class="step-text">{{ $t('dramaWorkflow.storyboardBreakdown') }}</span>
             </div>
             <el-icon class="step-arrow"><ArrowRight /></el-icon>
             <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
               <div class="step-circle">3</div>
-              <span class="step-text">角色图片</span>
+              <span class="step-text">{{ $t('dramaWorkflow.characterImages') }}</span>
             </div>
           </div>
         </div>
@@ -40,14 +40,14 @@
         <div class="stage-body stage-body-fullscreen">
           <!-- 初始状态：显示创建第一章按钮 -->
           <div v-if="!hasScript && !showScriptInput" class="create-chapter-prompt">
-            <el-empty description="请创建第一章开始制作">
+            <el-empty :description="$t('dramaWorkflow.createChapterPrompt')">
               <el-button 
                 type="primary" 
                 size="large"
                 @click="startCreateChapter"
                 :icon="Document"
               >
-                创建第{{ currentEpisodeNumber }}章
+                {{ $t('dramaWorkflow.createChapter', { number: currentEpisodeNumber }) }}
               </el-button>
             </el-empty>
           </div>
@@ -179,14 +179,14 @@
                 @click="regenerateShots"
                 :icon="MagicStick"
               >
-                重新拆分
+                {{ $t('dramaWorkflow.reGenerateShots') }}
               </el-button>
               <el-button 
                 type="success"
                 @click="nextStep"
                 :disabled="!hasCharacters"
               >
-                下一步：角色图片
+                {{ $t('dramaWorkflow.nextStepCharacterImages') }}
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
             </div>
@@ -194,14 +194,14 @@
           
           <!-- 未拆分时显示 -->
           <div v-else class="empty-shots">
-            <el-empty description="请先对剧本进行分镜拆解">
+            <el-empty :description="$t('dramaWorkflow.splitStoryboardFirst')">
               <el-button 
                 type="primary" 
                 @click="generateShots"
                 :loading="generatingShots"
                 :icon="MagicStick"
               >
-                {{ generatingShots ? 'AI拆分中...' : 'AI自动拆分' }}
+                {{ generatingShots ? $t('dramaWorkflow.aiSplitting') : $t('dramaWorkflow.aiAutoSplit') }}
               </el-button>
             </el-empty>
           </div>
@@ -215,12 +215,12 @@
           <div class="batch-toolbar-compact">
             <div class="toolbar-left">
               <el-checkbox v-model="selectAllCharacters" @change="handleSelectAllCharacters" :indeterminate="isCharacterIndeterminate">
-                全选
+                {{ $t('common.selectAll') }}
               </el-checkbox>
-              <span class="selection-info">已选 {{ selectedCharacterIds.length }}/{{ drama?.characters?.length || 0 }}</span>
+              <span class="selection-info">{{ $t('dramaWorkflow.selected') }} {{ selectedCharacterIds.length }}/{{ drama?.characters?.length || 0 }}</span>
             </div>
             <div class="toolbar-right">
-              <span class="stats-compact">角色数: {{ drama?.characters?.length || 0 }} | 已生成: {{ characterImagesCount || 0 }}</span>
+              <span class="stats-compact">{{ $t('dramaWorkflow.characterCount') }}: {{ drama?.characters?.length || 0 }} | {{ $t('dramaWorkflow.generated') }}: {{ characterImagesCount || 0 }}</span>
               <el-button 
                 type="primary" 
                 size="small"
@@ -229,7 +229,7 @@
                 @click="batchGenerateCharacterImages"
                 :icon="MagicStick"
               >
-                批量生成({{ selectedCharacterIds.length }})
+                {{ $t('dramaWorkflow.batchGenerate') }}({{ selectedCharacterIds.length }})
               </el-button>
               <el-button 
                 type="success"
@@ -237,7 +237,7 @@
                 @click="nextStep" 
                 :disabled="!allCharactersHaveImages"
               >
-                下一步
+                {{ $t('dramaWorkflow.nextStep') }}
                 <el-icon><ArrowRight /></el-icon>
               </el-button>
             </div>
@@ -539,8 +539,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   MagicStick,
@@ -569,6 +570,7 @@ import type { Drama, DramaStatus } from '@/types/drama'
 
 const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
 const drama = ref<Drama>()
 const currentStep = ref(0)
 const currentEpisodeNumber = ref(1) // 当前正在创作的集数
@@ -920,7 +922,7 @@ const editCurrentEpisodeScript = () => {
 // AI自动拆分分镜
 const generateShots = async () => {
   if (!currentEpisode.value?.script_content) {
-    ElMessage.warning('请先创作剧本内容')
+    ElMessage.warning(t('dramaWorkflow.pleaseWriteScript'))
     return
   }
   
@@ -946,11 +948,11 @@ const generateShots = async () => {
 // 重新拆分分镜
 const regenerateShots = async () => {
   await ElMessageBox.confirm(
-    '重新拆分将覆盖现有镜头，确定继续吗？',
-    '重新拆分',
+    t('dramaWorkflow.reGenerateShotsConfirm'),
+    t('dramaWorkflow.reGenerateShots'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     }
   )

@@ -41,9 +41,10 @@ type ChatfireSoraRequest struct {
 type ChatfireDoubaoRequest struct {
 	Model   string `json:"model"`
 	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text,omitempty"`
-		URL  string `json:"url,omitempty"`
+		Type     string                 `json:"type"`
+		Text     string                 `json:"text,omitempty"`
+		ImageURL map[string]interface{} `json:"image_url,omitempty"`
+		Role     string                 `json:"role,omitempty"`
 	} `json:"content"`
 }
 
@@ -70,6 +71,9 @@ type ChatfireTaskResponse struct {
 		Status   string `json:"status,omitempty"`
 		VideoURL string `json:"video_url,omitempty"`
 	} `json:"data,omitempty"`
+	Content struct {
+		VideoURL string `json:"video_url,omitempty"`
+	} `json:"content,omitempty"`
 }
 
 // getErrorMessage 从 error 字段提取错误信息（支持字符串或对象）
@@ -144,18 +148,83 @@ func (c *ChatfireClient) GenerateVideo(imageURL, prompt string, opts ...VideoOpt
 		}
 		// 添加文本内容
 		reqBody.Content = append(reqBody.Content, struct {
-			Type string `json:"type"`
-			Text string `json:"text,omitempty"`
-			URL  string `json:"url,omitempty"`
+			Type     string                 `json:"type"`
+			Text     string                 `json:"text,omitempty"`
+			ImageURL map[string]interface{} `json:"image_url,omitempty"`
+			Role     string                 `json:"role,omitempty"`
 		}{Type: "text", Text: prompt})
 
-		// 如果有图片URL，添加图片内容
-		if imageURL != "" {
+		// 处理不同的图片模式
+		// 1. 组图模式（多个reference_image）
+		if len(options.ReferenceImageURLs) > 0 {
+			for _, refURL := range options.ReferenceImageURLs {
+				reqBody.Content = append(reqBody.Content, struct {
+					Type     string                 `json:"type"`
+					Text     string                 `json:"text,omitempty"`
+					ImageURL map[string]interface{} `json:"image_url,omitempty"`
+					Role     string                 `json:"role,omitempty"`
+				}{
+					Type: "image_url",
+					ImageURL: map[string]interface{}{
+						"url": refURL,
+					},
+					Role: "reference_image",
+				})
+			}
+		} else if options.FirstFrameURL != "" && options.LastFrameURL != "" {
+			// 2. 首尾帧模式
 			reqBody.Content = append(reqBody.Content, struct {
-				Type string `json:"type"`
-				Text string `json:"text,omitempty"`
-				URL  string `json:"url,omitempty"`
-			}{Type: "image_url", URL: imageURL})
+				Type     string                 `json:"type"`
+				Text     string                 `json:"text,omitempty"`
+				ImageURL map[string]interface{} `json:"image_url,omitempty"`
+				Role     string                 `json:"role,omitempty"`
+			}{
+				Type: "image_url",
+				ImageURL: map[string]interface{}{
+					"url": options.FirstFrameURL,
+				},
+				Role: "first_frame",
+			})
+			reqBody.Content = append(reqBody.Content, struct {
+				Type     string                 `json:"type"`
+				Text     string                 `json:"text,omitempty"`
+				ImageURL map[string]interface{} `json:"image_url,omitempty"`
+				Role     string                 `json:"role,omitempty"`
+			}{
+				Type: "image_url",
+				ImageURL: map[string]interface{}{
+					"url": options.LastFrameURL,
+				},
+				Role: "last_frame",
+			})
+		} else if imageURL != "" {
+			// 3. 单图模式（默认）
+			reqBody.Content = append(reqBody.Content, struct {
+				Type     string                 `json:"type"`
+				Text     string                 `json:"text,omitempty"`
+				ImageURL map[string]interface{} `json:"image_url,omitempty"`
+				Role     string                 `json:"role,omitempty"`
+			}{
+				Type: "image_url",
+				ImageURL: map[string]interface{}{
+					"url": imageURL,
+				},
+				// 单图模式不需要role
+			})
+		} else if options.FirstFrameURL != "" {
+			// 4. 只有首帧
+			reqBody.Content = append(reqBody.Content, struct {
+				Type     string                 `json:"type"`
+				Text     string                 `json:"text,omitempty"`
+				ImageURL map[string]interface{} `json:"image_url,omitempty"`
+				Role     string                 `json:"role,omitempty"`
+			}{
+				Type: "image_url",
+				ImageURL: map[string]interface{}{
+					"url": options.FirstFrameURL,
+				},
+				Role: "first_frame",
+			})
 		}
 
 		jsonData, err = json.Marshal(reqBody)
@@ -286,6 +355,9 @@ func (c *ChatfireClient) GetTaskStatus(taskID string) (*VideoResult, error) {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
+	// 调试日志：打印响应内容
+	fmt.Printf("[Chatfire] GetTaskStatus Response body: %s\n", string(body))
+
 	var result ChatfireTaskResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("parse response: %w, body: %s", err, string(body))
@@ -307,10 +379,16 @@ func (c *ChatfireClient) GetTaskStatus(taskID string) (*VideoResult, error) {
 		status = result.Data.Status
 	}
 
+	// 按优先级获取 video_url：VideoURL -> Data.VideoURL -> Content.VideoURL
 	videoURL := result.VideoURL
 	if videoURL == "" && result.Data.VideoURL != "" {
 		videoURL = result.Data.VideoURL
 	}
+	if videoURL == "" && result.Content.VideoURL != "" {
+		videoURL = result.Content.VideoURL
+	}
+
+	fmt.Printf("[Chatfire] Parsed result - TaskID: %s, Status: %s, VideoURL: %s\n", responseTaskID, status, videoURL)
 
 	videoResult := &VideoResult{
 		TaskID:    responseTaskID,

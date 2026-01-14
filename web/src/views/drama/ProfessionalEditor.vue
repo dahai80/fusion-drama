@@ -5,10 +5,10 @@
       <div class="toolbar-left">
         <el-button link @click="goBack" class="back-btn">
           <el-icon><ArrowLeft /></el-icon>
-          返回剧集编辑
+          {{ $t('editor.backToEpisode') }}
         </el-button>
         <el-divider direction="vertical" />
-        <span class="episode-title">{{ drama?.title }} - 第{{ episodeNumber }}集</span>
+        <span class="episode-title">{{ drama?.title }} - {{ $t('editor.episode', { number: episodeNumber }) }}</span>
       </div>
       
       <div class="toolbar-right">
@@ -21,8 +21,8 @@
       <!-- 左侧分镜列表 -->
       <div class="storyboard-panel">
         <div class="panel-header">
-          <h3>剧本结构</h3>
-          <el-button text :icon="Plus" @click="handleAddStoryboard">添加</el-button>
+          <h3>{{ $t('storyboard.scriptStructure') }}</h3>
+          <el-button text :icon="Plus" @click="handleAddStoryboard">{{ $t('storyboard.add') }}</el-button>
         </div>
         
         <div class="storyboard-list">
@@ -36,8 +36,8 @@
             <div class="shot-content">
               <div class="shot-header">
                 <div class="shot-title-row">
-                  <span class="shot-number">镜头 {{ shot.storyboard_number }}</span>
-                  <span class="shot-title">{{ shot.title || '未命名镜头' }}</span>
+                  <span class="shot-number">{{ $t('storyboard.shotNumber', { number: shot.storyboard_number }) }}</span>
+                  <span class="shot-title">{{ shot.title || $t('storyboard.untitled') }}</span>
                 </div>
                 <div class="shot-duration">{{ shot.duration }}s</div>
               </div>
@@ -60,39 +60,39 @@
           @asset-deleted="loadVideoAssets"
           @merge-completed="handleMergeCompleted"
         />
-        <el-empty v-else description="暂无分镜" class="empty-timeline" />
+        <el-empty v-else :description="$t('storyboard.noStoryboard')" class="empty-timeline" />
       </div>
 
       <!-- 右侧编辑面板 -->
       <div class="edit-panel">
         <el-tabs v-model="activeTab" class="edit-tabs">
           <!-- 镜头属性标签 -->
-          <el-tab-pane label="镜头属性" name="shot" v-if="currentStoryboard">
+          <el-tab-pane :label="$t('storyboard.shotProperties')" name="shot" v-if="currentStoryboard">
             <div v-if="currentStoryboard" class="shot-editor-new">
                 <!-- 场景(Scene) -->
                 <div class="scene-section">
                   <div class="section-label">
-                    场景 (Scene)
-                    <el-button size="small" text @click="showSceneSelector = true">选择场景</el-button>
+                    {{ $t('storyboard.scene') }} (Scene)
+                    <el-button size="small" text @click="showSceneSelector = true">{{ $t('storyboard.selectScene') }}</el-button>
                   </div>
                   <div class="scene-preview" v-if="currentStoryboard.background?.image_url" @click="showSceneImage">
                     <img :src="currentStoryboard.background.image_url" alt="场景" style="cursor: pointer;" />
                     <div class="scene-info">
                       <div>{{ currentStoryboard.background.location }} · {{ currentStoryboard.background.time }}</div>
-                      <div class="scene-id">场景ID: {{ currentStoryboard.scene_id || 'N/A' }}</div>
+                      <div class="scene-id">{{ $t('editor.sceneId') }}: {{ currentStoryboard.scene_id || 'N/A' }}</div>
                     </div>
                   </div>
                   <div class="scene-preview-empty" v-else>
                     <el-icon :size="48" color="#666"><Picture /></el-icon>
-                    <div>{{ currentStoryboard.background ? '场景图片生成中...' : '未关联背景' }}</div>
+                    <div>{{ currentStoryboard.background ? $t('editor.sceneGenerating') : $t('editor.noBackground') }}</div>
                   </div>
                 </div>
 
                 <!-- 登场角色(Cast) -->
                 <div class="cast-section">
                   <div class="section-label">
-                    登场角色 (Cast)
-                    <el-button size="small" text :icon="Plus" @click="showCharacterSelector = true">添加角色</el-button>
+                    {{ $t('editor.cast') }} (Cast)
+                    <el-button size="small" text :icon="Plus" @click="showCharacterSelector = true">{{ $t('editor.addCharacter') }}</el-button>
                   </div>
                   <div class="cast-list">
                     <div 
@@ -105,23 +105,23 @@
                         <span v-else>{{ char.name?.[0] || '?' }}</span>
                       </div>
                       <div class="cast-name">{{ char.name }}</div>
-                      <div class="cast-remove" @click.stop="toggleCharacterInShot(char.id)" title="移除角色">
+                      <div class="cast-remove" @click.stop="toggleCharacterInShot(char.id)" :title="$t('editor.removeCharacter')">
                         <el-icon :size="14"><Close /></el-icon>
                       </div>
                     </div>
                     <div v-if="!currentStoryboard?.characters || currentStoryboard.characters.length === 0" class="cast-empty">
-                      未指定角色
+                      {{ $t('editor.noCharacters') }}
                     </div>
                   </div>
                 </div>
 
                 <!-- 视效设置 -->
                 <div class="settings-section">
-                  <div class="section-label">视效设置</div>
+                  <div class="section-label">{{ $t('editor.visualSettings') }}</div>
                   <div class="settings-grid">
                     <div class="setting-item">
-                      <label>景别</label>
-                      <el-select v-model="currentStoryboard.shot_type" size="small" placeholder="选择景别" @change="saveStoryboardField('shot_type')">
+                      <label>{{ $t('editor.shotType') }}</label>
+                      <el-select v-model="currentStoryboard.shot_type" size="small" :placeholder="$t('editor.shotTypePlaceholder')" @change="saveStoryboardField('shot_type')">
                         <el-option label="大远景" value="大远景" />
                         <el-option label="远景" value="远景" />
                         <el-option label="全景" value="全景" />
@@ -135,8 +135,8 @@
                     </div>
                     
                     <div class="setting-item">
-                      <label>运镜方式</label>
-                      <el-select v-model="currentStoryboard.movement" size="small" placeholder="运镜方式" @change="saveStoryboardField('movement')">
+                      <label>{{ $t('editor.movement') }}</label>
+                      <el-select v-model="currentStoryboard.movement" size="small" :placeholder="$t('editor.movementPlaceholder')" @change="saveStoryboardField('movement')">
                         <el-option label="固定镜头" value="固定镜头" />
                         <el-option label="推镜" value="推镜" />
                         <el-option label="拉镜" value="拉镜" />
@@ -155,8 +155,8 @@
                     </div>
                     
                     <div class="setting-item">
-                      <label>镜头角度</label>
-                      <el-select v-model="currentStoryboard.angle" size="small" placeholder="镜头角度" @change="saveStoryboardField('angle')">
+                      <label>{{ $t('editor.angle') }}</label>
+                      <el-select v-model="currentStoryboard.angle" size="small" :placeholder="$t('editor.anglePlaceholder')" @change="saveStoryboardField('angle')">
                         <el-option label="平视" value="平视" />
                         <el-option label="俯视" value="俯视" />
                         <el-option label="仰视" value="仰视" />
@@ -175,52 +175,52 @@
 
                 <!-- 叙事内容 -->
                 <div class="narrative-section">
-                  <div class="section-label">动作描述 (Action)</div>
+                  <div class="section-label">{{ $t('editor.action') }} (Action)</div>
                   <el-input 
                     v-model="currentStoryboard.action" 
                     type="textarea" 
                     :rows="3"
-                    placeholder="描述角色的动作过程..."
+                    :placeholder="$t('editor.actionPlaceholder')"
                   />
                 </div>
 
                 <div class="narrative-section">
-                  <div class="section-label">动作结果 (Result)</div>
+                  <div class="section-label">{{ $t('editor.result') }} (Result)</div>
                   <el-input 
                     v-model="currentStoryboard.result" 
                     type="textarea" 
                     :rows="2"
-                    placeholder="描述动作完成后的状态..."
+                    :placeholder="$t('editor.resultPlaceholder')"
                   />
                 </div>
 
                 <div class="dialogue-section">
-                  <div class="section-label">对白 (Dialogue)</div>
+                  <div class="section-label">{{ $t('editor.dialogue') }} (Dialogue)</div>
                   <el-input 
                     v-model="currentStoryboard.dialogue" 
                     type="textarea" 
                     :rows="3"
-                    placeholder="角色对白内容..."
+:placeholder="$t('editor.dialoguePlaceholder')"
                   />
                 </div>
 
                 <div class="narrative-section">
-                  <div class="section-label">镜头描述 (Description)</div>
+                  <div class="section-label">{{ $t('editor.description') }} (Description)</div>
                   <el-input 
                     v-model="currentStoryboard.description" 
                     type="textarea" 
                     :rows="3"
-                    placeholder="整体镜头描述..."
+                    :placeholder="$t('editor.descriptionPlaceholder')"
                   />
                 </div>
 
                 <!-- 音效设置 -->
                 <div class="settings-section">
-                  <div class="section-label">音效</div>
+                  <div class="section-label">{{ $t('editor.soundEffects') }}</div>
                   <div class="audio-controls">
                     <el-input 
                       v-model="currentStoryboard.sound_effect" 
-                      placeholder="描述音效，如：脚步声、关门声等"
+                      :placeholder="$t('editor.soundEffectsPlaceholder')"
                       size="small"
                       type="textarea"
                       :rows="2"
@@ -230,11 +230,11 @@
 
                 <!-- 配乐设置 -->
                 <div class="settings-section">
-                  <div class="section-label">配乐提示</div>
+                  <div class="section-label">{{ $t('editor.bgmPrompt') }}</div>
                   <div class="audio-controls">
                     <el-input 
                       v-model="currentStoryboard.bgm_prompt" 
-                      placeholder="描述配乐氛围，如：紧张激烈的背景音乐"
+                      :placeholder="$t('editor.bgmPromptPlaceholder')"
                       size="small"
                       type="textarea"
                       :rows="2"
@@ -244,11 +244,11 @@
 
                 <!-- 氛围设置 -->
                 <div class="settings-section">
-                  <div class="section-label">环境氛围</div>
+                  <div class="section-label">{{ $t('editor.atmosphere') }}</div>
                   <div class="audio-controls">
                     <el-input 
                       v-model="currentStoryboard.atmosphere" 
-                      placeholder="描述环境氛围，如：昏暗压抑、明亮温馨"
+                      :placeholder="$t('editor.atmospherePlaceholder')"
                       size="small"
                       type="textarea"
                       :rows="2"
@@ -256,22 +256,22 @@
                   </div>
                 </div>
               </div>
-              <el-empty v-else description="未选择镜头" />
+              <el-empty v-else :description="$t('editor.noShotSelected')" />
           </el-tab-pane>
 
           <!-- 图片生成标签 -->
-          <el-tab-pane label="镜头图片" name="image">
+          <el-tab-pane :label="$t('editor.shotImage')" name="image">
             <div class="tab-content" v-if="currentStoryboard">
               <div class="image-generation-section">
                 <!-- 帧类型选择 -->
                 <div class="frame-type-selector">
-                  <div class="section-label">选择帧类型</div>
+                  <div class="section-label">{{ $t('editor.selectFrameType') }}</div>
                   <el-radio-group v-model="selectedFrameType" size="small">
-                    <el-radio-button label="first">首帧</el-radio-button>
-                    <el-radio-button label="last">尾帧</el-radio-button>
-                    <el-radio-button label="panel">分镜板</el-radio-button>
-                    <el-radio-button label="action">动作序列</el-radio-button>
-                    <el-radio-button label="key">关键帧</el-radio-button>
+                    <el-radio-button label="first">{{ $t('editor.firstFrame') }}</el-radio-button>
+                    <el-radio-button label="last">{{ $t('editor.lastFrame') }}</el-radio-button>
+                    <el-radio-button label="panel">{{ $t('editor.panelFrame') }}</el-radio-button>
+                    <el-radio-button label="action">{{ $t('editor.actionSequence') }}</el-radio-button>
+                    <el-radio-button label="key">{{ $t('editor.keyFrame') }}</el-radio-button>
                   </el-radio-group>
                   <el-input-number 
                     v-if="selectedFrameType === 'panel'" 
@@ -282,13 +282,13 @@
                     class="panel-count-input"
                     style="margin-left: 10px; margin-top: 12px;"
                   />
-                  <span v-if="selectedFrameType === 'panel'" style="margin-left: 5px; font-size: 12px; color: #999;">格数</span>
+                  <span v-if="selectedFrameType === 'panel'" style="margin-left: 5px; font-size: 12px; color: #999;">{{ $t('editor.panelCount') }}</span>
                 </div>
 
                 <!-- 提示词区域 -->
                 <div class="prompt-section">
                   <div class="section-label">
-                    提示词
+                    {{ $t('editor.prompt') }}
                     <el-button 
                       size="small" 
                       type="primary" 
@@ -297,14 +297,14 @@
                       @click="extractFramePrompt"
                       style="margin-left: 10px;"
                     >
-                      提取提示词
+                      {{ $t('editor.extractPrompt') }}
                     </el-button>
                   </div>
                   <el-input 
                     v-model="currentFramePrompt" 
                     type="textarea" 
                     :rows="8"
-                    placeholder="点击提取提示词按钮，系统将根据分镜内容生成图片提示词..."
+:placeholder="$t('editor.promptPlaceholder')"
                   />
                 </div>
 
@@ -317,14 +317,14 @@
                     :disabled="!currentFramePrompt"
                     @click="generateFrameImage"
                   >
-                    {{ generatingImage ? '生成中...' : '生成图片' }}
+                    {{ generatingImage ? $t('editor.generating') : $t('editor.generateImage') }}
                   </el-button>
-                  <el-button :icon="Upload" @click="uploadImage">上传图片</el-button>
+                  <el-button :icon="Upload" @click="uploadImage">{{ $t('editor.uploadImage') }}</el-button>
                 </div>
 
                 <!-- 生成结果 -->
                 <div class="generation-result" v-if="generatedImages.length > 0">
-                  <div class="section-label">生成结果 ({{ generatedImages.length }})</div>
+                  <div class="section-label">{{ $t('editor.generationResult') }} ({{ generatedImages.length }})</div>
                   <div class="image-grid">
                     <div 
                       v-for="img in generatedImages" 
@@ -356,7 +356,7 @@
           </el-tab-pane>
 
           <!-- 视频生成标签 -->
-          <el-tab-pane label="视频生成" name="video">
+          <el-tab-pane :label="$t('video.videoGeneration')" name="video">
             <div class="tab-content" v-if="currentStoryboard">
               <div class="video-generation-section">
                 <!-- 生成提示词展示 -->
@@ -367,8 +367,8 @@
                 <!-- 视频参数设置 -->
                 <div class="video-params-section">
                   <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                    <span style="min-width: 60px; font-size: 14px; color: #606266;">模型</span>
-                    <el-select v-model="selectedVideoModel" placeholder="请选择视频生成模型" size="default" style="flex: 1;">
+                    <span style="min-width: 60px; font-size: 14px; color: #606266;">{{ $t('video.model') }}</span>
+                    <el-select v-model="selectedVideoModel" :placeholder="$t('video.selectVideoModel')" size="default" style="flex: 1;">
                       <el-option
                         v-for="model in videoModelCapabilities"
                         :key="model.id"
@@ -406,10 +406,10 @@
                   </div>
                   
                   <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 12px;">
-                    <span style="min-width: 60px; font-size: 14px; color: #606266;">时长</span>
+                    <span style="min-width: 60px; font-size: 14px; color: #606266;">{{ $t('professionalEditor.duration') }}</span>
                     <div style="flex: 1; display: flex; align-items: center;">
                       <el-slider v-model="videoDuration" :min="4" :max="10" :step="1" show-stops style="flex: 1;" />
-                      <span style="margin-left: 10px; min-width: 40px;">{{ videoDuration }}秒</span>
+                      <span style="margin-left: 10px; min-width: 40px;">{{ videoDuration }}{{ $t('professionalEditor.seconds') }}</span>
                     </div>
                   </div>
                 </div>
@@ -685,21 +685,21 @@
           </el-tab-pane>
 
           <!-- 音效与配乐标签 -->
-          <el-tab-pane label="音效与配乐" name="audio">
+          <el-tab-pane :label="$t('video.soundAndMusicTab')" name="audio">
             <div class="tab-content">
-              <el-empty description="音效与配乐功能开发中" />
+              <el-empty :description="$t('video.soundMusicInDev')" />
             </div>
           </el-tab-pane>
 
           <!-- 视频合成列表标签 -->
-          <el-tab-pane label="视频合成" name="merges">
+          <el-tab-pane :label="$t('video.videoMerge')" name="merges">
             <div class="tab-content">
               <div class="merges-list" v-loading="loadingMerges">
-                <el-empty v-if="videoMerges.length === 0" description="暂无视频合成记录" :image-size="120">
+                <el-empty v-if="videoMerges.length === 0" :description="$t('video.noMergeRecords')" :image-size="120">
                   <template #description>
                     <div style="color: #909399; font-size: 14px; margin-top: 12px;">
-                      <p style="margin: 0;">还没有合成过视频</p>
-                      <p style="margin: 8px 0 0 0; font-size: 12px;">在时间线编辑器中排列好视频后点击"合成视频"即可</p>
+                      <p style="margin: 0;">{{ $t('video.noMergeYet') }}</p>
+                      <p style="margin: 8px 0 0 0; font-size: 12px;">{{ $t('video.mergeInstructions') }}</p>
                     </div>
                   </template>
                 </el-empty>
@@ -738,8 +738,8 @@
                             <el-icon :size="16"><Timer /></el-icon>
                           </div>
                           <div class="detail-content">
-                            <div class="detail-label">视频时长</div>
-                            <div class="detail-value">{{ merge.duration ? `${merge.duration} 秒` : '-' }}</div>
+                            <div class="detail-label">{{ $t('professionalEditor.videoDuration') }}</div>
+                            <div class="detail-value">{{ merge.duration ? `${merge.duration} ${$t('professionalEditor.seconds')}` : '-' }}</div>
                           </div>
                         </div>
                         <div class="detail-item">
@@ -906,10 +906,10 @@
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <el-tag :type="getStatusType(previewVideo.status)" size="small">{{ getStatusText(previewVideo.status) }}</el-tag>
-              <span v-if="previewVideo.duration" style="margin-left: 12px; color: #606266; font-size: 14px;">时长: {{ previewVideo.duration }}秒</span>
+              <span v-if="previewVideo.duration" style="margin-left: 12px; color: #606266; font-size: 14px;">{{ $t('professionalEditor.duration') }}: {{ previewVideo.duration }}{{ $t('professionalEditor.seconds') }}</span>
             </div>
             <el-button v-if="previewVideo.video_url" size="small" @click="window.open(previewVideo.video_url, '_blank')">
-              下载视频
+              {{ $t('professionalEditor.downloadVideo') }}
             </el-button>
           </div>
           <div v-if="previewVideo.prompt" style="margin-top: 12px; font-size: 12px; color: #606266; line-height: 1.6;">
@@ -922,8 +922,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   ArrowLeft, Plus, Picture, VideoPlay, VideoPause, View, Setting,
@@ -947,6 +948,7 @@ import type { Drama, Episode, Storyboard } from '@/types/drama'
 
 const route = useRoute()
 const router = useRouter()
+const { t: $t } = useI18n()
 
 const dramaId = Number(route.params.dramaId)
 const episodeNumber = Number(route.params.episodeNumber)

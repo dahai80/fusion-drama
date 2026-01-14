@@ -2,7 +2,7 @@
   <div class="drama-management">
     <div class="page-header">
       <div class="header-left">
-        <el-button :icon="ArrowLeft" @click="router.back()">返回</el-button>
+        <el-button :icon="ArrowLeft" @click="router.back()">{{ $t('common.back') }}</el-button>
         <div class="drama-info">
           <h1>{{ drama?.title }}</h1>
         </div>
@@ -11,19 +11,19 @@
 
     <el-tabs v-model="activeTab" class="management-tabs">
       <!-- 项目概览 -->
-      <el-tab-pane label="项目概览" name="overview">
+      <el-tab-pane :label="$t('drama.management.overview')" name="overview">
         <el-row :gutter="20">
           <el-col :span="8">
             <el-card shadow="hover">
               <template #header>
                 <div class="card-header">
                   <el-icon :size="24" color="#409eff"><Document /></el-icon>
-                  <span>章节统计</span>
+                  <span>{{ $t('drama.management.episodeStats') }}</span>
                 </div>
               </template>
               <div class="stat-content">
                 <div class="stat-number">{{ episodesCount }}</div>
-                <div class="stat-label">已创建章节</div>
+                <div class="stat-label">{{ $t('drama.management.episodesCreated') }}</div>
               </div>
             </el-card>
           </el-col>
@@ -32,12 +32,12 @@
               <template #header>
                 <div class="card-header">
                   <el-icon :size="24" color="#67c23a"><User /></el-icon>
-                  <span>角色统计</span>
+                  <span>{{ $t('drama.management.characterStats') }}</span>
                 </div>
               </template>
               <div class="stat-content">
                 <div class="stat-number">{{ charactersCount }}</div>
-                <div class="stat-label">已创建角色</div>
+                <div class="stat-label">{{ $t('drama.management.charactersCreated') }}</div>
               </div>
             </el-card>
           </el-col>
@@ -46,12 +46,12 @@
               <template #header>
                 <div class="card-header">
                   <el-icon :size="24" color="#e6a23c"><Picture /></el-icon>
-                  <span>场景统计</span>
+                  <span>{{ $t('drama.management.sceneStats') }}</span>
                 </div>
               </template>
               <div class="stat-content">
                 <div class="stat-number">{{ scenesCount }}</div>
-                <div class="stat-label">场景库数量</div>
+                <div class="stat-label">{{ $t('drama.management.sceneLibraryCount') }}</div>
               </div>
             </el-card>
           </el-col>
@@ -60,79 +60,79 @@
         <!-- 引导卡片：无章节时显示 -->
         <el-alert
           v-if="episodesCount === 0"
-          title="开始创作您的第一个章节！"
+:title="$t('drama.management.startFirstEpisode')"
           type="info"
           :closable="false"
           style="margin-top: 20px;"
         >
           <template #default>
-            <p style="margin: 8px 0;">您的项目还没有章节。请先创建一个章节开始制作。</p>
+            <p style="margin: 8px 0;">{{ $t('drama.management.noEpisodesYet') }}</p>
             <el-button type="primary" :icon="Plus" @click="createNewEpisode" style="margin-top: 8px;">
-              立即创建第一个章节
+              {{ $t('drama.management.createFirstEpisode') }}
             </el-button>
           </template>
         </el-alert>
 
         <el-card shadow="never" style="margin-top: 20px;">
           <template #header>
-            <h3>项目信息</h3>
+            <h3>{{ $t('drama.management.projectInfo') }}</h3>
           </template>
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="项目名称">{{ drama?.title }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ formatDate(drama?.created_at) }}</el-descriptions-item>
-            <el-descriptions-item label="项目描述" :span="2">
-              {{ drama?.description || '暂无描述' }}
+            <el-descriptions-item :label="$t('drama.management.projectName')">{{ drama?.title }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('common.createdAt')">{{ formatDate(drama?.created_at) }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('drama.management.projectDesc')" :span="2">
+              {{ drama?.description || $t('drama.management.noDescription') }}
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-tab-pane>
 
       <!-- 章节管理 -->
-      <el-tab-pane label="章节管理" name="episodes">
+      <el-tab-pane :label="$t('drama.management.episodes')" name="episodes">
         <div class="tab-header">
-          <h2>章节列表</h2>
-          <el-button type="primary" :icon="Plus" @click="createNewEpisode">创建新章节</el-button>
+          <h2>{{ $t('drama.management.episodeList') }}</h2>
+          <el-button type="primary" :icon="Plus" @click="createNewEpisode">{{ $t('drama.management.createNewEpisode') }}</el-button>
         </div>
 
         <!-- 空状态引导 -->
         <el-empty
           v-if="episodesCount === 0"
-          description="还没有章节"
+:description="$t('drama.management.noEpisodes')"
           style="margin-top: 40px;"
         >
           <template #image>
             <el-icon :size="80" color="#409eff"><Document /></el-icon>
           </template>
           <el-button type="primary" :icon="Plus" @click="createNewEpisode">
-            创建第一个章节
+            {{ $t('drama.management.createFirstEpisode') }}
           </el-button>
         </el-empty>
 
         <el-table v-else :data="sortedEpisodes" border stripe style="margin-top: 16px;">
-          <el-table-column type="index" label="序号" width="80" />
-          <el-table-column prop="title" label="章节标题" min-width="200" />
-          <el-table-column label="状态" width="120">
+          <el-table-column type="index" :label="$t('storyboard.table.number')" width="80" />
+          <el-table-column prop="title" :label="$t('drama.management.episodeList')" min-width="200" />
+          <el-table-column :label="$t('common.status')" width="120">
             <template #default="{ row }">
               <el-tag :type="getEpisodeStatusType(row)">{{ getEpisodeStatusText(row) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="分镜数" width="100">
+          <el-table-column label="Shots" width="100">
             <template #default="{ row }">
               {{ row.shots?.length || 0 }}
             </template>
           </el-table-column>
-          <el-table-column label="创建时间" width="180">
+          <el-table-column :label="$t('common.createdAt')" width="180">
             <template #default="{ row }">
               {{ formatDate(row.created_at) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
+          <el-table-column :label="$t('storyboard.table.operations')" width="220" fixed="right">
             <template #default="{ row }">
               <el-button size="small" type="primary" @click="enterEpisodeWorkflow(row)">
-                进入制作
+                {{ $t('drama.management.goToEdit') }}
               </el-button>
               <el-button size="small" type="danger" @click="deleteEpisode(row)">
-                删除
+                {{ $t('common.delete') }}
               </el-button>
             </template>
           </el-table-column>
@@ -140,10 +140,10 @@
       </el-tab-pane>
 
       <!-- 角色管理 -->
-      <el-tab-pane label="角色管理" name="characters">
+      <el-tab-pane :label="$t('drama.management.characters')" name="characters">
         <div class="tab-header">
-          <h2>角色列表</h2>
-          <el-button type="primary" :icon="Plus" @click="openAddCharacterDialog">添加角色</el-button>
+          <h2>{{ $t('drama.management.characterList') }}</h2>
+          <el-button type="primary" :icon="Plus" @click="openAddCharacterDialog">{{ $t('character.add') }}</el-button>
         </div>
 
         <el-row :gutter="16" style="margin-top: 16px;">
@@ -157,27 +157,27 @@
               <div class="character-info">
                 <h4>{{ character.name }}</h4>
                 <el-tag :type="character.role === 'main' ? 'danger' : 'info'" size="small">
-                  {{ character.role === 'main' ? '主角' : character.role === 'supporting' ? '配角' : '次要' }}
+                  {{ character.role === 'main' ? 'Main' : character.role === 'supporting' ? 'Supporting' : 'Minor' }}
                 </el-tag>
                 <p class="desc">{{ character.appearance || character.description }}</p>
               </div>
 
               <div class="character-actions">
-                <el-button size="small" @click="editCharacter(character)">编辑</el-button>
-                <el-button size="small" type="danger" @click="deleteCharacter(character)">删除</el-button>
+                <el-button size="small" @click="editCharacter(character)">{{ $t('common.edit') }}</el-button>
+                <el-button size="small" type="danger" @click="deleteCharacter(character)">{{ $t('common.delete') }}</el-button>
               </div>
             </el-card>
           </el-col>
         </el-row>
 
-        <el-empty v-if="!drama?.characters || drama.characters.length === 0" description="暂无角色" />
+        <el-empty v-if="!drama?.characters || drama.characters.length === 0" :description="$t('drama.management.noCharacters')" />
       </el-tab-pane>
 
       <!-- 场景库管理 -->
-      <el-tab-pane label="场景库" name="scenes">
+      <el-tab-pane :label="$t('drama.management.sceneList')" name="scenes">
         <div class="tab-header">
-          <h2>场景库</h2>
-          <el-button type="primary" :icon="Plus" @click="openAddSceneDialog">添加场景</el-button>
+          <h2>{{ $t('drama.management.sceneList') }}</h2>
+          <el-button type="primary" :icon="Plus" @click="openAddSceneDialog">{{ $t('common.add') }}</el-button>
         </div>
 
         <el-row :gutter="16" style="margin-top: 16px;">
@@ -196,59 +196,59 @@
               </div>
 
               <div class="scene-actions">
-                <el-button size="small" @click="editScene(scene)">编辑</el-button>
-                <el-button size="small" type="danger" @click="deleteScene(scene)">删除</el-button>
+                <el-button size="small" @click="editScene(scene)">{{ $t('common.edit') }}</el-button>
+                <el-button size="small" type="danger" @click="deleteScene(scene)">{{ $t('common.delete') }}</el-button>
               </div>
             </el-card>
           </el-col>
         </el-row>
 
-        <el-empty v-if="scenes.length === 0" description="暂无场景" />
+        <el-empty v-if="scenes.length === 0" :description="$t('drama.management.noScenes')" />
       </el-tab-pane>
     </el-tabs>
 
     <!-- 添加角色对话框 -->
-    <el-dialog v-model="addCharacterDialogVisible" title="添加角色" width="600px">
+    <el-dialog v-model="addCharacterDialogVisible" :title="$t('character.add')" width="600px">
       <el-form :model="newCharacter" label-width="100px">
-        <el-form-item label="角色名称">
-          <el-input v-model="newCharacter.name" placeholder="请输入角色名称" />
+        <el-form-item :label="$t('character.name')">
+          <el-input v-model="newCharacter.name" :placeholder="$t('character.name')" />
         </el-form-item>
-        <el-form-item label="角色类型">
-          <el-select v-model="newCharacter.role" placeholder="请选择角色类型">
-            <el-option label="主角" value="main" />
-            <el-option label="配角" value="supporting" />
-            <el-option label="次要角色" value="minor" />
+        <el-form-item :label="$t('character.role')">
+          <el-select v-model="newCharacter.role" :placeholder="$t('common.pleaseSelect')">
+            <el-option label="Main" value="main" />
+            <el-option label="Supporting" value="supporting" />
+            <el-option label="Minor" value="minor" />
           </el-select>
         </el-form-item>
-        <el-form-item label="外貌特征"> 
-          <el-input v-model="newCharacter.appearance" type="textarea" :rows="3" placeholder="描述角色的外貌特征" />
+        <el-form-item :label="$t('character.appearance')"> 
+          <el-input v-model="newCharacter.appearance" type="textarea" :rows="3" :placeholder="$t('character.appearance')" />
         </el-form-item>
-        <el-form-item label="性格特点">
-          <el-input v-model="newCharacter.personality" type="textarea" :rows="3" placeholder="描述角色的性格特点" />
+        <el-form-item :label="$t('character.personality')">
+          <el-input v-model="newCharacter.personality" type="textarea" :rows="3" :placeholder="$t('character.personality')" />
         </el-form-item>
-        <el-form-item label="角色描述">
-          <el-input v-model="newCharacter.description" type="textarea" :rows="3" placeholder="其他描述信息" />
+        <el-form-item :label="$t('character.description')">
+          <el-input v-model="newCharacter.description" type="textarea" :rows="3" :placeholder="$t('common.description')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addCharacterDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="addCharacter">确定</el-button>
+        <el-button @click="addCharacterDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="addCharacter">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 添加场景对话框 -->
-    <el-dialog v-model="addSceneDialogVisible" title="添加场景" width="600px">
+    <el-dialog v-model="addSceneDialogVisible" :title="$t('common.add')" width="600px">
       <el-form :model="newScene" label-width="100px">
-        <el-form-item label="场景名称">
-          <el-input v-model="newScene.name" placeholder="请输入场景名称" />
+        <el-form-item :label="$t('common.name')">
+          <el-input v-model="newScene.name" :placeholder="$t('common.name')" />
         </el-form-item>
-        <el-form-item label="场景描述">
-          <el-input v-model="newScene.description" type="textarea" :rows="4" placeholder="描述场景的特征" />
+        <el-form-item :label="$t('common.description')">
+          <el-input v-model="newScene.description" type="textarea" :rows="4" :placeholder="$t('common.description')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addSceneDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="addScene">确定</el-button>
+        <el-button @click="addSceneDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="addScene">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>

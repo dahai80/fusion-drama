@@ -1,21 +1,21 @@
 <template>
   <div class="script-generation-container">
-    <el-page-header @back="goBack" title="返回项目">
+    <el-page-header @back="goBack" :title="$t('script.backToProject')">
       <template #content>
-        <h2>剧本生成</h2>
+        <h2>{{ $t('script.title') }}</h2>
       </template>
     </el-page-header>
 
     <el-card shadow="never" class="main-card">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="custom-tabs">
         <!-- AI 生成剧本 -->
-        <el-tab-pane label="AI 生成剧本" name="ai">
+        <el-tab-pane :label="$t('script.aiGenerate')" name="ai">
           <!-- 步骤进度条 -->
           <div class="steps-wrapper">
             <el-steps :active="aiCurrentStep" finish-status="success" align-center process-status="process">
-              <el-step title="生成大纲" description="" />
-              <el-step title="生成角色" description="" />
-              <el-step title="生成剧集" description="" />
+              <el-step :title="$t('script.steps.outline')" description="" />
+              <el-step :title="$t('script.steps.characters')" description="" />
+              <el-step :title="$t('script.steps.episodes')" description="" />
             </el-steps>
           </div>
 
@@ -23,13 +23,13 @@
             <!-- 步骤 0: 生成大纲 -->
             <div v-show="aiCurrentStep === 0" class="step-panel">
               <el-form :model="outlineForm" label-width="100px">
-                <el-form-item label="创作主题" required>
+                <el-form-item :label="$t('script.form.theme')" required>
                   <div class="theme-input-wrapper">
                     <el-input
                       v-model="outlineForm.theme"
                       type="textarea"
                       :rows="4"
-                      placeholder="描述你想创作的短剧主题和故事概念"
+                      :placeholder="$t('script.form.themePlaceholder')"
                       maxlength="500"
                       show-word-limit
                     />
@@ -39,35 +39,35 @@
                       @click="generateRandomTheme"
                       class="random-btn"
                     >
-                      随机生成
+                      {{ $t('script.form.randomGenerate') }}
                     </el-button>
                   </div>
                 </el-form-item>
 
-                <el-form-item label="类型偏好">
-                  <el-select v-model="outlineForm.genre" placeholder="选择类型" clearable>
-                    <el-option label="都市" value="都市" />
-                    <el-option label="古装" value="古装" />
-                    <el-option label="悬疑" value="悬疑" />
-                    <el-option label="爱情" value="爱情" />
-                    <el-option label="喜剧" value="喜剧" />
+                <el-form-item :label="$t('script.form.genre')">
+                  <el-select v-model="outlineForm.genre" :placeholder="$t('script.form.genrePlaceholder')" clearable>
+                    <el-option :label="$t('genres.urban')" value="都市" />
+                    <el-option :label="$t('genres.costume')" value="古装" />
+                    <el-option :label="$t('genres.mystery')" value="悬疑" />
+                    <el-option :label="$t('genres.romance')" value="爱情" />
+                    <el-option :label="$t('genres.comedy')" value="喜剧" />
                   </el-select>
                 </el-form-item>
 
-                <el-form-item label="风格要求">
+                <el-form-item :label="$t('script.form.style')">
                   <el-input
                     v-model="outlineForm.style"
-                    placeholder="例如：轻松幽默、紧张刺激、温馨治愈"
+                    :placeholder="$t('script.form.stylePlaceholder')"
                   />
                 </el-form-item>
 
-                <el-form-item label="剧集数量">
+                <el-form-item :label="$t('script.form.episodeCount')">
                   <el-input-number v-model="outlineForm.length" :min="3" :max="20" />
                 </el-form-item>
               </el-form>
 
               <div class="stage-notice">
-                <p>请输入创作主题和相关要求，AI将为您生成剧本大纲</p>
+                <p>{{ $t('script.notice') }}</p>
               </div>
 
               <el-alert
@@ -77,17 +77,17 @@
                 show-icon
                 class="error-alert"
               >
-                <template #title>生成失败</template>
+                <template #title>{{ $t('script.generateFailed') }}</template>
                 <div>{{ generationError }}</div>
                 <el-button type="primary" size="small" @click="retryGeneration" style="margin-top: 12px;">
                   <el-icon><RefreshRight /></el-icon>
-                  重新生成
+                  {{ $t('script.regenerate') }}
                 </el-button>
               </el-alert>
 
               <div v-if="outlineResult" class="result-preview">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                  <h4 style="margin: 0;">大纲预览（可编辑）</h4>
+                  <h4 style="margin: 0;">{{ $t('script.outlinePreview') }}</h4>
                   <el-button 
                     type="warning" 
                     size="small" 
@@ -95,25 +95,25 @@
                     :loading="generating"
                   >
                     <el-icon><RefreshRight /></el-icon>
-                    重新生成大纲
+                    {{ $t('script.regenerateOutline') }}
                   </el-button>
                 </div>
                 <el-form label-width="80px" class="outline-edit-form">
-                  <el-form-item label="标题">
-                    <el-input v-model="outlineResult.title" placeholder="请输入剧本标题" />
+                  <el-form-item :label="$t('script.form.title')">
+                    <el-input v-model="outlineResult.title" :placeholder="$t('script.form.titlePlaceholder')" />
                   </el-form-item>
-                  <el-form-item label="概要">
+                  <el-form-item :label="$t('script.form.summary')">
                     <el-input 
                       v-model="outlineResult.summary" 
                       type="textarea" 
                       :rows="8"
-                      placeholder="请输入剧本概要"
+                      :placeholder="$t('script.form.summaryPlaceholder')"
                     />
                   </el-form-item>
-                  <el-form-item label="类型">
-                    <el-input v-model="outlineResult.genre" placeholder="例如：都市、古装" />
+                  <el-form-item :label="$t('script.form.genre')">
+                    <el-input v-model="outlineResult.genre" :placeholder="$t('script.form.genreExample')" />
                   </el-form-item>
-                  <el-form-item label="标签">
+                  <el-form-item :label="$t('script.form.tags')">
                     <el-tag
                       v-for="(tag, index) in outlineResult.tags"
                       :key="index"
@@ -132,7 +132,7 @@
                       @keyup.enter="addTag"
                       @blur="addTag"
                     />
-                    <el-button v-else size="small" @click="showTagInput">+ 新标签</el-button>
+                    <el-button v-else size="small" @click="showTagInput">+ {{ $t('script.form.newTag') }}</el-button>
                   </el-form-item>
                 </el-form>
               </div>
@@ -141,48 +141,48 @@
             <!-- 步骤 1: 生成角色 -->
             <div v-show="aiCurrentStep === 1" class="step-panel">
               <div v-if="charactersResult.length === 0" class="stage-notice">
-                <p>基于大纲自动生成剧本中的角色列表</p>
+                <p>{{ $t('scriptGenerationPage.autoGenerateCharacters') }}</p>
                 <el-alert 
                   title="提示" 
                   type="info" 
                   :closable="false"
                   style="margin-top: 16px;"
                 >
-                  角色已在大纲生成时创建，点击"下一步"查看并编辑
+                  {{ $t('scriptGenerationPage.charactersCreatedInOutline') }}
                 </el-alert>
               </div>
 
               <div v-if="charactersResult.length > 0" class="result-preview">
-                <h4>角色列表（可编辑）</h4>
-                <el-button type="primary" size="small" @click="addCharacter" class="add-btn">+ 添加角色</el-button>
+                <h4>{{ $t('scriptGenerationPage.characterListEditable') }}</h4>
+                <el-button type="primary" size="small" @click="addCharacter" class="add-btn">{{ $t('scriptGenerationPage.addCharacter') }}</el-button>
                 <el-table :data="charactersResult" border max-height="400" class="editable-table">
-                  <el-table-column prop="name" label="角色名" width="120">
+                  <el-table-column prop="name" :label="$t('scriptGenerationPage.characterName')" width="120">
                     <template #default="{ row }">
                       <el-input v-model="row.name" size="small" />
                     </template>
                   </el-table-column>
-                  <el-table-column prop="role" label="角色类型" width="120">
+                  <el-table-column prop="role" :label="$t('scriptGenerationPage.characterType')" width="120">
                     <template #default="{ row }">
                       <el-select v-model="row.role" size="small">
-                        <el-option label="主角" value="main" />
-                        <el-option label="配角" value="supporting" />
-                        <el-option label="次要角色" value="minor" />
+                        <el-option :label="$t('scriptGenerationPage.mainCharacter')" value="main" />
+                        <el-option :label="$t('scriptGenerationPage.supportingCharacter')" value="supporting" />
+                        <el-option :label="$t('scriptGenerationPage.minorCharacter')" value="minor" />
                       </el-select>
                     </template>
                   </el-table-column>
-                  <el-table-column prop="description" label="角色描述">
+                  <el-table-column prop="description" :label="$t('scriptGenerationPage.characterDesc')">
                     <template #default="{ row }">
                       <el-input v-model="row.description" size="small" type="textarea" :rows="2" />
                     </template>
                   </el-table-column>
-                  <el-table-column prop="appearance" label="外貌特征" width="200">
+                  <el-table-column prop="appearance" :label="$t('scriptGenerationPage.appearanceFeatures')" width="200">
                     <template #default="{ row }">
                       <el-input v-model="row.appearance" size="small" type="textarea" :rows="2" />
                     </template>
                   </el-table-column>
-                  <el-table-column label="操作" width="80" fixed="right">
+                  <el-table-column :label="$t('scriptGenerationPage.operations')" width="80" fixed="right">
                     <template #default="{ $index }">
-                      <el-button type="danger" size="small" text @click="deleteCharacter($index)">删除</el-button>
+                      <el-button type="danger" size="small" text @click="deleteCharacter($index)">{{ $t('scriptGenerationPage.delete') }}</el-button>
                     </template>
                   </el-table-column>
                 </el-table>
@@ -193,13 +193,13 @@
             <div v-show="aiCurrentStep === 2" class="step-panel">
               <div v-if="episodesResult.length === 0">
                 <el-form :model="episodesForm" label-width="100px">
-                  <el-form-item label="剧集数量" required>
+                  <el-form-item :label="$t('scriptGenerationPage.episodeCount')" required>
                     <el-input-number v-model="episodesForm.episode_count" :min="1" :max="10" />
                   </el-form-item>
                 </el-form>
 
                 <div class="stage-notice">
-                  <p>根据大纲生成完整的分集剧本</p>
+                  <p>{{ $t('scriptGenerationPage.generateFullScript') }}</p>
                   <el-alert 
                     v-if="outlineResult && outlineResult.episodes && outlineResult.episodes.length > 0"
                     title="提示" 
@@ -207,21 +207,21 @@
                     :closable="false"
                     style="margin-top: 16px;"
                   >
-                    大纲生成时已创建 {{ outlineResult.episodes.length }} 集剧情，但您可以重新设置剧集数量并生成
+                    {{ $t('scriptGenerationPage.outlineCreatedEpisodes', { count: outlineResult.episodes.length }) }}
                   </el-alert>
                 </div>
               </div>
 
               <div v-if="episodesResult.length > 0" class="result-preview">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                  <h4>剧集预览（共{{ episodesResult.length }}集）</h4>
-                  <el-button size="small" @click="regenerateEpisodes">重新生成</el-button>
+                  <h4>{{ $t('scriptGenerationPage.episodePreview', { count: episodesResult.length }) }}</h4>
+                  <el-button size="small" @click="regenerateEpisodes">{{ $t('scriptGenerationPage.regenerate') }}</el-button>
                 </div>
                 <el-table :data="episodesResult" border max-height="400">
-                  <el-table-column prop="episode_number" label="集数" width="80" />
-                  <el-table-column prop="title" label="标题" width="200" />
-                  <el-table-column prop="summary" label="简介" />
-                  <el-table-column prop="duration" label="时长(秒)" width="100" />
+                  <el-table-column prop="episode_number" :label="$t('scriptGenerationPage.episodeNumber')" width="80" />
+                  <el-table-column prop="title" :label="$t('scriptGenerationPage.title')" width="200" />
+                  <el-table-column prop="summary" :label="$t('scriptGenerationPage.summary')" />
+                  <el-table-column prop="duration" :label="$t('scriptGenerationPage.durationSeconds')" width="100" />
                 </el-table>
               </div>
             </div>
@@ -229,13 +229,13 @@
         </el-tab-pane>
 
         <!-- 方式2: 上传剧本 -->
-        <el-tab-pane label="上传剧本" name="upload">
+        <el-tab-pane :label="$t('scriptGenerationPage.uploadScript')" name="upload">
           <!-- 上传流程步骤 -->
           <div class="steps-wrapper">
             <el-steps :active="uploadCurrentStep" finish-status="success" align-center process-status="process">
-              <el-step title="上传内容" description="" />
-              <el-step title="AI解析" description="" />
-              <el-step title="确认保存" description="" />
+              <el-step :title="$t('scriptGenerationPage.uploadContent')" description="" />
+              <el-step :title="$t('scriptGenerationPage.aiParse')" description="" />
+              <el-step :title="$t('scriptGenerationPage.confirmSave')" description="" />
             </el-steps>
           </div>
 
@@ -243,11 +243,11 @@
             <!-- 步骤 0: 上传内容 -->
             <div v-show="uploadCurrentStep === 0" class="step-panel">
               <div class="stage-notice">
-                <p>粘贴或上传您的剧本文件，系统将自动识别并拆分为剧集和场景</p>
+                <p>{{ $t('scriptGenerationPage.uploadNotice') }}</p>
               </div>
 
               <el-form :model="uploadForm" label-width="100px">
-                <el-form-item label="上传方式">
+                <el-form-item :label="$t('scriptGenerationPage.uploadMethod')">
                   <div class="upload-options">
                     <el-upload
                       ref="uploadRef"
@@ -260,10 +260,10 @@
                     >
                       <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
                       <div class="el-upload__text">
-                        拖拽文件到此处 或 <em>点击上传</em>
+                        {{ $t('scriptGenerationPage.dragFilesHere') }} <em>{{ $t('scriptGenerationPage.clickUpload') }}</em>
                       </div>
                       <div class="el-upload__tip">
-                        支持 .txt, .md, .doc, .docx 格式
+                        {{ $t('scriptGenerationPage.supportedFormats') }}
                       </div>
                     </el-upload>
                   </div>
@@ -331,12 +331,12 @@
                 </div>
 
                 <div v-if="parseResult.characters && parseResult.characters.length > 0" class="characters-list" style="margin-top: 20px;">
-                  <h4>角色列表</h4>
+                  <h4>{{ $t('scriptGenerationPage.characterList') }}</h4>
                   <el-table :data="parseResult.characters" border max-height="300">
-                    <el-table-column prop="name" label="角色名" width="120" />
-                    <el-table-column prop="role" label="定位" width="100" />
-                    <el-table-column prop="description" label="外貌描述" show-overflow-tooltip />
-                    <el-table-column prop="personality" label="性格" width="200" show-overflow-tooltip />
+                    <el-table-column prop="name" :label="$t('scriptGenerationPage.characterName')" width="120" />
+                    <el-table-column prop="role" :label="$t('scriptGenerationPage.position')" width="100" />
+                    <el-table-column prop="description" :label="$t('scriptGenerationPage.appearanceDesc')" show-overflow-tooltip />
+                    <el-table-column prop="personality" :label="$t('scriptGenerationPage.personality')" width="200" show-overflow-tooltip />
                   </el-table>
                 </div>
               </div>
@@ -348,7 +348,7 @@
       <!-- 底部导航按钮 -->
       <div class="navigation-buttons">
         <el-button size="large" @click="handlePrevStep" :disabled="!canGoPrev">
-          上一步
+          {{ $t('scriptGenerationPage.prevStep') }}
         </el-button>
         <el-button 
           size="large" 
@@ -367,6 +367,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { Loading, RefreshRight, MagicStick, UploadFilled } from '@element-plus/icons-vue';
 import { generationAPI } from '@/api/generation';
@@ -375,6 +376,7 @@ import type { OutlineResult, ParseScriptResult } from '@/types/generation';
 
 const route = useRoute();
 const router = useRouter();
+const { t: $t } = useI18n();
 const dramaId = route.params.id as string;
 
 // 从URL query参数恢复状态，如果没有则使用默认值

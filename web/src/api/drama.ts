@@ -72,7 +72,7 @@ export const dramaAPI = {
   },
 
   extractBackgrounds(episodeId: string) {
-    return request.post(`/images/episode/${episodeId}/backgrounds/extract`)
+    return request.post<{ task_id: string; status: string; message: string }>(`/images/episode/${episodeId}/backgrounds/extract`)
   },
 
   batchGenerateBackgrounds(episodeId: string) {

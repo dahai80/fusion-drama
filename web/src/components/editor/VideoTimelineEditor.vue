@@ -4,8 +4,8 @@
     <div class="editor-toolbar">
       <div class="toolbar-left">
         <el-button-group>
-          <el-button :icon="VideoPlay" @click="playTimeline" :disabled="timelineClips.length === 0">播放</el-button>
-          <el-button :icon="VideoPause" @click="pauseTimeline">暂停</el-button>
+          <el-button :icon="VideoPlay" @click="playTimeline" :disabled="timelineClips.length === 0">{{ $t('common.play') }}</el-button>
+          <el-button :icon="VideoPause" @click="pauseTimeline">{{ $t('common.pause') }}</el-button>
         </el-button-group>
         <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(totalDuration) }}</span>
       </div>
@@ -17,7 +17,7 @@
           :disabled="timelineClips.length === 0"
           :loading="serverMerging"
         >
-          合成视频
+          {{ $t('video.merge') }}
         </el-button>
       </div>
     </div>
@@ -42,7 +42,7 @@
             :style="{ animationDuration: transitionState.duration + 's' }"
           ></div>
           <div class="preview-overlay" v-if="!currentPreviewUrl">
-            <el-empty description="将场景拖拽到时间线开始编辑" />
+            <el-empty :description="$t('video.dragToTimeline')" />
           </div>
         </div>
         <div class="preview-controls">
@@ -59,8 +59,8 @@
       <div class="media-library">
         <div class="library-header">
           <div class="header-left">
-            <h4>视频素材库</h4>
-            <span>{{ availableStoryboards.length }} 个视频</span>
+            <h4>{{ $t('video.mediaLibrary') }}</h4>
+            <span>{{ $t('video.videoCount', { count: availableStoryboards.length }) }}</span>
           </div>
           <el-button 
             type="primary" 
@@ -69,7 +69,7 @@
             @click="addAllScenesInOrder"
             :disabled="availableStoryboards.length === 0"
           >
-            一键添加全部
+            {{ $t('common.addAll') }}
           </el-button>
         </div>
         <div class="media-grid">
@@ -98,12 +98,12 @@
                   :icon="Plus"
                   @click.stop="addClipToTimeline(scene)"
                 >
-                  添加到时间线
+                  {{ $t('common.addToTimeline') }}
                 </el-button>
               </div>
             </div>
             <div class="media-info">
-              <div class="media-title">镜头 #{{ scene.storyboard_num || scene.assetId }}</div>
+              <div class="media-title">{{ $t('storyboard.shot') }} #{{ scene.storyboard_num || scene.assetId }}</div>
             </div>
           </div>
         </div>
@@ -116,7 +116,7 @@
         <div class="zoom-controls">
           <el-button-group size="small">
             <el-button @click="zoomOut">-</el-button>
-            <el-button @click="zoomReset">重置</el-button>
+            <el-button @click="zoomReset">{{ $t('common.reset') }}</el-button>
             <el-button @click="zoomIn">+</el-button>
           </el-button-group>
           <span class="zoom-level">{{ Math.round(zoom * 100) }}%</span>
@@ -154,7 +154,7 @@
           @dragover.prevent
           @click="clickTimeline($event)"
         >
-          <div class="track-label">视频轨道</div>
+          <div class="track-label">{{ $t('video.videoTrack') }}</div>
           <div class="track-clips">
             <!-- 视频片段 -->
             <div
@@ -171,7 +171,7 @@
                   <video :src="clip.video_url" />
                 </div>
                 <div class="clip-info">
-                  <div class="clip-title">场景{{ clip.storyboard_number }}</div>
+                  <div class="clip-title">{{ $t('storyboard.scene') }} {{ clip.storyboard_number }}</div>
                   <div class="clip-duration">{{ clip.duration.toFixed(1) }}s</div>
                 </div>
               </div>
@@ -204,13 +204,13 @@
           @click="clickTimeline($event)"
         >
           <div class="track-label">
-            <span>音频轨道</span>
+            <span>{{ $t('video.audioTrack') }}</span>
             <el-button 
               type="text" 
               size="small" 
               @click.stop="extractAllAudio"
               :disabled="timelineClips.length === 0"
-              title="从所有视频片段提取音频"
+:title="$t('video.extractAudio')"
             >
               <el-icon><Headset /></el-icon>
             </el-button>
@@ -231,7 +231,7 @@
                   <el-icon><Microphone /></el-icon>
                 </div>
                 <div class="clip-info">
-                  <div class="clip-title">音频 {{ audio.order + 1 }}</div>
+                  <div class="clip-title">{{ $t('video.audio') }} {{ audio.order + 1 }}</div>
                   <div class="clip-duration">{{ audio.duration.toFixed(1) }}s</div>
                 </div>
               </div>
@@ -253,8 +253,8 @@
       width="500px"
     >
       <el-form label-width="100px">
-        <el-form-item label="转场类型">
-          <el-select v-model="editingTransition.type" placeholder="选择转场效果">
+        <el-form-item :label="$t('video.transitionType')">
+          <el-select v-model="editingTransition.type" :placeholder="$t('video.selectTransition')">
             <el-option label="无转场" value="none" />
             <!-- 淡入淡出类 -->
             <el-option label="淡入淡出" value="fade" />
@@ -283,7 +283,7 @@
             <el-option label="垂直关闭" value="vertclose" />
           </el-select>
         </el-form-item>
-        <el-form-item label="转场时长" v-if="editingTransition.type !== 'none'">
+        <el-form-item :label="$t('video.transitionDuration')" v-if="editingTransition.type !== 'none'">
           <el-slider
             v-model="editingTransition.duration"
             :min="0.3"

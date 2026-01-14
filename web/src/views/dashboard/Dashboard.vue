@@ -3,14 +3,15 @@
     <el-container>
       <el-header class="header">
         <div class="header-content">
-          <h2>🎬 Drama Generator</h2>
+          <h2>{{ $t('dashboard.title') }}</h2>
+          <LanguageSwitcher />
         </div>
       </el-header>
       
       <el-main>
         <div class="welcome-section">
-          <h1>欢迎使用 AI 短剧生成平台</h1>
-          <p>从剧本到视频，一站式短剧创作工具</p>
+          <h1>{{ $t('dashboard.welcome') }}</h1>
+          <p>{{ $t('dashboard.subtitle') }}</p>
         </div>
         
         <el-row :gutter="20" class="stats-row">
@@ -19,7 +20,7 @@
               <div class="stat-item">
                 <el-icon :size="40" color="#409eff"><Document /></el-icon>
                 <h3>0</h3>
-                <p>短剧项目</p>
+                <p>{{ $t('dashboard.stats.projects') }}</p>
               </div>
             </el-card>
           </el-col>
@@ -29,7 +30,7 @@
               <div class="stat-item">
                 <el-icon :size="40" color="#67c23a"><Picture /></el-icon>
                 <h3>0</h3>
-                <p>生成图片</p>
+                <p>{{ $t('dashboard.stats.images') }}</p>
               </div>
             </el-card>
           </el-col>
@@ -39,7 +40,7 @@
               <div class="stat-item">
                 <el-icon :size="40" color="#e6a23c"><VideoPlay /></el-icon>
                 <h3>0</h3>
-                <p>生成视频</p>
+                <p>{{ $t('dashboard.stats.videos') }}</p>
               </div>
             </el-card>
           </el-col>
@@ -49,28 +50,28 @@
               <div class="stat-item">
                 <el-icon :size="40" color="#f56c6c"><Clock /></el-icon>
                 <h3>0</h3>
-                <p>处理中任务</p>
+                <p>{{ $t('dashboard.stats.tasks') }}</p>
               </div>
             </el-card>
           </el-col>
         </el-row>
         
         <div class="quick-actions">
-          <h2>快速开始</h2>
+          <h2>{{ $t('dashboard.quickStart') }}</h2>
           <el-row :gutter="20">
             <el-col :span="8">
               <el-card shadow="hover" class="action-card" @click="goToDramas">
                 <el-icon :size="50" color="#409eff"><Plus /></el-icon>
-                <h3>创建新项目</h3>
-                <p>开始一个全新的短剧项目</p>
+                <h3>{{ $t('dashboard.actions.newProject') }}</h3>
+                <p>{{ $t('dashboard.actions.newProjectDesc') }}</p>
               </el-card>
             </el-col>
             
             <el-col :span="8">
               <el-card shadow="hover" class="action-card" @click="goToDramas">
                 <el-icon :size="50" color="#67c23a"><FolderOpened /></el-icon>
-                <h3>我的项目</h3>
-                <p>查看和管理已有项目</p>
+                <h3>{{ $t('dashboard.actions.myProjects') }}</h3>
+                <p>{{ $t('dashboard.actions.myProjectsDesc') }}</p>
               </el-card>
             </el-col>
             
@@ -84,6 +85,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { Document, Picture, VideoPlay, Clock, Plus, FolderOpened, Setting } from '@element-plus/icons-vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
 

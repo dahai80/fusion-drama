@@ -13,7 +13,7 @@ export const generationAPI = {
   },
 
   generateCharacters(data: GenerateCharactersRequest) {
-    return request.post<Character[]>('/generation/characters', data)
+    return request.post<{ task_id: string; status: string; message: string }>('/generation/characters', data)
   },
 
   generateEpisodes(data: GenerateEpisodesRequest) {

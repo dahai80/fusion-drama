@@ -3,10 +3,11 @@
     <div class="page-header-wrapper">
       <div class="page-header">
         <div>
-          <h2>我的短剧项目</h2>
-          <p class="subtitle">共 {{ total }} 个项目</p>
+          <h2>{{ $t('drama.title') }}</h2>
+          <p class="subtitle">{{ $t('drama.totalProjects', { count: total }) }}</p>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
+          <LanguageSwitcher />
           <el-alert
             type="info"
             :closable="false"
@@ -14,17 +15,17 @@
             style="padding: 8px 12px;"
           >
             <template #title>
-              <span style="font-size: 13px;">使用前请先配置 AI 服务</span>
+              <span style="font-size: 13px;">{{ $t('drama.aiConfigTip') }}</span>
             </template>
           </el-alert>
-          <el-button type="warning" @click="goToAIConfig" :icon="Setting">AI 配置</el-button>
-          <el-button type="primary" @click="handleCreate" :icon="Plus">创建新项目</el-button>
+          <el-button type="warning" @click="goToAIConfig" :icon="Setting">{{ $t('drama.aiConfig') }}</el-button>
+          <el-button type="primary" @click="handleCreate" :icon="Plus">{{ $t('drama.createNew') }}</el-button>
         </div>
       </div>
     </div>
 
     <div v-loading="loading" class="dramas-grid">
-      <el-empty v-if="!loading && dramas.length === 0" description="暂无项目，点击创建新项目开始吧" />
+      <el-empty v-if="!loading && dramas.length === 0" :description="$t('drama.empty')" />
       
       <el-card 
         v-for="drama in dramas" 
@@ -38,7 +39,7 @@
           <img v-if="drama.thumbnail" :src="drama.thumbnail" :alt="drama.title" />
           <div v-else class="cover-placeholder">
             <el-icon :size="64"><Film /></el-icon>
-            <p>暂无封面</p>
+            <p>{{ $t('drama.noCover') }}</p>
           </div>
         </div>
 
@@ -48,7 +49,7 @@
             <el-tag v-if="drama.genre" class="genre-tag" size="small">{{ drama.genre }}</el-tag>
           </div>
           
-          <p class="drama-description">{{ drama.description || '暂无描述' }}</p>
+          <p class="drama-description">{{ drama.description || $t('drama.noDescription') }}</p>
           
           <div class="drama-footer">
             <div class="meta-info">
@@ -66,7 +67,7 @@
                 <el-icon><View /></el-icon>
               </el-button>
               <el-popconfirm
-                title="确定删除该项目吗？"
+                :title="$t('drama.deleteConfirm')"
                 @confirm="deleteDrama(drama.id)"
               >
                 <template #reference>
@@ -127,6 +128,7 @@ import { ElMessage } from 'element-plus'
 import { Plus, Clock, Film, Setting } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import type { Drama, DramaListQuery, DramaStatus } from '@/types/drama'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
 const router = useRouter()
 const loading = ref(false)

@@ -3,9 +3,9 @@
     <div class="editor-header">
       <el-button link @click="goBack" class="back-button">
         <el-icon><ArrowLeft /></el-icon>
-        返回
+        {{ $t('timeline.backToEditor') }}
       </el-button>
-      <h2>时间线编辑器</h2>
+      <h2>{{ $t('timeline.title') }}</h2>
     </div>
     
     <div class="editor-content">
@@ -14,7 +14,7 @@
         :scenes="scenes" 
         :episode-id="episodeId" 
       />
-      <el-empty v-else description="暂无可用场景" />
+      <el-empty v-else :description="$t('timeline.noScenes')" />
     </div>
   </div>
 </template>
@@ -38,7 +38,7 @@ const loadScenes = async () => {
     const res = await dramaAPI.getStoryboards(episodeId)
     scenes.value = res.storyboards || []
   } catch (error: any) {
-    ElMessage.error('加载分镜失败')
+    ElMessage.error($t('timeline.loadFailed'))
   }
 }
 
