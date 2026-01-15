@@ -138,33 +138,37 @@ func (f *FFmpeg) trimVideo(inputPath, outputPath string, startTime, endTime floa
 		"start", startTime,
 		"end", endTime)
 
-	// 如果startTime和endTime都为0，或者endTime <= startTime，直接复制整个视频
+	// 如果startTime和endTime都为0，或者endTime <= startTime，复制整个视频
+	// 使用重新编码而非-c copy以确保输出文件完整性
 	if (startTime == 0 && endTime == 0) || endTime <= startTime {
-		f.log.Infow("No valid trim range, copying entire video")
+		f.log.Infow("No valid trim range, re-encoding entire video")
 
 		cmd := exec.Command("ffmpeg",
 			"-i", inputPath,
-			"-c", "copy",
+			"-c:v", "libx264",
+			"-preset", "fast",
+			"-crf", "23",
+			"-c:a", "aac",
+			"-b:a", "128k",
+			"-movflags", "+faststart",
 			"-y",
 			outputPath,
 		)
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			f.log.Errorw("FFmpeg copy failed", "error", err, "output", string(output))
-			return fmt.Errorf("ffmpeg copy failed: %w, output: %s", err, string(output))
+			f.log.Errorw("FFmpeg re-encode failed", "error", err, "output", string(output))
+			return fmt.Errorf("ffmpeg re-encode failed: %w, output: %s", err, string(output))
 		}
 
-		f.log.Infow("Video copied successfully", "output", outputPath)
+		f.log.Infow("Video re-encoded successfully", "output", outputPath)
 		return nil
 	}
 
 	// 使用FFmpeg裁剪视频
-	// -i: 输入文件
 	// -ss: 开始时间（秒）
-	// -to: 结束时间（秒）或使用-t指定持续时间
-	// -c copy: 直接复制流，不重新编码（速度快）
-	// -avoid_negative_ts 1: 避免负时间戳问题
+	// -to/-t: 结束时间或持续时间
+	// 使用重新编码而非-c copy以确保输出文件完整性，避免Windows环境下流信息丢失
 	var cmd *exec.Cmd
 	if endTime > 0 {
 		// 有明确的结束时间
@@ -172,9 +176,13 @@ func (f *FFmpeg) trimVideo(inputPath, outputPath string, startTime, endTime floa
 			"-i", inputPath,
 			"-ss", fmt.Sprintf("%.2f", startTime),
 			"-to", fmt.Sprintf("%.2f", endTime),
-			"-c", "copy",
-			"-avoid_negative_ts", "1",
-			"-y", // 覆盖输出文件
+			"-c:v", "libx264",
+			"-preset", "fast",
+			"-crf", "23",
+			"-c:a", "aac",
+			"-b:a", "128k",
+			"-movflags", "+faststart",
+			"-y",
 			outputPath,
 		)
 	} else {
@@ -182,8 +190,12 @@ func (f *FFmpeg) trimVideo(inputPath, outputPath string, startTime, endTime floa
 		cmd = exec.Command("ffmpeg",
 			"-i", inputPath,
 			"-ss", fmt.Sprintf("%.2f", startTime),
-			"-c", "copy",
-			"-avoid_negative_ts", "1",
+			"-c:v", "libx264",
+			"-preset", "fast",
+			"-crf", "23",
+			"-c:a", "aac",
+			"-b:a", "128k",
+			"-movflags", "+faststart",
 			"-y",
 			outputPath,
 		)
