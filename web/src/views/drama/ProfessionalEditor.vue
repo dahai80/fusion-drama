@@ -1533,12 +1533,16 @@ const startPolling = () => {
         generatedImages.value = result.items || []
       }
 
-      // 如果没有进行中的任务，停止轮询
+      // 如果没有进行中的任务，停止轮询并刷新视频参考图片
       const hasPendingOrProcessing = (result.items || []).some(
         (img: any) => img.status === 'pending' || img.status === 'processing'
       )
       if (!hasPendingOrProcessing) {
         stopPolling()
+        // 刷新视频参考图片列表
+        if (currentStoryboard.value) {
+          loadVideoReferenceImages(currentStoryboard.value.id)
+        }
       }
     } catch (error) {
       console.error('轮询图片状态失败:', error)
