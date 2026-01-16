@@ -230,25 +230,10 @@ go run main.go
 
 ### 🐳 Docker 部署（推荐）
 
-使用 Docker 部署是最简单快捷的方式，已内置默认配置，开箱即用。
-
-#### 快速体验（推荐新手）
+#### 方式一：Docker Compose（推荐）
 
 ```bash
-# 从 Docker Hub 拉取并运行
-docker run -d \
-  --name huobao-drama \
-  -p 5678:5678 \
-  --restart unless-stopped \
-  huobao/huobao-drama:latest
-```
-
-访问: `http://localhost:5678` 即可开始使用！
-
-#### 方式一：使用 Docker Compose
-
-```bash
-# 启动服务（使用内置配置）
+# 启动服务
 docker-compose up -d
 
 # 查看日志
@@ -258,66 +243,27 @@ docker-compose logs -f
 docker-compose down
 ```
 
-**自定义配置**（可选）：
+#### 方式二：Docker 命令
+
+> **注意**：Linux 用户需添加 `--add-host=host.docker.internal:host-gateway` 以访问宿主机服务
+
 ```bash
-# 1. 取消 docker-compose.yml 中配置文件挂载的注释
-# 2. 复制并修改配置文件
-cp configs/config.example.yaml configs/config.yaml
-vim configs/config.yaml
-
-# 3. 重启服务
-docker-compose up -d
-```
-
-#### 方式二：使用 Docker 命令
-
-**基础启动**（使用内置配置）：
-```bash
+# 从 Docker Hub 运行
 docker run -d \
   --name huobao-drama \
   -p 5678:5678 \
   -v $(pwd)/data:/app/data \
   --restart unless-stopped \
   huobao/huobao-drama:latest
-```
 
-**自定义配置启动**：
-```bash
-# 挂载自定义配置文件
-docker run -d \
-  --name huobao-drama \
-  -p 5678:5678 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/configs/config.yaml:/app/configs/config.yaml:ro \
-  --restart unless-stopped \
-  huobao/huobao-drama:latest
-```
-
-**查看日志**：
-```bash
+# 查看日志
 docker logs -f huobao-drama
 ```
 
-#### 方式三：本地构建镜像
-
+**本地构建**（可选）：
 ```bash
-# 1. 构建镜像
 docker build -t huobao-drama:latest .
-
-# 2. 运行容器
-docker run -d \
-  --name huobao-drama \
-  -p 5678:5678 \
-  -v $(pwd)/data:/app/data \
-  --restart unless-stopped \
-  huobao-drama:latest
-```
-
-#### 镜像仓库
-
-**Docker Hub**（国际）:
-```bash
-docker pull huobao/huobao-drama:latest
+docker run -d --name huobao-drama -p 5678:5678 -v $(pwd)/data:/app/data huobao-drama:latest
 ```
 
 **Docker 部署优势：**
@@ -328,24 +274,21 @@ docker pull huobao/huobao-drama:latest
 - ✅ 自动健康检查和重启
 - ✅ 自动处理文件权限，无需手动配置
 
-**📝 数据持久化说明：**
+#### 🔗 访问宿主机服务（Ollama/本地模型）
 
-Docker 部署使用命名卷 `huobao-data` 存储数据库和上传文件：
-- 数据会自动持久化，重启容器不会丢失
-- 容器内 `app` 用户自动拥有完整读写权限
-- 无需担心传统部署中的权限问题
+容器已配置支持访问宿主机服务，直接使用 `http://host.docker.internal:端口号` 即可。
 
-如需备份数据：
-```bash
-# 查看卷位置
-docker volume inspect huobao-drama_huobao-data
+**配置步骤：**
 
-# 备份数据
-docker run --rm -v huobao-drama_huobao-data:/data -v $(pwd):/backup alpine tar czf /backup/huobao-data-backup.tar.gz -C /data .
+1. **宿主机启动服务（监听所有接口）**
+   ```bash
+   export OLLAMA_HOST=0.0.0.0:11434 && ollama serve
+   ```
 
-# 恢复数据
-docker run --rm -v huobao-drama_huobao-data:/data -v $(pwd):/backup alpine tar xzf /backup/huobao-data-backup.tar.gz -C /data
-```
+2. **前端 AI 服务配置**
+   - Base URL: `http://host.docker.internal:11434/v1`
+   - Provider: `openai`
+   - Model: `qwen2.5:latest`
 
 ---
 
@@ -491,130 +434,6 @@ server {
 
 ---
 
-## 🔧 开发指南
-
-### 添加新功能
-
-#### 1. 添加API接口
-
-```bash
-# 创建Handler
-vim api/handlers/your_handler.go
-
-# 注册路由
-vim api/routes/routes.go
-```
-
-示例：
-```go
-// api/handlers/your_handler.go
-func (h *YourHandler) YourMethod(c *gin.Context) {
-    // 处理逻辑
-    response.Success(c, data)
-}
-
-// api/routes/routes.go
-your := api.Group("/your")
-{
-    your.GET("", yourHandler.List)
-    your.POST("", yourHandler.Create)
-}
-```
-
-#### 2. 添加业务服务
-
-```go
-// application/services/your_service.go
-type YourService struct {
-    db  *gorm.DB
-    log *logger.Logger
-}
-
-func NewYourService(db *gorm.DB, log *logger.Logger) *YourService {
-    return &YourService{db: db, log: log}
-}
-
-func (s *YourService) YourMethod() error {
-    // 业务逻辑
-    return nil
-}
-```
-
-#### 3. 添加前端页面
-
-```bash
-# 创建页面组件
-vim web/src/views/YourPage.vue
-
-# 注册路由
-vim web/src/router/index.ts
-
-# 添加API调用
-vim web/src/api/your-api.ts
-```
-
-### 调试技巧
-
-**后端调试：**
-```bash
-# 启用详细日志
-export LOG_LEVEL=debug
-go run main.go
-
-# 使用dlv调试器
-dlv debug main.go
-```
-
-**前端调试：**
-```bash
-cd web
-npm run dev
-# 打开浏览器 DevTools
-```
-
-**数据库查询：**
-```bash
-sqlite3 data/drama_generator.db
-.tables
-.schema dramas
-SELECT * FROM dramas;
-```
-
----
-
-## 🛠️ 常用命令
-
-```bash
-# 开发模式
-go run main.go                      # 启动后端服务
-cd web && npm run dev               # 启动前端开发服务器
-
-# 编译构建
-cd web && npm run build && cd ..    # 构建前端
-go build -o huobao-drama .          # 编译后端
-
-# 依赖管理
-go mod download                     # 下载Go依赖
-go mod tidy                         # 清理Go依赖
-cd web && npm install && cd ..      # 安装前端依赖
-
-# 代码检查
-go fmt ./...                        # 格式化代码
-go vet ./...                        # 代码检查
-cd web && npm run lint && cd ..     # 前端代码检查
-
-# 清理
-go clean                            # 清理Go构建缓存
-rm -rf web/dist                     # 清理前端构建产物
-rm -f huobao-drama                  # 删除可执行文件
-
-# 测试
-go test ./...                       # 运行Go测试
-cd web && npm run test && cd ..     # 运行前端测试
-```
-
----
-
 ## 🎨 技术栈
 
 ### 后端技术
@@ -624,7 +443,7 @@ cd web && npm run test && cd ..     # 运行前端测试
 - **数据库**: SQLite
 - **日志**: Zap
 - **视频处理**: FFmpeg
-- **AI服务**: 豆包 Doubao API
+- **AI服务**: OpenAI、Gemini、火山等
 
 ### 前端技术
 - **框架**: Vue 3.4+
@@ -644,6 +463,13 @@ cd web && npm run test && cd ..     # 运行前端测试
 
 ## 📝 常见问题
 
+### Q: Docker 容器如何访问宿主机的 Ollama？
+A: 使用 `http://host.docker.internal:11434/v1` 作为 Base URL。注意两点：
+1. 宿主机 Ollama 需监听 `0.0.0.0`：`export OLLAMA_HOST=0.0.0.0:11434 && ollama serve`
+2. Linux 用户使用 `docker run` 需添加：`--add-host=host.docker.internal:host-gateway`
+
+详见：[DOCKER_HOST_ACCESS.md](docs/DOCKER_HOST_ACCESS.md)
+
 ### Q: FFmpeg未安装或找不到？
 A: 确保FFmpeg已安装并在PATH环境变量中。运行 `ffmpeg -version` 验证。
 
@@ -657,20 +483,20 @@ A: GORM会在首次启动时自动创建表，检查日志确认迁移是否成�
 
 ## � 更新日志 / Changelog
 
+### v1.0.2 (2026-01-16)
+
+#### 🚀 重大更新
+- SQLite 纯 Go 驱动（`modernc.org/sqlite`），支持 `CGO_ENABLED=0` 跨平台编译
+- 优化并发性能（WAL 模式），解决 "database is locked" 错误
+- Docker 跨平台支持 `host.docker.internal` 访问宿主机服务
+- 精简文档和部署指南
+
 ### v1.0.1 (2026-01-14)
 
-#### 🐛 Bug Fixes / 问题修复
-- 修复 视频生成 API 响应解析问题
-- 修复视频生成客户端选择逻辑
-
-#### ✨ Features / 新增功能
-- 添加 OpenAI Sora 视频端点配置（/videos 和 /videos/{taskId}）
-- 优化错误处理，支持 JSON 对象和字符串格式的错误响应
-
-#### 🔧 Improvements / 改进
-- 完善视频生成服务的 provider 识别
-- 优化客户端请求格式（支持 Sora/Doubao 模型）
-- 改进日志输出，便于调试
+#### 🐛 Bug Fixes / 🔧 Improvements
+- 修复视频生成 API 响应解析问题
+- 添加 OpenAI Sora 视频端点配置
+- 优化错误处理和日志输出
 
 ---
 

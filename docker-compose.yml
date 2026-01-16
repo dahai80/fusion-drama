@@ -16,6 +16,11 @@ services:
       # 例如：- ./data:/app/data （需要 chmod 777 ./data）
     environment:
       - TZ=Asia/Shanghai
+      # 访问宿主机服务说明：
+      # 使用 host.docker.internal 代替 127.0.0.1
+      # 例如：http://host.docker.internal:11434 (Ollama)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 统一支持所有平台
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/health"]

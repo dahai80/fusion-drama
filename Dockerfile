@@ -24,17 +24,14 @@ RUN npm run build
 FROM golang:1.23-alpine AS backend-builder
 
 # 配置 Go 代理（国内镜像加速）
-ENV GOPROXY=https://goproxy.cn,direct \
+ENV GOPROXY=https://goproxy.cn,direct \ 
     GO111MODULE=on
 
-# 安装必要的构建工具（包括 gcc、musl-dev 和 sqlite-dev 用于 CGO）
+# 安装必要的构建工具（纯 Go 编译，无需 CGO）
 RUN apk add --no-cache \
     git \
     ca-certificates \
-    tzdata \
-    gcc \
-    musl-dev \
-    sqlite-dev
+    tzdata
 
 WORKDIR /app
 
@@ -50,8 +47,8 @@ COPY . .
 # 复制前端构建产物
 COPY --from=frontend-builder /app/web/dist ./web/dist
 
-# 构建后端可执行文件（启用 CGO 以支持 go-sqlite3）
-RUN CGO_ENABLED=1 go build -ldflags="-w -s" -o huobao-drama .
+# 构建后端可执行文件（纯 Go 编译，使用 modernc.org/sqlite）
+RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o huobao-drama .
 
 # ==================== 阶段3: 运行时镜像 ====================
 FROM alpine:latest
@@ -61,7 +58,6 @@ RUN apk add --no-cache \
     ca-certificates \
     tzdata \
     ffmpeg \
-    sqlite-libs \
     wget \
     && rm -rf /var/cache/apk/*
 
