@@ -236,6 +236,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'config-updated': []
 }>()
 
 const visible = computed({
@@ -567,6 +568,7 @@ const handleSubmit = async () => {
       
       editDialogVisible.value = false
       loadConfigs()
+      emit('config-updated')
     } catch (error: any) {
       ElMessage.error(error.message || '操作失败')
     } finally {
@@ -625,45 +627,84 @@ const handleQuickSetup = async () => {
   const apiKey = quickSetupApiKey.value.trim()
 
   try {
-    // 创建文本配置
-    const textProvider = providerConfigs.text.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'text',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'text'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [textProvider.models[0]],
-      priority: 0
-    })
+    // 加载所有类型的配置，检查是否已存在相同 baseUrl 的配置
+    const [textConfigs, imageConfigs, videoConfigs] = await Promise.all([
+      aiAPI.list('text'),
+      aiAPI.list('image'),
+      aiAPI.list('video')
+    ])
 
-    // 创建图片配置
-    const imageProvider = providerConfigs.image.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'image',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'image'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [imageProvider.models[0]],
-      priority: 0
-    })
+    const createdServices: string[] = []
+    const skippedServices: string[] = []
 
-    // 创建视频配置
-    const videoProvider = providerConfigs.video.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'video',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'video'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [videoProvider.models[0]],
-      priority: 0
-    })
+    // 创建文本配置（如果不存在）
+    const existingTextConfig = textConfigs.find(c => c.base_url === baseUrl)
+    if (!existingTextConfig) {
+      const textProvider = providerConfigs.text.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'text',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'text'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [textProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('文本')
+    } else {
+      skippedServices.push('文本')
+    }
 
-    ElMessage.success('一键配置成功！已创建文本、图片、视频三个服务配置')
+    // 创建图片配置（如果不存在）
+    const existingImageConfig = imageConfigs.find(c => c.base_url === baseUrl)
+    if (!existingImageConfig) {
+      const imageProvider = providerConfigs.image.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'image',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'image'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [imageProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('图片')
+    } else {
+      skippedServices.push('图片')
+    }
+
+    // 创建视频配置（如果不存在）
+    const existingVideoConfig = videoConfigs.find(c => c.base_url === baseUrl)
+    if (!existingVideoConfig) {
+      const videoProvider = providerConfigs.video.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'video',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'video'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [videoProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('视频')
+    } else {
+      skippedServices.push('视频')
+    }
+
+    // 显示结果消息
+    if (createdServices.length > 0 && skippedServices.length > 0) {
+      ElMessage.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
+    } else if (createdServices.length > 0) {
+      ElMessage.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
+    } else {
+      ElMessage.info('所有配置已存在，无需重复创建')
+    }
+
     quickSetupVisible.value = false
     loadConfigs()
+    if (createdServices.length > 0) {
+      emit('config-updated')
+    }
   } catch (error: any) {
     ElMessage.error(error.message || '配置失败')
   } finally {

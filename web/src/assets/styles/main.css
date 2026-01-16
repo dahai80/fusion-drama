@@ -774,21 +774,21 @@ body {
 .page-container {
   min-height: 100vh;
   background-color: var(--bg-primary);
-  padding: var(--space-2) var(--space-3);
+  /* padding: var(--space-2) var(--space-3); */
   transition: background-color var(--transition-normal);
 }
 
-@media (min-width: 768px) {
+/* @media (min-width: 768px) {
   .page-container {
     padding: var(--space-3) var(--space-4);
   }
-}
+} */
 
-@media (min-width: 1024px) {
+/* @media (min-width: 1024px) {
   .page-container {
     padding: var(--space-4) var(--space-5);
   }
-}
+} */
 
 .content-wrapper {
   margin: 0 auto;

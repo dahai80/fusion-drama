@@ -1,22 +1,15 @@
 <template>
   <div class="professional-editor">
     <!-- 顶部工具栏 -->
-    <div class="editor-toolbar">
-      <div class="toolbar-left">
-        <el-button link @click="goBack" class="back-btn">
-          <el-icon>
-            <ArrowLeft />
-          </el-icon>
-          {{ $t('editor.backToEpisode') }}
+    <AppHeader :fixed="false" :show-logo="false" @config-updated="loadVideoModels">
+      <template #left>
+        <el-button text @click="goBack" class="back-btn">
+          <el-icon><ArrowLeft /></el-icon>
+          <span>{{ $t('editor.backToEpisode') }}</span>
         </el-button>
-        <el-divider direction="vertical" />
         <span class="episode-title">{{ drama?.title }} - {{ $t('editor.episode', { number: episodeNumber }) }}</span>
-      </div>
-
-      <div class="toolbar-right">
-        <!-- <el-button :icon="Setting" circle @click="showSettings = true" /> -->
-      </div>
-    </div>
+      </template>
+    </AppHeader>
 
     <!-- 主编辑区域 -->
     <div class="editor-main">
@@ -906,6 +899,7 @@ import type { Asset } from '@/types/asset'
 import type { VideoMerge } from '@/api/videoMerge'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import type { Drama, Episode, Storyboard } from '@/types/drama'
+import { AppHeader } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()

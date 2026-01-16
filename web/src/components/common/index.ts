@@ -20,3 +20,4 @@ export { default as AIConfigDialog } from './AIConfigDialog.vue'
 
 // Layout Components / 布局组件
 export { default as AppLayout } from './AppLayout.vue'
+export { default as AppHeader } from './AppHeader.vue'

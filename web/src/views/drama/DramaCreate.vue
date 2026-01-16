@@ -3,13 +3,18 @@
   <div class="page-container">
     <div class="content-wrapper animate-fade-in">
       <!-- Header / 头部 -->
-      <PageHeader
-        title="创建新项目"
-        subtitle="填写基本信息来创建你的短剧项目"
-        :show-back="true"
-        back-text="返回"
-        :show-border="false"
-      />
+      <AppHeader :fixed="false" :show-logo="false">
+        <template #left>
+          <el-button text @click="goBack" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>返回</span>
+          </el-button>
+          <div class="page-title">
+            <h1>创建新项目</h1>
+            <span class="subtitle">填写基本信息来创建你的短剧项目</span>
+          </div>
+        </template>
+      </AppHeader>
 
       <!-- Form Card / 表单卡片 -->
       <div class="form-card">
@@ -69,7 +74,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import type { CreateDramaRequest } from '@/types/drama'
-import { PageHeader } from '@/components/common'
+import { AppHeader } from '@/components/common'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()

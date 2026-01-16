@@ -1,39 +1,38 @@
 <template>
   <div class="page-container">
     <div class="content-wrapper animate-fade-in">
-      <header class="page-header">
-        <div class="header-content">
-          <div class="header-left">
-            <button class="back-btn" @click="$router.back()">
-              <el-icon><ArrowLeft /></el-icon>
-              <span>{{ $t('workflow.backToProject') }}</span>
-            </button>
-            <div class="nav-divider"></div>
-            <h1 class="header-title">{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
-          </div>
-          <div class="header-center">
-            <div class="custom-steps">
-              <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
-                <div class="step-circle">1</div>
-                <span class="step-text">{{ $t('workflow.steps.content') }}</span>
-              </div>
-              <el-icon class="step-arrow"><ArrowRight /></el-icon>
-              <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
-                <div class="step-circle">2</div>
-                <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
-              </div>
-              <el-icon class="step-arrow"><ArrowRight /></el-icon>
-              <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
-                <div class="step-circle">3</div>
-                <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
-              </div>
+      <AppHeader :fixed="false" :show-logo="false">
+        <template #left>
+          <el-button text @click="$router.back()" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>{{ $t('workflow.backToProject') }}</span>
+          </el-button>
+          <h1 class="header-title">{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
+        </template>
+        <template #center>
+          <div class="custom-steps">
+            <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
+              <div class="step-circle">1</div>
+              <span class="step-text">{{ $t('workflow.steps.content') }}</span>
+            </div>
+            <el-icon class="step-arrow"><ArrowRight /></el-icon>
+            <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
+              <div class="step-circle">2</div>
+              <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
+            </div>
+            <el-icon class="step-arrow"><ArrowRight /></el-icon>
+            <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
+              <div class="step-circle">3</div>
+              <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
             </div>
           </div>
-          <div class="header-right">
-            <el-button :icon="Setting" circle @click="showModelConfigDialog" :title="$t('workflow.modelConfig')" />
-          </div>
-        </div>
-      </header>
+        </template>
+        <template #right>
+          <el-button :icon="Setting" @click="showModelConfigDialog" :title="$t('workflow.modelConfig')">
+            图文配置
+          </el-button>
+        </template>
+      </AppHeader>
 
     <!-- 阶段 0: 章节内容 + 提取角色场景 -->
     <el-card v-show="currentStep === 0" shadow="never" class="stage-card stage-card-fullscreen">
@@ -822,7 +821,7 @@ import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig } from '@/types/ai'
 import { imageAPI } from '@/api/image'
 import type { Drama } from '@/types/drama'
-import PageHeader from '@/components/common/PageHeader.vue'
+import { AppHeader } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -1750,19 +1749,19 @@ onMounted(() => {
 .page-container {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: var(--space-2) var(--space-3);
+  // padding: var(--space-2) var(--space-3);
   transition: background var(--transition-normal);
 }
 
 @media (min-width: 768px) {
   .page-container {
-    padding: var(--space-3) var(--space-4);
+    // padding: var(--space-3) var(--space-4);
   }
 }
 
 @media (min-width: 1024px) {
   .page-container {
-    padding: var(--space-4) var(--space-5);
+    // padding: var(--space-4) var(--space-5);
   }
 }
 
@@ -1841,7 +1840,7 @@ onMounted(() => {
 }
 
 .workflow-card {
-  margin-bottom: var(--space-4);
+  margin: 12px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
@@ -1915,7 +1914,7 @@ onMounted(() => {
 }
 
 .stage-card {
-  margin-bottom: 24px;
+  margin: 12px;
   
   &.stage-card-fullscreen {
     .stage-body-fullscreen {
@@ -1950,14 +1949,13 @@ onMounted(() => {
 }
 
 .stage-body {
-  padding: 32px;
   background: var(--bg-card);
 }
 
 .action-buttons {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin: 12px 0;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
@@ -1990,8 +1988,8 @@ onMounted(() => {
     margin-bottom: 16px;
     padding: 16px;
     background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-primary);
+    // border-radius: 8px;
+    // border: 1px solid var(--border-primary);
 
     .section-title {
       display: flex;
@@ -2178,6 +2176,7 @@ onMounted(() => {
 
 .character-image-list,
 .scene-image-list {
+  padding: 5px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
