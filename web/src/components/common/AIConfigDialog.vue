@@ -283,13 +283,9 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
       id: 'chatfire', 
       name: 'Chatfire', 
       models: [
-        'gpt-4o',
+        'gemini-3-pro-preview',
         'claude-sonnet-4-5-20250929',
-        'doubao-seed-1-8-251228',
-        'kimi-k2-thinking',
-        'gemini-3-pro',
-        'gemini-2.5-pro',
-        'gemini-3-pro-preview'
+        'doubao-seed-1-8-251228'
       ]
     },
     { 
@@ -341,18 +337,43 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
         'sora-pro'
       ]
     },
+    { 
+      id: 'minimax', 
+      name: 'MiniMax 海螺', 
+      models: [
+        'MiniMax-Hailuo-2.3',
+        'MiniMax-Hailuo-2.3-Fast',
+        'MiniMax-Hailuo-02'
+      ]
+    },
     { id: 'openai', name: 'OpenAI', models: ['sora-2', 'sora-2-pro'] }
   ]
 }
 
+// 当前可用的厂商列表（显示所有配置的厂商）
 const availableProviders = computed(() => {
+  // 返回当前service_type下的所有厂商
   return providerConfigs[form.service_type] || []
 })
 
+// 当前可用的模型列表（从已激活的配置中获取）
 const availableModels = computed(() => {
   if (!form.provider) return []
-  const provider = availableProviders.value.find(p => p.id === form.provider)
-  return provider?.models || []
+  
+  // 从已激活的配置中提取该 provider 的所有模型
+  const activeConfigsForProvider = configs.value.filter(
+    c => c.provider === form.provider && 
+         c.service_type === form.service_type && 
+         c.is_active
+  )
+  
+  // 提取所有模型，去重
+  const models = new Set<string>()
+  activeConfigsForProvider.forEach(config => {
+    config.model.forEach(m => models.add(m))
+  })
+  
+  return Array.from(models)
 })
 
 const fullEndpointExample = computed(() => {
@@ -379,6 +400,8 @@ const fullEndpointExample = computed(() => {
       endpoint = '/video/generations'
     } else if (provider === 'doubao' || provider === 'volcengine' || provider === 'volces') {
       endpoint = '/contents/generations/tasks'
+    } else if (provider === 'minimax') {
+      endpoint = '/video_generation'
     } else if (provider === 'openai') {
       endpoint = '/videos'
     } else {
@@ -585,9 +608,17 @@ const handleTabChange = (tabName: string | number) => {
 const handleProviderChange = () => {
   form.model = []
   
+  // 根据厂商自动设置 Base URL
   if (form.provider === 'gemini' || form.provider === 'google') {
-    form.base_url = 'https://api.chatfire.site'
+    form.base_url = 'https://generativelanguage.googleapis.com'
+  } else if (form.provider === 'minimax') {
+    form.base_url = 'https://api.minimaxi.com/v1'
+  } else if (form.provider === 'volces' || form.provider === 'volcengine') {
+    form.base_url = 'https://ark.cn-beijing.volces.com/api/v3'
+  } else if (form.provider === 'openai') {
+    form.base_url = 'https://api.openai.com/v1'
   } else {
+    // chatfire 和其他厂商
     form.base_url = 'https://api.chatfire.site/v1'
   }
   
@@ -812,6 +843,9 @@ watch(visible, (val) => {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  line-height: 1.5;
 }
 
 /* Dark mode */

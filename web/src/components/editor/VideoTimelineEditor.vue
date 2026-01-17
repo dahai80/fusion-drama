@@ -34,6 +34,14 @@
             @timeupdate="handlePreviewTimeUpdate"
             @ended="handlePreviewEnded"
           />
+          <!-- 音频播放器（隐藏） -->
+          <audio 
+            ref="audioPlayer"
+            :src="currentAudioUrl"
+            @loadedmetadata="handleAudioLoaded"
+            @ended="handleAudioEnded"
+            style="display: none;"
+          />
           <!-- 转场效果层 -->
           <div 
             v-if="transitionState.active"
@@ -86,7 +94,7 @@
           >
             <div class="media-thumbnail" @click="previewScene(scene)">
               <video :src="scene.video_url" />
-              <div class="media-duration">{{ scene.duration || '5.0' }}s</div>
+              <div class="media-duration">{{ scene.duration > 0 ? scene.duration.toFixed(1) : '?' }}s</div>
               <el-button 
                 class="delete-btn"
                 type="danger" 
@@ -379,7 +387,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   VideoPlay, VideoPause, Plus, FolderAdd, ArrowLeft, ArrowRight,
-  Scissor, Connection, Setting, ZoomIn, ZoomOut, Refresh, Download, Delete
+  Scissor, Connection, Setting, ZoomIn, ZoomOut, Refresh, Download, Delete,
+  Close, VideoCamera, Check, Loading, Headset, Microphone
 } from '@element-plus/icons-vue'
 import { videoMerger, type MergeProgress } from '@/utils/videoMerger'
 import { trimAndMergeVideos } from '@/utils/ffmpeg'
@@ -450,7 +459,7 @@ const availableStoryboards = computed(() => {
       storyboard_num: a.storyboard_num,
       storyboard_id: a.storyboard_id,
       video_url: a.url,
-      duration: a.duration || 5,
+      duration: a.duration || 0,
       name: a.name,
       isAsset: true,
       assetId: a.id
@@ -468,6 +477,7 @@ const audioClips = ref<AudioClip[]>([])
 const selectedClipId = ref<string | null>(null)
 const selectedAudioClipId = ref<string | null>(null)
 const previewPlayer = ref<HTMLVideoElement | null>(null)
+const audioPlayer = ref<HTMLAudioElement | null>(null)
 const timelineContainer = ref<HTMLElement | null>(null)
 const showAudioTrack = ref(true)  // 是否显示音频轨道
 
@@ -537,6 +547,16 @@ const currentPreviewUrl = computed(() => {
   return clip?.video_url || timelineClips.value[0]?.video_url || ''
 })
 
+// 当前音频URL
+const currentAudioUrl = computed(() => {
+  if (audioClips.value.length === 0) return ''
+  // 根据当前时间找到应该播放的音频片段
+  const audioClip = audioClips.value.find(a => 
+    currentTime.value >= a.position && currentTime.value < a.position + a.duration
+  )
+  return audioClip?.audio_url || ''
+})
+
 const previewScene = (scene: Scene) => {
   if (previewPlayer.value) {
     previewPlayer.value.src = scene.video_url
@@ -553,6 +573,36 @@ const handlePreviewLoaded = () => {
     if (clip) {
       const offsetInClip = currentTime.value - clip.position
       previewPlayer.value.currentTime = clip.start_time + offsetInClip
+    }
+  }
+}
+
+const handleAudioLoaded = () => {
+  // 音频加载完成后跳转到正确的时间点
+  if (audioPlayer.value && audioClips.value.length > 0) {
+    const audioClip = audioClips.value.find(a => 
+      currentTime.value >= a.position && currentTime.value < a.position + a.duration
+    )
+    if (audioClip) {
+      const offsetInClip = currentTime.value - audioClip.position
+      audioPlayer.value.currentTime = audioClip.start_time + offsetInClip
+    }
+  }
+}
+
+const handleAudioEnded = () => {
+  // 音频自然结束，尝试播放下一个音频片段
+  const currentAudio = audioClips.value.find(a => 
+    currentTime.value >= a.position && currentTime.value < a.position + a.duration
+  )
+  
+  if (currentAudio) {
+    const currentIndex = audioClips.value.findIndex(a => a.id === currentAudio.id)
+    const nextAudio = audioClips.value[currentIndex + 1]
+    
+    if (nextAudio && isPlaying.value) {
+      // 有下一个音频片段且正在播放，继续
+      // 时间线会自动更新到下一个片段
     }
   }
 }
@@ -615,10 +665,23 @@ const switchToClip = async (clip: TimelineClip) => {
   
   // 暂停当前播放，避免冲突
   previewPlayer.value.pause()
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+  }
   
   // 切换视频源
   currentTime.value = clip.position
   previewPlayer.value.src = clip.video_url
+  
+  // 同步切换音频源
+  if (audioClips.value.length > 0 && audioPlayer.value) {
+    const audioClip = audioClips.value.find(a => 
+      clip.position >= a.position && clip.position < a.position + a.duration
+    )
+    if (audioClip) {
+      audioPlayer.value.src = audioClip.audio_url
+    }
+  }
   
   // 等待视频加载
   try {
@@ -656,6 +719,19 @@ const switchToClip = async (clip: TimelineClip) => {
     
     if (isPlaying.value) {
       await previewPlayer.value.play()
+      
+      // 同步播放音频
+      if (audioClips.value.length > 0 && audioPlayer.value) {
+        const audioClip = audioClips.value.find(a => 
+          clip.position >= a.position && clip.position < a.position + a.duration
+        )
+        if (audioClip && audioPlayer.value.src) {
+          audioPlayer.value.currentTime = audioClip.start_time
+          audioPlayer.value.play().catch(err => {
+            console.warn('音频播放失败:', err)
+          })
+        }
+      }
     }
   } catch (error) {
     console.error('切换视频片段失败:', error)
@@ -737,13 +813,43 @@ const handleTrackDrop = (event: DragEvent) => {
   addClipToTimeline(scene)
 }
 
-const addClipToTimeline = (scene: Scene, insertAtPosition?: number) => {
+const getVideoDuration = (videoUrl: string): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.src = videoUrl
+    
+    video.onloadedmetadata = () => {
+      const duration = video.duration
+      video.remove()
+      resolve(duration)
+    }
+    
+    video.onerror = () => {
+      video.remove()
+      reject(new Error('Failed to load video'))
+    }
+  })
+}
+
+const addClipToTimeline = async (scene: Scene, insertAtPosition?: number) => {
+  // 获取视频真实时长
+  let videoDuration = scene.duration || 5
+  if (scene.video_url) {
+    try {
+      videoDuration = await getVideoDuration(scene.video_url)
+    } catch (error) {
+      console.warn('Failed to get video duration, using default or scene duration:', error)
+      videoDuration = scene.duration || 5
+    }
+  }
+
   // 计算新片段的位置
   let clipPosition: number
   let insertAfterIndex: number | null = null
   
   if (insertAtPosition !== undefined && timelineClips.value.length > 0) {
-    // 如果指定了插入位置，找到应该插入的位置
+    // 如果指定了插入位置,找到应该插入的位置
     clipPosition = insertAtPosition
   } else if (selectedClipId.value && timelineClips.value.length > 0) {
     // 如果有选中的片段，插入到选中片段之后
@@ -774,8 +880,8 @@ const addClipToTimeline = (scene: Scene, insertAtPosition?: number) => {
     storyboard_number: scene.storyboard_number,
     video_url: scene.video_url,
     start_time: 0,
-    end_time: scene.duration || 5,
-    duration: scene.duration || 5,
+    end_time: videoDuration,
+    duration: videoDuration,
     position: clipPosition,
     order: timelineClips.value.length,
     transition: {
@@ -805,7 +911,7 @@ const addClipToTimeline = (scene: Scene, insertAtPosition?: number) => {
 }
 
 // 一键添加全部场景
-const addAllScenesInOrder = () => {
+const addAllScenesInOrder = async () => {
   if (availableStoryboards.value.length === 0) {
     ElMessage.warning('没有可用的场景')
     return
@@ -819,10 +925,10 @@ const addAllScenesInOrder = () => {
   // 清空当前选中，让所有场景都添加到末尾
   selectedClipId.value = null
 
-  // 批量添加
-  sortedScenes.forEach(scene => {
-    addClipToTimeline(scene)
-  })
+  // 批量添加（顺序添加以确保正确的时长）
+  for (const scene of sortedScenes) {
+    await addClipToTimeline(scene)
+  }
 
   ElMessage.success(`已批量添加 ${sortedScenes.length} 个场景到时间线`)
 }
@@ -965,29 +1071,73 @@ const extractAllAudio = async () => {
     return
   }
 
-  ElMessage.info('正在提取音频...')
-  
-  // 清空现有音频
-  audioClips.value = []
-  
-  // 为每个视频片段创建对应的音频片段
-  timelineClips.value.forEach((clip, index) => {
-    const audioClip: AudioClip = {
-      id: `audio_${Date.now()}_${index}`,
-      source_clip_id: clip.id,
-      audio_url: clip.video_url, // 实际应用中应该提取音频，这里暂用视频URL
-      start_time: clip.start_time,
-      end_time: clip.end_time,
-      duration: clip.duration,
-      position: clip.position,
-      order: index,
-      volume: 1.0
-    }
-    audioClips.value.push(audioClip)
+  const loadingMessage = ElMessage.info({
+    message: '正在从视频中提取音频轨道，请稍候...',
+    duration: 0
   })
   
-  updateAudioClipOrders()
-  ElMessage.success(`已提取 ${audioClips.value.length} 个音频片段`)
+  try {
+    // 清空现有音频
+    audioClips.value = []
+    
+    // 收集所有视频URL
+    const videoUrls = timelineClips.value.map(clip => clip.video_url)
+    
+    // 调用后端API批量提取音频
+    const { audioAPI } = await import('@/api/audio')
+    const response = await audioAPI.batchExtractAudio(videoUrls)
+    
+    if (!response.results || response.results.length === 0) {
+      throw new Error('音频提取失败，未返回结果')
+    }
+    
+    // 为每个视频片段创建对应的音频片段
+    timelineClips.value.forEach((clip, index) => {
+      const extractedAudio = response.results[index]
+      if (!extractedAudio) {
+        console.warn(`视频片段 ${index} 未能提取音频`)
+        return
+      }
+      
+      // 验证音频时长
+      const audioDuration = extractedAudio.duration
+      if (!audioDuration || audioDuration <= 0) {
+        console.error(`音频片段 ${index} 时长无效:`, audioDuration)
+        throw new Error(`音频片段 ${index + 1} 时长无效`)
+      }
+      
+      console.log(`音频片段 ${index}:`, {
+        video_duration: clip.duration,
+        audio_duration: audioDuration,
+        video_position: clip.position,
+        video_url: clip.video_url,
+        audio_url: extractedAudio.audio_url
+      })
+      
+      const audioClip: AudioClip = {
+        id: `audio_${Date.now()}_${index}`,
+        source_clip_id: clip.id,
+        audio_url: extractedAudio.audio_url,
+        start_time: 0, // 音频从头开始播放
+        end_time: audioDuration, // 使用实际音频时长
+        duration: audioDuration, // 使用提取的音频时长
+        position: clip.position, // 和视频片段在时间轴上相同位置
+        order: index,
+        volume: 1.0
+      }
+      audioClips.value.push(audioClip)
+    })
+    
+    updateAudioClipOrders()
+    loadingMessage.close()
+    ElMessage.success(`已成功提取 ${audioClips.value.length} 个音频片段`)
+  } catch (error: any) {
+    console.error('提取音频失败:', error)
+    loadingMessage.close()
+    ElMessage.error(error.message || '音频提取失败，请重试')
+    // 清空部分提取的音频
+    audioClips.value = []
+  }
 }
 
 const selectAudioClip = (audio: AudioClip) => {
@@ -1325,7 +1475,7 @@ const clickTimeline = (event: MouseEvent) => {
 const seekToTime = (time: number) => {
   currentTime.value = time
   
-  // 找到对应时间的片段并播放
+  // 找到对应时间的视频片段并播放
   const clip = timelineClips.value.find(c => 
     time >= c.position && time < c.position + c.duration
   )
@@ -1344,6 +1494,33 @@ const seekToTime = (time: number) => {
       previewPlayer.value.play()
     }
   }
+  
+  // 同步音频播放器
+  if (audioClips.value.length > 0 && audioPlayer.value) {
+    const audioClip = audioClips.value.find(a => 
+      time >= a.position && time < a.position + a.duration
+    )
+    
+    if (audioClip) {
+      // 切换音频源（如果需要）
+      if (audioPlayer.value.src !== audioClip.audio_url) {
+        audioPlayer.value.src = audioClip.audio_url
+      }
+      
+      // 跳转到音频片段内的对应时间
+      const offsetInAudioClip = time - audioClip.position
+      audioPlayer.value.currentTime = audioClip.start_time + offsetInAudioClip
+      
+      if (isPlaying.value) {
+        audioPlayer.value.play().catch(err => {
+          console.warn('音频播放失败:', err)
+        })
+      }
+    } else {
+      // 当前位置没有音频，暂停音频播放器
+      audioPlayer.value.pause()
+    }
+  }
 }
 
 // 播放控制
@@ -1355,7 +1532,7 @@ const playTimeline = () => {
   
   isPlaying.value = true
   
-  // 找到当前时间对应的片段
+  // 找到当前时间对应的视频片段
   const clip = timelineClips.value.find(c => 
     currentTime.value >= c.position && currentTime.value < c.position + c.duration
   )
@@ -1373,12 +1550,34 @@ const playTimeline = () => {
     seekToTime(0)
     previewPlayer.value?.play()
   }
+  
+  // 同时播放音频（如果有）
+  if (audioClips.value.length > 0 && audioPlayer.value) {
+    const audioClip = audioClips.value.find(a => 
+      currentTime.value >= a.position && currentTime.value < a.position + a.duration
+    )
+    
+    if (audioClip) {
+      if (audioPlayer.value.src !== audioClip.audio_url) {
+        audioPlayer.value.src = audioClip.audio_url
+      }
+      const offsetInAudioClip = currentTime.value - audioClip.position
+      audioPlayer.value.currentTime = audioClip.start_time + offsetInAudioClip
+      audioPlayer.value.play().catch(err => {
+        console.warn('音频播放失败:', err)
+      })
+    }
+  }
 }
 
 const pauseTimeline = () => {
   isPlaying.value = false
   if (previewPlayer.value) {
     previewPlayer.value.pause()
+  }
+  // 同时暂停音频
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
   }
 }
 

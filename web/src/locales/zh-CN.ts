@@ -74,6 +74,13 @@ export default {
     title: '设置',
     aiConfig: 'AI配置',
     general: '通用设置',
+    systemLanguage: '系统语言',
+    currentLanguage: '当前语言',
+    languageSwitchNotice: '语言切换提醒',
+    languageSwitchDesc: '切换系统语言后，以下内容将受到影响：',
+    languageSwitchItem1: '后端生成的所有提示词（分镜描述、角色描述、场景描述等）将使用所选语言',
+    languageSwitchItem2: '与AI模型的对话将使用所选语言',
+    languageSwitchItem3: '已生成的内容不会自动更新，需要重新生成',
     language: '语言',
     theme: '主题'
   },

@@ -17,7 +17,7 @@ type StoryboardHandler struct {
 
 func NewStoryboardHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger) *StoryboardHandler {
 	return &StoryboardHandler{
-		storyboardService: services.NewStoryboardService(db, log),
+		storyboardService: services.NewStoryboardService(db, cfg, log),
 		taskService:       services.NewTaskService(db, log),
 		log:               log,
 	}
@@ -26,6 +26,15 @@ func NewStoryboardHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger) *
 // GenerateStoryboard 生成分镜头（异步）
 func (h *StoryboardHandler) GenerateStoryboard(c *gin.Context) {
 	episodeID := c.Param("episode_id")
+
+	// 接收可选的 model 参数
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型）
+		req.Model = ""
+	}
 
 	// 创建异步任务
 	task, err := h.taskService.CreateTask("storyboard_generation", episodeID)
@@ -36,19 +45,19 @@ func (h *StoryboardHandler) GenerateStoryboard(c *gin.Context) {
 	}
 
 	// 启动后台goroutine处理
-	go h.processStoryboardGeneration(task.ID, episodeID)
+	go h.processStoryboardGeneration(task.ID, episodeID, req.Model)
 
 	// 立即返回任务ID
 	response.Success(c, gin.H{
 		"task_id": task.ID,
 		"status":  "pending",
-		"message": "分镜生成任务已创建，正在后台处理...",
+		"message": "分镜头生成任务已创建，正在后台处理...",
 	})
 }
 
 // processStoryboardGeneration 后台处理分镜生成
-func (h *StoryboardHandler) processStoryboardGeneration(taskID, episodeID string) {
-	h.log.Infow("Starting storyboard generation", "task_id", taskID, "episode_id", episodeID)
+func (h *StoryboardHandler) processStoryboardGeneration(taskID, episodeID, model string) {
+	h.log.Infow("Starting storyboard generation", "task_id", taskID, "episode_id", episodeID, "model", model)
 
 	// 更新任务状态为处理中
 	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始生成分镜..."); err != nil {
@@ -56,7 +65,7 @@ func (h *StoryboardHandler) processStoryboardGeneration(taskID, episodeID string
 	}
 
 	// 调用实际的生成逻辑
-	result, err := h.storyboardService.GenerateStoryboard(episodeID)
+	result, err := h.storyboardService.GenerateStoryboard(episodeID, model)
 	if err != nil {
 		h.log.Errorw("Failed to generate storyboard", "error", err, "task_id", taskID)
 		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {

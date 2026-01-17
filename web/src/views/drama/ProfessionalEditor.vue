@@ -168,25 +168,25 @@
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.action') }} (Action)</div>
                 <el-input v-model="currentStoryboard.action" type="textarea" :rows="3"
-                  :placeholder="$t('editor.actionPlaceholder')" />
+                  :placeholder="$t('editor.actionPlaceholder')" @blur="saveStoryboardField('action')" />
               </div>
 
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.result') }} (Result)</div>
                 <el-input v-model="currentStoryboard.result" type="textarea" :rows="2"
-                  :placeholder="$t('editor.resultPlaceholder')" />
+                  :placeholder="$t('editor.resultPlaceholder')" @blur="saveStoryboardField('result')" />
               </div>
 
               <div class="dialogue-section">
                 <div class="section-label">{{ $t('editor.dialogue') }} (Dialogue)</div>
                 <el-input v-model="currentStoryboard.dialogue" type="textarea" :rows="3"
-                  :placeholder="$t('editor.dialoguePlaceholder')" />
+                  :placeholder="$t('editor.dialoguePlaceholder')" @blur="saveStoryboardField('dialogue')" />
               </div>
 
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.description') }} (Description)</div>
                 <el-input v-model="currentStoryboard.description" type="textarea" :rows="3"
-                  :placeholder="$t('editor.descriptionPlaceholder')" />
+                  :placeholder="$t('editor.descriptionPlaceholder')" @blur="saveStoryboardField('description')" />
               </div>
 
               <!-- 音效设置 -->
@@ -194,7 +194,7 @@
                 <div class="section-label">{{ $t('editor.soundEffects') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.sound_effect" :placeholder="$t('editor.soundEffectsPlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('sound_effect')" />
                 </div>
               </div>
 
@@ -203,7 +203,7 @@
                 <div class="section-label">{{ $t('editor.bgmPrompt') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.bgm_prompt" :placeholder="$t('editor.bgmPromptPlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('bgm_prompt')" />
                 </div>
               </div>
 
@@ -212,7 +212,7 @@
                 <div class="section-label">{{ $t('editor.atmosphere') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.atmosphere" :placeholder="$t('editor.atmospherePlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('atmosphere')" />
                 </div>
               </div>
             </div>

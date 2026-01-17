@@ -6,19 +6,22 @@ import (
 	"strings"
 
 	models "github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/infrastructure/external/ffmpeg"
 	"github.com/drama-generator/backend/pkg/logger"
 	"gorm.io/gorm"
 )
 
 type AssetService struct {
-	db  *gorm.DB
-	log *logger.Logger
+	db     *gorm.DB
+	log    *logger.Logger
+	ffmpeg *ffmpeg.FFmpeg
 }
 
 func NewAssetService(db *gorm.DB, log *logger.Logger) *AssetService {
 	return &AssetService{
-		db:  db,
-		log: log,
+		db:     db,
+		log:    log,
+		ffmpeg: ffmpeg.NewFFmpeg(log),
 	}
 }
 

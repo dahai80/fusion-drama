@@ -17,28 +17,10 @@ type ScriptGenerationHandler struct {
 
 func NewScriptGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger) *ScriptGenerationHandler {
 	return &ScriptGenerationHandler{
-		scriptService: services.NewScriptGenerationService(db, log),
+		scriptService: services.NewScriptGenerationService(db, cfg, log),
 		taskService:   services.NewTaskService(db, log),
 		log:           log,
 	}
-}
-
-func (h *ScriptGenerationHandler) GenerateOutline(c *gin.Context) {
-
-	var req services.GenerateOutlineRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
-
-	result, err := h.scriptService.GenerateOutline(&req)
-	if err != nil {
-		h.log.Errorw("Failed to generate outline", "error", err)
-		response.InternalError(c, err.Error())
-		return
-	}
-
-	response.Success(c, result)
 }
 
 func (h *ScriptGenerationHandler) GenerateCharacters(c *gin.Context) {
@@ -56,8 +38,11 @@ func (h *ScriptGenerationHandler) GenerateCharacters(c *gin.Context) {
 		return
 	}
 
+	// 复制req值，避免goroutine中使用指针导致的并发问题
+	reqCopy := req
+
 	// 启动后台goroutine处理
-	go h.processCharacterGeneration(task.ID, &req)
+	go h.processCharacterGeneration(task.ID, &reqCopy)
 
 	// 立即返回任务ID
 	response.Success(c, gin.H{
@@ -97,22 +82,4 @@ func (h *ScriptGenerationHandler) processCharacterGeneration(taskID string, req 
 	}
 
 	h.log.Infow("Character generation completed", "task_id", taskID, "total", len(characters))
-}
-
-func (h *ScriptGenerationHandler) GenerateEpisodes(c *gin.Context) {
-
-	var req services.GenerateEpisodesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
-		return
-	}
-
-	episodes, err := h.scriptService.GenerateEpisodes(&req)
-	if err != nil {
-		h.log.Errorw("Failed to generate episodes", "error", err)
-		response.InternalError(c, err.Error())
-		return
-	}
-
-	response.Success(c, episodes)
 }

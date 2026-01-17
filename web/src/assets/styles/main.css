@@ -556,11 +556,16 @@ body {
   --el-table-header-bg-color: var(--bg-secondary);
   --el-table-tr-bg-color: var(--bg-card);
   --el-table-row-hover-bg-color: var(--bg-card-hover);
+  --el-fill-color-lighter: var(--bg-secondary);
 }
 
 .dark .el-table th.el-table__cell,
 .dark .el-table td.el-table__cell {
   border-color: var(--border-primary);
+}
+
+.dark .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background-color: var(--bg-secondary);
 }
 
 /* Pagination overrides / 分页样式覆盖 */

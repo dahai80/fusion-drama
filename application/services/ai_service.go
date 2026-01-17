@@ -317,14 +317,14 @@ func (s *AIService) TestConnection(req *TestConnectionRequest) error {
 
 func (s *AIService) GetDefaultConfig(serviceType string) (*models.AIServiceConfig, error) {
 	var config models.AIServiceConfig
-	// 按优先级降序获取第一个配置
-	err := s.db.Where("service_type = ?", serviceType).
+	// 按优先级降序获取第一个激活的配置
+	err := s.db.Where("service_type = ? AND is_active = ?", serviceType, true).
 		Order("priority DESC, created_at DESC").
 		First(&config).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no config found")
+			return nil, errors.New("no active config found")
 		}
 		return nil, err
 	}
@@ -332,10 +332,10 @@ func (s *AIService) GetDefaultConfig(serviceType string) (*models.AIServiceConfi
 	return &config, nil
 }
 
-// GetConfigForModel 根据服务类型和模型名称获取优先级最高的配置
+// GetConfigForModel 根据服务类型和模型名称获取优先级最高的激活配置
 func (s *AIService) GetConfigForModel(serviceType string, modelName string) (*models.AIServiceConfig, error) {
 	var configs []models.AIServiceConfig
-	err := s.db.Where("service_type = ?", serviceType).
+	err := s.db.Where("service_type = ? AND is_active = ?", serviceType, true).
 		Order("priority DESC, created_at DESC").
 		Find(&configs).Error
 
@@ -352,7 +352,7 @@ func (s *AIService) GetConfigForModel(serviceType string, modelName string) (*mo
 		}
 	}
 
-	return nil, errors.New("no config found for model: " + modelName)
+	return nil, errors.New("no active config found for model: " + modelName)
 }
 
 func (s *AIService) GetAIClient(serviceType string) (ai.AIClient, error) {
@@ -385,6 +385,34 @@ func (s *AIService) GetAIClient(serviceType string) (ai.AIClient, error) {
 	default:
 		// openai, chatfire 等其他厂商都使用 OpenAI 格式
 		return ai.NewOpenAIClient(config.BaseURL, config.APIKey, model, endpoint), nil
+	}
+}
+
+// GetAIClientForModel 根据服务类型和模型名称获取对应的AI客户端
+func (s *AIService) GetAIClientForModel(serviceType string, modelName string) (ai.AIClient, error) {
+	config, err := s.GetConfigForModel(serviceType, modelName)
+	if err != nil {
+		return nil, err
+	}
+
+	// 使用数据库配置中的 endpoint，如果为空则根据 provider 设置默认值
+	endpoint := config.Endpoint
+	if endpoint == "" {
+		switch config.Provider {
+		case "gemini", "google":
+			endpoint = "/v1beta/models/{model}:generateContent"
+		default:
+			endpoint = "/chat/completions"
+		}
+	}
+
+	// 根据 provider 创建对应的客户端
+	switch config.Provider {
+	case "gemini", "google":
+		return ai.NewGeminiClient(config.BaseURL, config.APIKey, modelName, endpoint), nil
+	default:
+		// openai, chatfire 等其他厂商都使用 OpenAI 格式
+		return ai.NewOpenAIClient(config.BaseURL, config.APIKey, modelName, endpoint), nil
 	}
 }
 

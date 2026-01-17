@@ -159,6 +159,27 @@ func (c *OpenAIClient) sendChatRequest(req *ChatCompletionRequest) (*ChatComplet
 
 	fmt.Printf("OpenAI: Successfully parsed response, choices count: %d\n", len(chatResp.Choices))
 
+	if len(chatResp.Choices) == 0 {
+		fmt.Printf("OpenAI: No choices in response\n")
+		return nil, fmt.Errorf("no choices in response")
+	}
+
+	// 检查 finish_reason，处理内容过滤的情况
+	if len(chatResp.Choices) > 0 {
+		finishReason := chatResp.Choices[0].FinishReason
+		content := chatResp.Choices[0].Message.Content
+
+		fmt.Printf("OpenAI: finish_reason=%s, content_length=%d\n", finishReason, len(content))
+
+		if finishReason == "content_filter" {
+			return nil, fmt.Errorf("AI内容被安全过滤器拦截，可能因为：\n1. 请求内容触发了安全策略\n2. 生成的内容包含敏感信息\n3. 建议：调整输入内容或联系API提供商调整过滤策略")
+		}
+
+		if content == "" && finishReason != "stop" {
+			return nil, fmt.Errorf("AI返回内容为空 (finish_reason: %s)，可能的原因：\n1. 内容被过滤\n2. Token限制\n3. API异常", finishReason)
+		}
+	}
+
 	return &chatResp, nil
 }
 

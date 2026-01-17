@@ -936,8 +936,12 @@ const loadAIConfigs = async () => {
       aiAPI.list('image')
     ])
     
+    // 只使用激活的配置
+    const activeTextList = textList.filter(c => c.is_active)
+    const activeImageList = imageList.filter(c => c.is_active)
+    
     // 展开模型列表并去重（保留优先级最高的）
-    const allTextModels = textList.flatMap(config => {
+    const allTextModels = activeTextList.flatMap(config => {
       const models = Array.isArray(config.model) ? config.model : [config.model]
       return models.map(modelName => ({
         modelName,
@@ -956,7 +960,7 @@ const loadAIConfigs = async () => {
     })
     textModels.value = Array.from(textModelMap.values())
     
-    const allImageModels = imageList.flatMap(config => {
+    const allImageModels = activeImageList.flatMap(config => {
       const models = Array.isArray(config.model) ? config.model : [config.model]
       return models.map(modelName => ({
         modelName,
@@ -981,6 +985,28 @@ const loadAIConfigs = async () => {
     }
     if (imageModels.value.length > 0 && !selectedImageModel.value) {
       selectedImageModel.value = imageModels.value[0].modelName
+    }
+    
+    // 验证已选择的模型是否还在可用列表中，如果不在则重置为默认值
+    const availableTextModelNames = textModels.value.map(m => m.modelName)
+    const availableImageModelNames = imageModels.value.map(m => m.modelName)
+    
+    if (selectedTextModel.value && !availableTextModelNames.includes(selectedTextModel.value)) {
+      console.warn(`已选择的文本模型 ${selectedTextModel.value} 不在可用列表中，重置为默认值`)
+      selectedTextModel.value = textModels.value.length > 0 ? textModels.value[0].modelName : ''
+      // 更新 localStorage
+      if (selectedTextModel.value) {
+        localStorage.setItem(`ai_text_model_${dramaId}`, selectedTextModel.value)
+      }
+    }
+    
+    if (selectedImageModel.value && !availableImageModelNames.includes(selectedImageModel.value)) {
+      console.warn(`已选择的图片模型 ${selectedImageModel.value} 不在可用列表中，重置为默认值`)
+      selectedImageModel.value = imageModels.value.length > 0 ? imageModels.value[0].modelName : ''
+      // 更新 localStorage
+      if (selectedImageModel.value) {
+        localStorage.setItem(`ai_image_model_${dramaId}`, selectedImageModel.value)
+      }
     }
   } catch (error: any) {
     console.error('加载AI配置失败:', error)
@@ -1231,10 +1257,12 @@ const extractCharactersAndBackgrounds = async () => {
     const [characterTask, backgroundTask] = await Promise.all([
       generationAPI.generateCharacters({
         drama_id: dramaId.toString(),
+        episode_id: episodeId,
         outline: currentEpisode.value.script_content || '',
-        count: 0
+        count: 0,
+        model: selectedTextModel.value  // 传递用户选择的文本模型
       }),
-      dramaAPI.extractBackgrounds(episodeId)
+      dramaAPI.extractBackgrounds(episodeId.toString(), selectedTextModel.value)  // 传递用户选择的文本模型
     ])
     
     ElMessage.success('任务已创建，正在后台处理...')
@@ -1449,8 +1477,20 @@ const generateShots = async () => {
   
   try {
     const episodeId = currentEpisode.value.id.toString()
+    
+    // 【调试日志】输出当前操作的集数信息
+    console.log('=== 开始生成分镜 ===')
+    console.log('当前 episodeNumber (路由参数):', episodeNumber)
+    console.log('当前 episodeId (从 currentEpisode 获取):', episodeId)
+    console.log('currentEpisode 完整信息:', {
+      id: currentEpisode.value?.id,
+      episode_number: currentEpisode.value?.episode_number,
+      title: currentEpisode.value?.title
+    })
+    console.log('所有剧集列表:', drama.value?.episodes?.map(ep => ({ id: ep.id, episode_number: ep.episode_number, title: ep.title })))
+    
     // 创建异步任务
-    const response = await generationAPI.generateStoryboard(episodeId)
+    const response = await generationAPI.generateStoryboard(episodeId, selectedTextModel.value)
     
     taskMessage.value = response.message || '任务已创建'
     

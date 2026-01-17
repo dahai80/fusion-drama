@@ -27,24 +27,22 @@ func (h *FramePromptHandler) GenerateFramePrompt(c *gin.Context) {
 	storyboardID := c.Param("id")
 
 	var req struct {
-		FrameType  string `json:"frame_type" binding:"required"` // first, key, last, panel, action
+		FrameType  string `json:"frame_type"`
 		PanelCount int    `json:"panel_count"`
+		Model      string `json:"model"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request body")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
-	// 构建请求
 	serviceReq := services.GenerateFramePromptRequest{
 		StoryboardID: storyboardID,
 		FrameType:    services.FrameType(req.FrameType),
 		PanelCount:   req.PanelCount,
 	}
 
-	// 生成提示词
-	result, err := h.framePromptService.GenerateFramePrompt(serviceReq)
+	result, err := h.framePromptService.GenerateFramePrompt(serviceReq, req.Model)
 	if err != nil {
 		h.log.Errorw("Failed to generate frame prompt", "error", err)
 		response.InternalError(c, err.Error())

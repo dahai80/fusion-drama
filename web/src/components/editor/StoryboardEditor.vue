@@ -17,7 +17,7 @@
           :class="{ active: currentShotIndex === index }"
           @click="selectShot(index)"
         >
-          <div class="scene-number">{{ shot.shot_number }}</div>
+          <div class="scene-number">{{ shot.storyboard_number }}</div>
           <div class="scene-content">
             <div class="scene-title">
               <el-tag size="small" type="info">{{ shot.shot_type }}</el-tag>
@@ -36,7 +36,7 @@
     <div class="center-panel">
       <div class="preview-header">
         <div class="header-info">
-          <el-tag type="info">镜头 {{ currentShot?.shot_number || '-' }}</el-tag>
+          <el-tag type="info">镜头 {{ currentShot?.storyboard_number || '-' }}</el-tag>
           <span class="shot-type">{{ currentShot?.shot_type }}</span>
         </div>
         <div class="header-actions">
@@ -101,7 +101,7 @@
               @click="selectShot(index)"
             >
               <div class="clip-content">
-                <span class="clip-number">{{ shot.shot_number }}</span>
+                <span class="clip-number">{{ shot.storyboard_number }}</span>
               </div>
             </div>
           </div>
@@ -116,11 +116,11 @@
           <div class="param-section" v-if="currentShot">
             <div class="param-group">
               <label>镜号</label>
-              <el-input v-model="currentShot.shot_number" disabled size="small" />
+              <el-input :model-value="currentShot.storyboard_number" disabled size="small" />
             </div>
             <div class="param-group">
-              <label>景别 (Scene)</label>
-              <el-select v-model="currentShot.shot_type" size="small" @change="handleShotUpdate">
+              <label>景别</label>
+              <el-select v-model="currentShot.shot_type" size="small" @change="handleShotUpdateImmediate">
                 <el-option label="特写" value="特写" />
                 <el-option label="近景" value="近景" />
                 <el-option label="中景" value="中景" />
@@ -128,14 +128,35 @@
                 <el-option label="远景" value="远景" />
               </el-select>
             </div>
+            <div class="param-group">
+              <label>镜头角度</label>
+              <el-select v-model="currentShot.angle" size="small" @change="handleShotUpdateImmediate">
+                <el-option label="平视" value="平视" />
+                <el-option label="仰视" value="仰视" />
+                <el-option label="俯视" value="俯视" />
+                <el-option label="侧面" value="侧面" />
+                <el-option label="背面" value="背面" />
+              </el-select>
+            </div>
+            <div class="param-group">
+              <label>运镜方式</label>
+              <el-select v-model="currentShot.movement" size="small" @change="handleShotUpdateImmediate">
+                <el-option label="固定镜头" value="固定镜头" />
+                <el-option label="推镜" value="推镜" />
+                <el-option label="拉镜" value="拉镜" />
+                <el-option label="摇镜" value="摇镜" />
+                <el-option label="跟镜" value="跟镜" />
+                <el-option label="移镜" value="移镜" />
+              </el-select>
+            </div>
             <div class="param-row">
               <div class="param-group">
                 <label>时间</label>
-                <el-input v-model="currentShot.time" size="small" @change="handleShotUpdate" />
+                <el-input v-model="currentShot.time" size="small" @blur="handleShotUpdateImmediate" />
               </div>
               <div class="param-group">
                 <label>地点</label>
-                <el-input v-model="currentShot.location" size="small" @change="handleShotUpdate" />
+                <el-input v-model="currentShot.location" size="small" @blur="handleShotUpdateImmediate" />
               </div>
             </div>
             
@@ -149,7 +170,7 @@
                 :rows="2"
                 size="small"
                 placeholder="角色对话或旁白"
-                @change="handleShotUpdate"
+                @blur="handleShotUpdateImmediate"
               />
             </div>
             <div class="param-group">
@@ -159,7 +180,7 @@
                 type="textarea" 
                 :rows="2"
                 size="small"
-                @change="handleShotUpdate"
+                @blur="handleShotUpdateImmediate"
               />
             </div>
             <div class="param-group">
@@ -169,24 +190,32 @@
                 type="textarea" 
                 :rows="2"
                 size="small"
-                @change="handleShotUpdate"
+                @blur="handleShotUpdateImmediate"
               />
             </div>
             
-            <el-divider />
+<el-divider />
             
             <div class="param-group">
-              <label>情绪与强度</label>
-              <div class="param-row">
-                <el-input v-model="currentShot.emotion" size="small" placeholder="情绪" @change="handleShotUpdate" />
-                <el-select v-model="currentShot.emotion_intensity" size="small" @change="handleShotUpdate">
-                  <el-option label="极强↑↑↑" value="3" />
-                  <el-option label="强↑↑" value="2" />
-                  <el-option label="中↑" value="1" />
-                  <el-option label="平稳→" value="0" />
-                  <el-option label="弱↓" value="-1" />
-                </el-select>
-              </div>
+              <label>环境氛围</label>
+              <el-input 
+                v-model="currentShot.atmosphere" 
+                type="textarea" 
+                :rows="2"
+                size="small"
+                placeholder="描述光线、色调、声音环境等"
+                @blur="handleShotUpdateImmediate"
+              />
+            </div>
+            <div class="param-group">
+              <label>时长（秒）</label>
+              <el-input-number 
+                v-model="currentShot.duration" 
+                :min="4" 
+                :max="12" 
+                size="small"
+                @change="handleShotUpdateImmediate"
+              />
             </div>
           </div>
         </el-tab-pane>
@@ -382,8 +411,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { debounce } from 'lodash-es'
 import { 
   VideoPlay, 
   VideoPause,
@@ -402,21 +432,24 @@ import { videoAPI } from '@/api/video'
 import { useRouter } from 'vue-router'
 
 interface Storyboard {
-  id?: string
-  shot_number: string
-  shot_type: string
-  time: string
-  location: string
-  action: string
-  result: string
-  emotion: string
-  emotion_intensity: string
+  id?: string | number
+  storyboard_number: number
+  shot_type?: string
+  angle?: string
+  movement?: string
+  time?: string
+  location?: string
+  action?: string
+  result?: string
+  atmosphere?: string
   dialogue?: string
+  duration?: number
   background_url?: string
   video_url?: string
-  camera_angle?: string
-  motion?: string
-  background_id?: string | number
+  scene_id?: string | number
+  title?: string
+  bgm_prompt?: string
+  sound_effect?: string
 }
 
 interface Background {
@@ -533,10 +566,101 @@ const autoSelectCharacters = () => {
   }
 }
 
-const handleShotUpdate = () => {
-  if (currentShot.value) {
-    emit('update:storyboard', currentShot.value)
+// 测试函数：不使用防抖，立即触发
+const handleShotUpdateImmediate = async () => {
+  console.log('=== handleShotUpdate 被触发 ===')
+  
+  if (!currentShot.value) {
+    console.warn('handleShotUpdate: currentShot.value is null')
+    return
   }
+  
+  if (!currentShot.value.id) {
+    console.warn('handleShotUpdate: currentShot.value.id is null or undefined', currentShot.value)
+    return
+  }
+  
+  try {
+    // 构建更新数据，只发送有值的字段（包括空字符串）
+    const updateData: Record<string, any> = {}
+    
+    if (currentShot.value.shot_type !== undefined) updateData.shot_type = currentShot.value.shot_type
+    if (currentShot.value.angle !== undefined) updateData.angle = currentShot.value.angle
+    if (currentShot.value.movement !== undefined) updateData.movement = currentShot.value.movement
+    if (currentShot.value.time !== undefined) updateData.time = currentShot.value.time
+    if (currentShot.value.location !== undefined) updateData.location = currentShot.value.location
+    if (currentShot.value.action !== undefined) updateData.action = currentShot.value.action
+    if (currentShot.value.dialogue !== undefined) updateData.dialogue = currentShot.value.dialogue
+    if (currentShot.value.result !== undefined) updateData.result = currentShot.value.result
+    if (currentShot.value.atmosphere !== undefined) updateData.atmosphere = currentShot.value.atmosphere
+    if (currentShot.value.duration !== undefined) updateData.duration = currentShot.value.duration
+    if (currentShot.value.title !== undefined) updateData.title = currentShot.value.title
+    if (currentShot.value.bgm_prompt !== undefined) updateData.bgm_prompt = currentShot.value.bgm_prompt
+    if (currentShot.value.sound_effect !== undefined) updateData.sound_effect = currentShot.value.sound_effect
+    
+    console.log('调用更新接口:', {
+      storyboard_id: currentShot.value.id,
+      updateData
+    })
+    
+    await dramaAPI.updateStoryboard(currentShot.value.id.toString(), updateData)
+    
+    emit('update:storyboard', currentShot.value)
+    ElMessage.success('分镜更新成功')
+  } catch (error: any) {
+    console.error('更新分镜失败:', error)
+    ElMessage.error(error.message || '更新失败')
+  }
+}
+
+const handleShotUpdate = debounce(async () => {
+  if (!currentShot.value) {
+    console.warn('handleShotUpdate: currentShot.value is null')
+    return
+  }
+  
+  if (!currentShot.value.id) {
+    console.warn('handleShotUpdate: currentShot.value.id is null or undefined', currentShot.value)
+    return
+  }
+  
+  try {
+    // 构建更新数据，只发送有值的字段（包括空字符串）
+    const updateData: Record<string, any> = {}
+    
+    if (currentShot.value.shot_type !== undefined) updateData.shot_type = currentShot.value.shot_type
+    if (currentShot.value.angle !== undefined) updateData.angle = currentShot.value.angle
+    if (currentShot.value.movement !== undefined) updateData.movement = currentShot.value.movement
+    if (currentShot.value.time !== undefined) updateData.time = currentShot.value.time
+    if (currentShot.value.location !== undefined) updateData.location = currentShot.value.location
+    if (currentShot.value.action !== undefined) updateData.action = currentShot.value.action
+    if (currentShot.value.dialogue !== undefined) updateData.dialogue = currentShot.value.dialogue
+    if (currentShot.value.result !== undefined) updateData.result = currentShot.value.result
+    if (currentShot.value.atmosphere !== undefined) updateData.atmosphere = currentShot.value.atmosphere
+    if (currentShot.value.duration !== undefined) updateData.duration = currentShot.value.duration
+    if (currentShot.value.title !== undefined) updateData.title = currentShot.value.title
+    if (currentShot.value.bgm_prompt !== undefined) updateData.bgm_prompt = currentShot.value.bgm_prompt
+    if (currentShot.value.sound_effect !== undefined) updateData.sound_effect = currentShot.value.sound_effect
+    
+    console.log('调用更新接口:', {
+      storyboard_id: currentShot.value.id,
+      updateData
+    })
+    
+    await dramaAPI.updateStoryboard(currentShot.value.id.toString(), updateData)
+    
+    emit('update:storyboard', currentShot.value)
+    ElMessage.success('分镜更新成功')
+  } catch (error: any) {
+    console.error('更新分镜失败:', error)
+    ElMessage.error(error.message || '更新失败')
+  }
+}, 500)
+
+// 使用立即触发版本进行测试
+const testUpdate = () => {
+  console.log('testUpdate 被调用')
+  handleShotUpdateImmediate()
 }
 
 const formatDuration = (seconds: number) => {
@@ -737,7 +861,6 @@ const loadBackgrounds = async () => {
 }
 
 // 加载可用角色列表
-import { onMounted, watch } from 'vue'
 onMounted(async () => {
   // 加载背景数据
   await loadBackgrounds()

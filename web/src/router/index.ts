@@ -23,11 +23,6 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/drama/EpisodeWorkflow.vue')
   },
   {
-    path: '/dramas/:id/script',
-    name: 'ScriptGeneration',
-    component: () => import('../views/workflow/ScriptGeneration.vue')
-  },
-  {
     path: '/dramas/:id/characters',
     name: 'CharacterExtraction',
     component: () => import('../views/workflow/CharacterExtraction.vue')
