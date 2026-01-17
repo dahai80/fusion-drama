@@ -316,17 +316,68 @@ func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPa
 	f.log.Infow("Target resolution", "width", maxWidth, "height", maxHeight)
 
 	// 为每个视频流添加缩放滤镜，统一分辨率
+	// 同时为有转场的视频添加 tpad 延长（freeze 最后一帧）
 	var scaleFilters []string
 	for i := 0; i < len(inputPaths); i++ {
+		// 检查当前视频是否需要转场到下一个视频
+		var tpadDuration float64 = 0
+		if i < len(clips)-1 && clips[i].Transition != nil {
+			// 检查转场类型
+			if tType, ok := clips[i].Transition["type"].(string); ok {
+				// none 转场不需要 tpad
+				if strings.ToLower(tType) != "none" && tType != "" {
+					if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+						tpadDuration = tDuration
+					} else {
+						tpadDuration = 1.0 // 默认1秒
+					}
+				}
+			} else {
+				// 没有指定类型，默认需要转场
+				if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+					tpadDuration = tDuration
+				} else {
+					tpadDuration = 1.0
+				}
+			}
+		}
+
 		// 使用scale滤镜缩放到目标分辨率，pad添加黑边保持长宽比
-		scaleFilters = append(scaleFilters,
-			fmt.Sprintf("[%d:v]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2[v%d]",
-				i, maxWidth, maxHeight, maxWidth, maxHeight, i))
+		// 如果需要转场，使用 tpad 延长视频（freeze最后一帧）
+		if tpadDuration > 0 {
+			scaleFilters = append(scaleFilters,
+				fmt.Sprintf("[%d:v]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,tpad=stop_mode=clone:stop_duration=%.2f[v%d]",
+					i, maxWidth, maxHeight, maxWidth, maxHeight, tpadDuration, i))
+			f.log.Infow("Adding tpad to video", "index", i, "duration", tpadDuration)
+		} else {
+			scaleFilters = append(scaleFilters,
+				fmt.Sprintf("[%d:v]scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2[v%d]",
+					i, maxWidth, maxHeight, maxWidth, maxHeight, i))
+		}
 	}
 
 	// 构建filter_complex
-	// 例如: [0:v][1:v]xfade=transition=fade:duration=1:offset=5[v01];[v01][2:v]xfade=transition=fade:duration=1:offset=10[out]
+	// 检查是否有任何转场效果
+	hasAnyTransition := false
+	for i := 0; i < len(inputPaths)-1; i++ {
+		if clips[i].Transition != nil {
+			if tType, ok := clips[i].Transition["type"].(string); ok {
+				if strings.ToLower(tType) != "none" && tType != "" {
+					hasAnyTransition = true
+					break
+				}
+			}
+		}
+	}
+
+	// 如果没有任何转场，使用简单拼接
+	if !hasAnyTransition {
+		f.log.Infow("No transitions detected, using simple concatenation")
+		return f.concatenateVideos(inputPaths, outputPath)
+	}
+
 	// 构建转场滤镜，使用缩放后的视频流
+	// 对所有相邻视频都应用 xfade，type=none 时使用 0 秒时长实现无缝拼接
 	var transitionFilters []string
 	var offset float64 = 0
 
@@ -337,26 +388,31 @@ func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPa
 			clipDuration = clips[i].EndTime - clips[i].StartTime
 		}
 
-		// 获取转场类型和时长
-		transitionType := "fade"  // 默认淡入淡出
-		transitionDuration := 1.0 // 默认转场时长为1秒
+		// 默认转场参数
+		transitionType := "fade"
+		transitionDuration := 1.0
 
 		if clips[i].Transition != nil {
-			// 读取转场类型
-			if tType, ok := clips[i].Transition["type"].(string); ok && tType != "" {
-				transitionType = f.mapTransitionType(tType)
-				f.log.Infow("Using transition type", "type", tType, "mapped", transitionType)
+			if tType, ok := clips[i].Transition["type"].(string); ok {
+				if strings.ToLower(tType) == "none" || tType == "" {
+					// none 转场使用 0 秒时长，实现无缝拼接
+					transitionDuration = 0.0
+					f.log.Infow("Using no transition (0s xfade)", "clip_index", i)
+				} else {
+					transitionType = f.mapTransitionType(tType)
+					f.log.Infow("Using transition type", "type", tType, "mapped", transitionType)
+				}
 			}
-			// 读取转场时长
-			if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
-				transitionDuration = tDuration
+			// 只有非 none 转场才读取时长
+			if transitionDuration > 0 {
+				if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+					transitionDuration = tDuration
+				}
 			}
 		}
 
 		// 计算转场开始的时间点
-		// 转场在两个片段的交界处，从前一个片段结束前 transitionDuration/2 开始
-		// 这样转场效果会平均分布在两个片段的交界处
-		offset += clipDuration - (transitionDuration / 2)
+		offset += clipDuration
 		if offset < 0 {
 			offset = 0
 		}
@@ -395,38 +451,104 @@ func (f *FFmpeg) mergeWithXfade(inputPaths []string, clips []VideoClip, outputPa
 	// 音频处理：如果有任何视频包含音频流，则处理音频
 	var fullFilter string
 	if hasAnyAudio {
-		// 为没有音频的视频生成静音轨道，确保所有输入音频流一致
-		var silenceFilters []string
+		// 为音频流添加处理：生成静音流或延长音频
+		var audioFilters []string
 		for i := 0; i < len(inputPaths); i++ {
-			if !audioStreams[i] {
-				// 计算该视频的时长
-				clipDuration := clips[i].Duration
-				if clips[i].EndTime > 0 && clips[i].StartTime >= 0 {
-					clipDuration = clips[i].EndTime - clips[i].StartTime
+			// 计算该视频的时长
+			clipDuration := clips[i].Duration
+			if clips[i].EndTime > 0 && clips[i].StartTime >= 0 {
+				clipDuration = clips[i].EndTime - clips[i].StartTime
+			}
+
+			// 检查是否需要为转场延长音频
+			var padDuration float64 = 0
+			if i < len(clips)-1 && clips[i].Transition != nil {
+				// 检查转场类型
+				needTransition := true
+				if tType, ok := clips[i].Transition["type"].(string); ok {
+					if strings.ToLower(tType) == "none" || tType == "" {
+						needTransition = false
+					}
 				}
-				// anullsrc是源滤镜，不接受输入，使用duration参数指定时长
-				silenceFilters = append(silenceFilters,
-					fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100:duration=%.2f[a%d]", clipDuration, i))
-			}
-		}
 
-		// 拼接所有音频流（包括生成的静音流）
-		var audioConcat strings.Builder
-		for i := 0; i < len(inputPaths); i++ {
-			if audioStreams[i] {
-				audioConcat.WriteString(fmt.Sprintf("[%d:a]", i))
+				// 只有需要转场时才延长音频
+				if needTransition {
+					if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+						padDuration = tDuration
+					} else {
+						padDuration = 1.0
+					}
+				}
+			}
+
+			if !audioStreams[i] {
+				// 没有音频的视频：生成静音轨道（包括转场延长）
+				totalDuration := clipDuration + padDuration
+				audioFilters = append(audioFilters,
+					fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100:duration=%.2f[a%d]", totalDuration, i))
+				f.log.Infow("Generated silence for audio", "index", i, "duration", totalDuration)
+			} else if padDuration > 0 {
+				// 有音频且需要延长：使用apad添加静音延长（稍后会用acrossfade处理）
+				audioFilters = append(audioFilters,
+					fmt.Sprintf("[%d:a]apad=pad_dur=%.2f[a%d]", i, padDuration, i))
+				f.log.Infow("Padding audio with silence", "index", i, "pad_duration", padDuration)
 			} else {
-				audioConcat.WriteString(fmt.Sprintf("[a%d]", i))
+				// 有音频但不需要延长：直接标记
+				audioFilters = append(audioFilters,
+					fmt.Sprintf("[%d:a]acopy[a%d]", i, i))
 			}
 		}
-		audioConcat.WriteString(fmt.Sprintf("concat=n=%d:v=0:a=1[outa]", len(inputPaths)))
 
-		// 构建完整滤镜：先生成静音流，再拼接音频
-		if len(silenceFilters) > 0 {
-			fullFilter = filterComplex + ";" + strings.Join(silenceFilters, ";") + ";" + audioConcat.String()
-		} else {
-			fullFilter = filterComplex + ";" + audioConcat.String()
+		// 音频交叉淡入淡出（避免转场时静音）
+		// 对所有相邻音频都应用 acrossfade，type=none 时使用 0 秒时长
+		var audioCrossfades []string
+
+		for i := 0; i < len(inputPaths)-1; i++ {
+			// 默认转场时长
+			transitionDuration := 1.0
+			if clips[i].Transition != nil {
+				if tType, ok := clips[i].Transition["type"].(string); ok {
+					if strings.ToLower(tType) == "none" || tType == "" {
+						// none 转场使用 0 秒
+						transitionDuration = 0.0
+					}
+				}
+				// 只有非 none 转场才读取自定义时长
+				if transitionDuration > 0 {
+					if tDuration, ok := clips[i].Transition["duration"].(float64); ok && tDuration > 0 {
+						transitionDuration = tDuration
+					}
+				}
+			}
+
+			var inputLabel, outputLabel string
+			if i == 0 {
+				inputLabel = "[a0][a1]"
+			} else {
+				inputLabel = fmt.Sprintf("[ax%02d][a%d]", i-1, i+1)
+			}
+
+			if i == len(inputPaths)-2 {
+				outputLabel = "[outa]"
+			} else {
+				outputLabel = fmt.Sprintf("[ax%02d]", i)
+			}
+
+			// acrossfade: d=转场时长，c1=第一个音频淡出曲线，c2=第二个音频淡入曲线
+			// 0 秒时长实现无缝音频拼接
+			audioCrossfades = append(audioCrossfades,
+				fmt.Sprintf("%sacrossfade=d=%.2f:c1=tri:c2=tri%s", inputLabel, transitionDuration, outputLabel))
+
+			f.log.Infow("Audio crossfade",
+				"clip_index", i,
+				"duration", transitionDuration)
 		}
+
+		// 构建完整滤镜：音频处理 + 音频交叉淡入淡出
+		var allAudioFilters []string
+		allAudioFilters = append(allAudioFilters, audioFilters...)
+		allAudioFilters = append(allAudioFilters, audioCrossfades...)
+		fullFilter = filterComplex + ";" + strings.Join(allAudioFilters, ";")
 	} else {
 		// 所有视频都无音频流，只处理视频
 		fullFilter = filterComplex
@@ -589,6 +711,36 @@ func (f *FFmpeg) getVideoResolution(videoPath string) (int, int) {
 	return width, height
 }
 
+// GetVideoDuration 获取视频时长（秒）
+func (f *FFmpeg) GetVideoDuration(videoPath string) (float64, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-show_entries", "format=duration",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		videoPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("Failed to get video duration", "path", videoPath, "error", err)
+		return 0, fmt.Errorf("ffprobe failed: %w", err)
+	}
+
+	result := strings.TrimSpace(string(output))
+	var duration float64
+	_, err = fmt.Sscanf(result, "%f", &duration)
+	if err != nil {
+		f.log.Errorw("Failed to parse duration", "output", result, "error", err)
+		return 0, fmt.Errorf("parse duration failed: %w", err)
+	}
+
+	if duration <= 0 {
+		return 0, fmt.Errorf("invalid duration: %f", duration)
+	}
+
+	return duration, nil
+}
+
 func (f *FFmpeg) copyFile(src, dst string) error {
 	cmd := exec.Command("cp", src, dst)
 	output, err := cmd.CombinedOutput()
@@ -609,4 +761,95 @@ func (f *FFmpeg) cleanup(paths []string) {
 
 func (f *FFmpeg) CleanupTempDir() error {
 	return os.RemoveAll(f.tempDir)
+}
+
+// ExtractAudio 从视频文件中提取音频轨道
+// 返回提取的音频文件路径
+func (f *FFmpeg) ExtractAudio(videoURL, outputPath string) (string, error) {
+	f.log.Infow("Extracting audio from video", "url", videoURL, "output", outputPath)
+
+	// 下载视频文件
+	downloadPath := filepath.Join(f.tempDir, fmt.Sprintf("video_%d.mp4", time.Now().Unix()))
+	localVideoPath, err := f.downloadVideo(videoURL, downloadPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to download video: %w", err)
+	}
+	defer os.Remove(localVideoPath)
+
+	// 检查视频是否有音频流
+	if !f.hasAudioStream(localVideoPath) {
+		f.log.Warnw("Video has no audio stream, generating silence", "video", videoURL)
+		// 获取视频时长
+		duration, err := f.GetVideoDuration(localVideoPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get video duration: %w", err)
+		}
+		// 生成静音音频文件
+		return f.generateSilence(outputPath, duration)
+	}
+
+	// 确保输出目录存在
+	outputDir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// 使用FFmpeg提取音频
+	// -vn: 禁用视频
+	// -acodec: 音频编码器
+	// -ar: 音频采样率
+	// -ac: 音频声道数
+	// -ab: 音频比特率
+	cmd := exec.Command("ffmpeg",
+		"-i", localVideoPath,
+		"-vn",
+		"-acodec", "aac",
+		"-ar", "44100",
+		"-ac", "2",
+		"-ab", "128k",
+		"-y",
+		outputPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("FFmpeg audio extraction failed", "error", err, "output", string(output))
+		return "", fmt.Errorf("ffmpeg audio extraction failed: %w, output: %s", err, string(output))
+	}
+
+	f.log.Infow("Audio extracted successfully", "output", outputPath)
+	return outputPath, nil
+}
+
+// generateSilence 生成指定时长的静音音频文件
+func (f *FFmpeg) generateSilence(outputPath string, duration float64) (string, error) {
+	f.log.Infow("Generating silence audio", "duration", duration, "output", outputPath)
+
+	// 确保输出目录存在
+	outputDir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// 使用FFmpeg生成静音
+	// -f lavfi: 使用lavfi（libavfilter）输入
+	// -i anullsrc: 生成静音音频源
+	cmd := exec.Command("ffmpeg",
+		"-f", "lavfi",
+		"-i", fmt.Sprintf("anullsrc=channel_layout=stereo:sample_rate=44100"),
+		"-t", fmt.Sprintf("%.2f", duration),
+		"-acodec", "aac",
+		"-ab", "128k",
+		"-y",
+		outputPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		f.log.Errorw("FFmpeg silence generation failed", "error", err, "output", string(output))
+		return "", fmt.Errorf("ffmpeg silence generation failed: %w, output: %s", err, string(output))
+	}
+
+	f.log.Infow("Silence audio generated successfully", "output", outputPath)
+	return outputPath, nil
 }

@@ -1,22 +1,15 @@
 <template>
   <div class="professional-editor">
     <!-- 顶部工具栏 -->
-    <div class="editor-toolbar">
-      <div class="toolbar-left">
-        <el-button link @click="goBack" class="back-btn">
-          <el-icon>
-            <ArrowLeft />
-          </el-icon>
-          {{ $t('editor.backToEpisode') }}
+    <AppHeader :fixed="false" :show-logo="false" @config-updated="loadVideoModels">
+      <template #left>
+        <el-button text @click="goBack" class="back-btn">
+          <el-icon><ArrowLeft /></el-icon>
+          <span>{{ $t('editor.backToEpisode') }}</span>
         </el-button>
-        <el-divider direction="vertical" />
         <span class="episode-title">{{ drama?.title }} - {{ $t('editor.episode', { number: episodeNumber }) }}</span>
-      </div>
-
-      <div class="toolbar-right">
-        <!-- <el-button :icon="Setting" circle @click="showSettings = true" /> -->
-      </div>
-    </div>
+      </template>
+    </AppHeader>
 
     <!-- 主编辑区域 -->
     <div class="editor-main">
@@ -175,25 +168,25 @@
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.action') }} (Action)</div>
                 <el-input v-model="currentStoryboard.action" type="textarea" :rows="3"
-                  :placeholder="$t('editor.actionPlaceholder')" />
+                  :placeholder="$t('editor.actionPlaceholder')" @blur="saveStoryboardField('action')" />
               </div>
 
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.result') }} (Result)</div>
                 <el-input v-model="currentStoryboard.result" type="textarea" :rows="2"
-                  :placeholder="$t('editor.resultPlaceholder')" />
+                  :placeholder="$t('editor.resultPlaceholder')" @blur="saveStoryboardField('result')" />
               </div>
 
               <div class="dialogue-section">
                 <div class="section-label">{{ $t('editor.dialogue') }} (Dialogue)</div>
                 <el-input v-model="currentStoryboard.dialogue" type="textarea" :rows="3"
-                  :placeholder="$t('editor.dialoguePlaceholder')" />
+                  :placeholder="$t('editor.dialoguePlaceholder')" @blur="saveStoryboardField('dialogue')" />
               </div>
 
               <div class="narrative-section">
                 <div class="section-label">{{ $t('editor.description') }} (Description)</div>
                 <el-input v-model="currentStoryboard.description" type="textarea" :rows="3"
-                  :placeholder="$t('editor.descriptionPlaceholder')" />
+                  :placeholder="$t('editor.descriptionPlaceholder')" @blur="saveStoryboardField('description')" />
               </div>
 
               <!-- 音效设置 -->
@@ -201,7 +194,7 @@
                 <div class="section-label">{{ $t('editor.soundEffects') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.sound_effect" :placeholder="$t('editor.soundEffectsPlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('sound_effect')" />
                 </div>
               </div>
 
@@ -210,7 +203,7 @@
                 <div class="section-label">{{ $t('editor.bgmPrompt') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.bgm_prompt" :placeholder="$t('editor.bgmPromptPlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('bgm_prompt')" />
                 </div>
               </div>
 
@@ -219,7 +212,7 @@
                 <div class="section-label">{{ $t('editor.atmosphere') }}</div>
                 <div class="audio-controls">
                   <el-input v-model="currentStoryboard.atmosphere" :placeholder="$t('editor.atmospherePlaceholder')"
-                    size="small" type="textarea" :rows="2" />
+                    size="small" type="textarea" :rows="2" @blur="saveStoryboardField('atmosphere')" />
                 </div>
               </div>
             </div>
@@ -906,6 +899,7 @@ import type { Asset } from '@/types/asset'
 import type { VideoMerge } from '@/api/videoMerge'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import type { Drama, Episode, Storyboard } from '@/types/drama'
+import { AppHeader } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()

@@ -73,3 +73,19 @@ func (h *SceneHandler) GenerateSceneImage(c *gin.Context) {
 		"image_generation": imageGen,
 	})
 }
+
+func (h *SceneHandler) DeleteScene(c *gin.Context) {
+	sceneID := c.Param("scene_id")
+
+	if err := h.sceneService.DeleteScene(sceneID); err != nil {
+		h.log.Errorw("Failed to delete scene", "error", err, "scene_id", sceneID)
+		if err.Error() == "scene not found" {
+			response.NotFound(c, "场景不存在")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "场景已删除"})
+}

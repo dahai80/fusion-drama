@@ -236,6 +236,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
+  'config-updated': []
 }>()
 
 const visible = computed({
@@ -282,13 +283,9 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
       id: 'chatfire', 
       name: 'Chatfire', 
       models: [
-        'gpt-4o',
+        'gemini-3-pro-preview',
         'claude-sonnet-4-5-20250929',
-        'doubao-seed-1-8-251228',
-        'kimi-k2-thinking',
-        'gemini-3-pro',
-        'gemini-2.5-pro',
-        'gemini-3-pro-preview'
+        'doubao-seed-1-8-251228'
       ]
     },
     { 
@@ -340,18 +337,43 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
         'sora-pro'
       ]
     },
+    { 
+      id: 'minimax', 
+      name: 'MiniMax 海螺', 
+      models: [
+        'MiniMax-Hailuo-2.3',
+        'MiniMax-Hailuo-2.3-Fast',
+        'MiniMax-Hailuo-02'
+      ]
+    },
     { id: 'openai', name: 'OpenAI', models: ['sora-2', 'sora-2-pro'] }
   ]
 }
 
+// 当前可用的厂商列表（显示所有配置的厂商）
 const availableProviders = computed(() => {
+  // 返回当前service_type下的所有厂商
   return providerConfigs[form.service_type] || []
 })
 
+// 当前可用的模型列表（从已激活的配置中获取）
 const availableModels = computed(() => {
   if (!form.provider) return []
-  const provider = availableProviders.value.find(p => p.id === form.provider)
-  return provider?.models || []
+  
+  // 从已激活的配置中提取该 provider 的所有模型
+  const activeConfigsForProvider = configs.value.filter(
+    c => c.provider === form.provider && 
+         c.service_type === form.service_type && 
+         c.is_active
+  )
+  
+  // 提取所有模型，去重
+  const models = new Set<string>()
+  activeConfigsForProvider.forEach(config => {
+    config.model.forEach(m => models.add(m))
+  })
+  
+  return Array.from(models)
 })
 
 const fullEndpointExample = computed(() => {
@@ -378,6 +400,8 @@ const fullEndpointExample = computed(() => {
       endpoint = '/video/generations'
     } else if (provider === 'doubao' || provider === 'volcengine' || provider === 'volces') {
       endpoint = '/contents/generations/tasks'
+    } else if (provider === 'minimax') {
+      endpoint = '/video_generation'
     } else if (provider === 'openai') {
       endpoint = '/videos'
     } else {
@@ -567,6 +591,7 @@ const handleSubmit = async () => {
       
       editDialogVisible.value = false
       loadConfigs()
+      emit('config-updated')
     } catch (error: any) {
       ElMessage.error(error.message || '操作失败')
     } finally {
@@ -583,9 +608,17 @@ const handleTabChange = (tabName: string | number) => {
 const handleProviderChange = () => {
   form.model = []
   
+  // 根据厂商自动设置 Base URL
   if (form.provider === 'gemini' || form.provider === 'google') {
-    form.base_url = 'https://api.chatfire.site'
+    form.base_url = 'https://generativelanguage.googleapis.com'
+  } else if (form.provider === 'minimax') {
+    form.base_url = 'https://api.minimaxi.com/v1'
+  } else if (form.provider === 'volces' || form.provider === 'volcengine') {
+    form.base_url = 'https://ark.cn-beijing.volces.com/api/v3'
+  } else if (form.provider === 'openai') {
+    form.base_url = 'https://api.openai.com/v1'
   } else {
+    // chatfire 和其他厂商
     form.base_url = 'https://api.chatfire.site/v1'
   }
   
@@ -625,45 +658,84 @@ const handleQuickSetup = async () => {
   const apiKey = quickSetupApiKey.value.trim()
 
   try {
-    // 创建文本配置
-    const textProvider = providerConfigs.text.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'text',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'text'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [textProvider.models[0]],
-      priority: 0
-    })
+    // 加载所有类型的配置，检查是否已存在相同 baseUrl 的配置
+    const [textConfigs, imageConfigs, videoConfigs] = await Promise.all([
+      aiAPI.list('text'),
+      aiAPI.list('image'),
+      aiAPI.list('video')
+    ])
 
-    // 创建图片配置
-    const imageProvider = providerConfigs.image.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'image',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'image'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [imageProvider.models[0]],
-      priority: 0
-    })
+    const createdServices: string[] = []
+    const skippedServices: string[] = []
 
-    // 创建视频配置
-    const videoProvider = providerConfigs.video.find(p => p.id === 'chatfire')!
-    await aiAPI.create({
-      service_type: 'video',
-      provider: 'chatfire',
-      name: generateConfigName('chatfire', 'video'),
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [videoProvider.models[0]],
-      priority: 0
-    })
+    // 创建文本配置（如果不存在）
+    const existingTextConfig = textConfigs.find(c => c.base_url === baseUrl)
+    if (!existingTextConfig) {
+      const textProvider = providerConfigs.text.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'text',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'text'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [textProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('文本')
+    } else {
+      skippedServices.push('文本')
+    }
 
-    ElMessage.success('一键配置成功！已创建文本、图片、视频三个服务配置')
+    // 创建图片配置（如果不存在）
+    const existingImageConfig = imageConfigs.find(c => c.base_url === baseUrl)
+    if (!existingImageConfig) {
+      const imageProvider = providerConfigs.image.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'image',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'image'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [imageProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('图片')
+    } else {
+      skippedServices.push('图片')
+    }
+
+    // 创建视频配置（如果不存在）
+    const existingVideoConfig = videoConfigs.find(c => c.base_url === baseUrl)
+    if (!existingVideoConfig) {
+      const videoProvider = providerConfigs.video.find(p => p.id === 'chatfire')!
+      await aiAPI.create({
+        service_type: 'video',
+        provider: 'chatfire',
+        name: generateConfigName('chatfire', 'video'),
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: [videoProvider.models[0]],
+        priority: 0
+      })
+      createdServices.push('视频')
+    } else {
+      skippedServices.push('视频')
+    }
+
+    // 显示结果消息
+    if (createdServices.length > 0 && skippedServices.length > 0) {
+      ElMessage.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
+    } else if (createdServices.length > 0) {
+      ElMessage.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
+    } else {
+      ElMessage.info('所有配置已存在，无需重复创建')
+    }
+
     quickSetupVisible.value = false
     loadConfigs()
+    if (createdServices.length > 0) {
+      emit('config-updated')
+    }
   } catch (error: any) {
     ElMessage.error(error.message || '配置失败')
   } finally {
@@ -771,6 +843,9 @@ watch(visible, (val) => {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  line-height: 1.5;
 }
 
 /* Dark mode */

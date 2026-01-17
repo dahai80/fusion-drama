@@ -1,39 +1,38 @@
 <template>
   <div class="page-container">
     <div class="content-wrapper animate-fade-in">
-      <header class="page-header">
-        <div class="header-content">
-          <div class="header-left">
-            <button class="back-btn" @click="$router.back()">
-              <el-icon><ArrowLeft /></el-icon>
-              <span>{{ $t('workflow.backToProject') }}</span>
-            </button>
-            <div class="nav-divider"></div>
-            <h1 class="header-title">{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
-          </div>
-          <div class="header-center">
-            <div class="custom-steps">
-              <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
-                <div class="step-circle">1</div>
-                <span class="step-text">{{ $t('workflow.steps.content') }}</span>
-              </div>
-              <el-icon class="step-arrow"><ArrowRight /></el-icon>
-              <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
-                <div class="step-circle">2</div>
-                <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
-              </div>
-              <el-icon class="step-arrow"><ArrowRight /></el-icon>
-              <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
-                <div class="step-circle">3</div>
-                <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
-              </div>
+      <AppHeader :fixed="false" :show-logo="false">
+        <template #left>
+          <el-button text @click="$router.back()" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>{{ $t('workflow.backToProject') }}</span>
+          </el-button>
+          <h1 class="header-title">{{ $t('workflow.episodeProduction', { number: episodeNumber }) }}</h1>
+        </template>
+        <template #center>
+          <div class="custom-steps">
+            <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
+              <div class="step-circle">1</div>
+              <span class="step-text">{{ $t('workflow.steps.content') }}</span>
+            </div>
+            <el-icon class="step-arrow"><ArrowRight /></el-icon>
+            <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
+              <div class="step-circle">2</div>
+              <span class="step-text">{{ $t('workflow.steps.generateImages') }}</span>
+            </div>
+            <el-icon class="step-arrow"><ArrowRight /></el-icon>
+            <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
+              <div class="step-circle">3</div>
+              <span class="step-text">{{ $t('workflow.steps.splitStoryboard') }}</span>
             </div>
           </div>
-          <div class="header-right">
-            <el-button :icon="Setting" circle @click="showModelConfigDialog" :title="$t('workflow.modelConfig')" />
-          </div>
-        </div>
-      </header>
+        </template>
+        <template #right>
+          <el-button :icon="Setting" @click="showModelConfigDialog" :title="$t('workflow.modelConfig')">
+            图文配置
+          </el-button>
+        </template>
+      </AppHeader>
 
     <!-- 阶段 0: 章节内容 + 提取角色场景 -->
     <el-card v-show="currentStep === 0" shadow="never" class="stage-card stage-card-fullscreen">
@@ -822,7 +821,7 @@ import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig } from '@/types/ai'
 import { imageAPI } from '@/api/image'
 import type { Drama } from '@/types/drama'
-import PageHeader from '@/components/common/PageHeader.vue'
+import { AppHeader } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -937,8 +936,12 @@ const loadAIConfigs = async () => {
       aiAPI.list('image')
     ])
     
+    // 只使用激活的配置
+    const activeTextList = textList.filter(c => c.is_active)
+    const activeImageList = imageList.filter(c => c.is_active)
+    
     // 展开模型列表并去重（保留优先级最高的）
-    const allTextModels = textList.flatMap(config => {
+    const allTextModels = activeTextList.flatMap(config => {
       const models = Array.isArray(config.model) ? config.model : [config.model]
       return models.map(modelName => ({
         modelName,
@@ -957,7 +960,7 @@ const loadAIConfigs = async () => {
     })
     textModels.value = Array.from(textModelMap.values())
     
-    const allImageModels = imageList.flatMap(config => {
+    const allImageModels = activeImageList.flatMap(config => {
       const models = Array.isArray(config.model) ? config.model : [config.model]
       return models.map(modelName => ({
         modelName,
@@ -982,6 +985,28 @@ const loadAIConfigs = async () => {
     }
     if (imageModels.value.length > 0 && !selectedImageModel.value) {
       selectedImageModel.value = imageModels.value[0].modelName
+    }
+    
+    // 验证已选择的模型是否还在可用列表中，如果不在则重置为默认值
+    const availableTextModelNames = textModels.value.map(m => m.modelName)
+    const availableImageModelNames = imageModels.value.map(m => m.modelName)
+    
+    if (selectedTextModel.value && !availableTextModelNames.includes(selectedTextModel.value)) {
+      console.warn(`已选择的文本模型 ${selectedTextModel.value} 不在可用列表中，重置为默认值`)
+      selectedTextModel.value = textModels.value.length > 0 ? textModels.value[0].modelName : ''
+      // 更新 localStorage
+      if (selectedTextModel.value) {
+        localStorage.setItem(`ai_text_model_${dramaId}`, selectedTextModel.value)
+      }
+    }
+    
+    if (selectedImageModel.value && !availableImageModelNames.includes(selectedImageModel.value)) {
+      console.warn(`已选择的图片模型 ${selectedImageModel.value} 不在可用列表中，重置为默认值`)
+      selectedImageModel.value = imageModels.value.length > 0 ? imageModels.value[0].modelName : ''
+      // 更新 localStorage
+      if (selectedImageModel.value) {
+        localStorage.setItem(`ai_image_model_${dramaId}`, selectedImageModel.value)
+      }
     }
   } catch (error: any) {
     console.error('加载AI配置失败:', error)
@@ -1232,10 +1257,12 @@ const extractCharactersAndBackgrounds = async () => {
     const [characterTask, backgroundTask] = await Promise.all([
       generationAPI.generateCharacters({
         drama_id: dramaId.toString(),
+        episode_id: episodeId,
         outline: currentEpisode.value.script_content || '',
-        count: 0
+        count: 0,
+        model: selectedTextModel.value  // 传递用户选择的文本模型
       }),
-      dramaAPI.extractBackgrounds(episodeId)
+      dramaAPI.extractBackgrounds(episodeId.toString(), selectedTextModel.value)  // 传递用户选择的文本模型
     ])
     
     ElMessage.success('任务已创建，正在后台处理...')
@@ -1450,8 +1477,20 @@ const generateShots = async () => {
   
   try {
     const episodeId = currentEpisode.value.id.toString()
+    
+    // 【调试日志】输出当前操作的集数信息
+    console.log('=== 开始生成分镜 ===')
+    console.log('当前 episodeNumber (路由参数):', episodeNumber)
+    console.log('当前 episodeId (从 currentEpisode 获取):', episodeId)
+    console.log('currentEpisode 完整信息:', {
+      id: currentEpisode.value?.id,
+      episode_number: currentEpisode.value?.episode_number,
+      title: currentEpisode.value?.title
+    })
+    console.log('所有剧集列表:', drama.value?.episodes?.map(ep => ({ id: ep.id, episode_number: ep.episode_number, title: ep.title })))
+    
     // 创建异步任务
-    const response = await generationAPI.generateStoryboard(episodeId)
+    const response = await generationAPI.generateStoryboard(episodeId, selectedTextModel.value)
     
     taskMessage.value = response.message || '任务已创建'
     
@@ -1750,19 +1789,19 @@ onMounted(() => {
 .page-container {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: var(--space-2) var(--space-3);
+  // padding: var(--space-2) var(--space-3);
   transition: background var(--transition-normal);
 }
 
 @media (min-width: 768px) {
   .page-container {
-    padding: var(--space-3) var(--space-4);
+    // padding: var(--space-3) var(--space-4);
   }
 }
 
 @media (min-width: 1024px) {
   .page-container {
-    padding: var(--space-4) var(--space-5);
+    // padding: var(--space-4) var(--space-5);
   }
 }
 
@@ -1841,7 +1880,7 @@ onMounted(() => {
 }
 
 .workflow-card {
-  margin-bottom: var(--space-4);
+  margin: 12px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
@@ -1915,7 +1954,7 @@ onMounted(() => {
 }
 
 .stage-card {
-  margin-bottom: 24px;
+  margin: 12px;
   
   &.stage-card-fullscreen {
     .stage-body-fullscreen {
@@ -1950,14 +1989,13 @@ onMounted(() => {
 }
 
 .stage-body {
-  padding: 32px;
   background: var(--bg-card);
 }
 
 .action-buttons {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin: 12px 0;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
@@ -1990,8 +2028,8 @@ onMounted(() => {
     margin-bottom: 16px;
     padding: 16px;
     background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-primary);
+    // border-radius: 8px;
+    // border: 1px solid var(--border-primary);
 
     .section-title {
       display: flex;
@@ -2178,6 +2216,7 @@ onMounted(() => {
 
 .character-image-list,
 .scene-image-list {
+  padding: 5px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;

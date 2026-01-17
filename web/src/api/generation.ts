@@ -1,27 +1,15 @@
-import type { Character, Episode } from '../types/drama'
 import type {
-    GenerateCharactersRequest,
-    GenerateEpisodesRequest,
-    GenerateOutlineRequest,
-    OutlineResult
+    GenerateCharactersRequest
 } from '../types/generation'
 import request from '../utils/request'
 
 export const generationAPI = {
-  generateOutline(data: GenerateOutlineRequest) {
-    return request.post<OutlineResult>('/generation/outline', data)
-  },
-
   generateCharacters(data: GenerateCharactersRequest) {
     return request.post<{ task_id: string; status: string; message: string }>('/generation/characters', data)
   },
 
-  generateEpisodes(data: GenerateEpisodesRequest) {
-    return request.post<Episode[]>('/generation/episodes', data)
-  },
-
-  generateStoryboard(episodeId: string) {
-    return request.post<{ task_id: string; status: string; message: string }>(`/episodes/${episodeId}/storyboards`)
+  generateStoryboard(episodeId: string, model?: string) {
+    return request.post<{ task_id: string; status: string; message: string }>(`/episodes/${episodeId}/storyboards`, { model })
   },
 
   getTaskStatus(taskId: string) {

@@ -5,23 +5,28 @@ import (
 	"strings"
 
 	"github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"gorm.io/gorm"
 )
 
 // FramePromptService 处理帧提示词生成
 type FramePromptService struct {
-	db        *gorm.DB
-	aiService *AIService
-	log       *logger.Logger
+	db         *gorm.DB
+	aiService  *AIService
+	log        *logger.Logger
+	config     *config.Config
+	promptI18n *PromptI18n
 }
 
 // NewFramePromptService 创建帧提示词服务
-func NewFramePromptService(db *gorm.DB, log *logger.Logger) *FramePromptService {
+func NewFramePromptService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *FramePromptService {
 	return &FramePromptService{
-		db:        db,
-		aiService: NewAIService(db, log),
-		log:       log,
+		db:         db,
+		aiService:  NewAIService(db, log),
+		log:        log,
+		config:     cfg,
+		promptI18n: NewPromptI18n(cfg),
 	}
 }
 
@@ -64,7 +69,7 @@ type MultiFramePrompt struct {
 }
 
 // GenerateFramePrompt 生成指定类型的帧提示词并保存到frame_prompts表
-func (s *FramePromptService) GenerateFramePrompt(req GenerateFramePromptRequest) (*FramePromptResponse, error) {
+func (s *FramePromptService) GenerateFramePrompt(req GenerateFramePromptRequest, model string) (*FramePromptResponse, error) {
 	// 查询分镜信息
 	var storyboard models.Storyboard
 	if err := s.db.Preload("Characters").First(&storyboard, req.StoryboardID).Error; err != nil {
@@ -88,21 +93,21 @@ func (s *FramePromptService) GenerateFramePrompt(req GenerateFramePromptRequest)
 	// 生成提示词
 	switch req.FrameType {
 	case FrameTypeFirst:
-		response.SingleFrame = s.generateFirstFrame(storyboard, scene)
+		response.SingleFrame = s.generateFirstFrame(storyboard, scene, model)
 		// 保存单帧提示词
 		s.saveFramePrompt(req.StoryboardID, string(req.FrameType), response.SingleFrame.Prompt, response.SingleFrame.Description, "")
 	case FrameTypeKey:
-		response.SingleFrame = s.generateKeyFrame(storyboard, scene)
+		response.SingleFrame = s.generateKeyFrame(storyboard, scene, model)
 		s.saveFramePrompt(req.StoryboardID, string(req.FrameType), response.SingleFrame.Prompt, response.SingleFrame.Description, "")
 	case FrameTypeLast:
-		response.SingleFrame = s.generateLastFrame(storyboard, scene)
+		response.SingleFrame = s.generateLastFrame(storyboard, scene, model)
 		s.saveFramePrompt(req.StoryboardID, string(req.FrameType), response.SingleFrame.Prompt, response.SingleFrame.Description, "")
 	case FrameTypePanel:
 		count := req.PanelCount
 		if count == 0 {
 			count = 3
 		}
-		response.MultiFrame = s.generatePanelFrames(storyboard, scene, count)
+		response.MultiFrame = s.generatePanelFrames(storyboard, scene, count, model)
 		// 保存多帧提示词（合并为一条记录）
 		var prompts []string
 		for _, frame := range response.MultiFrame.Frames {
@@ -111,7 +116,7 @@ func (s *FramePromptService) GenerateFramePrompt(req GenerateFramePromptRequest)
 		combinedPrompt := strings.Join(prompts, "\n---\n")
 		s.saveFramePrompt(req.StoryboardID, string(req.FrameType), combinedPrompt, "分镜板组合提示词", response.MultiFrame.Layout)
 	case FrameTypeAction:
-		response.MultiFrame = s.generateActionSequence(storyboard, scene)
+		response.MultiFrame = s.generateActionSequence(storyboard, scene, model)
 		var prompts []string
 		for _, frame := range response.MultiFrame.Frames {
 			prompts = append(prompts, frame.Prompt)
@@ -157,33 +162,28 @@ func mustParseUint(s string) uint64 {
 }
 
 // generateFirstFrame 生成首帧提示词
-func (s *FramePromptService) generateFirstFrame(sb models.Storyboard, scene *models.Scene) *SingleFramePrompt {
+func (s *FramePromptService) generateFirstFrame(sb models.Storyboard, scene *models.Scene, model string) *SingleFramePrompt {
 	// 构建上下文信息
 	contextInfo := s.buildStoryboardContext(sb, scene)
 
-	// 构建AI提示词
-	systemPrompt := `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	// 使用国际化提示词
+	systemPrompt := s.promptI18n.GetFirstFramePrompt()
+	userPrompt := s.promptI18n.FormatUserPrompt("frame_info", contextInfo)
 
-重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。
-
-要求：
-1. 直接输出提示词，不要任何解释说明
-2. 可以使用中文或英文，用逗号分隔关键词
-3. 只描述静态视觉元素：场景环境、角色姿态、表情、氛围、光线
-4. 不要包含任何动作动词（如：猛然、弹起、坐直、抓住等）
-5. 描述角色处于动作发生前的状态（如：躺在床上、站立、坐着等静态姿态）
-6. 适合动画风格（anime style）
-
-示例格式：
-Anime style, 城市公寓卧室, 凌晨, 昏暗房间, 床上, 年轻男子躺着, 表情平静, 闭眼睡眠, 柔和光线, 静谧氛围, 中景, 平视`
-
-	userPrompt := fmt.Sprintf(`镜头信息：
-%s
-
-请直接生成首帧的图像提示词，不要任何解释：`, contextInfo)
-
-	// 调用AI生成
-	prompt, err := s.aiService.GenerateText(userPrompt, systemPrompt)
+	// 调用AI生成（如果指定了模型则使用指定的模型）
+	var prompt string
+	var err error
+	if model != "" {
+		client, getErr := s.aiService.GetAIClientForModel("text", model)
+		if getErr != nil {
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
+			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		} else {
+			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+		}
+	} else {
+		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
 		// 降级方案：使用简单拼接
@@ -204,33 +204,28 @@ Anime style, 城市公寓卧室, 凌晨, 昏暗房间, 床上, 年轻男子躺�
 }
 
 // generateKeyFrame 生成关键帧提示词
-func (s *FramePromptService) generateKeyFrame(sb models.Storyboard, scene *models.Scene) *SingleFramePrompt {
+func (s *FramePromptService) generateKeyFrame(sb models.Storyboard, scene *models.Scene, model string) *SingleFramePrompt {
 	// 构建上下文信息
 	contextInfo := s.buildStoryboardContext(sb, scene)
 
-	// 构建AI提示词
-	systemPrompt := `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	// 使用国际化提示词
+	systemPrompt := s.promptI18n.GetKeyFramePrompt()
+	userPrompt := s.promptI18n.FormatUserPrompt("key_frame_info", contextInfo)
 
-重要：这是镜头的关键帧 - 捕捉动作最激烈、最精彩的瞬间。
-
-要求：
-1. 直接输出提示词，不要任何解释说明
-2. 可以使用中文或英文，用逗号分隔关键词
-3. 重点描述动作的高潮瞬间：身体姿态、运动轨迹、力量感
-4. 包含动态元素：动作模糊、速度线、冲击感
-5. 强调表情和情绪的极致状态
-6. 适合动画风格（anime style）
-
-示例格式：
-Anime style, 城市街道, 白天, 男子全力冲刺, 身体前倾, 动作模糊, 速度线, 汗水飞溅, 表情坚毅, 紧张氛围, 动态镜头, 中景`
-
-	userPrompt := fmt.Sprintf(`镜头信息：
-%s
-
-请直接生成关键帧的图像提示词，不要任何解释：`, contextInfo)
-
-	// 调用AI生成
-	prompt, err := s.aiService.GenerateText(userPrompt, systemPrompt)
+	// 调用AI生成（如果指定了模型则使用指定的模型）
+	var prompt string
+	var err error
+	if model != "" {
+		client, getErr := s.aiService.GetAIClientForModel("text", model)
+		if getErr != nil {
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
+			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		} else {
+			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+		}
+	} else {
+		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
 		prompt = s.buildFallbackPrompt(sb, scene, "key frame, dynamic action")
@@ -250,33 +245,28 @@ Anime style, 城市街道, 白天, 男子全力冲刺, 身体前倾, 动作模�
 }
 
 // generateLastFrame 生成尾帧提示词
-func (s *FramePromptService) generateLastFrame(sb models.Storyboard, scene *models.Scene) *SingleFramePrompt {
+func (s *FramePromptService) generateLastFrame(sb models.Storyboard, scene *models.Scene, model string) *SingleFramePrompt {
 	// 构建上下文信息
 	contextInfo := s.buildStoryboardContext(sb, scene)
 
-	// 构建AI提示词
-	systemPrompt := `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	// 使用国际化提示词
+	systemPrompt := s.promptI18n.GetLastFramePrompt()
+	userPrompt := s.promptI18n.FormatUserPrompt("last_frame_info", contextInfo)
 
-重要：这是镜头的尾帧 - 一个静态画面，展示动作结束后的最终状态和结果。
-
-要求：
-1. 直接输出提示词，不要任何解释说明
-2. 可以使用中文或英文，用逗号分隔关键词
-3. 只描述静态的最终状态：角色姿态、表情、环境变化
-4. 不要包含动作过程，只展示动作的结果和余韵
-5. 强调情绪的余波和氛围的沉淀
-6. 适合动画风格（anime style）
-
-示例格式：
-Anime style, 房间内, 黄昏, 男子坐在椅子上, 身体放松, 表情疲惫, 长出一口气, 汗水滴落, 平静氛围, 静态镜头, 中景`
-
-	userPrompt := fmt.Sprintf(`镜头信息：
-%s
-
-请直接生成尾帧的图像提示词，不要任何解释：`, contextInfo)
-
-	// 调用AI生成
-	prompt, err := s.aiService.GenerateText(userPrompt, systemPrompt)
+	// 调用AI生成（如果指定了模型则使用指定的模型）
+	var prompt string
+	var err error
+	if model != "" {
+		client, getErr := s.aiService.GetAIClientForModel("text", model)
+		if getErr != nil {
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
+			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		} else {
+			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+		}
+	} else {
+		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
 		prompt = s.buildFallbackPrompt(sb, scene, "last frame, final state")
@@ -296,27 +286,27 @@ Anime style, 房间内, 黄昏, 男子坐在椅子上, 身体放松, 表情疲�
 }
 
 // generatePanelFrames 生成分镜板（多格组合）
-func (s *FramePromptService) generatePanelFrames(sb models.Storyboard, scene *models.Scene, count int) *MultiFramePrompt {
+func (s *FramePromptService) generatePanelFrames(sb models.Storyboard, scene *models.Scene, count int, model string) *MultiFramePrompt {
 	layout := fmt.Sprintf("horizontal_%d", count)
 
 	frames := make([]SingleFramePrompt, count)
 
 	// 固定生成：首帧 -> 关键帧 -> 尾帧
 	if count == 3 {
-		frames[0] = *s.generateFirstFrame(sb, scene)
+		frames[0] = *s.generateFirstFrame(sb, scene, model)
 		frames[0].Description = "第1格：初始状态"
 
-		frames[1] = *s.generateKeyFrame(sb, scene)
+		frames[1] = *s.generateKeyFrame(sb, scene, model)
 		frames[1].Description = "第2格：动作高潮"
 
-		frames[2] = *s.generateLastFrame(sb, scene)
+		frames[2] = *s.generateLastFrame(sb, scene, model)
 		frames[2].Description = "第3格：最终状态"
 	} else if count == 4 {
 		// 4格：首帧 -> 中间帧1 -> 中间帧2 -> 尾帧
-		frames[0] = *s.generateFirstFrame(sb, scene)
-		frames[1] = *s.generateKeyFrame(sb, scene)
-		frames[2] = *s.generateKeyFrame(sb, scene)
-		frames[3] = *s.generateLastFrame(sb, scene)
+		frames[0] = *s.generateFirstFrame(sb, scene, model)
+		frames[1] = *s.generateKeyFrame(sb, scene, model)
+		frames[2] = *s.generateKeyFrame(sb, scene, model)
+		frames[3] = *s.generateLastFrame(sb, scene, model)
 	}
 
 	return &MultiFramePrompt{
@@ -326,16 +316,16 @@ func (s *FramePromptService) generatePanelFrames(sb models.Storyboard, scene *mo
 }
 
 // generateActionSequence 生成动作序列（5-8格）
-func (s *FramePromptService) generateActionSequence(sb models.Storyboard, scene *models.Scene) *MultiFramePrompt {
+func (s *FramePromptService) generateActionSequence(sb models.Storyboard, scene *models.Scene, model string) *MultiFramePrompt {
 	// 将动作分解为5个步骤
 	frames := make([]SingleFramePrompt, 5)
 
 	// 简化实现：均匀分布从首帧到尾帧
-	frames[0] = *s.generateFirstFrame(sb, scene)
-	frames[1] = *s.generateKeyFrame(sb, scene)
-	frames[2] = *s.generateKeyFrame(sb, scene)
-	frames[3] = *s.generateKeyFrame(sb, scene)
-	frames[4] = *s.generateLastFrame(sb, scene)
+	frames[0] = *s.generateFirstFrame(sb, scene, model)
+	frames[1] = *s.generateKeyFrame(sb, scene, model)
+	frames[2] = *s.generateKeyFrame(sb, scene, model)
+	frames[3] = *s.generateKeyFrame(sb, scene, model)
+	frames[4] = *s.generateLastFrame(sb, scene, model)
 
 	return &MultiFramePrompt{
 		Layout: "horizontal_5",
@@ -349,14 +339,14 @@ func (s *FramePromptService) buildStoryboardContext(sb models.Storyboard, scene 
 
 	// 镜头描述（最重要）
 	if sb.Description != nil && *sb.Description != "" {
-		parts = append(parts, fmt.Sprintf("镜头描述: %s", *sb.Description))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("shot_description_label", *sb.Description))
 	}
 
 	// 场景信息
 	if scene != nil {
-		parts = append(parts, fmt.Sprintf("场景: %s, %s", scene.Location, scene.Time))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("scene_label", scene.Location, scene.Time))
 	} else if sb.Location != nil && sb.Time != nil {
-		parts = append(parts, fmt.Sprintf("场景: %s, %s", *sb.Location, *sb.Time))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("scene_label", *sb.Location, *sb.Time))
 	}
 
 	// 角色
@@ -365,38 +355,38 @@ func (s *FramePromptService) buildStoryboardContext(sb models.Storyboard, scene 
 		for _, char := range sb.Characters {
 			charNames = append(charNames, char.Name)
 		}
-		parts = append(parts, fmt.Sprintf("角色: %s", strings.Join(charNames, ", ")))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("characters_label", strings.Join(charNames, ", ")))
 	}
 
 	// 动作
 	if sb.Action != nil && *sb.Action != "" {
-		parts = append(parts, fmt.Sprintf("动作: %s", *sb.Action))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("action_label", *sb.Action))
 	}
 
 	// 结果
 	if sb.Result != nil && *sb.Result != "" {
-		parts = append(parts, fmt.Sprintf("结果: %s", *sb.Result))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("result_label", *sb.Result))
 	}
 
 	// 对白
 	if sb.Dialogue != nil && *sb.Dialogue != "" {
-		parts = append(parts, fmt.Sprintf("对白: %s", *sb.Dialogue))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("dialogue_label", *sb.Dialogue))
 	}
 
 	// 氛围
 	if sb.Atmosphere != nil && *sb.Atmosphere != "" {
-		parts = append(parts, fmt.Sprintf("氛围: %s", *sb.Atmosphere))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("atmosphere_label", *sb.Atmosphere))
 	}
 
 	// 镜头参数
 	if sb.ShotType != nil {
-		parts = append(parts, fmt.Sprintf("景别: %s", *sb.ShotType))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("shot_type_label", *sb.ShotType))
 	}
 	if sb.Angle != nil {
-		parts = append(parts, fmt.Sprintf("角度: %s", *sb.Angle))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("angle_label", *sb.Angle))
 	}
 	if sb.Movement != nil {
-		parts = append(parts, fmt.Sprintf("运镜: %s", *sb.Movement))
+		parts = append(parts, s.promptI18n.FormatUserPrompt("movement_label", *sb.Movement))
 	}
 
 	return strings.Join(parts, "\n")

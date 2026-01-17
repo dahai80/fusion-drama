@@ -17,7 +17,7 @@ type rateLimiter struct {
 
 var limiter = &rateLimiter{
 	requests: make(map[string][]time.Time),
-	limit:    100,
+	limit:    2000, // 每分钟最多 2000 次请求
 	window:   time.Minute,
 }
 

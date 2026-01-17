@@ -207,13 +207,9 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
       id: 'chatfire', 
       name: 'Chatfire', 
       models: [
-        'gpt-4o',
+        'gemini-3-pro-preview',
         'claude-sonnet-4-5-20250929',
         'doubao-seed-1-8-251228',
-        'kimi-k2-thinking',
-        'gemini-3-pro',
-        'gemini-2.5-pro',
-        'gemini-3-pro-preview'
       ]
     },
     { 
@@ -281,16 +277,39 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
   ]
 }
 
-// 当前可用的厂商列表
+// 当前可用的厂商列表（只显示有激活配置的）
 const availableProviders = computed(() => {
-  return providerConfigs[form.service_type] || []
+  // 获取当前service_type下所有激活的配置
+  const activeConfigs = configs.value.filter(
+    c => c.service_type === form.service_type && c.is_active
+  )
+  
+  // 提取所有激活配置的provider，去重
+  const activeProviderIds = new Set(activeConfigs.map(c => c.provider))
+  
+  // 从providerConfigs中筛选出有激活配置的provider
+  const allProviders = providerConfigs[form.service_type] || []
+  return allProviders.filter(p => activeProviderIds.has(p.id))
 })
 
-// 当前可用的模型列表
+// 当前可用的模型列表（从已激活的配置中获取）
 const availableModels = computed(() => {
   if (!form.provider) return []
-  const provider = availableProviders.value.find(p => p.id === form.provider)
-  return provider?.models || []
+  
+  // 从已激活的配置中提取该 provider 的所有模型
+  const activeConfigsForProvider = configs.value.filter(
+    c => c.provider === form.provider && 
+         c.service_type === form.service_type && 
+         c.is_active
+  )
+  
+  // 提取所有模型，去重
+  const models = new Set<string>()
+  activeConfigsForProvider.forEach(config => {
+    config.model.forEach(m => models.add(m))
+  })
+  
+  return Array.from(models)
 })
 
 // 完整端点示例

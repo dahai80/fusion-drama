@@ -7,6 +7,7 @@ import (
 	"time"
 
 	models "github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/infrastructure/external/ffmpeg"
 	"github.com/drama-generator/backend/infrastructure/storage"
 	"github.com/drama-generator/backend/pkg/logger"
 	"github.com/drama-generator/backend/pkg/video"
@@ -19,6 +20,7 @@ type VideoGenerationService struct {
 	log             *logger.Logger
 	localStorage    *storage.LocalStorage
 	aiService       *AIService
+	ffmpeg          *ffmpeg.FFmpeg
 }
 
 func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferService, localStorage *storage.LocalStorage, aiService *AIService, log *logger.Logger) *VideoGenerationService {
@@ -28,6 +30,7 @@ func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferSer
 		transferService: transferService,
 		aiService:       aiService,
 		log:             log,
+		ffmpeg:          ffmpeg.NewFFmpeg(log),
 	}
 
 	go service.RecoverPendingTasks()
@@ -316,18 +319,40 @@ func (s *VideoGenerationService) pollTaskStatus(videoGenID uint, taskID string, 
 }
 
 func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoURL string, duration *int, width *int, height *int, firstFrameURL *string) {
+	var localVideoPath string
+
 	// 下载视频到本地存储（仅用于缓存，不更新数据库）
 	if s.localStorage != nil && videoURL != "" {
-		_, err := s.localStorage.DownloadFromURL(videoURL, "videos")
+		downloadedPath, err := s.localStorage.DownloadFromURL(videoURL, "videos")
 		if err != nil {
 			s.log.Warnw("Failed to download video to local storage",
 				"error", err,
 				"id", videoGenID,
 				"original_url", videoURL)
 		} else {
+			localVideoPath = downloadedPath
 			s.log.Infow("Video downloaded to local storage for caching",
 				"id", videoGenID,
-				"original_url", videoURL)
+				"original_url", videoURL,
+				"local_path", localVideoPath)
+		}
+	}
+
+	// 如果视频已下载到本地，探测真实时长
+	if localVideoPath != "" && s.ffmpeg != nil {
+		if probedDuration, err := s.ffmpeg.GetVideoDuration(localVideoPath); err == nil {
+			// 转换为整数秒（向上取整）
+			durationInt := int(probedDuration + 0.5)
+			duration = &durationInt
+			s.log.Infow("Probed video duration",
+				"id", videoGenID,
+				"duration_seconds", durationInt,
+				"duration_float", probedDuration)
+		} else {
+			s.log.Warnw("Failed to probe video duration, using provided duration",
+				"error", err,
+				"id", videoGenID,
+				"local_path", localVideoPath)
 		}
 	}
 
@@ -372,13 +397,22 @@ func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoU
 	var videoGen models.VideoGeneration
 	if err := s.db.First(&videoGen, videoGenID).Error; err == nil {
 		if videoGen.StoryboardID != nil {
-			if err := s.db.Model(&models.Storyboard{}).Where("id = ?", *videoGen.StoryboardID).Update("video_url", videoURL).Error; err != nil {
-				s.log.Warnw("Failed to update storyboard video_url", "storyboard_id", *videoGen.StoryboardID, "error", err)
+			// 更新 Storyboard 的 video_url 和 duration
+			storyboardUpdates := map[string]interface{}{
+				"video_url": videoURL,
+			}
+			if duration != nil {
+				storyboardUpdates["duration"] = *duration
+			}
+			if err := s.db.Model(&models.Storyboard{}).Where("id = ?", *videoGen.StoryboardID).Updates(storyboardUpdates).Error; err != nil {
+				s.log.Warnw("Failed to update storyboard", "storyboard_id", *videoGen.StoryboardID, "error", err)
+			} else {
+				s.log.Infow("Updated storyboard with video info", "storyboard_id", *videoGen.StoryboardID, "duration", duration)
 			}
 		}
 	}
 
-	s.log.Infow("Video generation completed", "id", videoGenID, "url", videoURL)
+	s.log.Infow("Video generation completed", "id", videoGenID, "url", videoURL, "duration", duration)
 }
 
 func (s *VideoGenerationService) updateVideoGenError(videoGenID uint, errorMsg string) {

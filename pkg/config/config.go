@@ -15,9 +15,10 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name    string `mapstructure:"name"`
-	Version string `mapstructure:"version"`
-	Debug   bool   `mapstructure:"debug"`
+	Name     string `mapstructure:"name"`
+	Version  string `mapstructure:"version"`
+	Debug    bool   `mapstructure:"debug"`
+	Language string `mapstructure:"language"` // zh 或 en
 }
 
 type ServerConfig struct {

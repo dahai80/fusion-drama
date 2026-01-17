@@ -1,37 +1,34 @@
 <template>
   <div class="workflow-container">
-    <div class="workflow-header">
-      <div class="header-single-line">
-        <div class="header-left-section">
-          <el-button text @click="goBack" class="back-btn">
-            <el-icon><ArrowLeft /></el-icon>
-            <span>{{ $t('dramaWorkflow.returnToList') }}</span>
-          </el-button>
-          <h2 class="drama-title">{{ drama?.title }}</h2>
-          <el-tag :type="getStatusType(drama?.status)" size="small">{{ getStatusText(drama?.status) }}</el-tag>
-        </div>
-        
+    <AppHeader :fixed="false" :show-logo="false">
+      <template #left>
+        <el-button text @click="goBack" class="back-btn">
+          <el-icon><ArrowLeft /></el-icon>
+          <span>{{ $t('dramaWorkflow.returnToList') }}</span>
+        </el-button>
+        <h2 class="drama-title">{{ drama?.title }}</h2>
+        <el-tag :type="getStatusType(drama?.status)" size="small">{{ getStatusText(drama?.status) }}</el-tag>
+      </template>
+      <template #center>
         <!-- 步骤进度条 -->
-        <div class="steps-inline">
-          <div class="custom-steps">
-            <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
-              <div class="step-circle">1</div>
-              <span class="step-text">{{ $t('dramaWorkflow.episodeScript', { number: currentEpisodeNumber }) }}</span>
-            </div>
-            <el-icon class="step-arrow"><ArrowRight /></el-icon>
-            <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
-              <div class="step-circle">2</div>
-              <span class="step-text">{{ $t('dramaWorkflow.storyboardBreakdown') }}</span>
-            </div>
-            <el-icon class="step-arrow"><ArrowRight /></el-icon>
-            <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
-              <div class="step-circle">3</div>
-              <span class="step-text">{{ $t('dramaWorkflow.characterImages') }}</span>
-            </div>
+        <div class="custom-steps">
+          <div class="step-item" :class="{ active: currentStep >= 0, current: currentStep === 0 }">
+            <div class="step-circle">1</div>
+            <span class="step-text">{{ $t('dramaWorkflow.episodeScript', { number: currentEpisodeNumber }) }}</span>
+          </div>
+          <el-icon class="step-arrow"><ArrowRight /></el-icon>
+          <div class="step-item" :class="{ active: currentStep >= 1, current: currentStep === 1 }">
+            <div class="step-circle">2</div>
+            <span class="step-text">{{ $t('dramaWorkflow.storyboardBreakdown') }}</span>
+          </div>
+          <el-icon class="step-arrow"><ArrowRight /></el-icon>
+          <div class="step-item" :class="{ active: currentStep >= 2, current: currentStep === 2 }">
+            <div class="step-circle">3</div>
+            <span class="step-text">{{ $t('dramaWorkflow.characterImages') }}</span>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </AppHeader>
 
     <!-- 当前阶段内容区域 -->
     <div class="stage-area">
@@ -567,6 +564,7 @@ import { generationAPI } from '@/api/generation'
 import { characterLibraryAPI } from '@/api/character-library'
 import request from '@/utils/request'
 import type { Drama, DramaStatus } from '@/types/drama'
+import { AppHeader } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()

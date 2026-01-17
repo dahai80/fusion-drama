@@ -7,22 +7,28 @@ import (
 	"strings"
 
 	models "github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/pkg/ai"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"github.com/drama-generator/backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
 type StoryboardService struct {
-	db        *gorm.DB
-	aiService *AIService
-	log       *logger.Logger
+	db         *gorm.DB
+	aiService  *AIService
+	log        *logger.Logger
+	config     *config.Config
+	promptI18n *PromptI18n
 }
 
-func NewStoryboardService(db *gorm.DB, log *logger.Logger) *StoryboardService {
+func NewStoryboardService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *StoryboardService {
 	return &StoryboardService{
-		db:        db,
-		aiService: NewAIService(db, log),
-		log:       log,
+		db:         db,
+		aiService:  NewAIService(db, log),
+		log:        log,
+		config:     cfg,
+		promptI18n: NewPromptI18n(cfg),
 	}
 }
 
@@ -52,7 +58,7 @@ type GenerateStoryboardResult struct {
 	Total       int          `json:"total"`
 }
 
-func (s *StoryboardService) GenerateStoryboard(episodeID string) (*GenerateStoryboardResult, error) {
+func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (*GenerateStoryboardResult, error) {
 	// 从数据库获取剧集信息
 	var episode struct {
 		ID            string
@@ -122,20 +128,33 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string) (*GenerateStory
 		"scene_count", len(scenes),
 		"scenes", sceneList)
 
-	// 构建分镜头生成提示词
-	prompt := fmt.Sprintf(`【角色】你是一位资深影视分镜师，精通罗伯特·麦基的镜头拆解理论，擅长构建情绪节奏。
+	// 使用国际化提示词
+	systemPrompt := s.promptI18n.GetStoryboardSystemPrompt()
 
-【任务】将小说剧本按**独立动作单元**拆解为分镜头方案。
+	scriptLabel := s.promptI18n.FormatUserPrompt("script_content_label")
+	taskLabel := s.promptI18n.FormatUserPrompt("task_label")
+	taskInstruction := s.promptI18n.FormatUserPrompt("task_instruction")
+	charListLabel := s.promptI18n.FormatUserPrompt("character_list_label")
+	charConstraint := s.promptI18n.FormatUserPrompt("character_constraint")
+	sceneListLabel := s.promptI18n.FormatUserPrompt("scene_list_label")
+	sceneConstraint := s.promptI18n.FormatUserPrompt("scene_constraint")
 
-【本剧可用角色列表】
+	prompt := fmt.Sprintf(`%s
+
+%s
 %s
 
-**重要**：在characters字段中，只能使用上述角色列表中的角色ID（数字），不得自创角色或使用其他ID。
+%s%s
 
-【本剧已提取的场景背景列表】
+%s
 %s
 
-**重要**：在scene_id字段中，必须从上述背景列表中选择最匹配的背景ID（数字）。如果没有合适的背景，则填null。
+%s
+
+%s
+%s
+
+%s
 
 【剧本原文】
 %s
@@ -305,23 +324,61 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string) (*GenerateStory
 - 包含感官细节：视觉、听觉、触觉、嗅觉
 - 描述光线、色彩、质感、动态
 - 为视频生成AI提供足够的画面构建信息
-- 避免抽象词汇，使用具象的视觉化描述`, characterList, sceneList, scriptContent)
+- 避免抽象词汇，使用具象的视觉化描述`, systemPrompt, scriptLabel, scriptContent, taskLabel, taskInstruction, charListLabel, characterList, charConstraint, sceneListLabel, sceneList, sceneConstraint)
 
-	// 调用AI服务生成
-	text, err := s.aiService.GenerateText(prompt, "")
-	if err != nil {
-		s.log.Errorw("Failed to generate storyboard", "error", err)
-		return nil, fmt.Errorf("生成分镜头失败: %w", err)
+	// 调用AI服务生成（如果指定了模型则使用指定的模型）
+	// 设置较大的max_tokens以确保完整返回所有分镜的JSON
+	var text string
+	if model != "" {
+		s.log.Infow("Using specified model for storyboard generation", "model", model)
+		client, getErr := s.aiService.GetAIClientForModel("text", model)
+		if getErr != nil {
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
+			var err error
+			text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
+			if err != nil {
+				s.log.Errorw("Failed to generate storyboard", "error", err)
+				return nil, fmt.Errorf("生成分镜头失败: %w", err)
+			}
+		} else {
+			var err error
+			text, err = client.GenerateText(prompt, "", ai.WithMaxTokens(16000))
+			if err != nil {
+				s.log.Errorw("Failed to generate storyboard", "error", err)
+				return nil, fmt.Errorf("生成分镜头失败: %w", err)
+			}
+		}
+	} else {
+		var err error
+		text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
+		if err != nil {
+			s.log.Errorw("Failed to generate storyboard", "error", err)
+			return nil, fmt.Errorf("生成分镜头失败: %w", err)
+		}
 	}
 
 	// 解析JSON结果
+	// AI可能返回两种格式：
+	// 1. 数组格式: [{...}, {...}]
+	// 2. 对象格式: {"storyboards": [{...}, {...}]}
 	var result GenerateStoryboardResult
-	if err := utils.SafeParseAIJSON(text, &result); err != nil {
-		s.log.Errorw("Failed to parse storyboard JSON", "error", err, "response", text[:min(500, len(text))])
-		return nil, fmt.Errorf("解析分镜头结果失败: %w", err)
-	}
 
-	result.Total = len(result.Storyboards)
+	// 先尝试解析为数组格式
+	var storyboards []Storyboard
+	if err := utils.SafeParseAIJSON(text, &storyboards); err == nil {
+		// 成功解析为数组，包装为对象
+		result.Storyboards = storyboards
+		result.Total = len(storyboards)
+		s.log.Infow("Parsed storyboard as array format", "count", len(storyboards))
+	} else {
+		// 尝试解析为对象格式
+		if err := utils.SafeParseAIJSON(text, &result); err != nil {
+			s.log.Errorw("Failed to parse storyboard JSON in both formats", "error", err, "response", text[:min(500, len(text))])
+			return nil, fmt.Errorf("解析分镜头结果失败: %w", err)
+		}
+		result.Total = len(result.Storyboards)
+		s.log.Infow("Parsed storyboard as object format", "count", len(result.Storyboards))
+	}
 
 	// 计算总时长（所有分镜时长之和）
 	totalDuration := 0
@@ -566,15 +623,52 @@ func (s *StoryboardService) generateVideoPrompt(sb Storyboard) string {
 }
 
 func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Storyboard) error {
+	// 验证 episodeID
+	epID, err := strconv.ParseUint(episodeID, 10, 32)
+	if err != nil {
+		s.log.Errorw("Invalid episode ID", "episode_id", episodeID, "error", err)
+		return fmt.Errorf("无效的章节ID: %s", episodeID)
+	}
+
+	// 防御性检查：如果AI返回的分镜数量为0，不应该删除旧分镜
+	if len(storyboards) == 0 {
+		s.log.Errorw("AI返回的分镜数量为0，拒绝保存以避免删除现有分镜", "episode_id", episodeID)
+		return fmt.Errorf("AI生成分镜失败：返回的分镜数量为0")
+	}
+
+	s.log.Infow("开始保存分镜头",
+		"episode_id", episodeID,
+		"episode_id_uint", uint(epID),
+		"storyboard_count", len(storyboards))
+
 	// 开启事务
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 获取该剧集所有的分镜ID
+		// 验证该章节是否存在
+		var episode models.Episode
+		if err := tx.First(&episode, epID).Error; err != nil {
+			s.log.Errorw("Episode not found", "episode_id", episodeID, "error", err)
+			return fmt.Errorf("章节不存在: %s", episodeID)
+		}
+
+		s.log.Infow("找到章节信息",
+			"episode_id", episode.ID,
+			"episode_number", episode.EpisodeNum,
+			"drama_id", episode.DramaID,
+			"title", episode.Title)
+
+		// 获取该剧集所有的分镜ID（使用 uint 类型）
 		var storyboardIDs []uint
 		if err := tx.Model(&models.Storyboard{}).
-			Where("episode_id = ?", episodeID).
+			Where("episode_id = ?", uint(epID)).
 			Pluck("id", &storyboardIDs).Error; err != nil {
 			return err
 		}
+
+		s.log.Infow("查询到现有分镜",
+			"episode_id_string", episodeID,
+			"episode_id_uint", uint(epID),
+			"existing_storyboard_count", len(storyboardIDs),
+			"storyboard_ids", storyboardIDs)
 
 		// 如果有分镜，先清理关联的image_generations的storyboard_id
 		if len(storyboardIDs) > 0 {
@@ -583,12 +677,25 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 				Update("storyboard_id", nil).Error; err != nil {
 				return err
 			}
+			s.log.Infow("已清理关联的图片生成记录", "count", len(storyboardIDs))
 		}
 
-		// 删除该剧集已有的分镜头
-		if err := tx.Where("episode_id = ?", episodeID).Delete(&models.Storyboard{}).Error; err != nil {
-			return err
+		// 删除该剧集已有的分镜头（使用 uint 类型确保类型匹配）
+		s.log.Warnw("准备删除分镜数据",
+			"episode_id_string", episodeID,
+			"episode_id_uint", uint(epID),
+			"episode_id_from_db", episode.ID,
+			"will_delete_count", len(storyboardIDs))
+
+		result := tx.Where("episode_id = ?", uint(epID)).Delete(&models.Storyboard{})
+		if result.Error != nil {
+			s.log.Errorw("删除旧分镜失败", "episode_id", uint(epID), "error", result.Error)
+			return result.Error
 		}
+
+		s.log.Infow("已删除旧分镜头",
+			"episode_id", uint(epID),
+			"deleted_count", result.RowsAffected)
 
 		// 注意：不删除背景，因为背景是在分镜拆解前就提取好的
 		// AI会直接返回scene_id，不需要在这里做字符串匹配
@@ -615,8 +722,6 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 					"shot_number", sb.ShotNumber,
 					"scene_id", *sb.SceneID)
 			}
-
-			epID, _ := strconv.ParseUint(episodeID, 10, 32)
 
 			// 处理 title 字段
 			var titlePtr *string

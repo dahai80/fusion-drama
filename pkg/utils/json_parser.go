@@ -21,16 +21,44 @@ func SafeParseAIJSON(aiResponse string, v interface{}) error {
 
 	// 1. 移除可能的Markdown代码块标记
 	cleaned := strings.TrimSpace(aiResponse)
+	// 移除开头的 ```json 或 ```
 	cleaned = regexp.MustCompile("(?m)^```json\\s*").ReplaceAllString(cleaned, "")
 	cleaned = regexp.MustCompile("(?m)^```\\s*").ReplaceAllString(cleaned, "")
+	// 移除结尾的 ```
+	cleaned = regexp.MustCompile("(?m)```\\s*$").ReplaceAllString(cleaned, "")
 	cleaned = strings.TrimSpace(cleaned)
 
-	// 2. 提取JSON对象 (查找第一个 { 到最后一个 })
-	jsonRegex := regexp.MustCompile(`(?s)\{.*\}`)
-	jsonMatch := jsonRegex.FindString(cleaned)
+	// 2. 提取JSON (支持对象 {} 和数组 [])
+	var jsonMatch string
+
+	// 优先尝试提取完整的JSON（对象或数组）
+	// 先尝试对象格式
+	if strings.HasPrefix(cleaned, "{") {
+		jsonRegex := regexp.MustCompile(`(?s)\{.*\}`)
+		jsonMatch = jsonRegex.FindString(cleaned)
+	}
+
+	// 如果没找到对象，尝试数组格式
+	if jsonMatch == "" && strings.HasPrefix(cleaned, "[") {
+		jsonRegex := regexp.MustCompile(`(?s)\[.*\]`)
+		jsonMatch = jsonRegex.FindString(cleaned)
+	}
+
+	// 如果还是没找到，尝试从中间提取
+	if jsonMatch == "" {
+		// 尝试对象
+		objRegex := regexp.MustCompile(`(?s)\{.*\}`)
+		jsonMatch = objRegex.FindString(cleaned)
+
+		// 如果对象没找到，尝试数组
+		if jsonMatch == "" {
+			arrRegex := regexp.MustCompile(`(?s)\[.*\]`)
+			jsonMatch = arrRegex.FindString(cleaned)
+		}
+	}
 
 	if jsonMatch == "" {
-		return fmt.Errorf("响应中未找到有效的JSON对象，原始响应: %s", truncateString(aiResponse, 200))
+		return fmt.Errorf("响应中未找到有效的JSON对象或数组，原始响应: %s", truncateString(aiResponse, 200))
 	}
 
 	// 3. 尝试解析JSON
@@ -47,7 +75,17 @@ func SafeParseAIJSON(aiResponse string, v interface{}) error {
 		}
 	}
 
-	// 5. 提供详细的错误上下文
+	// 5. 检测是否是响应被截断导致的问题
+	if isTruncated(jsonMatch) {
+		return fmt.Errorf(
+			"AI响应可能被截断，导致JSON不完整。\n请尝试：\n1. 增加maxTokens参数\n2. 简化输入内容\n3. 使用更强大的模型\n\n原始错误: %s\n响应长度: %d\n响应末尾: %s",
+			err.Error(),
+			len(jsonMatch),
+			truncateString(jsonMatch[maxInt(0, len(jsonMatch)-200):], 200),
+		)
+	}
+
+	// 6. 提供详细的错误上下文
 	if jsonErr, ok := err.(*json.SyntaxError); ok {
 		errorPos := int(jsonErr.Offset)
 		start := maxInt(0, errorPos-100)
@@ -128,6 +166,38 @@ func ExtractJSONFromText(text string) string {
 func ValidateJSON(jsonStr string) error {
 	var js json.RawMessage
 	return json.Unmarshal([]byte(jsonStr), &js)
+}
+
+// isTruncated 检测JSON字符串是否可能被截断
+func isTruncated(jsonStr string) bool {
+	trimmed := strings.TrimSpace(jsonStr)
+	if len(trimmed) == 0 {
+		return false
+	}
+
+	// 检查是否以不完整的字符串结尾（引号未闭合）
+	lastChar := trimmed[len(trimmed)-1]
+	if lastChar != '}' && lastChar != ']' {
+		return true
+	}
+
+	// 检查括号是否匹配
+	openBraces := strings.Count(trimmed, "{")
+	closeBraces := strings.Count(trimmed, "}")
+	openBrackets := strings.Count(trimmed, "[")
+	closeBrackets := strings.Count(trimmed, "]")
+
+	if openBraces != closeBraces || openBrackets != closeBrackets {
+		return true
+	}
+
+	// 检查引号是否匹配（简化检查，不考虑转义）
+	quoteCount := strings.Count(trimmed, `"`)
+	if quoteCount%2 != 0 {
+		return true
+	}
+
+	return false
 }
 
 // Helper functions

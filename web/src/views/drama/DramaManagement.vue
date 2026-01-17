@@ -2,12 +2,18 @@
   <div class="page-container">
     <div class="content-wrapper animate-fade-in">
       <!-- Page Header / 页面头部 -->
-      <PageHeader
-        :title="drama?.title || ''"
-        :subtitle="drama?.description || $t('drama.management.overview')"
-        :show-back="true"
-        :back-text="$t('common.back')"
-      />
+      <AppHeader :fixed="false" :show-logo="false">
+        <template #left>
+          <el-button text @click="$router.back()" class="back-btn">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>{{ $t('common.back') }}</span>
+          </el-button>
+          <div class="page-title">
+            <h1>{{ drama?.title || '' }}</h1>
+            <span class="subtitle">{{ drama?.description || $t('drama.management.overview') }}</span>
+          </div>
+        </template>
+      </AppHeader>
 
       <!-- Tabs / 标签页 -->
       <div class="tabs-wrapper">
@@ -60,15 +66,22 @@
           </template>
         </el-alert>
 
-        <el-card shadow="never" style="margin-top: 20px;">
+        <el-card shadow="never" class="project-info-card">
           <template #header>
-            <h3 class="card-title">{{ $t('drama.management.projectInfo') }}</h3>
+            <div class="card-header">
+              <h3 class="card-title">{{ $t('drama.management.projectInfo') }}</h3>
+              <el-tag :type="getStatusType(drama?.status)" size="small">{{ getStatusText(drama?.status) }}</el-tag>
+            </div>
           </template>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item :label="$t('drama.management.projectName')">{{ drama?.title }}</el-descriptions-item>
-            <el-descriptions-item :label="$t('common.createdAt')">{{ formatDate(drama?.created_at) }}</el-descriptions-item>
+          <el-descriptions :column="2" border class="project-descriptions">
+            <el-descriptions-item :label="$t('drama.management.projectName')">
+              <span class="info-value">{{ drama?.title }}</span>
+            </el-descriptions-item>
+            <el-descriptions-item :label="$t('common.createdAt')">
+              <span class="info-value">{{ formatDate(drama?.created_at) }}</span>
+            </el-descriptions-item>
             <el-descriptions-item :label="$t('drama.management.projectDesc')" :span="2">
-              {{ drama?.description || $t('drama.management.noDescription') }}
+              <span class="info-desc">{{ drama?.description || $t('drama.management.noDescription') }}</span>
             </el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -249,8 +262,9 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Document, User, Picture, Plus } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
+import { characterLibraryAPI } from '@/api/character-library'
 import type { Drama } from '@/types/drama'
-import { PageHeader, StatCard, EmptyState } from '@/components/common'
+import { AppHeader, StatCard, EmptyState } from '@/components/common'
 
 const router = useRouter()
 const route = useRoute()
@@ -451,29 +465,30 @@ const deleteCharacter = async (character: any) => {
     return
   }
 
-  await ElMessageBox.confirm(
-    `确定要删除角色"${character.name}"吗？`,
-    '删除确认',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
+  if (!character.id) {
+    ElMessage.error('角色ID不存在，无法删除')
+    return
+  }
 
   try {
-    const updatedCharacters = drama.value!.characters!.filter(c => c.id !== character.id)
-    await dramaAPI.saveCharacters(drama.value!.id, updatedCharacters.map(c => ({
-      name: c.name,
-      role: c.role,
-      appearance: c.appearance,
-      personality: c.personality,
-      description: c.description
-    })))
-    ElMessage.success('删除成功')
+    await ElMessageBox.confirm(
+      `确定要删除角色"${character.name}"吗？此操作不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await characterLibraryAPI.deleteCharacter(character.id)
+    ElMessage.success('角色已删除')
     await loadDramaData()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    if (error !== 'cancel') {
+      console.error('删除角色失败:', error)
+      ElMessage.error(error.message || '删除失败')
+    }
   }
 }
 
@@ -506,22 +521,30 @@ const editScene = (scene: any) => {
 }
 
 const deleteScene = async (scene: any) => {
-  await ElMessageBox.confirm(
-    `确定要删除场景"${scene.name}"吗？`,
-    '删除确认',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
+  if (!scene.id) {
+    ElMessage.error('场景ID不存在，无法删除')
+    return
+  }
 
   try {
-    // TODO: 调用删除API
-    ElMessage.success('删除成功')
+    await ElMessageBox.confirm(
+      `确定要删除场景"${scene.name || scene.location}"吗？此操作不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await dramaAPI.deleteScene(scene.id.toString())
+    ElMessage.success('场景已删除')
     await loadScenes()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    if (error !== 'cancel') {
+      console.error('删除场景失败:', error)
+      ElMessage.error(error.message || '删除失败')
+    }
   }
 }
 
@@ -543,19 +566,19 @@ onMounted(() => {
 .page-container {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: var(--space-2) var(--space-3);
+  /* padding: var(--space-2) var(--space-3); */
   transition: background var(--transition-normal);
 }
 
 @media (min-width: 768px) {
   .page-container {
-    padding: var(--space-3) var(--space-4);
+    /* padding: var(--space-3) var(--space-4); */
   }
 }
 
 @media (min-width: 1024px) {
   .page-container {
-    padding: var(--space-4) var(--space-5);
+    /* padding: var(--space-4) var(--space-5); */
   }
 }
 
@@ -730,6 +753,10 @@ onMounted(() => {
 
 .dark :deep(.el-table) {
   background: var(--bg-card);
+  --el-table-bg-color: var(--bg-card);
+  --el-table-tr-bg-color: var(--bg-card);
+  --el-table-header-bg-color: var(--bg-secondary);
+  --el-fill-color-lighter: var(--bg-secondary);
 }
 
 .dark :deep(.el-table th),
@@ -740,6 +767,14 @@ onMounted(() => {
 .dark :deep(.el-table td),
 .dark :deep(.el-table th) {
   border-color: var(--border-primary);
+}
+
+.dark :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background: var(--bg-secondary);
+}
+
+.dark :deep(.el-table__body tr:hover > td) {
+  background: var(--bg-card-hover) !important;
 }
 
 .dark :deep(.el-descriptions) {
@@ -762,11 +797,49 @@ onMounted(() => {
   border-color: var(--border-primary);
 }
 
+/* ========================================
+   Project Info Card / 项目信息卡片
+   ======================================== */
+.project-info-card {
+  margin-top: var(--space-5);
+  border-radius: var(--radius-lg);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .card-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.project-descriptions {
+  width: 100%;
+}
+
+:deep(.project-descriptions .el-descriptions__label) {
+  width: 120px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+:deep(.project-descriptions .el-descriptions__content) {
+  min-width: 150px;
+}
+
+.info-value {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.info-desc {
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 .dark :deep(.el-dialog) {

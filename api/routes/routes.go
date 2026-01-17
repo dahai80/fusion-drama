@@ -35,7 +35,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	dramaHandler := handlers2.NewDramaHandler(db, cfg, log, nil)
 	aiConfigHandler := handlers2.NewAIConfigHandler(db, cfg, log)
 	scriptGenHandler := handlers2.NewScriptGenerationHandler(db, cfg, log)
-	imageGenService := services2.NewImageGenerationService(db, transferService, localStoragePtr, log)
+	imageGenService := services2.NewImageGenerationService(db, cfg, transferService, localStoragePtr, log)
 	imageGenHandler := handlers2.NewImageGenerationHandler(db, cfg, log, transferService, localStoragePtr)
 	videoGenHandler := handlers2.NewVideoGenerationHandler(db, transferService, localStoragePtr, aiService, log)
 	videoMergeHandler := handlers2.NewVideoMergeHandler(db, nil, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log)
@@ -49,8 +49,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	storyboardHandler := handlers2.NewStoryboardHandler(db, cfg, log)
 	sceneHandler := handlers2.NewSceneHandler(db, log, imageGenService)
 	taskHandler := handlers2.NewTaskHandler(db, log)
-	framePromptService := services2.NewFramePromptService(db, log)
+	framePromptService := services2.NewFramePromptService(db, cfg, log)
 	framePromptHandler := handlers2.NewFramePromptHandler(framePromptService, log)
+	audioExtractionHandler := handlers2.NewAudioExtractionHandler(log, cfg.Storage.LocalPath)
+	settingsHandler := handlers2.NewSettingsHandler(cfg, log)
 
 	api := r.Group("/api/v1")
 	{
@@ -83,9 +85,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 
 		generation := api.Group("/generation")
 		{
-			generation.POST("/outline", scriptGenHandler.GenerateOutline)
 			generation.POST("/characters", scriptGenHandler.GenerateCharacters)
-			generation.POST("/episodes", scriptGenHandler.GenerateEpisodes)
 		}
 
 		// 角色库路由
@@ -137,6 +137,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		scenes := api.Group("/scenes")
 		{
 			scenes.PUT("/:scene_id", sceneHandler.UpdateScene)
+			scenes.DELETE("/:scene_id", sceneHandler.DeleteScene)
 			scenes.POST("/generate-image", sceneHandler.GenerateSceneImage)
 		}
 
@@ -186,6 +187,18 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			storyboards.PUT("/:id", storyboardHandler.UpdateStoryboard)
 			storyboards.POST("/:id/frame-prompt", framePromptHandler.GenerateFramePrompt)
 			storyboards.GET("/:id/frame-prompts", handlers2.GetStoryboardFramePrompts(db, log))
+		}
+
+		audio := api.Group("/audio")
+		{
+			audio.POST("/extract", audioExtractionHandler.ExtractAudio)
+			audio.POST("/extract/batch", audioExtractionHandler.BatchExtractAudio)
+		}
+
+		settings := api.Group("/settings")
+		{
+			settings.GET("/language", settingsHandler.GetLanguage)
+			settings.PUT("/language", settingsHandler.UpdateLanguage)
 		}
 	}
 

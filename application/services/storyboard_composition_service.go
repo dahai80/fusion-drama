@@ -42,12 +42,18 @@ type SceneCompositionInfo struct {
 	StoryboardNumber      int                  `json:"storyboard_number"`
 	Title                 *string              `json:"title"`
 	Description           *string              `json:"description"`
+	ShotType              *string              `json:"shot_type"`
+	Angle                 *string              `json:"angle"`
+	Movement              *string              `json:"movement"`
 	Location              *string              `json:"location"`
 	Time                  *string              `json:"time"`
 	Duration              int                  `json:"duration"`
 	Dialogue              *string              `json:"dialogue"`
 	Action                *string              `json:"action"`
+	Result                *string              `json:"result"`
 	Atmosphere            *string              `json:"atmosphere"`
+	BgmPrompt             *string              `json:"bgm_prompt,omitempty"`
+	SoundEffect           *string              `json:"sound_effect,omitempty"`
 	ImagePrompt           *string              `json:"image_prompt,omitempty"`
 	VideoPrompt           *string              `json:"video_prompt,omitempty"`
 	Characters            []SceneCharacterInfo `json:"characters"`
@@ -182,12 +188,18 @@ func (s *StoryboardCompositionService) GetScenesForEpisode(episodeID string) ([]
 			StoryboardNumber: storyboard.StoryboardNumber,
 			Title:            storyboard.Title,
 			Description:      storyboard.Description,
+			ShotType:         storyboard.ShotType,
+			Angle:            storyboard.Angle,
+			Movement:         storyboard.Movement,
 			Location:         storyboard.Location,
 			Time:             storyboard.Time,
 			Duration:         storyboard.Duration,
 			Action:           storyboard.Action,
 			Dialogue:         storyboard.Dialogue,
+			Result:           storyboard.Result,
 			Atmosphere:       storyboard.Atmosphere,
+			BgmPrompt:        storyboard.BgmPrompt,
+			SoundEffect:      storyboard.SoundEffect,
 			ImagePrompt:      storyboard.ImagePrompt,
 			VideoPrompt:      storyboard.VideoPrompt,
 			SceneID:          storyboard.SceneID,
@@ -385,6 +397,24 @@ func (s *StoryboardCompositionService) GenerateSceneImage(req *GenerateSceneImag
 	}
 
 	return nil, fmt.Errorf("image generation service not available")
+}
+
+func (s *StoryboardCompositionService) DeleteScene(sceneID string) error {
+	var scene models.Scene
+	if err := s.db.Where("id = ?", sceneID).First(&scene).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("scene not found")
+		}
+		return fmt.Errorf("failed to find scene: %w", err)
+	}
+
+	// 删除场景
+	if err := s.db.Delete(&scene).Error; err != nil {
+		return fmt.Errorf("failed to delete scene: %w", err)
+	}
+
+	s.log.Infow("Scene deleted successfully", "scene_id", sceneID)
+	return nil
 }
 
 func getStringValue(s *string) string {

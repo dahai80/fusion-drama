@@ -1,50 +1,10 @@
-export interface GenerateOutlineRequest {
-  drama_id: string
-  theme: string
-  genre?: string
-  style?: string
-  length?: number
-  temperature?: number
-}
-
 export interface GenerateCharactersRequest {
   drama_id: string
+  episode_id?: number
   outline?: string
   count?: number
   temperature?: number
-}
-
-export interface GenerateEpisodesRequest {
-  drama_id: string
-  outline?: string
-  episode_count: number
-  temperature?: number
-}
-
-export interface OutlineResult {
-  title: string
-  summary: string
-  genre: string
-  tags: string[]
-  characters: CharacterOutline[]
-  episodes: EpisodeOutline[]
-  key_scenes: string[]
-}
-
-export interface CharacterOutline {
-  name: string
-  role: string
-  description: string
-  personality: string
-  appearance: string
-}
-
-export interface EpisodeOutline {
-  episode_number: number
-  title: string
-  summary: string
-  scenes: string[]
-  duration: number
+  model?: string  // 指定使用的文本模型
 }
 
 export interface ParseScriptRequest {

@@ -4,12 +4,13 @@
 
 **基于 Go + Vue3 的全栈AI短剧自动化生产平台**
 
-
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 [功能特性](#功能特性) • [快速开始](#快速开始) • [部署指南](#部署指南)
+
+[简体中文](README.md) | [English](README-EN.md)
 
 </div>
 

@@ -3,114 +3,68 @@
   <!-- 短剧列表页面 - 使用现代简约设计重构 -->
   <div class="page-container">
     <div class="content-wrapper animate-fade-in">
-      <!-- Page Header / 页面头部 -->
-      <PageHeader
-        :title="$t('drama.title')"
-        :subtitle="$t('drama.totalProjects', { count: total })"
-      >
-        <template #actions>
-          <LanguageSwitcher />
-          <ThemeToggle />
-          <el-button @click="showAIConfig = true" class="header-btn">
-            <el-icon><Setting /></el-icon>
-            <span class="btn-text">{{ $t('drama.aiConfig') }}</span>
-          </el-button>
+      <!-- App Header / 应用头部 -->
+      <AppHeader :fixed="false">
+        <template #left>
+          <div class="page-title">
+            <h1>{{ $t('drama.title') }}</h1>
+            <span class="subtitle">{{ $t('drama.totalProjects', { count: total }) }}</span>
+          </div>
+        </template>
+        <template #right>
           <el-button type="primary" @click="handleCreate" class="header-btn primary">
-            <el-icon><Plus /></el-icon>
+            <el-icon>
+              <Plus />
+            </el-icon>
             <span class="btn-text">{{ $t('drama.createNew') }}</span>
           </el-button>
         </template>
-      </PageHeader>
+      </AppHeader>
 
       <!-- Project Grid / 项目网格 -->
       <div v-loading="loading" class="projects-grid" :class="{ 'is-empty': !loading && dramas.length === 0 }">
         <!-- Empty state / 空状态 -->
-        <EmptyState
-          v-if="!loading && dramas.length === 0"
-          :title="$t('drama.empty')"
-          :description="$t('drama.emptyHint')"
-          :icon="Film"
-        >
+        <EmptyState v-if="!loading && dramas.length === 0" :title="$t('drama.empty')"
+          :description="$t('drama.emptyHint')" :icon="Film">
           <el-button type="primary" @click="handleCreate">
-            <el-icon><Plus /></el-icon>
+            <el-icon>
+              <Plus />
+            </el-icon>
             {{ $t('drama.createNew') }}
           </el-button>
         </EmptyState>
 
         <!-- Project Cards / 项目卡片列表 -->
-        <ProjectCard
-          v-for="drama in dramas"
-          :key="drama.id"
-          :title="drama.title"
-          :description="drama.description"
-          :updated-at="drama.updated_at"
-          :episode-count="drama.total_episodes || 0"
-          @click="viewDrama(drama.id)"
-        >
+        <ProjectCard v-for="drama in dramas" :key="drama.id" :title="drama.title" :description="drama.description"
+          :updated-at="drama.updated_at" :episode-count="drama.total_episodes || 0" @click="viewDrama(drama.id)">
           <template #actions>
-            <ActionButton 
-              :icon="Edit" 
-              :tooltip="$t('common.edit')" 
-              @click="editDrama(drama.id)" 
-            />
-            <el-popconfirm
-              :title="$t('drama.deleteConfirm')"
-              :confirm-button-text="$t('common.confirm')"
-              :cancel-button-text="$t('common.cancel')"
-              @confirm="deleteDrama(drama.id)"
-            >
+            <ActionButton :icon="Edit" :tooltip="$t('common.edit')" @click="editDrama(drama.id)" />
+            <el-popconfirm :title="$t('drama.deleteConfirm')" :confirm-button-text="$t('common.confirm')"
+              :cancel-button-text="$t('common.cancel')" @confirm="deleteDrama(drama.id)">
               <template #reference>
-                <el-button 
-                  :icon="Delete" 
-                  class="action-button danger"
-                  link
-                />
+                <el-button :icon="Delete" class="action-button danger" link />
               </template>
             </el-popconfirm>
           </template>
-          </ProjectCard>
+        </ProjectCard>
       </div>
 
       <!-- Edit Dialog / 编辑对话框 -->
-      <el-dialog
-        v-model="editDialogVisible"
-        :title="$t('drama.editProject')"
-        width="520px"
-        :close-on-click-modal="false"
-        class="edit-dialog"
-      >
-        <el-form 
-          :model="editForm" 
-          label-position="top"
-          v-loading="editLoading"
-          class="edit-form"
-        >
+      <el-dialog v-model="editDialogVisible" :title="$t('drama.editProject')" width="520px"
+        :close-on-click-modal="false" class="edit-dialog">
+        <el-form :model="editForm" label-position="top" v-loading="editLoading" class="edit-form">
           <el-form-item :label="$t('drama.projectName')" required>
-            <el-input 
-              v-model="editForm.title" 
-              :placeholder="$t('drama.projectNamePlaceholder')"
-              size="large"
-            />
+            <el-input v-model="editForm.title" :placeholder="$t('drama.projectNamePlaceholder')" size="large" />
           </el-form-item>
           <el-form-item :label="$t('drama.projectDesc')">
-            <el-input
-              v-model="editForm.description"
-              type="textarea"
-              :rows="4"
-              :placeholder="$t('drama.projectDescPlaceholder')"
-              resize="none"
-            />
+            <el-input v-model="editForm.description" type="textarea" :rows="4"
+              :placeholder="$t('drama.projectDescPlaceholder')" resize="none" />
           </el-form-item>
         </el-form>
         <template #footer>
           <div class="dialog-footer">
             <el-button @click="editDialogVisible = false" size="large">{{ $t('common.cancel') }}</el-button>
-            <el-button 
-              type="primary" 
-              @click="saveEdit" 
-              :loading="editLoading"
-              size="large"
-            >
+            <el-button type="primary" @click="saveEdit" :loading="editLoading" size="large">
               {{ $t('common.save') }}
             </el-button>
           </div>
@@ -118,13 +72,8 @@
       </el-dialog>
 
       <!-- Create Drama Dialog / 创建短剧弹窗 -->
-      <CreateDramaDialog 
-        v-model="createDialogVisible" 
-        @created="loadDramas" 
-      />
+      <CreateDramaDialog v-model="createDialogVisible" @created="loadDramas" />
 
-      <!-- AI Config Dialog / AI配置弹窗 -->
-      <AIConfigDialog v-model="showAIConfig" />
     </div>
 
     <!-- Sticky Pagination / 吸底分页器 -->
@@ -134,25 +83,13 @@
           <span class="pagination-total">{{ $t('drama.totalProjects', { count: total }) }}</span>
         </div>
         <div class="pagination-controls">
-          <el-pagination
-            v-model:current-page="queryParams.page"
-            v-model:page-size="queryParams.page_size"
-            :total="total"
-            :page-sizes="[12, 24, 36, 48]"
-            :pager-count="5"
-            layout="prev, pager, next"
-            @size-change="loadDramas"
-            @current-change="loadDramas"
-          />
+          <el-pagination v-model:current-page="queryParams.page" v-model:page-size="queryParams.page_size"
+            :total="total" :page-sizes="[12, 24, 36, 48]" :pager-count="5" layout="prev, pager, next"
+            @size-change="loadDramas" @current-change="loadDramas" />
         </div>
         <div class="pagination-size">
           <span class="size-label">{{ $t('common.perPage') }}</span>
-          <el-select 
-            v-model="queryParams.page_size" 
-            size="small"
-            class="size-select"
-            @change="loadDramas"
-          >
+          <el-select v-model="queryParams.page_size" size="small" class="size-select" @change="loadDramas">
             <el-option :value="12" label="12" />
             <el-option :value="24" label="24" />
             <el-option :value="36" label="36" />
@@ -168,19 +105,18 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { 
-  Plus, 
-  Film, 
-  Setting, 
-  Edit, 
-  View, 
+import {
+  Plus,
+  Film,
+  Setting,
+  Edit,
+  View,
   Delete,
-  InfoFilled 
+  InfoFilled
 } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import type { Drama, DramaListQuery } from '@/types/drama'
-import { PageHeader, ProjectCard, ThemeToggle, ActionButton, CreateDramaDialog, EmptyState, AIConfigDialog } from '@/components/common'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import { AppHeader, ProjectCard, ActionButton, CreateDramaDialog, EmptyState } from '@/components/common'
 
 const router = useRouter()
 const loading = ref(false)
@@ -194,7 +130,6 @@ const queryParams = ref<DramaListQuery>({
 
 // Create dialog state / 创建弹窗状态
 const createDialogVisible = ref(false)
-const showAIConfig = ref(false)
 
 // Load drama list / 加载短剧列表
 const loadDramas = async () => {
@@ -248,7 +183,7 @@ const saveEdit = async () => {
     ElMessage.warning('请输入项目名称')
     return
   }
-  
+
   editLoading.value = true
   try {
     await dramaAPI.update(editForm.value.id, {
@@ -288,25 +223,47 @@ onMounted(() => {
 .page-container {
   min-height: 100vh;
   background: var(--bg-primary);
-  padding: var(--space-2) var(--space-3);
+  /* padding: var(--space-2) var(--space-3); */
   transition: background var(--transition-normal);
 }
 
 @media (min-width: 768px) {
   .page-container {
-    padding: var(--space-3) var(--space-4);
+    /* padding: var(--space-3) var(--space-4); */
   }
 }
 
 @media (min-width: 1024px) {
   .page-container {
-    padding: var(--space-4) var(--space-5);
+    /* padding: var(--space-4) var(--space-5); */
   }
 }
 
 .content-wrapper {
   margin: 0 auto;
   width: 100%;
+}
+
+/* ========================================
+   Page Title / 页面标题
+   ======================================== */
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.page-title h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.page-title .subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
 }
 
 /* ========================================
@@ -332,7 +289,7 @@ onMounted(() => {
   .btn-text {
     display: none;
   }
-  
+
   .header-btn {
     padding: 0.5rem 0.75rem;
   }
@@ -342,7 +299,9 @@ onMounted(() => {
    Projects Grid / 项目网格 - 紧凑间距
    ======================================== */
 .projects-grid {
+  padding: 12px;
   display: flex;
+  flex-wrap: wrap;
   /* grid-template-columns: repeat(2, 1fr); */
   gap: var(--space-2);
   margin-bottom: var(--space-4);
@@ -386,6 +345,7 @@ onMounted(() => {
    Sticky Pagination / 吸底分页器
    ======================================== */
 .pagination-sticky {
+  /* padding: 12px; */
   position: fixed;
   bottom: 0;
   left: 0;

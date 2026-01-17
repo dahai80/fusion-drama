@@ -71,8 +71,8 @@ export const dramaAPI = {
     return request.get(`/images/episode/${episodeId}/backgrounds`)
   },
 
-  extractBackgrounds(episodeId: string) {
-    return request.post<{ task_id: string; status: string; message: string }>(`/images/episode/${episodeId}/backgrounds/extract`)
+  extractBackgrounds(episodeId: string, model?: string) {
+    return request.post<{ task_id: string; status: string; message: string }>(`/images/episode/${episodeId}/backgrounds/extract`, { model })
   },
 
   batchGenerateBackgrounds(episodeId: string) {
@@ -110,6 +110,10 @@ export const dramaAPI = {
 
   generateSceneImage(data: { scene_id: string; prompt?: string; model?: string }) {
     return request.post('/scenes/generate-image', data)
+  },
+
+  deleteScene(sceneId: string) {
+    return request.delete(`/scenes/${sceneId}`)
   },
 
   // 完成集数制作（触发视频合成）
