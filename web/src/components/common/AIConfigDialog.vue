@@ -356,24 +356,16 @@ const availableProviders = computed(() => {
   return providerConfigs[form.service_type] || []
 })
 
-// 当前可用的模型列表（从已激活的配置中获取）
+// 当前可用的模型列表（从预定义配置中获取）
 const availableModels = computed(() => {
-  if (!form.provider) return []
+  if (!form.provider || !form.service_type) return []
   
-  // 从已激活的配置中提取该 provider 的所有模型
-  const activeConfigsForProvider = configs.value.filter(
-    c => c.provider === form.provider && 
-         c.service_type === form.service_type && 
-         c.is_active
+  // 从预定义配置中查找当前厂商的模型列表
+  const providerConfig = providerConfigs[form.service_type]?.find(
+    p => p.id === form.provider
   )
   
-  // 提取所有模型，去重
-  const models = new Set<string>()
-  activeConfigsForProvider.forEach(config => {
-    config.model.forEach(m => models.add(m))
-  })
-  
-  return Array.from(models)
+  return providerConfig?.models || []
 })
 
 const fullEndpointExample = computed(() => {
