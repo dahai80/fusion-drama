@@ -171,36 +171,42 @@ func (s *FramePromptService) generateFirstFrame(sb models.Storyboard, scene *mod
 	userPrompt := s.promptI18n.FormatUserPrompt("frame_info", contextInfo)
 
 	// 调用AI生成（如果指定了模型则使用指定的模型）
-	var prompt string
+	var aiResponse string
 	var err error
 	if model != "" {
 		client, getErr := s.aiService.GetAIClientForModel("text", model)
 		if getErr != nil {
 			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
-			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 		} else {
-			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = client.GenerateText(userPrompt, systemPrompt)
 		}
 	} else {
-		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
 		// 降级方案：使用简单拼接
-		prompt = s.buildFallbackPrompt(sb, scene, "first frame, static shot")
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "first frame, static shot")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "镜头开始的静态画面，展示初始状态",
+		}
 	}
 
-	// 如果AI返回空字符串，使用降级方案
-	prompt = strings.TrimSpace(prompt)
-	if prompt == "" {
-		s.log.Warnw("AI returned empty prompt, using fallback", "storyboard_id", sb.ID)
-		prompt = s.buildFallbackPrompt(sb, scene, "first frame, static shot")
+	// 解析AI返回的JSON
+	result := s.parseFramePromptJSON(aiResponse)
+	if result == nil {
+		// JSON解析失败，使用降级方案
+		s.log.Warnw("Failed to parse AI JSON response, using fallback", "storyboard_id", sb.ID, "response", aiResponse)
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "first frame, static shot")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "镜头开始的静态画面，展示初始状态",
+		}
 	}
 
-	return &SingleFramePrompt{
-		Prompt:      prompt,
-		Description: "镜头开始的静态画面，展示初始状态",
-	}
+	return result
 }
 
 // generateKeyFrame 生成关键帧提示词
@@ -213,35 +219,41 @@ func (s *FramePromptService) generateKeyFrame(sb models.Storyboard, scene *model
 	userPrompt := s.promptI18n.FormatUserPrompt("key_frame_info", contextInfo)
 
 	// 调用AI生成（如果指定了模型则使用指定的模型）
-	var prompt string
+	var aiResponse string
 	var err error
 	if model != "" {
 		client, getErr := s.aiService.GetAIClientForModel("text", model)
 		if getErr != nil {
 			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
-			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 		} else {
-			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = client.GenerateText(userPrompt, systemPrompt)
 		}
 	} else {
-		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
-		prompt = s.buildFallbackPrompt(sb, scene, "key frame, dynamic action")
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "key frame, dynamic action")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "动作高潮瞬间，展示关键动作",
+		}
 	}
 
-	// 如果AI返回空字符串，使用降级方案
-	prompt = strings.TrimSpace(prompt)
-	if prompt == "" {
-		s.log.Warnw("AI returned empty prompt, using fallback", "storyboard_id", sb.ID)
-		prompt = s.buildFallbackPrompt(sb, scene, "key frame, dynamic action")
+	// 解析AI返回的JSON
+	result := s.parseFramePromptJSON(aiResponse)
+	if result == nil {
+		// JSON解析失败，使用降级方案
+		s.log.Warnw("Failed to parse AI JSON response, using fallback", "storyboard_id", sb.ID, "response", aiResponse)
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "key frame, dynamic action")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "动作高潮瞬间，展示关键动作",
+		}
 	}
 
-	return &SingleFramePrompt{
-		Prompt:      prompt,
-		Description: "动作高潮瞬间，展示关键动作",
-	}
+	return result
 }
 
 // generateLastFrame 生成尾帧提示词
@@ -254,35 +266,41 @@ func (s *FramePromptService) generateLastFrame(sb models.Storyboard, scene *mode
 	userPrompt := s.promptI18n.FormatUserPrompt("last_frame_info", contextInfo)
 
 	// 调用AI生成（如果指定了模型则使用指定的模型）
-	var prompt string
+	var aiResponse string
 	var err error
 	if model != "" {
 		client, getErr := s.aiService.GetAIClientForModel("text", model)
 		if getErr != nil {
 			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
-			prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 		} else {
-			prompt, err = client.GenerateText(userPrompt, systemPrompt)
+			aiResponse, err = client.GenerateText(userPrompt, systemPrompt)
 		}
 	} else {
-		prompt, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
 	}
 	if err != nil {
 		s.log.Warnw("AI generation failed, using fallback", "error", err)
-		prompt = s.buildFallbackPrompt(sb, scene, "last frame, final state")
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "last frame, final state")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "镜头结束画面，展示最终状态和结果",
+		}
 	}
 
-	// 如果AI返回空字符串，使用降级方案
-	prompt = strings.TrimSpace(prompt)
-	if prompt == "" {
-		s.log.Warnw("AI returned empty prompt, using fallback", "storyboard_id", sb.ID)
-		prompt = s.buildFallbackPrompt(sb, scene, "last frame, final state")
+	// 解析AI返回的JSON
+	result := s.parseFramePromptJSON(aiResponse)
+	if result == nil {
+		// JSON解析失败，使用降级方案
+		s.log.Warnw("Failed to parse AI JSON response, using fallback", "storyboard_id", sb.ID, "response", aiResponse)
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "last frame, final state")
+		return &SingleFramePrompt{
+			Prompt:      fallbackPrompt,
+			Description: "镜头结束画面，展示最终状态和结果",
+		}
 	}
 
-	return &SingleFramePrompt{
-		Prompt:      prompt,
-		Description: "镜头结束画面，展示最终状态和结果",
-	}
+	return result
 }
 
 // generatePanelFrames 生成分镜板（多格组合）
