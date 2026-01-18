@@ -333,8 +333,8 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
         'doubao-seedance-1-0-lite-t2v-250428',
         'doubao-seedance-1-0-pro-250528',
         'doubao-seedance-1-0-pro-fast-251015',
-        'sora',
-        'sora-pro'
+        'sora-2',
+        'sora-2-pro'
       ]
     },
     { 
