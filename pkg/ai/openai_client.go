@@ -238,7 +238,7 @@ func (c *OpenAIClient) TestConnection() error {
 		},
 	}
 
-	_, err := c.ChatCompletion(messages, WithMaxTokens(10))
+	_, err := c.ChatCompletion(messages, WithMaxTokens(50))
 	if err != nil {
 		fmt.Printf("OpenAI: TestConnection failed: %v\n", err)
 	} else {
