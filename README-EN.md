@@ -61,22 +61,26 @@ Experience AI short drama generation:
 ## ✨ Features
 
 ### 🎭 Character Management
+
 - ✅ AI-generated character portraits
 - ✅ Batch character generation
 - ✅ Character image upload and management
 
 ### 🎬 Storyboard Production
+
 - ✅ Automatic storyboard script generation
 - ✅ Scene descriptions and shot design
 - ✅ Storyboard image generation (text-to-image)
 - ✅ Frame type selection (first frame/key frame/last frame/panel)
 
 ### 🎥 Video Generation
+
 - ✅ Automatic image-to-video generation
 - ✅ Video composition and editing
 - ✅ Transition effects
 
 ### 📦 Asset Management
+
 - ✅ Unified asset library management
 - ✅ Local storage support
 - ✅ Asset import/export
@@ -88,22 +92,24 @@ Experience AI short drama generation:
 
 ### 📋 Prerequisites
 
-| Software | Version | Description |
-|----------|---------|-------------|
-| **Go** | 1.23+ | Backend runtime |
-| **Node.js** | 18+ | Frontend build environment |
-| **npm** | 9+ | Package manager |
-| **FFmpeg** | 4.0+ | Video processing (**Required**) |
-| **SQLite** | 3.x | Database (built-in) |
+| Software    | Version | Description                     |
+| ----------- | ------- | ------------------------------- |
+| **Go**      | 1.23+   | Backend runtime                 |
+| **Node.js** | 18+     | Frontend build environment      |
+| **npm**     | 9+      | Package manager                 |
+| **FFmpeg**  | 4.0+    | Video processing (**Required**) |
+| **SQLite**  | 3.x     | Database (built-in)             |
 
 #### Installing FFmpeg
 
 **macOS:**
+
 ```bash
 brew install ffmpeg
 ```
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt update
 sudo apt install ffmpeg
@@ -113,6 +119,7 @@ sudo apt install ffmpeg
 Download from [FFmpeg Official Site](https://ffmpeg.org/download.html) and configure environment variables
 
 Verify installation:
+
 ```bash
 ffmpeg -version
 ```
@@ -132,7 +139,7 @@ Configuration file format (`configs/config.yaml`):
 app:
   name: "Huobao Drama API"
   version: "1.0.0"
-  debug: true  # Set to true for development, false for production
+  debug: true # Set to true for development, false for production
 
 server:
   port: 5678
@@ -160,6 +167,7 @@ ai:
 ```
 
 **Key Configuration Items:**
+
 - `app.debug`: Debug mode switch (recommended true for development)
 - `server.port`: Service port
 - `server.cors_origins`: Allowed CORS origins for frontend
@@ -260,12 +268,14 @@ docker logs -f huobao-drama
 ```
 
 **Local Build** (optional):
+
 ```bash
 docker build -t huobao-drama:latest .
 docker run -d --name huobao-drama -p 5678:5678 -v $(pwd)/data:/app/data huobao-drama:latest
 ```
 
 **Docker Deployment Advantages:**
+
 - ✅ Ready to use with default configuration
 - ✅ Environment consistency, avoiding dependency issues
 - ✅ One-click start, no need to install Go, Node.js, FFmpeg
@@ -280,6 +290,7 @@ The container is configured to access host services using `http://host.docker.in
 **Configuration Steps:**
 
 1. **Start service on host (listen on all interfaces)**
+
    ```bash
    export OLLAMA_HOST=0.0.0.0:11434 && ollama serve
    ```
@@ -306,12 +317,14 @@ go build -o huobao-drama .
 ```
 
 Generated files:
+
 - `huobao-drama` - Backend executable
 - `web/dist/` - Frontend static files (embedded in backend)
 
 #### 2. Prepare Deployment Files
 
 Files to upload to server:
+
 ```
 huobao-drama            # Backend executable
 configs/config.yaml     # Configuration file
@@ -372,6 +385,7 @@ WantedBy=multi-user.target
 ```
 
 Start service:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable huobao-drama
@@ -401,11 +415,13 @@ sudo systemctl restart huobao-drama
 ```
 
 **Reason:**
+
 - SQLite requires write permission on both the database file **and** its directory
 - Needs to create temporary files in the directory (e.g., `-wal`, `-journal`)
 - **Key**: Ensure systemd `User` matches data directory owner
 
 **Common Usernames:**
+
 - Ubuntu/Debian: `www-data`, `ubuntu`
 - CentOS/RHEL: `nginx`, `apache`
 - Custom deployment: `deploy`, `app`, current logged-in user
@@ -436,6 +452,7 @@ server {
 ## 🎨 Tech Stack
 
 ### Backend
+
 - **Language**: Go 1.23+
 - **Web Framework**: Gin 1.9+
 - **ORM**: GORM
@@ -445,6 +462,7 @@ server {
 - **AI Services**: OpenAI, Gemini, Doubao, etc.
 
 ### Frontend
+
 - **Framework**: Vue 3.4+
 - **Language**: TypeScript 5+
 - **Build Tool**: Vite 5
@@ -454,6 +472,7 @@ server {
 - **Router**: Vue Router 4
 
 ### Development Tools
+
 - **Package Management**: Go Modules, npm
 - **Code Standards**: ESLint, Prettier
 - **Version Control**: Git
@@ -463,19 +482,24 @@ server {
 ## 📝 FAQ
 
 ### Q: How can Docker containers access Ollama on the host?
+
 A: Use `http://host.docker.internal:11434/v1` as Base URL. Note two things:
+
 1. Host Ollama needs to listen on `0.0.0.0`: `export OLLAMA_HOST=0.0.0.0:11434 && ollama serve`
 2. Linux users using `docker run` need to add: `--add-host=host.docker.internal:host-gateway`
 
 See: [DOCKER_HOST_ACCESS.md](docs/DOCKER_HOST_ACCESS.md)
 
 ### Q: FFmpeg not installed or not found?
+
 A: Ensure FFmpeg is installed and in the PATH environment variable. Verify with `ffmpeg -version`.
 
 ### Q: Frontend cannot connect to backend API?
+
 A: Check if backend is running and port is correct. In development mode, frontend proxy config is in `web/vite.config.ts`.
 
 ### Q: Database tables not created?
+
 A: GORM automatically creates tables on first startup, check logs to confirm migration success.
 
 ---
@@ -485,6 +509,7 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 ### v1.0.2 (2026-01-16)
 
 #### 🚀 Major Updates
+
 - Pure Go SQLite driver (`modernc.org/sqlite`), supports `CGO_ENABLED=0` cross-platform compilation
 - Optimized concurrency performance (WAL mode), resolved "database is locked" errors
 - Docker cross-platform support for `host.docker.internal` to access host services
@@ -493,6 +518,7 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 ### v1.0.1 (2026-01-14)
 
 #### 🐛 Bug Fixes / 🔧 Improvements
+
 - Fixed video generation API response parsing issues
 - Added OpenAI Sora video endpoint configuration
 - Optimized error handling and logging
@@ -512,13 +538,27 @@ Issues and Pull Requests are welcome!
 ---
 
 ## API Configuration Site
+
 Configure in 2 minutes: [API Aggregation Site](https://api.chatfire.site/models)
 
-## 📧 Contact
-Business Contact (WeChat): dangbao1117
+---
+
+## 👨‍💻 About Us
+
+**AI Huobao - AI Studio Startup**
+
+- 🏠 **Location**: Nanjing, China
+- 🚀 **Status**: Startup in Progress
+- 📧 **Email**: [18550175439@163.com](mailto:18550175439@163.com)
+- 💬 **WeChat**: dangbao1117 (Personal WeChat - No technical support)
+- 🐙 **GitHub**: [https://github.com/chatfire-AI/huobao-drama](https://github.com/chatfire-AI/huobao-drama)
+
+> _"Let AI help us do more creative things"_
 
 ## Community Group
+
 ![Community Group](drama.png)
+
 - Submit [Issue](../../issues)
 - Email project maintainers
 
