@@ -362,13 +362,12 @@
                       style="max-height: 280px; overflow-y: auto; overflow-x: hidden;">
                       
                       <!-- 上一镜头尾帧推荐（紧凑版） -->
-                      <div v-if="previousStoryboardLastFrames.length > 0" 
-                        style="margin-bottom: 12px; padding: 8px; background: #1a1a2e; border: 1px solid #4a4a6a; border-radius: 6px;">
+                      <div v-if="previousStoryboardLastFrames.length > 0" class="previous-frame-section">
                         <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
                           <el-tag size="small" type="primary">
                             上一镜头 #{{ previousStoryboard?.storyboard_number }} 尾帧
                           </el-tag>
-                          <span style="color: #aaa; font-size: 11px;">点击添加为首帧参考</span>
+                          <span class="hint-text">点击添加为首帧参考</span>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                           <div v-for="img in previousStoryboardLastFrames" :key="'prev-' + img.id" 
@@ -4040,6 +4039,19 @@ onBeforeUnmount(() => {
         &:hover {
           background: #a8a8a8;
         }
+      }
+    }
+
+    .previous-frame-section {
+      margin-bottom: 12px;
+      padding: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 6px;
+
+      .hint-text {
+        color: var(--text-muted);
+        font-size: 11px;
       }
     }
 
