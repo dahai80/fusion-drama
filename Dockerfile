@@ -1,10 +1,20 @@
 # 多阶段构建 Dockerfile for Huobao Drama
 
 # ==================== 阶段1: 构建前端 ====================
-FROM node:20-alpine AS frontend-builder
+# 声明构建参数（支持镜像源配置）
+ARG DOCKER_REGISTRY=
+ARG NPM_REGISTRY=
 
-# 配置 npm 镜像源（国内加速）
-RUN npm config set registry https://registry.npmmirror.com
+FROM ${DOCKER_REGISTRY:-}node:20-alpine AS frontend-builder
+
+# 重新声明 ARG（FROM 之后 ARG 作用域失效，需要重新声明）
+ARG NPM_REGISTRY=
+
+# 配置 npm 镜像源（条件执行）
+ENV NPM_REGISTRY=${NPM_REGISTRY:-}
+RUN if [ -n "$NPM_REGISTRY" ]; then \
+        npm config set registry "$NPM_REGISTRY" || true; \
+    fi
 
 WORKDIR /app/web
 
@@ -21,11 +31,26 @@ COPY web/ ./
 RUN npm run build
 
 # ==================== 阶段2: 构建后端 ====================
-FROM golang:1.23-alpine AS backend-builder
+# 每个阶段前重新声明构建参数
+ARG DOCKER_REGISTRY=
+ARG GO_PROXY=
+ARG ALPINE_MIRROR=
 
-# 配置 Go 代理（国内镜像加速）
-ENV GOPROXY=https://goproxy.cn,direct \ 
-    GO111MODULE=on
+FROM ${DOCKER_REGISTRY:-}golang:1.23-alpine AS backend-builder
+
+# 重新声明 ARG（FROM 之后 ARG 作用域失效，需要重新声明）
+ARG GO_PROXY=
+ARG ALPINE_MIRROR=
+
+# 配置 Alpine 镜像源（条件执行）
+ENV ALPINE_MIRROR=${ALPINE_MIRROR:-}
+RUN if [ -n "$ALPINE_MIRROR" ]; then \
+        sed -i "s@dl-cdn.alpinelinux.org@$ALPINE_MIRROR@g" /etc/apk/repositories 2>/dev/null || true; \
+    fi
+
+# 配置 Go 代理（使用 ENV 持久化到运行时）
+ENV GOPROXY=${GO_PROXY:-https://proxy.golang.org,direct}
+ENV GO111MODULE=on
 
 # 安装必要的构建工具（纯 Go 编译，无需 CGO）
 RUN apk add --no-cache \
@@ -51,7 +76,20 @@ COPY --from=frontend-builder /app/web/dist ./web/dist
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o huobao-drama .
 
 # ==================== 阶段3: 运行时镜像 ====================
-FROM alpine:latest
+# 每个阶段前重新声明构建参数
+ARG DOCKER_REGISTRY=
+ARG ALPINE_MIRROR=
+
+FROM ${DOCKER_REGISTRY:-}alpine:latest
+
+# 重新声明 ARG（FROM 之后 ARG 作用域失效，需要重新声明）
+ARG ALPINE_MIRROR=
+
+# 配置 Alpine 镜像源（条件执行）
+ENV ALPINE_MIRROR=${ALPINE_MIRROR:-}
+RUN if [ -n "$ALPINE_MIRROR" ]; then \
+        sed -i "s@dl-cdn.alpinelinux.org@$ALPINE_MIRROR@g" /etc/apk/repositories 2>/dev/null || true; \
+    fi
 
 # 安装运行时依赖
 RUN apk add --no-cache \

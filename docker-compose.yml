@@ -5,6 +5,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Docker Hub 镜像源（注意末尾斜杠）
+        DOCKER_REGISTRY: ${DOCKER_REGISTRY:-}
+        # npm 镜像源
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
+        # Go 代理
+        GO_PROXY: ${GO_PROXY:-}
+        # Alpine apk 镜像源
+        ALPINE_MIRROR: ${ALPINE_MIRROR:-}
     ports:
       - "5678:5678"
     volumes:
