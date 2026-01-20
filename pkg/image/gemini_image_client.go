@@ -107,7 +107,7 @@ func NewGeminiImageClient(baseURL, apiKey, model, endpoint string) *GeminiImageC
 
 func (c *GeminiImageClient) GenerateImage(prompt string, opts ...ImageOption) (*ImageResult, error) {
 	options := &ImageOptions{
-		Size:    "1024x1024",
+		Size:    "1920x1920",
 		Quality: "standard",
 	}
 
