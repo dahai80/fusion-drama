@@ -74,6 +74,28 @@ func (h *SceneHandler) GenerateSceneImage(c *gin.Context) {
 	})
 }
 
+func (h *SceneHandler) UpdateScenePrompt(c *gin.Context) {
+	sceneID := c.Param("scene_id")
+
+	var req services2.UpdateScenePromptRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request")
+		return
+	}
+
+	if err := h.sceneService.UpdateScenePrompt(sceneID, &req); err != nil {
+		h.log.Errorw("Failed to update scene prompt", "error", err, "scene_id", sceneID)
+		if err.Error() == "scene not found" {
+			response.NotFound(c, "场景不存在")
+			return
+		}
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"message": "场景提示词已更新"})
+}
+
 func (h *SceneHandler) DeleteScene(c *gin.Context) {
 	sceneID := c.Param("scene_id")
 

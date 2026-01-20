@@ -360,6 +360,32 @@
                     <!-- 首帧 -->
                     <div v-show="selectedVideoFrameType === 'first'" class="image-scroll-container"
                       style="max-height: 280px; overflow-y: auto; overflow-x: hidden;">
+                      
+                      <!-- 上一镜头尾帧推荐（紧凑版） -->
+                      <div v-if="previousStoryboardLastFrames.length > 0" class="previous-frame-section">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                          <el-tag size="small" type="primary">
+                            上一镜头 #{{ previousStoryboard?.storyboard_number }} 尾帧
+                          </el-tag>
+                          <span class="hint-text">点击添加为首帧参考</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                          <div v-for="img in previousStoryboardLastFrames" :key="'prev-' + img.id" 
+                            class="reference-item"
+                            :class="{ selected: selectedImagesForVideo.includes(img.id) }"
+                            style="position: relative; border: 2px solid #1890ff; border-radius: 4px; overflow: hidden; cursor: pointer;"
+                            @click="selectPreviousLastFrame(img)">
+                            <el-image :src="img.image_url" fit="cover"
+                              style="width: 60px; height: 40px; display: block; pointer-events: none;" />
+                            <div v-if="selectedImagesForVideo.includes(img.id)" 
+                              style="position: absolute; top: 0; right: 0; background: #52c41a; color: #fff; font-size: 10px; padding: 1px 4px;">
+                              ✓
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <!-- 当前镜头首帧列表 -->
                       <div class="reference-grid"
                         style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-width: 600px;">
                         <div
@@ -378,7 +404,7 @@
                         </div>
                       </div>
                       <el-empty
-                        v-if="!videoReferenceImages.some(i => i.status === 'completed' && i.image_url && i.frame_type === 'first')"
+                        v-if="!videoReferenceImages.some(i => i.status === 'completed' && i.image_url && i.frame_type === 'first') && previousStoryboardLastFrames.length === 0"
                         description="暂无首帧图片" size="small" />
                     </div>
 
@@ -883,7 +909,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Plus, Picture, VideoPlay, VideoPause, View, Setting,
   Upload, MagicStick, VideoCamera, ZoomIn, ZoomOut, Top, Bottom, Check, Close, Right,
-  Timer, Calendar, Clock, Loading, WarningFilled, Delete
+  Timer, Calendar, Clock, Loading, WarningFilled, Delete, Connection
 } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import { generateFramePrompt, type FrameType } from '@/api/frame'
@@ -1226,6 +1252,67 @@ const currentStoryboard = computed(() => {
   return storyboards.value.find(s => String(s.id) === String(currentStoryboardId.value)) || null
 })
 
+// 获取上一个镜头
+const previousStoryboard = computed(() => {
+  if (!currentStoryboardId.value || storyboards.value.length < 2) return null
+  const currentIndex = storyboards.value.findIndex(s => String(s.id) === String(currentStoryboardId.value))
+  if (currentIndex <= 0) return null
+  return storyboards.value[currentIndex - 1]
+})
+
+// 上一个镜头的尾帧图片列表（支持多个）
+const previousStoryboardLastFrames = ref<any[]>([])
+
+// 加载上一个镜头的尾帧
+const loadPreviousStoryboardLastFrame = async () => {
+  if (!previousStoryboard.value) {
+    previousStoryboardLastFrames.value = []
+    return
+  }
+  try {
+    const result = await imageAPI.listImages({
+      storyboard_id: previousStoryboard.value.id,
+      frame_type: 'last',
+      page: 1,
+      page_size: 10
+    })
+    const images = result.items || []
+    previousStoryboardLastFrames.value = images.filter((img: any) => img.status === 'completed' && img.image_url)
+  } catch (error) {
+    console.error('加载上一镜头尾帧失败:', error)
+    previousStoryboardLastFrames.value = []
+  }
+}
+
+// 选择上一镜头尾帧作为首帧参考
+const selectPreviousLastFrame = (img: any) => {
+  // 检查是否已选中，已选中则取消
+  const currentIndex = selectedImagesForVideo.value.indexOf(img.id)
+  if (currentIndex > -1) {
+    selectedImagesForVideo.value.splice(currentIndex, 1)
+    ElMessage.success('已取消首帧参考')
+    return
+  }
+
+  // 参考handleImageSelect的逻辑，根据模式处理
+  if (!selectedReferenceMode.value || selectedReferenceMode.value === 'single') {
+    // 单图模式或未选模式：直接替换
+    selectedImagesForVideo.value = [img.id]
+  } else if (selectedReferenceMode.value === 'first_last') {
+    // 首尾帧模式：作为首帧参考
+    selectedImagesForVideo.value = [img.id]
+  } else if (selectedReferenceMode.value === 'multiple') {
+    // 多图模式：添加到列表
+    const capability = currentModelCapability.value
+    if (capability && selectedImagesForVideo.value.length >= capability.maxImages) {
+      ElMessage.warning(`最多只能选择${capability.maxImages}张图片`)
+      return
+    }
+    selectedImagesForVideo.value.push(img.id)
+  }
+  ElMessage.success('已添加为首帧参考')
+}
+
 // 监听帧类型切换，从存储中加载或清空
 watch(selectedFrameType, (newType) => {
   // 切换帧类型时，停止之前的轮询，避免旧结果覆盖新帧类型
@@ -1269,6 +1356,7 @@ watch(currentStoryboard, async (newStoryboard) => {
     generatedImages.value = []
     generatedVideos.value = []
     videoReferenceImages.value = []
+    previousStoryboardLastFrames.value = []
     return
   }
 
@@ -1297,6 +1385,9 @@ watch(currentStoryboard, async (newStoryboard) => {
 
   // 加载该分镜的视频列表
   await loadStoryboardVideos(newStoryboard.id)
+
+  // 加载上一镜头的尾帧
+  await loadPreviousStoryboardLastFrame()
 })
 
 // 监听提示词变化，自动保存到sessionStorage
@@ -1801,13 +1892,17 @@ const selectedImageObjects = computed(() => {
 const firstFrameSlotImage = computed(() => {
   if (selectedImagesForVideo.value.length === 0) return null
   const firstImageId = selectedImagesForVideo.value[0]
-  return videoReferenceImages.value.find(img => img.id === firstImageId)
+  // 同时搜索当前镜头图片和上一镜头尾帧
+  return videoReferenceImages.value.find(img => img.id === firstImageId) 
+    || previousStoryboardLastFrames.value.find(img => img.id === firstImageId)
 })
 
 // 首尾帧模式：获取尾帧图片
 const lastFrameSlotImage = computed(() => {
   if (!selectedLastImageForVideo.value) return null
+  // 同时搜索当前镜头图片和上一镜头尾帧
   return videoReferenceImages.value.find(img => img.id === selectedLastImageForVideo.value)
+    || previousStoryboardLastFrames.value.find(img => img.id === selectedLastImageForVideo.value)
 })
 
 // 移除已选择的图片
@@ -1846,7 +1941,9 @@ const generateVideo = async () => {
   // 获取第一张选中的图片（仅在需要图片的模式下）
   let selectedImage = null
   if (selectedReferenceMode.value !== 'none' && selectedImagesForVideo.value.length > 0) {
+    // 同时搜索当前镜头图片和上一镜头尾帧
     selectedImage = videoReferenceImages.value.find(img => img.id === selectedImagesForVideo.value[0])
+      || previousStoryboardLastFrames.value.find(img => img.id === selectedImagesForVideo.value[0])
     if (!selectedImage || !selectedImage.image_url) {
       ElMessage.error('请选择有效的参考图片')
       return
@@ -1878,9 +1975,11 @@ const generateVideo = async () => {
         break
 
       case 'first_last':
-        // 首尾帧模式
+        // 首尾帧模式（同时搜索当前镜头图片和上一镜头尾帧）
         const firstImage = videoReferenceImages.value.find(img => img.id === selectedImagesForVideo.value[0])
+          || previousStoryboardLastFrames.value.find(img => img.id === selectedImagesForVideo.value[0])
         const lastImage = videoReferenceImages.value.find(img => img.id === selectedLastImageForVideo.value)
+          || previousStoryboardLastFrames.value.find(img => img.id === selectedLastImageForVideo.value)
 
         if (firstImage?.image_url) {
           requestParams.first_frame_url = firstImage.image_url
@@ -3944,6 +4043,19 @@ onBeforeUnmount(() => {
         &:hover {
           background: #a8a8a8;
         }
+      }
+    }
+
+    .previous-frame-section {
+      margin-bottom: 12px;
+      padding: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 6px;
+
+      .hint-text {
+        color: var(--text-muted);
+        font-size: 11px;
       }
     }
 
