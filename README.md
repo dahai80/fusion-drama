@@ -265,11 +265,16 @@ GO_PROXY=https://goproxy.cn,direct
 ALPINE_MIRROR=mirrors.aliyun.com
 ```
 
-**步骤3：重新构建**
+**步骤3：使用 docker compose 构建（必须）**
 
 ```bash
-docker-compose build
+docker compose build
 ```
+
+> **重要说明**：
+> - ⚠️ 必须使用 `docker compose build` 才能自动加载 `.env` 文件中的镜像源配置
+> - ❌ 如果使用 `docker build` 命令，需要手动传递 `--build-arg` 参数
+> - ✅ 推荐始终使用 `docker compose build` 进行构建
 
 **效果对比**：
 
