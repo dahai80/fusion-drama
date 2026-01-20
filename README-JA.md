@@ -10,7 +10,7 @@
 
 [機能](#機能) • [クイックスタート](#クイックスタート) • [デプロイ](#デプロイ)
 
-[简体中文](README.md) | [English](README-EN.md) | [日本語](README-JA.md)
+[简体中文](README-CN.md) | [English](README.md) | [日本語](README-JA.md)
 
 </div>
 
