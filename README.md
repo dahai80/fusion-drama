@@ -178,54 +178,6 @@ ai:
 
 ### 📥 Installation
 
-#### 🚀 China Network Acceleration (Optional)
-
-If you are in China, pulling Docker images and installing dependencies may be slow. You can speed up the build process by configuring mirror sources.
-
-**Step 1: Create environment variable file**
-
-```bash
-cp .env.example .env
-```
-
-**Step 2: Edit `.env` file and uncomment the mirror sources you need**
-
-```bash
-# Enable Docker Hub mirror (recommended)
-DOCKER_REGISTRY=docker.1ms.run/
-
-# Enable npm mirror
-NPM_REGISTRY=https://registry.npmmirror.com/
-
-# Enable Go proxy
-GO_PROXY=https://goproxy.cn,direct
-
-# Enable Alpine mirror
-ALPINE_MIRROR=mirrors.aliyun.com
-```
-
-**Step 3: Build with docker compose (required)**
-
-```bash
-docker compose build
-```
-
-> **Important Note**:
->
-> - ⚠️ You must use `docker compose build` to automatically load mirror source configurations from the `.env` file
-> - ❌ If using `docker build` command, you need to manually pass `--build-arg` parameters
-> - ✅ Always recommended to use `docker compose build` for building
-
-**Performance Comparison**:
-
-| Operation        | Without Mirrors | With Mirrors |
-| ---------------- | --------------- | ------------ |
-| Pull base images | 5-30 minutes    | 1-5 minutes  |
-| Install npm deps | May fail        | Fast success |
-| Download Go deps | 5-10 minutes    | 30s-1 minute |
-
-> **Note**: Users outside China should not configure mirror sources, use default settings.
-
 ```bash
 # Clone the project
 git clone https://github.com/chatfire-AI/huobao-drama.git
@@ -286,6 +238,54 @@ Database tables are automatically created on first startup (using GORM AutoMigra
 ### 🐳 Docker Deployment (Recommended)
 
 #### Method 1: Docker Compose (Recommended)
+
+#### 🚀 China Network Acceleration (Optional)
+
+If you are in China, pulling Docker images and installing dependencies may be slow. You can speed up the build process by configuring mirror sources.
+
+**Step 1: Create environment variable file**
+
+```bash
+cp .env.example .env
+```
+
+**Step 2: Edit `.env` file and uncomment the mirror sources you need**
+
+```bash
+# Enable Docker Hub mirror (recommended)
+DOCKER_REGISTRY=docker.1ms.run/
+
+# Enable npm mirror
+NPM_REGISTRY=https://registry.npmmirror.com/
+
+# Enable Go proxy
+GO_PROXY=https://goproxy.cn,direct
+
+# Enable Alpine mirror
+ALPINE_MIRROR=mirrors.aliyun.com
+```
+
+**Step 3: Build with docker compose (required)**
+
+```bash
+docker compose build
+```
+
+> **Important Note**:
+>
+> - ⚠️ You must use `docker compose build` to automatically load mirror source configurations from the `.env` file
+> - ❌ If using `docker build` command, you need to manually pass `--build-arg` parameters
+> - ✅ Always recommended to use `docker compose build` for building
+
+**Performance Comparison**:
+
+| Operation        | Without Mirrors | With Mirrors |
+| ---------------- | --------------- | ------------ |
+| Pull base images | 5-30 minutes    | 1-5 minutes  |
+| Install npm deps | May fail        | Fast success |
+| Download Go deps | 5-10 minutes    | 30s-1 minute |
+
+> **Note**: Users outside China should not configure mirror sources, use default settings.
 
 ```bash
 # Start services
