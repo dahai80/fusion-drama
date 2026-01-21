@@ -241,10 +241,10 @@
     <el-dialog v-model="addSceneDialogVisible" :title="$t('common.add')" width="600px">
       <el-form :model="newScene" label-width="100px">
         <el-form-item :label="$t('common.name')">
-          <el-input v-model="newScene.name" :placeholder="$t('common.name')" />
+          <el-input v-model="newScene.location" :placeholder="$t('common.name')" />
         </el-form-item>
         <el-form-item :label="$t('common.description')">
-          <el-input v-model="newScene.description" type="textarea" :rows="4" :placeholder="$t('common.description')" />
+          <el-input v-model="newScene.prompt" type="textarea" :rows="4" :placeholder="$t('common.description')" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -285,8 +285,8 @@ const newCharacter = ref({
 })
 
 const newScene = ref({
-  name: '',
-  description: ''
+  location: '',
+  prompt: ''
 })
 
 const episodesCount = computed(() => drama.value?.episodes?.length || 0)
@@ -494,14 +494,14 @@ const deleteCharacter = async (character: any) => {
 
 const openAddSceneDialog = () => {
   newScene.value = {
-    name: '',
-    description: ''
+    location: '',
+    prompt: ''
   }
   addSceneDialogVisible.value = true
 }
 
 const addScene = async () => {
-  if (!newScene.value.name.trim()) {
+  if (!newScene.value.location.trim()) {
     ElMessage.warning('请输入场景名称')
     return
   }
@@ -517,7 +517,11 @@ const addScene = async () => {
 }
 
 const editScene = (scene: any) => {
-  ElMessage.info('编辑功能开发中')
+  newScene.value = {
+    location: scene.location || scene.name || '',
+    prompt: scene.prompt || scene.description || ''
+  }
+  addSceneDialogVisible.value = true
 }
 
 const deleteScene = async (scene: any) => {

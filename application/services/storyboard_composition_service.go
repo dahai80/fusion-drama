@@ -399,6 +399,28 @@ func (s *StoryboardCompositionService) GenerateSceneImage(req *GenerateSceneImag
 	return nil, fmt.Errorf("image generation service not available")
 }
 
+type UpdateScenePromptRequest struct {
+	Prompt string `json:"prompt"`
+}
+
+func (s *StoryboardCompositionService) UpdateScenePrompt(sceneID string, req *UpdateScenePromptRequest) error {
+	var scene models.Scene
+	if err := s.db.Where("id = ?", sceneID).First(&scene).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("scene not found")
+		}
+		return fmt.Errorf("failed to find scene: %w", err)
+	}
+
+	scene.Prompt = req.Prompt
+	if err := s.db.Save(&scene).Error; err != nil {
+		return fmt.Errorf("failed to update scene prompt: %w", err)
+	}
+
+	s.log.Infow("Scene prompt updated", "scene_id", sceneID, "prompt", req.Prompt)
+	return nil
+}
+
 func (s *StoryboardCompositionService) DeleteScene(sceneID string) error {
 	var scene models.Scene
 	if err := s.db.Where("id = ?", sceneID).First(&scene).Error; err != nil {

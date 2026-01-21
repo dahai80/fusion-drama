@@ -1601,8 +1601,9 @@ const saveShotEdit = async () => {
 // 对话框相关方法
 const openPromptDialog = (item: any, type: 'character' | 'scene') => {
   currentEditItem.value = item
+  currentEditItem.value.name = item.name || item.location
   currentEditType.value = type
-  editPrompt.value = item.appearance || item.description || ''
+  editPrompt.value = item.prompt || item.appearance || item.description || ''
   promptDialogVisible.value = true
 }
 
@@ -1614,10 +1615,32 @@ const savePrompt = async () => {
       })
       await generateCharacterImage(currentEditItem.value.id)
     } else {
-      await dramaAPI.generateSceneImage({ 
+      // 1. 先保存场景提示词
+      await dramaAPI.updateScenePrompt(currentEditItem.value.id.toString(), editPrompt.value)
+      
+      // 2. 生成场景图片
+      const model = selectedImageModel.value || undefined
+      const response = await dramaAPI.generateSceneImage({ 
         scene_id: parseInt(currentEditItem.value.id),
-        prompt: editPrompt.value
+        prompt: editPrompt.value,
+        model
       })
+      const imageGenId = response.image_generation?.id
+      
+      // 3. 轮询图片生成状态
+      if (imageGenId) {
+        ElMessage.info('场景图片生成中，请稍候...')
+        generatingSceneImages.value[currentEditItem.value.id] = true
+        pollImageStatus(imageGenId, async () => {
+          await loadDramaData()
+          ElMessage.success('场景图片生成完成！')
+        }).finally(() => {
+          generatingSceneImages.value[currentEditItem.value.id] = false
+        })
+      } else {
+        ElMessage.success('场景图片生成已启动')
+        await loadDramaData()
+      }
     }
     promptDialogVisible.value = false
   } catch (error: any) {

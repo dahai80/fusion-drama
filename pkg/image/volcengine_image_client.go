@@ -63,7 +63,7 @@ func NewVolcEngineImageClient(baseURL, apiKey, model, endpoint, queryEndpoint st
 
 func (c *VolcEngineImageClient) GenerateImage(prompt string, opts ...ImageOption) (*ImageResult, error) {
 	options := &ImageOptions{
-		Size:    "1024x1024",
+		Size:    "1920x1920",
 		Quality: "standard",
 	}
 

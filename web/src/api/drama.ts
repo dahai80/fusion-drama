@@ -108,8 +108,12 @@ export const dramaAPI = {
     return request.put(`/scenes/${sceneId}`, data)
   },
 
-  generateSceneImage(data: { scene_id: string; prompt?: string; model?: string }) {
-    return request.post('/scenes/generate-image', data)
+  generateSceneImage(data: { scene_id: number; prompt?: string; model?: string }) {
+    return request.post<{ image_generation: { id: number } }>('/scenes/generate-image', data)
+  },
+
+  updateScenePrompt(sceneId: string, prompt: string) {
+    return request.put(`/scenes/${sceneId}/prompt`, { prompt })
   },
 
   deleteScene(sceneId: string) {

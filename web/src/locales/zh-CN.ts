@@ -68,7 +68,9 @@ export default {
     tip: '提示',
     status: '状态',
     createdAt: '创建时间',
-    updatedAt: '更新时间'
+    updatedAt: '更新时间',
+    name: '名称',
+    description: '描述'
   },
   settings: {
     title: '设置',
