@@ -239,6 +239,54 @@ go run main.go
 
 #### 方法 1: Docker Compose（推奨）
 
+#### 🚀 中国国内ネットワーク高速化（オプション）
+
+中国国内のネットワーク環境では、Docker イメージのプルや依存関係のインストールが遅い場合があります。ミラーソースを設定することでビルドプロセスを高速化できます。
+
+**ステップ 1: 環境変数ファイルを作成**
+
+```bash
+cp .env.example .env
+```
+
+**ステップ 2: `.env` ファイルを編集し、必要なミラーソースのコメントを解除**
+
+```bash
+# Docker Hub ミラーを有効化（推奨）
+DOCKER_REGISTRY=docker.1ms.run/
+
+# npm ミラーを有効化
+NPM_REGISTRY=https://registry.npmmirror.com/
+
+# Go プロキシを有効化
+GO_PROXY=https://goproxy.cn,direct
+
+# Alpine ミラーを有効化
+ALPINE_MIRROR=mirrors.aliyun.com
+```
+
+**ステップ 3: docker compose でビルド（必須）**
+
+```bash
+docker compose build
+```
+
+> **重要な注意事項**:
+>
+> - ⚠️ `.env` ファイルのミラーソース設定を自動的に読み込むには `docker compose build` を使用する必要があります
+> - ❌ `docker build` コマンドを使用する場合は、手動で `--build-arg` パラメータを渡す必要があります
+> - ✅ 常に `docker compose build` を使用してビルドすることを推奨
+
+**パフォーマンス比較**:
+
+| 操作                     | ミラー未設定   | ミラー設定後 |
+| ------------------------ | -------------- | ------------ |
+| ベースイメージのプル     | 5-30 分        | 1-5 分       |
+| npm 依存関係インストール | 失敗する可能性 | 高速成功     |
+| Go 依存関係ダウンロード  | 5-10 分        | 30 秒-1 分   |
+
+> **注意**: 中国国外のユーザーはミラーソースを設定せず、デフォルト設定を使用してください。
+
 ```bash
 # サービスを起動
 docker-compose up -d

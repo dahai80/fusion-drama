@@ -239,6 +239,54 @@ go run main.go
 
 #### 方式一：Docker Compose（推荐）
 
+#### 🚀 国内网络加速（可选）
+
+如果您在国内网络环境下，Docker 拉取镜像和安装依赖可能较慢。可以通过配置镜像源加速构建过程。
+
+**步骤 1：创建环境变量文件**
+
+```bash
+cp .env.example .env
+```
+
+**步骤 2：编辑 `.env` 文件，取消注释需要的镜像源**
+
+```bash
+# 启用 Docker Hub 镜像（推荐）
+DOCKER_REGISTRY=docker.1ms.run/
+
+# 启用 npm 镜像
+NPM_REGISTRY=https://registry.npmmirror.com/
+
+# 启用 Go 代理
+GO_PROXY=https://goproxy.cn,direct
+
+# 启用 Alpine 镜像
+ALPINE_MIRROR=mirrors.aliyun.com
+```
+
+**步骤 3：使用 docker compose 构建（必须）**
+
+```bash
+docker compose build
+```
+
+> **重要说明**：
+>
+> - ⚠️ 必须使用 `docker compose build` 才能自动加载 `.env` 文件中的镜像源配置
+> - ❌ 如果使用 `docker build` 命令，需要手动传递 `--build-arg` 参数
+> - ✅ 推荐始终使用 `docker compose build` 进行构建
+
+**效果对比**：
+
+| 操作          | 不配置镜像源 | 配置镜像源后 |
+| ------------- | ------------ | ------------ |
+| 拉取基础镜像  | 5-30 分钟    | 1-5 分钟     |
+| 安装 npm 依赖 | 可能失败     | 快速成功     |
+| 下载 Go 依赖  | 5-10 分钟    | 30 秒-1 分钟 |
+
+> **注意**：国外用户请勿配置镜像源，使用默认配置即可。
+
 ```bash
 # 启动服务
 docker-compose up -d
