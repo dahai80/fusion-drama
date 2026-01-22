@@ -49,7 +49,7 @@ RUN if [ -n "$ALPINE_MIRROR" ]; then \
     fi
 
 # 配置 Go 代理（使用 ENV 持久化到运行时）
-ENV GOPROXY=${GO_PROXY:-https://proxy.golang.org,direct}
+ENV GOPROXY=${GO_PROXY:-https://goproxy.cn,direct}
 ENV GO111MODULE=on
 
 # 安装必要的构建工具（纯 Go 编译，无需 CGO）
