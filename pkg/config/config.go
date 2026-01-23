@@ -62,7 +62,8 @@ type StyleConfig struct {
 	DefaultRoleStyle string `mapstructure:"default_role_style"`
 	// 默认场景风格
 	DefaultSceneStyle string `mapstructure:"default_scene_style"`
-
+	// 默认视频比例
+	DefaultVideoRatio string `mapstructure:"default_video_ratio"`
 	// 默认图片比例
 	DefaultImageRatio string `mapstructure:"default_image_ratio"`
 }

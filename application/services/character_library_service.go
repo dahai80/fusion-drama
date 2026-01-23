@@ -6,13 +6,15 @@ import (
 	"time"
 
 	models "github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"gorm.io/gorm"
 )
 
 type CharacterLibraryService struct {
-	db  *gorm.DB
-	log *logger.Logger
+	db     *gorm.DB
+	log    *logger.Logger
+	config *config.Config
 }
 
 func NewCharacterLibraryService(db *gorm.DB, log *logger.Logger) *CharacterLibraryService {
@@ -311,22 +313,9 @@ func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, ima
 		prompt = character.Name
 	}
 
-	// 添加角色画像和风格要求
-	prompt += ", character portrait, full body or upper body shot"
-
-	// 添加干净背景要求 - 确保背景简洁不干扰主体
-	prompt += ", simple clean background, plain solid color background, white or light gray background"
-	prompt += ", studio lighting, professional photography"
-
-	// 添加质量和风格要求
-	if style != "" {
-		prompt += ", " + style + ", high quality, detailed, character design"
-	} else {
-		// 默认风格
-		prompt += ", high quality, detailed, anime style, character design"
-	}
-	prompt += ", no complex background, no scenery, focus on character"
-
+	prompt += s.config.Style.DefaultStyle
+	prompt += s.config.Style.DefaultRoleStyle
+	prompt += s.config.Style.DefaultImageRatio
 	// 调用图片生成服务
 	dramaIDStr := fmt.Sprintf("%d", character.DramaID)
 	imageType := "character"
