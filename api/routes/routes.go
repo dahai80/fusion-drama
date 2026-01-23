@@ -40,7 +40,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	videoGenHandler := handlers2.NewVideoGenerationHandler(db, transferService, localStoragePtr, aiService, log)
 	videoMergeHandler := handlers2.NewVideoMergeHandler(db, nil, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log)
 	assetHandler := handlers2.NewAssetHandler(db, cfg, log)
-	characterLibraryService := services2.NewCharacterLibraryService(db, log)
+	characterLibraryService := services2.NewCharacterLibraryService(db, log, cfg)
 	characterLibraryHandler := handlers2.NewCharacterLibraryHandler(db, cfg, log, transferService, localStoragePtr)
 	uploadHandler, err := handlers2.NewUploadHandler(cfg, log, characterLibraryService)
 	if err != nil {

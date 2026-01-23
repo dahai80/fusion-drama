@@ -24,6 +24,7 @@ func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logg
 		imageService: services.NewImageGenerationService(db, cfg, transferService, localStorage, log),
 		taskService:  services.NewTaskService(db, log),
 		log:          log,
+		config:       cfg,
 	}
 }
 
@@ -88,7 +89,7 @@ func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 	}
 	// 如果style为空，使用配置中的默认风格
 	if req.Style == "" {
-		req.Style = h.config.Style.DefaultSceneStyle
+		req.Style = h.config.Style.DefaultStyle + ", " + h.config.Style.DefaultSceneStyle
 	}
 
 	// 创建异步任务

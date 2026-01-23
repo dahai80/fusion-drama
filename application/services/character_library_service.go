@@ -17,10 +17,11 @@ type CharacterLibraryService struct {
 	config *config.Config
 }
 
-func NewCharacterLibraryService(db *gorm.DB, log *logger.Logger) *CharacterLibraryService {
+func NewCharacterLibraryService(db *gorm.DB, log *logger.Logger, config *config.Config) *CharacterLibraryService {
 	return &CharacterLibraryService{
-		db:  db,
-		log: log,
+		db:     db,
+		log:    log,
+		config: config,
 	}
 }
 
