@@ -648,7 +648,7 @@ func (s *ImageGenerationService) GetScencesForEpisode(episodeID string) ([]*mode
 }
 
 // ExtractBackgroundsForEpisode 从剧本内容中提取场景并保存到项目级别数据库
-func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string) ([]*models.Scene, error) {
+func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string, style string) ([]*models.Scene, error) {
 	var episode models.Episode
 	if err := s.db.Preload("Storyboards").First(&episode, episodeID).Error; err != nil {
 		return nil, fmt.Errorf("episode not found")
@@ -663,7 +663,7 @@ func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, 
 	dramaID := episode.DramaID
 
 	// 使用AI从剧本内容中提取场景
-	backgroundsInfo, err := s.extractBackgroundsFromScript(*episode.ScriptContent, dramaID, model)
+	backgroundsInfo, err := s.extractBackgroundsFromScript(*episode.ScriptContent, dramaID, model, style)
 	if err != nil {
 		s.log.Errorw("Failed to extract backgrounds from script", "error", err)
 		return nil, err
@@ -719,7 +719,7 @@ func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, 
 }
 
 // extractBackgroundsFromScript 从剧本内容中使用AI提取场景信息
-func (s *ImageGenerationService) extractBackgroundsFromScript(scriptContent string, dramaID uint, model string) ([]BackgroundInfo, error) {
+func (s *ImageGenerationService) extractBackgroundsFromScript(scriptContent string, dramaID uint, model string, style string) ([]BackgroundInfo, error) {
 	if scriptContent == "" {
 		return []BackgroundInfo{}, nil
 	}
@@ -742,7 +742,7 @@ func (s *ImageGenerationService) extractBackgroundsFromScript(scriptContent stri
 	}
 
 	// 使用国际化提示词
-	systemPrompt := s.promptI18n.GetSceneExtractionPrompt()
+	systemPrompt := s.promptI18n.GetSceneExtractionPrompt(style)
 	contentLabel := s.promptI18n.FormatUserPrompt("script_content_label")
 
 	// 根据语言构建不同的格式说明
@@ -876,7 +876,7 @@ Please strictly follow the JSON format and ensure all fields use English.`
 }
 
 // extractBackgroundsWithAI 使用AI智能分析场景并提取唯一背景
-func (s *ImageGenerationService) extractBackgroundsWithAI(storyboards []models.Storyboard) ([]BackgroundInfo, error) {
+func (s *ImageGenerationService) extractBackgroundsWithAI(storyboards []models.Storyboard, style string) ([]BackgroundInfo, error) {
 	if len(storyboards) == 0 {
 		return []BackgroundInfo{}, nil
 	}
@@ -906,7 +906,7 @@ func (s *ImageGenerationService) extractBackgroundsWithAI(storyboards []models.S
 	}
 
 	// 使用国际化提示词
-	systemPrompt := s.promptI18n.GetSceneExtractionPrompt()
+	systemPrompt := s.promptI18n.GetSceneExtractionPrompt(style)
 	storyboardLabel := s.promptI18n.FormatUserPrompt("storyboard_list_label")
 
 	// 根据语言构建不同的提示词

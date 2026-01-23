@@ -280,7 +280,7 @@ func (s *CharacterLibraryService) DeleteCharacter(characterID uint) error {
 }
 
 // GenerateCharacterImage AI生成角色形象
-func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, imageService *ImageGenerationService, modelName string) (*models.ImageGeneration, error) {
+func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, imageService *ImageGenerationService, modelName string, style string) (*models.ImageGeneration, error) {
 	// 查找角色
 	var character models.Character
 	if err := s.db.Where("id = ?", characterID).First(&character).Error; err != nil {
@@ -319,7 +319,12 @@ func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, ima
 	prompt += ", studio lighting, professional photography"
 
 	// 添加质量和风格要求
-	prompt += ", high quality, detailed, anime style, character design"
+	if style != "" {
+		prompt += ", " + style + ", high quality, detailed, character design"
+	} else {
+		// 默认风格
+		prompt += ", high quality, detailed, anime style, character design"
+	}
 	prompt += ", no complex background, no scenery, focus on character"
 
 	// 调用图片生成服务
@@ -454,7 +459,7 @@ func (s *CharacterLibraryService) BatchGenerateCharacterImages(characterIDs []st
 	for _, characterID := range characterIDs {
 		// 为每个角色启动单独的 goroutine
 		go func(charID string) {
-			imageGen, err := s.GenerateCharacterImage(charID, imageService, modelName)
+			imageGen, err := s.GenerateCharacterImage(charID, imageService, modelName, "") // 批量生成暂不支持自定义风格，使用默认值
 			if err != nil {
 				s.log.Errorw("Failed to generate character image in batch",
 					"character_id", charID,

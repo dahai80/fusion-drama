@@ -144,9 +144,23 @@ func (p *PromptI18n) GetStoryboardSystemPrompt() string {
 }
 
 // GetSceneExtractionPrompt 获取场景提取提示词
-func (p *PromptI18n) GetSceneExtractionPrompt() string {
+func (p *PromptI18n) GetSceneExtractionPrompt(style string) string {
+	// 如果未指定风格，使用配置中的默认风格
+	if style == "" {
+		style = p.config.Style.DefaultSceneStyle
+	}else{
+		// 默认风格加style
+		style = p.config.Style.DefaultSceneStyle + ", " + style
+	}
+	// 如果配置也没有，使用硬编码默认值
+	if style == "" {
+		style = "Modern Japanese anime style"
+	}
+	// default_image_ratio
+	imageRatio := p.config.Style.DefaultImageRatio
+
 	if p.IsEnglish() {
-		return `[Task] Extract all unique scene backgrounds from the script
+		return fmt.Sprintf(`[Task] Extract all unique scene backgrounds from the script
 
 [Requirements]
 1. Identify all different scenes (location + time combinations) in the script
@@ -157,6 +171,9 @@ func (p *PromptI18n) GetSceneExtractionPrompt() string {
    - Detailed description of scene, time, atmosphere, style
    - Must explicitly specify "no people, no characters, empty scene"
    - Must match the drama's genre and tone
+   - **Style Requirement**: %s
+   - **Image Ratio**: %s
+
 
 [Output Format]
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
@@ -164,10 +181,10 @@ func (p *PromptI18n) GetSceneExtractionPrompt() string {
 Each element containing:
 - location: Location (e.g., "luxurious office")
 - time: Time period (e.g., "afternoon")
-- prompt: Complete English image generation prompt (pure background, explicitly stating no people)`
+- prompt: Complete English image generation prompt (pure background, explicitly stating no people)`, style,imageRatio)
 	}
 
-	return `【任务】从剧本中提取所有唯一的场景背景
+	return fmt.Sprintf(`【任务】从剧本中提取所有唯一的场景背景
 
 【要求】
 1. 识别剧本中所有不同的场景（地点+时间组合）
@@ -178,6 +195,8 @@ Each element containing:
    - 详细描述场景、时间、氛围、风格
    - 必须明确说明"无人物、无角色、空场景"
    - 要符合剧本的题材和氛围
+   - **风格要求**：%s
+   - **图片比例**：%s
 
 【输出格式】
 **重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
@@ -185,13 +204,15 @@ Each element containing:
 每个元素包含：
 - location：地点（如"豪华办公室"）
 - time：时间（如"下午"）
-- prompt：完整的中文图片生成提示词（纯背景，明确说明无人物）`
+- prompt：完整的中文图片生成提示词（纯背景，明确说明无人物）`, style,imageRatio)
 }
 
 // GetFirstFramePrompt 获取首帧提示词
 func (p *PromptI18n) GetFirstFramePrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
 Important: This is the first frame of the shot - a completely static image showing the initial state before the action begins.
 
@@ -201,14 +222,14 @@ Key Points:
 3. Describe the character's initial posture, position, and expression
 4. Can include scene atmosphere and environmental details
 5. Shot type determines composition and framing
-
+- **Style Requirement**: %s
+- **Image Ratio**: %s
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`
-	}
+- description: Simplified Chinese description (for reference)`,style,imageRatio)}
 
-	return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
 重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。
 
@@ -218,17 +239,19 @@ Return a JSON object containing:
 3. 描述角色的初始姿态、位置和表情
 4. 可以包含场景氛围和环境细节
 5. 景别决定构图和取景范围
-
+- **风格要求**：%s
+- **图片比例**：%s
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`
+- description：简化的中文描述（供参考）`,style,imageRatio)
 }
-
 // GetKeyFramePrompt 获取关键帧提示词
 func (p *PromptI18n) GetKeyFramePrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
 Important: This is the key frame of the shot - capturing the most intense and exciting moment of the action.
 
@@ -238,14 +261,14 @@ Key Points:
 3. Emphasize dynamic tension
 4. Show character actions and expressions at their climax
 5. Can include motion blur or dynamic effects
-
+- **Style Requirement**: %s
+- **Image Ratio**: %s
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`
-	}
+- description: Simplified Chinese description (for reference)`,style,imageRatio)}
 
-	return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
 重要：这是镜头的关键帧 - 捕捉动作最激烈、最精彩的瞬间。
 
@@ -255,17 +278,20 @@ Return a JSON object containing:
 3. 强调动态张力
 4. 展示角色动作和表情的高潮状态
 5. 可以包含动作模糊或动态效果
-
+- **风格要求**：%s
+- **图片比例**：%s
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`
+- description：简化的中文描述（供参考）`,style,imageRatio)
 }
 
 // GetLastFramePrompt 获取尾帧提示词
 func (p *PromptI18n) GetLastFramePrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
 Important: This is the last frame of the shot - a static image showing the final state and result after the action ends.
 
@@ -275,14 +301,15 @@ Key Points:
 3. Describe character's final posture and expression after action
 4. Emphasize emotional state after action
 5. Capture the calm moment after action ends
-
+- **Style Requirement**: %s
+- **Image Ratio**: %s
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`
+- description: Simplified Chinese description (for reference)`,style,imageRatio)
 	}
 
-	return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
 重要：这是镜头的尾帧 - 一个静态画面，展示动作结束后的最终状态和结果。
 
@@ -292,11 +319,12 @@ Return a JSON object containing:
 3. 描述角色在动作完成后的姿态和表情
 4. 强调动作后的情绪状态
 5. 捕捉动作结束后的平静瞬间
-
+- **风格要求**：%s
+- **图片比例**：%s
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`
+- description：简化的中文描述（供参考）`,style,imageRatio)
 }
 
 // GetOutlineGenerationPrompt 获取大纲生成提示词
@@ -344,8 +372,10 @@ Return a JSON object containing:
 
 // GetCharacterExtractionPrompt 获取角色提取提示词
 func (p *PromptI18n) GetCharacterExtractionPrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return `You are a professional character analyst, skilled at extracting and analyzing character information from scripts.
+		return fmt.Sprintf(`You are a professional character analyst, skilled at extracting and analyzing character information from scripts.
 
 Your task is to extract and organize detailed character settings for all characters appearing in the script based on the provided script content.
 
@@ -359,13 +389,14 @@ Requirements:
    - description: Background story and character relationships (100-200 words)
 3. Appearance must be detailed enough for AI image generation, including: gender, age, body type, facial features, hairstyle, clothing style, etc.
 4. Main characters require more detailed descriptions, supporting characters can be simplified
-
+- **Style Requirement**: %s
+- **Image Ratio**: %s
 Output Format:
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
-Each element is a character object containing the above fields.`
+Each element is a character object containing the above fields.`,style,imageRatio)
 	}
 
-	return `你是一个专业的角色分析师，擅长从剧本中提取和分析角色信息。
+	return fmt.Sprintf(`你是一个专业的角色分析师，擅长从剧本中提取和分析角色信息。
 
 你的任务是根据提供的剧本内容，提取并整理剧中出现的所有角色的详细设定。
 
@@ -379,10 +410,11 @@ Each element is a character object containing the above fields.`
    - description: 背景故事和角色关系（100-200字）
 3. 外貌描述要足够详细，适合AI生成图片，包括：性别、年龄、体型、面部特征、发型、服装风格等
 4. 主要角色需要更详细的描述，次要角色可以简化
-
+- **风格要求**：%s
+- **图片比例**：%s
 输出格式：
 **重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
-每个元素是一个角色对象，包含上述字段。`
+每个元素是一个角色对象，包含上述字段。`,style,imageRatio)
 }
 
 // GetEpisodeScriptPrompt 获取分集剧本生成提示词

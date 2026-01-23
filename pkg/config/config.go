@@ -12,6 +12,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Storage  StorageConfig  `mapstructure:"storage"`
 	AI       AIConfig       `mapstructure:"ai"`
+	Style    StyleConfig    `mapstructure:"style"`
 }
 
 type AppConfig struct {
@@ -52,6 +53,18 @@ type AIConfig struct {
 	DefaultTextProvider  string `mapstructure:"default_text_provider"`
 	DefaultImageProvider string `mapstructure:"default_image_provider"`
 	DefaultVideoProvider string `mapstructure:"default_video_provider"`
+}
+
+type StyleConfig struct {
+	// 默认主风格
+	DefaultStyle string `mapstructure:"default_style"`
+	// 默认角色风格
+	DefaultRoleStyle string `mapstructure:"default_role_style"`
+	// 默认场景风格
+	DefaultSceneStyle string `mapstructure:"default_scene_style"`
+
+	// 默认图片比例
+	DefaultImageRatio string `mapstructure:"default_image_ratio"`
 }
 
 func LoadConfig() (*Config, error) {

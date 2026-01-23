@@ -16,6 +16,7 @@ type ImageGenerationHandler struct {
 	imageService *services.ImageGenerationService
 	taskService  *services.TaskService
 	log          *logger.Logger
+	config       *config.Config
 }
 
 func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage) *ImageGenerationHandler {
@@ -75,13 +76,19 @@ func (h *ImageGenerationHandler) GetBackgroundsForEpisode(c *gin.Context) {
 func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 	episodeID := c.Param("episode_id")
 
-	// 接收可选的 model 参数
+	// 接收可选的 model 和 style 参数
 	var req struct {
 		Model string `json:"model"`
+		Style string `json:"style"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型）
+		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型和风格）
 		req.Model = ""
+		req.Style = ""
+	}
+	// 如果style为空，使用配置中的默认风格
+	if req.Style == "" {
+		req.Style = h.config.Style.DefaultSceneStyle
 	}
 
 	// 创建异步任务
@@ -93,7 +100,7 @@ func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 	}
 
 	// 启动后台goroutine处理
-	go h.processBackgroundExtraction(task.ID, episodeID, req.Model)
+	go h.processBackgroundExtraction(task.ID, episodeID, req.Model, req.Style)
 
 	// 立即返回任务ID
 	response.Success(c, gin.H{
@@ -104,8 +111,8 @@ func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 }
 
 // processBackgroundExtraction 后台处理场景提取
-func (h *ImageGenerationHandler) processBackgroundExtraction(taskID, episodeID, model string) {
-	h.log.Infow("Starting background extraction", "task_id", taskID, "episode_id", episodeID, "model", model)
+func (h *ImageGenerationHandler) processBackgroundExtraction(taskID, episodeID, model, style string) {
+	h.log.Infow("Starting background extraction", "task_id", taskID, "episode_id", episodeID, "model", model, "style", style)
 
 	// 更新任务状态为处理中
 	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始提取场景..."); err != nil {
@@ -113,7 +120,7 @@ func (h *ImageGenerationHandler) processBackgroundExtraction(taskID, episodeID, 
 	}
 
 	// 调用实际的提取逻辑
-	backgrounds, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, model)
+	backgrounds, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, model, style)
 	if err != nil {
 		h.log.Errorw("Failed to extract backgrounds", "error", err, "task_id", taskID)
 		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
