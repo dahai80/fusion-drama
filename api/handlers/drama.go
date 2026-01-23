@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+
 	"github.com/drama-generator/backend/application/services"
 	"github.com/drama-generator/backend/domain/models"
 	"github.com/drama-generator/backend/pkg/config"
@@ -184,13 +186,51 @@ func (h *DramaHandler) GetCharacters(c *gin.Context) {
 }
 
 func (h *DramaHandler) SaveCharacters(c *gin.Context) {
-
 	dramaID := c.Param("id")
 
 	var req services.SaveCharactersRequest
+
+	// 先尝试正常绑定JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, err.Error())
-		return
+		// 如果绑定失败，检查是否是因为characters字段是字符串而不是数组
+		var rawReq map[string]interface{}
+		if err := c.ShouldBindJSON(&rawReq); err != nil {
+			// 如果连rawReq都绑定失败，直接返回错误
+			response.BadRequest(c, err.Error())
+			return
+		}
+
+		// 检查characters字段类型
+		if charField, ok := rawReq["characters"]; ok {
+			if charStr, ok := charField.(string); ok {
+				// 如果characters是字符串，尝试解析为JSON数组
+				var characters []models.Character
+				if err := json.Unmarshal([]byte(charStr), &characters); err != nil {
+					// 解析失败，返回错误
+					response.BadRequest(c, "characters字段格式错误，需要JSON数组或字符串格式的JSON数组")
+					return
+				}
+
+				// 手动构造请求对象
+				req.Characters = characters
+
+				// 处理episode_id字段
+				if epID, ok := rawReq["episode_id"]; ok {
+					if epIDStr, ok := epID.(float64); ok {
+						epIDUint := uint(epIDStr)
+						req.EpisodeID = &epIDUint
+					}
+				}
+			} else {
+				// 如果characters不是字符串，直接返回原始错误
+				response.BadRequest(c, err.Error())
+				return
+			}
+		} else {
+			// 如果没有characters字段，返回原始错误
+			response.BadRequest(c, err.Error())
+			return
+		}
 	}
 
 	if err := h.dramaService.SaveCharacters(dramaID, &req); err != nil {

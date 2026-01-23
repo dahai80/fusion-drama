@@ -25,6 +25,7 @@ type ImageGenerationService struct {
 	log             *logger.Logger
 	config          *config.Config
 	promptI18n      *PromptI18n
+	taskService     *TaskService
 }
 
 // truncateImageURL 截断图片 URL，避免 base64 格式的 URL 占满日志
@@ -54,6 +55,7 @@ func NewImageGenerationService(db *gorm.DB, cfg *config.Config, transferService 
 		config:          cfg,
 		promptI18n:      NewPromptI18n(cfg),
 		log:             log,
+		taskService:     NewTaskService(db, log),
 	}
 }
 
@@ -648,25 +650,58 @@ func (s *ImageGenerationService) GetScencesForEpisode(episodeID string) ([]*mode
 }
 
 // ExtractBackgroundsForEpisode 从剧本内容中提取场景并保存到项目级别数据库
-func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string, style string) ([]*models.Scene, error) {
+func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string, style string) (string, error) {
 	var episode models.Episode
 	if err := s.db.Preload("Storyboards").First(&episode, episodeID).Error; err != nil {
-		return nil, fmt.Errorf("episode not found")
+		return "", fmt.Errorf("episode not found")
 	}
 
 	// 如果没有剧本内容，无法提取场景
 	if episode.ScriptContent == nil || *episode.ScriptContent == "" {
-		return nil, fmt.Errorf("episode has no script content")
+		return "", fmt.Errorf("episode has no script content")
 	}
 
-	s.log.Infow("Extracting backgrounds from script", "episode_id", episodeID, "model", model)
+	// 创建任务
+	task, err := s.taskService.CreateTask("background_extraction", episodeID)
+	if err != nil {
+		s.log.Errorw("Failed to create background extraction task", "error", err, "episode_id", episodeID)
+		return "", fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	// 异步处理场景提取
+	go s.processBackgroundExtraction(task.ID, episodeID, model, style)
+
+	s.log.Infow("Background extraction task created", "task_id", task.ID, "episode_id", episodeID)
+	return task.ID, nil
+}
+
+// processBackgroundExtraction 异步处理场景提取
+func (s *ImageGenerationService) processBackgroundExtraction(taskID string, episodeID string, model string, style string) {
+	// 更新任务状态为处理中
+	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在提取场景信息...")
+
+	var episode models.Episode
+	if err := s.db.Preload("Storyboards").First(&episode, episodeID).Error; err != nil {
+		s.log.Errorw("Episode not found during background extraction", "error", err, "episode_id", episodeID)
+		s.taskService.UpdateTaskStatus(taskID, "failed", 0, "剧集信息不存在")
+		return
+	}
+
+	if episode.ScriptContent == nil || *episode.ScriptContent == "" {
+		s.log.Errorw("Episode has no script content during background extraction", "episode_id", episodeID)
+		s.taskService.UpdateTaskStatus(taskID, "failed", 0, "剧本内容为空")
+		return
+	}
+
+	s.log.Infow("Extracting backgrounds from script", "episode_id", episodeID, "model", model, "task_id", taskID)
 	dramaID := episode.DramaID
 
 	// 使用AI从剧本内容中提取场景
 	backgroundsInfo, err := s.extractBackgroundsFromScript(*episode.ScriptContent, dramaID, model, style)
 	if err != nil {
-		s.log.Errorw("Failed to extract backgrounds from script", "error", err)
-		return nil, err
+		s.log.Errorw("Failed to extract backgrounds from script", "error", err, "task_id", taskID)
+		s.taskService.UpdateTaskStatus(taskID, "failed", 0, "AI提取场景失败: "+err.Error())
+		return
 	}
 
 	// 保存到数据库（不涉及Storyboard关联，因为此时还没有生成分镜）
@@ -674,10 +709,10 @@ func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		// 先删除该章节的所有场景（实现重新提取覆盖功能）
 		if err := tx.Where("episode_id = ?", episode.ID).Delete(&models.Scene{}).Error; err != nil {
-			s.log.Errorw("Failed to delete old scenes", "error", err)
+			s.log.Errorw("Failed to delete old scenes", "error", err, "task_id", taskID)
 			return err
 		}
-		s.log.Infow("Deleted old scenes for re-extraction", "episode_id", episode.ID)
+		s.log.Infow("Deleted old scenes for re-extraction", "episode_id", episode.ID, "task_id", taskID)
 
 		// 创建新提取的场景
 		for _, bgInfo := range backgroundsInfo {
@@ -700,22 +735,33 @@ func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, 
 			s.log.Infow("Created new scene from script",
 				"scene_id", scene.ID,
 				"location", scene.Location,
-				"time", scene.Time)
+				"time", scene.Time,
+				"task_id", taskID)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		s.log.Errorw("Failed to save scenes to database", "error", err, "task_id", taskID)
+		s.taskService.UpdateTaskStatus(taskID, "failed", 0, "保存场景信息失败: "+err.Error())
+		return
 	}
 
-	s.log.Infow("Saved scenes to database",
+	// 更新任务状态为完成
+	resultData := map[string]interface{}{
+		"scenes": scenes,
+		"count":  len(scenes),
+		"episode_id": episodeID,
+		"drama_id":   dramaID,
+	}
+	s.taskService.UpdateTaskResult(taskID, resultData)
+
+	s.log.Infow("Background extraction completed",
+		"task_id", taskID,
 		"episode_id", episodeID,
 		"total_storyboards", len(episode.Storyboards),
 		"unique_scenes", len(scenes))
-
-	return scenes, nil
 }
 
 // extractBackgroundsFromScript 从剧本内容中使用AI提取场景信息

@@ -36,51 +36,20 @@ func (h *StoryboardHandler) GenerateStoryboard(c *gin.Context) {
 		req.Model = ""
 	}
 
-	// 创建异步任务
-	task, err := h.taskService.CreateTask("storyboard_generation", episodeID)
+	// 调用生成服务，该服务已经是异步的，会返回任务ID
+	taskID, err := h.storyboardService.GenerateStoryboard(episodeID, req.Model)
 	if err != nil {
-		h.log.Errorw("Failed to create task", "error", err)
+		h.log.Errorw("Failed to generate storyboard", "error", err, "episode_id", episodeID)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	// 启动后台goroutine处理
-	go h.processStoryboardGeneration(task.ID, episodeID, req.Model)
-
 	// 立即返回任务ID
 	response.Success(c, gin.H{
-		"task_id": task.ID,
+		"task_id": taskID,
 		"status":  "pending",
 		"message": "分镜头生成任务已创建，正在后台处理...",
 	})
-}
-
-// processStoryboardGeneration 后台处理分镜生成
-func (h *StoryboardHandler) processStoryboardGeneration(taskID, episodeID, model string) {
-	h.log.Infow("Starting storyboard generation", "task_id", taskID, "episode_id", episodeID, "model", model)
-
-	// 更新任务状态为处理中
-	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始生成分镜..."); err != nil {
-		h.log.Errorw("Failed to update task status", "error", err)
-	}
-
-	// 调用实际的生成逻辑
-	result, err := h.storyboardService.GenerateStoryboard(episodeID, model)
-	if err != nil {
-		h.log.Errorw("Failed to generate storyboard", "error", err, "task_id", taskID)
-		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
-			h.log.Errorw("Failed to update task error", "error", updateErr)
-		}
-		return
-	}
-
-	// 更新任务结果
-	if err := h.taskService.UpdateTaskResult(taskID, result); err != nil {
-		h.log.Errorw("Failed to update task result", "error", err)
-		return
-	}
-
-	h.log.Infow("Storyboard generation completed", "task_id", taskID, "total", result.Total)
 }
 
 // UpdateStoryboard 更新分镜
