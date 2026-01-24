@@ -106,6 +106,33 @@
                 </div>
               </div>
 
+              <!-- 道具(Props) -->
+              <div class="cast-section">
+                <div class="section-label">
+                  {{ $t('editor.props') }} (Props)
+                  <el-button size="small" text :icon="Plus" @click="showPropSelector = true">{{ $t('editor.addProp') }}</el-button>
+                </div>
+                <div class="cast-list">
+                  <div v-for="prop in currentStoryboardProps" :key="prop.id" class="cast-item active">
+                    <div class="cast-avatar">
+                      <img v-if="prop.image_url" :src="prop.image_url" :alt="prop.name" />
+                      <el-icon v-else><Box /></el-icon>
+                    </div>
+                    <div class="cast-name">{{ prop.name }}</div>
+                    <div class="cast-remove" @click.stop="togglePropInShot(prop.id)"
+                      title="移除道具">
+                      <el-icon :size="14">
+                        <Close />
+                      </el-icon>
+                    </div>
+                  </div>
+                  <div v-if="!currentStoryboardProps || currentStoryboardProps.length === 0"
+                    class="cast-empty">
+                    {{ $t('editor.noProps') }}
+                  </div>
+                </div>
+              </div>
+
               <!-- 视效设置 -->
               <div class="settings-section">
                 <div class="section-label">{{ $t('editor.visualSettings') }}</div>
@@ -850,6 +877,34 @@
       </template>
     </el-dialog>
 
+    <!-- 道具选择对话框 -->
+    <el-dialog v-model="showPropSelector" :title="$t('editor.addPropToShot')" width="800px">
+      <div class="character-selector-grid">
+        <div v-for="prop in availableProps" :key="prop.id" class="character-card"
+          :class="{ selected: isPropInCurrentShot(prop.id) }" @click="togglePropInShot(prop.id)">
+          <div class="character-avatar-large">
+            <img v-if="prop.image_url" :src="prop.image_url" :alt="prop.name" />
+            <el-icon v-else :size="32"><Box /></el-icon>
+          </div>
+          <div class="character-info">
+            <div class="character-name">{{ prop.name }}</div>
+            <div class="character-role">{{ prop.type || $t('editor.props') }}</div>
+          </div>
+          <div class="character-check" v-if="isPropInCurrentShot(prop.id)">
+            <el-icon color="#409eff" :size="24">
+              <Check />
+            </el-icon>
+          </div>
+        </div>
+        <div v-if="availableProps.length === 0" class="empty-characters">
+          <el-empty :description="$t('editor.noPropsAvailable')" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showPropSelector = false">{{ $t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 场景选择对话框 -->
     <el-dialog v-model="showSceneSelector" title="选择场景背景" width="800px">
       <div class="scene-selector-grid">
@@ -914,9 +969,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Plus, Picture, VideoPlay, VideoPause, View, Setting,
   Upload, MagicStick, VideoCamera, ZoomIn, ZoomOut, Top, Bottom, Check, Close, Right,
-  Timer, Calendar, Clock, Loading, WarningFilled, Delete, Connection
+  Timer, Calendar, Clock, Loading, WarningFilled, Delete, Connection, Box
 } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
+import { propAPI } from '@/api/prop'
 import { generateFramePrompt, type FrameType } from '@/api/frame'
 import { imageAPI } from '@/api/image'
 import { videoAPI } from '@/api/video'
@@ -946,6 +1002,8 @@ const episode = ref<Episode | null>(null)
 const storyboards = ref<Storyboard[]>([])
 const characters = ref<any[]>([])
 const availableScenes = ref<any[]>([])
+const props = ref<any[]>([])
+const showPropSelector = ref(false)
 
 const currentStoryboardId = ref<number | null>(null)
 const activeTab = ref('shot')
@@ -1460,6 +1518,50 @@ const currentStoryboardCharacters = computed(() => {
 const availableCharacters = computed(() => {
   return characters.value || []
 })
+
+
+
+// 可选择的道具列表
+const availableProps = computed(() => {
+  return props.value || []
+})
+
+// 当前分镜的道具列表
+const currentStoryboardProps = computed(() => {
+  if (!currentStoryboard.value?.props) return []
+  return currentStoryboard.value.props
+})
+
+// 检查道具是否在当前镜头中
+const isPropInCurrentShot = (propId: number) => {
+  if (!currentStoryboard.value?.props) return false
+  return currentStoryboard.value.props.some((p: any) => p.id === propId)
+}
+
+// 切换道具在镜头中的状态
+const togglePropInShot = async (propId: number) => {
+  if (!currentStoryboard.value) return
+  
+  let newProps = [...(currentStoryboard.value.props || [])]
+  if (isPropInCurrentShot(propId)) {
+    newProps = newProps.filter((p: any) => p.id !== propId)
+  } else {
+    const prop = props.value.find(p => p.id === propId)
+    if (prop) {
+      newProps.push(prop)
+    }
+  }
+  
+  // 乐观更新
+  currentStoryboard.value.props = newProps
+  
+  try {
+    const propIds = newProps.map((p: any) => p.id)
+    await propAPI.associateWithStoryboard(Number(currentStoryboard.value.id), propIds)
+  } catch (error) {
+    ElMessage.error($t('editor.updatePropFailed'))
+  }
+}
 
 // 检查角色是否已在当前镜头中
 const isCharacterInCurrentShot = (charId: number) => {
@@ -2269,6 +2371,9 @@ const loadData = async () => {
 
     // 加载可用场景列表
     availableScenes.value = dramaRes.scenes || []
+
+    // 加载道具列表
+    props.value = dramaRes.props || []
 
     // 加载视频素材库
     await loadVideoAssets()

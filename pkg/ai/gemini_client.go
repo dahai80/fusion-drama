@@ -183,6 +183,10 @@ func (c *GeminiClient) GenerateText(prompt string, systemPrompt string, options 
 	return responseText, nil
 }
 
+func (c *GeminiClient) GenerateImage(prompt string, size string, n int) ([]string, error) {
+	return nil, fmt.Errorf("GenerateImage not implemented for Gemini client")
+}
+
 func (c *GeminiClient) TestConnection() error {
 	fmt.Printf("Gemini: TestConnection called with BaseURL=%s, Model=%s, Endpoint=%s\n", c.BaseURL, c.Model, c.Endpoint)
 	_, err := c.GenerateText("Hello", "")

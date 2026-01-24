@@ -69,6 +69,7 @@ type GenerateImageRequest struct {
 	DramaID         string   `json:"drama_id" binding:"required"`
 	SceneID         *uint    `json:"scene_id"`
 	CharacterID     *uint    `json:"character_id"`
+	PropID          *uint    `json:"prop_id"`
 	ImageType       string   `json:"image_type"` // character, scene, storyboard
 	FrameType       *string  `json:"frame_type"` // first, key, last, panel, action
 	Prompt          string   `json:"prompt" binding:"required,min=5,max=2000"`
@@ -121,6 +122,7 @@ func (s *ImageGenerationService) GenerateImage(request *GenerateImageRequest) (*
 		DramaID:         uint(dramaIDParsed),
 		SceneID:         request.SceneID,
 		CharacterID:     request.CharacterID,
+		PropID:          request.PropID,
 		ImageType:       imageType,
 		FrameType:       request.FrameType,
 		Provider:        provider,
@@ -348,6 +350,17 @@ func (s *ImageGenerationService) completeImageGeneration(imageGenID uint, result
 		} else {
 			s.log.Infow("Character updated with generated image",
 				"character_id", *imageGen.CharacterID,
+				"image_url", truncateImageURL(result.ImageURL))
+		}
+	}
+
+	// 如果关联了道具，同步更新道具的image_url
+	if imageGen.PropID != nil {
+		if err := s.db.Model(&models.Prop{}).Where("id = ?", *imageGen.PropID).Update("image_url", result.ImageURL).Error; err != nil {
+			s.log.Errorw("Failed to update prop image_url", "error", err, "prop_id", *imageGen.PropID)
+		} else {
+			s.log.Infow("Prop updated with generated image",
+				"prop_id", *imageGen.PropID,
 				"image_url", truncateImageURL(result.ImageURL))
 		}
 	}

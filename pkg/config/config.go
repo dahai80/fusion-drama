@@ -66,6 +66,16 @@ type StyleConfig struct {
 	DefaultVideoRatio string `mapstructure:"default_video_ratio"`
 	// 默认图片比例
 	DefaultImageRatio string `mapstructure:"default_image_ratio"`
+	// 默认图片尺寸
+	DefaultImageSize string `mapstructure:"default_image_size"`
+	// 默认道具比例
+	DefaultPropRatio string `mapstructure:"default_prop_ratio"`
+	// 默认道具风格
+	DefaultPropStyle string `mapstructure:"default_prop_style"`
+	// 默认场景比例
+	DefaultSceneRatio string `mapstructure:"default_scene_ratio"`
+	// 默认角色比例
+	DefaultRoleRatio string `mapstructure:"default_role_ratio"`
 }
 
 func LoadConfig() (*Config, error) {

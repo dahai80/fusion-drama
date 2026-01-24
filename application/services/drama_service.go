@@ -74,11 +74,13 @@ func (s *DramaService) GetDrama(dramaID string) (*models.Drama, error) {
 	err := s.db.Where("id = ? ", dramaID).
 		Preload("Characters").          // 加载Drama级别的角色
 		Preload("Scenes").              // 加载Drama级别的场景
+		Preload("Props").               // 加载Drama级别的道具
 		Preload("Episodes.Characters"). // 加载每个章节关联的角色
 		Preload("Episodes.Scenes").     // 加载每个章节关联的场景
 		Preload("Episodes.Storyboards", func(db *gorm.DB) *gorm.DB {
 			return db.Order("storyboards.storyboard_number ASC")
 		}).
+		Preload("Episodes.Storyboards.Props"). // 加载分镜关联的道具
 		First(&drama).Error
 
 	if err != nil {

@@ -148,7 +148,7 @@ func (p *PromptI18n) GetSceneExtractionPrompt(style string) string {
 	// 如果未指定风格，使用配置中的默认风格
 	if style == "" {
 		style = p.config.Style.DefaultSceneStyle
-	}else{
+	} else {
 		// 默认风格加style
 		style = p.config.Style.DefaultSceneStyle + ", " + style
 	}
@@ -181,7 +181,7 @@ func (p *PromptI18n) GetSceneExtractionPrompt(style string) string {
 Each element containing:
 - location: Location (e.g., "luxurious office")
 - time: Time period (e.g., "afternoon")
-- prompt: Complete English image generation prompt (pure background, explicitly stating no people)`, style,imageRatio)
+- prompt: Complete English image generation prompt (pure background, explicitly stating no people)`, style, imageRatio)
 	}
 
 	return fmt.Sprintf(`【任务】从剧本中提取所有唯一的场景背景
@@ -204,7 +204,7 @@ Each element containing:
 每个元素包含：
 - location：地点（如"豪华办公室"）
 - time：时间（如"下午"）
-- prompt：完整的中文图片生成提示词（纯背景，明确说明无人物）`, style,imageRatio)
+- prompt：完整的中文图片生成提示词（纯背景，明确说明无人物）`, style, imageRatio)
 }
 
 // GetFirstFramePrompt 获取首帧提示词
@@ -227,7 +227,8 @@ Key Points:
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`,style,imageRatio)}
+- description: Simplified Chinese description (for reference)`, style, imageRatio)
+	}
 
 	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
@@ -244,8 +245,9 @@ Return a JSON object containing:
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`,style,imageRatio)
+- description：简化的中文描述（供参考）`, style, imageRatio)
 }
+
 // GetKeyFramePrompt 获取关键帧提示词
 func (p *PromptI18n) GetKeyFramePrompt() string {
 	style := p.config.Style.DefaultStyle
@@ -266,7 +268,8 @@ Key Points:
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`,style,imageRatio)}
+- description: Simplified Chinese description (for reference)`, style, imageRatio)
+	}
 
 	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
@@ -283,7 +286,7 @@ Return a JSON object containing:
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`,style,imageRatio)
+- description：简化的中文描述（供参考）`, style, imageRatio)
 }
 
 // GetLastFramePrompt 获取尾帧提示词
@@ -306,7 +309,7 @@ Key Points:
 Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
-- description: Simplified Chinese description (for reference)`,style,imageRatio)
+- description: Simplified Chinese description (for reference)`, style, imageRatio)
 	}
 
 	return fmt.Sprintf(`你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
@@ -324,7 +327,7 @@ Return a JSON object containing:
 输出格式：
 返回一个JSON对象，包含：
 - prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
-- description：简化的中文描述（供参考）`,style,imageRatio)
+- description：简化的中文描述（供参考）`, style, imageRatio)
 }
 
 // GetOutlineGenerationPrompt 获取大纲生成提示词
@@ -393,7 +396,7 @@ Requirements:
 - **Image Ratio**: %s
 Output Format:
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
-Each element is a character object containing the above fields.`,style,imageRatio)
+Each element is a character object containing the above fields.`, style, imageRatio)
 	}
 
 	return fmt.Sprintf(`你是一个专业的角色分析师，擅长从剧本中提取和分析角色信息。
@@ -414,7 +417,62 @@ Each element is a character object containing the above fields.`,style,imageRati
 - **图片比例**：%s
 输出格式：
 **重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
-每个元素是一个角色对象，包含上述字段。`,style,imageRatio)
+每个元素是一个角色对象，包含上述字段。`, style, imageRatio)
+}
+
+// GetPropExtractionPrompt 获取道具提取提示词
+func (p *PromptI18n) GetPropExtractionPrompt() string {
+	style := p.config.Style.DefaultStyle + ", " + p.config.Style.DefaultPropStyle
+	imageRatio := p.config.Style.DefaultPropRatio
+	if imageRatio == "" {
+		imageRatio = p.config.Style.DefaultImageRatio
+	}
+
+	if p.IsEnglish() {
+		return fmt.Sprintf(`Please extract key props from the following script.
+    
+[Script Content]
+%%s
+
+[Requirements]
+1. Extract ONLY key props that are important to the plot or have special visual characteristics.
+2. Do NOT extract common daily items (e.g., normal cups, pens) unless they have special plot significance.
+3. If a prop has a clear owner, please note it in the description.
+4. "image_prompt" field is for AI image generation, must describe the prop's appearance, material, color, and style in detail.
+- **Style Requirement**: %s
+- **Image Ratio**: %s
+
+[Output Format]
+JSON array, each object containing:
+- name: Prop Name
+- type: Type (e.g., Weapon/Key Item/Daily Item/Special Device)
+- description: Role in the drama and visual description
+- image_prompt: English image generation prompt (Focus on the object, isolated, detailed, cinematic lighting, high quality)
+
+Please return JSON array directly.`, style, imageRatio)
+	}
+
+	return fmt.Sprintf(`请从以下剧本中提取关键道具。
+    
+【剧本内容】
+%%s
+
+【要求】
+1. 只提取对剧情发展有重要作用、或有特殊视觉特征的关键道具。
+2. 普通的生活用品（如普通的杯子、笔）如果无特殊剧情意义不需要提取。
+3. 如果道具有明确的归属者，请在描述中注明。
+4. "image_prompt"字段是用于AI生成图片的英文提示词，必须详细描述道具的外观、材质、颜色、风格。
+- **风格要求**：%s
+- **图片比例**：%s
+
+【输出格式】
+JSON数组，每个对象包含：
+- name: 道具名称
+- type: 类型 (如：武器/关键证物/日常用品/特殊装置)
+- description: 在剧中的作用和中文外观描述
+- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)
+
+请直接返回JSON数组。`, style, imageRatio)
 }
 
 // GetEpisodeScriptPrompt 获取分集剧本生成提示词
@@ -470,7 +528,7 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 	imageRatio := p.config.Style.DefaultImageRatio
 	templates := map[string]map[string]string{
 		"en": {
-			
+
 			"outline_request":        "Please create a short drama outline for the following theme:\n\nTheme: %s",
 			"genre_preference":       "\nGenre preference: %s",
 			"style_requirement":      "\nStyle requirement: %s",
@@ -499,8 +557,7 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 			"shot_type_label":        "Shot type: %s",
 			"angle_label":            "Angle: %s",
 			"movement_label":         "Movement: %s",
-			"drama_info_template":    "Title: %s\nSummary: %s\nGenre: %s"+"\nStyle: "+style+"\nImage ratio: "+imageRatio,
-			
+			"drama_info_template":    "Title: %s\nSummary: %s\nGenre: %s" + "\nStyle: " + style + "\nImage ratio: " + imageRatio,
 		},
 		"zh": {
 			"outline_request":        "请为以下主题创作短剧大纲：\n\n主题：%s",
@@ -531,8 +588,7 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 			"shot_type_label":        "景别: %s",
 			"angle_label":            "角度: %s",
 			"movement_label":         "运镜: %s",
-			"drama_info_template":    "剧名：%s\n简介：%s\n类型：%s"+"\n风格: "+style+"\n图片比例: "+imageRatio,
-
+			"drama_info_template":    "剧名：%s\n简介：%s\n类型：%s" + "\n风格: " + style + "\n图片比例: " + imageRatio,
 		},
 	}
 

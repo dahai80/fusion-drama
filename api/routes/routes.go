@@ -53,6 +53,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	framePromptHandler := handlers2.NewFramePromptHandler(framePromptService, log)
 	audioExtractionHandler := handlers2.NewAudioExtractionHandler(log, cfg.Storage.LocalPath)
 	settingsHandler := handlers2.NewSettingsHandler(cfg, log)
+	propHandler := handlers2.NewPropHandler(db, cfg, log, aiService, imageGenService)
 
 	api := r.Group("/api/v1")
 	{
@@ -62,15 +63,17 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		{
 			dramas.GET("", dramaHandler.ListDramas)
 			dramas.POST("", dramaHandler.CreateDrama)
-			dramas.GET("/stats", dramaHandler.GetDramaStats)
-			dramas.GET("/:id/characters", dramaHandler.GetCharacters)
-			dramas.PUT("/:id/characters", dramaHandler.SaveCharacters)
-			dramas.PUT("/:id/outline", dramaHandler.SaveOutline)
-			dramas.PUT("/:id/episodes", dramaHandler.SaveEpisodes)
-			dramas.PUT("/:id/progress", dramaHandler.SaveProgress)
+			dramas.GET("/stats", dramaHandler.GetDramaStats) // 统计接口放在/:id之前
 			dramas.GET("/:id", dramaHandler.GetDrama)
 			dramas.PUT("/:id", dramaHandler.UpdateDrama)
 			dramas.DELETE("/:id", dramaHandler.DeleteDrama)
+
+			dramas.PUT("/:id/outline", dramaHandler.SaveOutline)
+			dramas.GET("/:id/characters", dramaHandler.GetCharacters)
+			dramas.PUT("/:id/characters", dramaHandler.SaveCharacters)
+			dramas.PUT("/:id/episodes", dramaHandler.SaveEpisodes)
+			dramas.PUT("/:id/progress", dramaHandler.SaveProgress)
+			dramas.GET("/:id/props", propHandler.ListProps) // Added prop list route
 		}
 
 		aiConfigs := api.Group("/ai-configs")
@@ -110,6 +113,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			characters.POST("/:id/add-to-library", characterLibraryHandler.AddCharacterToLibrary)
 		}
 
+		props := api.Group("/props")
+		{
+			props.POST("", propHandler.CreateProp)
+			props.PUT("/:id", propHandler.UpdateProp)
+			props.DELETE("/:id", propHandler.DeleteProp)
+			props.POST("/:id/generate", propHandler.GenerateImage)
+		}
+
 		// 文件上传路由
 		upload := api.Group("/upload")
 		{
@@ -121,6 +132,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		{
 			// 分镜头
 			episodes.POST("/:episode_id/storyboards", storyboardHandler.GenerateStoryboard)
+			episodes.POST("/:episode_id/props/extract", propHandler.ExtractProps)
 			episodes.GET("/:episode_id/storyboards", sceneHandler.GetStoryboardsForEpisode)
 			episodes.POST("/:episode_id/finalize", dramaHandler.FinalizeEpisode)
 			episodes.GET("/:episode_id/download", dramaHandler.DownloadEpisodeVideo)
@@ -192,6 +204,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			storyboards.POST("", storyboardHandler.CreateStoryboard)
 			storyboards.PUT("/:id", storyboardHandler.UpdateStoryboard)
 			storyboards.DELETE("/:id", storyboardHandler.DeleteStoryboard)
+			storyboards.POST("/:id/props", propHandler.AssociateProps)
 			storyboards.POST("/:id/frame-prompt", framePromptHandler.GenerateFramePrompt)
 			storyboards.GET("/:id/frame-prompts", handlers2.GetStoryboardFramePrompts(db, log))
 		}
