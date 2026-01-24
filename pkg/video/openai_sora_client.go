@@ -2,11 +2,15 @@ package video
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto" // Added for explicit MIME header control
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -66,12 +70,9 @@ func (c *OpenAISoraClient) GenerateVideo(imageURL, prompt string, opts ...VideoO
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
+	// Add basic fields
 	writer.WriteField("model", model)
 	writer.WriteField("prompt", prompt)
-
-	if imageURL != "" {
-		writer.WriteField("input_reference", imageURL)
-	}
 
 	if options.Duration > 0 {
 		writer.WriteField("seconds", fmt.Sprintf("%d", options.Duration))
@@ -80,6 +81,104 @@ func (c *OpenAISoraClient) GenerateVideo(imageURL, prompt string, opts ...VideoO
 	if options.Resolution != "" {
 		writer.WriteField("size", options.Resolution)
 	}
+
+	// [PR FIX START]
+	// The OpenAI Sora API requires 'input_reference' to be a file upload (binary), not a URL string
+	// set the Content-Type header (e.g., image/png) or the API returns 400
+	if imageURL != "" {
+		var imageData []byte
+		var mimeType string
+		var filename string = "reference_image.png"
+
+		if strings.HasPrefix(imageURL, "data:") {
+			// Case A: Handle Base64 Data URI (often stored in DB)
+			parts := strings.Split(imageURL, ",")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid data URI format")
+			}
+
+			// Extract mime type from header (e.g., "data:image/jpeg;base64")
+			header := parts[0]
+			if strings.Contains(header, "image/jpeg") || strings.Contains(header, "image/jpg") {
+				mimeType = "image/jpeg"
+				filename = "reference.jpg"
+			} else if strings.Contains(header, "image/png") {
+				mimeType = "image/png"
+				filename = "reference.png"
+			} else if strings.Contains(header, "image/webp") {
+				mimeType = "image/webp"
+				filename = "reference.webp"
+			} else {
+				mimeType = "image/png" // Default fallback
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(parts[1])
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode base64 image: %w", err)
+			}
+			imageData = decoded
+
+		} else {
+			// Case B: Handle Standard HTTP/HTTPS URL
+			resp, err := http.Get(imageURL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to download reference image: %w", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("failed to download reference image, status: %d", resp.StatusCode)
+			}
+
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read downloaded image: %w", err)
+			}
+			imageData = data
+
+			// Use the Content-Type header from the response
+			mimeType = resp.Header.Get("Content-Type")
+
+			// Fallback/Correction if server sends bad headers
+			if mimeType == "" || mimeType == "application/octet-stream" {
+				ext := filepath.Ext(imageURL)
+				switch strings.ToLower(ext) {
+				case ".jpg", ".jpeg":
+					mimeType = "image/jpeg"
+				case ".png":
+					mimeType = "image/png"
+				case ".webp":
+					mimeType = "image/webp"
+				default:
+					mimeType = "image/png"
+				}
+			}
+
+			// Ensure filename has extension
+			base := filepath.Base(imageURL)
+			if base != "" && base != "." {
+				if idx := strings.Index(base, "?"); idx != -1 {
+					base = base[:idx]
+				}
+				filename = base
+			}
+		}
+
+		// Create the MIME Header manually to force the Content-Type.
+		// Standard writer.CreateFormFile does not set Content-Type, causing "unsupported mimetype" errors.
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="input_reference"; filename="%s"`, filename))
+		h.Set("Content-Type", mimeType)
+
+		part, err := writer.CreatePart(h)
+		if err != nil {
+			return nil, fmt.Errorf("create part: %w", err)
+		}
+		if _, err := part.Write(imageData); err != nil {
+			return nil, fmt.Errorf("write image data: %w", err)
+		}
+	}
+	// [PR FIX END]
 
 	writer.Close()
 
