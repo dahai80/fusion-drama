@@ -267,3 +267,22 @@ func (h *CharacterLibraryHandler) DeleteCharacter(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "角色已删除"})
 }
+
+// ExtractCharacters 从剧本提取角色
+func (h *CharacterLibraryHandler) ExtractCharacters(c *gin.Context) {
+	episodeIDStr := c.Param("episode_id")
+	episodeID, err := strconv.ParseUint(episodeIDStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "Invalid episode_id")
+		return
+	}
+
+	taskID, err := h.libraryService.ExtractCharactersFromScript(uint(episodeID))
+	if err != nil {
+		h.log.Errorw("Failed to extract characters", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"task_id": taskID, "message": "角色提取任务已提交"})
+}

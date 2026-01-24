@@ -210,12 +210,19 @@
           >
             <div class="tab-header">
               <h2>{{ $t("drama.management.characterList") }}</h2>
-              <el-button
-                type="primary"
-                :icon="Plus"
-                @click="openAddCharacterDialog"
-                >{{ $t("character.add") }}</el-button
-              >
+              <div style="display: flex; gap: 10px">
+                <el-button
+                  :icon="Document"
+                  @click="openExtractCharacterDialog"
+                  >{{ $t("prop.extract") }}</el-button
+                >
+                <el-button
+                  type="primary"
+                  :icon="Plus"
+                  @click="openAddCharacterDialog"
+                  >{{ $t("character.add") }}</el-button
+                >
+              </div>
             </div>
 
             <el-row :gutter="16" style="margin-top: 16px">
@@ -261,6 +268,11 @@
                     }}</el-button>
                     <el-button
                       size="small"
+                      @click="generateCharacterImage(character)"
+                      >{{ $t("prop.generateImage") }}</el-button
+                    >
+                    <el-button
+                      size="small"
                       type="danger"
                       @click="deleteCharacter(character)"
                       >{{ $t("common.delete") }}</el-button
@@ -280,12 +292,17 @@
           <el-tab-pane :label="$t('drama.management.sceneList')" name="scenes">
             <div class="tab-header">
               <h2>{{ $t("drama.management.sceneList") }}</h2>
-              <el-button
-                type="primary"
-                :icon="Plus"
-                @click="openAddSceneDialog"
-                >{{ $t("common.add") }}</el-button
-              >
+              <div style="display: flex; gap: 10px">
+                <el-button :icon="Document" @click="openExtractSceneDialog">{{
+                  $t("prop.extract")
+                }}</el-button>
+                <el-button
+                  type="primary"
+                  :icon="Plus"
+                  @click="openAddSceneDialog"
+                  >{{ $t("common.add") }}</el-button
+                >
+              </div>
             </div>
 
             <el-row :gutter="16" style="margin-top: 16px">
@@ -311,6 +328,11 @@
                     <el-button size="small" @click="editScene(scene)">{{
                       $t("common.edit")
                     }}</el-button>
+                    <el-button
+                      size="small"
+                      @click="generateSceneImage(scene)"
+                      >{{ $t("prop.generateImage") }}</el-button
+                    >
                     <el-button
                       size="small"
                       type="danger"
@@ -671,6 +693,88 @@
           >
         </template>
       </el-dialog>
+
+      <!-- 从剧本提取角色对话框 -->
+      <el-dialog
+        v-model="extractCharactersDialogVisible"
+        :title="$t('prop.extractTitle')"
+        width="500px"
+      >
+        <el-form label-width="100px">
+          <el-form-item :label="$t('prop.selectEpisode')">
+            <el-select
+              v-model="selectedExtractEpisodeId"
+              :placeholder="$t('common.pleaseSelect')"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="ep in sortedEpisodes"
+                :key="ep.id"
+                :label="ep.title"
+                :value="ep.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-alert
+            :title="$t('prop.extractTip')"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+        </el-form>
+        <template #footer>
+          <el-button @click="extractCharactersDialogVisible = false">{{
+            $t("common.cancel")
+          }}</el-button>
+          <el-button
+            type="primary"
+            @click="handleExtractCharacters"
+            :disabled="!selectedExtractEpisodeId"
+            >{{ $t("prop.startExtract") }}</el-button
+          >
+        </template>
+      </el-dialog>
+
+      <!-- 从剧本提取场景对话框 -->
+      <el-dialog
+        v-model="extractScenesDialogVisible"
+        :title="$t('prop.extractTitle')"
+        width="500px"
+      >
+        <el-form label-width="100px">
+          <el-form-item :label="$t('prop.selectEpisode')">
+            <el-select
+              v-model="selectedExtractEpisodeId"
+              :placeholder="$t('common.pleaseSelect')"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="ep in sortedEpisodes"
+                :key="ep.id"
+                :label="ep.title"
+                :value="ep.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-alert
+            :title="$t('prop.extractTip')"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+        </el-form>
+        <template #footer>
+          <el-button @click="extractScenesDialogVisible = false">{{
+            $t("common.cancel")
+          }}</el-button>
+          <el-button
+            type="primary"
+            @click="handleExtractScenes"
+            :disabled="!selectedExtractEpisodeId"
+            >{{ $t("prop.startExtract") }}</el-button
+          >
+        </template>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -704,6 +808,8 @@ const addCharacterDialogVisible = ref(false);
 const addSceneDialogVisible = ref(false);
 const addPropDialogVisible = ref(false);
 const extractPropsDialogVisible = ref(false);
+const extractCharactersDialogVisible = ref(false);
+const extractScenesDialogVisible = ref(false);
 
 const editingCharacter = ref<any>(null);
 const editingScene = ref<any>(null);
@@ -899,6 +1005,88 @@ const beforeAvatarUpload = (file: any) => {
     ElMessage.error("图片大小不能超过 10MB!");
   }
   return isImage && isLt10M;
+};
+
+const generateCharacterImage = async (character: any) => {
+  try {
+    await characterLibraryAPI.generateCharacterImage(character.id);
+    ElMessage.success("图片生成任务已提交");
+    setTimeout(() => {
+      loadDramaData();
+    }, 3000);
+  } catch (error: any) {
+    ElMessage.error(error.message || "生成失败");
+  }
+};
+
+const openExtractCharacterDialog = () => {
+  extractCharactersDialogVisible.value = true;
+  if (sortedEpisodes.value.length > 0 && !selectedExtractEpisodeId.value) {
+    selectedExtractEpisodeId.value = sortedEpisodes.value[0].id;
+  }
+};
+
+const handleExtractCharacters = async () => {
+  if (!selectedExtractEpisodeId.value) return;
+
+  try {
+    const res = await characterLibraryAPI.extractFromEpisode(
+      selectedExtractEpisodeId.value,
+    );
+    ElMessage.success(res.data.message);
+    extractCharactersDialogVisible.value = false;
+
+    // 自动刷新几次
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      loadDramaData();
+      checkCount++;
+      if (checkCount > 10) clearInterval(checkInterval);
+    }, 5000);
+  } catch (error: any) {
+    ElMessage.error(error.message || "提取失败");
+  }
+};
+
+const generateSceneImage = async (scene: any) => {
+  try {
+    await dramaAPI.generateSceneImage({ scene_id: scene.id });
+    ElMessage.success("图片生成任务已提交");
+    setTimeout(() => {
+      loadScenes();
+    }, 3000);
+  } catch (error: any) {
+    ElMessage.error(error.message || "生成失败");
+  }
+};
+
+const openExtractSceneDialog = () => {
+  extractScenesDialogVisible.value = true;
+  if (sortedEpisodes.value.length > 0 && !selectedExtractEpisodeId.value) {
+    selectedExtractEpisodeId.value = sortedEpisodes.value[0].id;
+  }
+};
+
+const handleExtractScenes = async () => {
+  if (!selectedExtractEpisodeId.value) return;
+
+  try {
+    const res = await dramaAPI.extractBackgrounds(
+      selectedExtractEpisodeId.value.toString(),
+    );
+    ElMessage.success(res.data.message);
+    extractScenesDialogVisible.value = false;
+
+    // 自动刷新几次
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      loadScenes();
+      checkCount++;
+      if (checkCount > 10) clearInterval(checkInterval);
+    }, 5000);
+  } catch (error: any) {
+    ElMessage.error(error.message || "提取失败");
+  }
 };
 
 const saveCharacter = async () => {
