@@ -598,7 +598,6 @@ A: GORM 会在首次启动时自动创建表，检查日志确认迁移是否成
 - 🏠 **位置**: 中国南京
 - 🚀 **状态**: 创业中
 - 📧 **Email**: [18550175439@163.com](mailto:18550175439@163.com)
-- 💬 **微信**: dangbao1117 （私人微信不解答任何技术问题）
 - 🐙 **GitHub**: [https://github.com/chatfire-AI/huobao-drama](https://github.com/chatfire-AI/huobao-drama)
 
 > _"让 AI 帮我们做更有创造力的事"_
