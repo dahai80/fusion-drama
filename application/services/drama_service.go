@@ -476,16 +476,37 @@ func (s *DramaService) SaveCharacters(dramaID string, req *SaveCharactersRequest
 	// 收集需要关联到章节的角色ID
 	var characterIDs []uint
 
-	// 创建新角色或复用已有角色
+	// 创建新角色或复用/更新已有角色
 	for _, char := range req.Characters {
+		// 1. 如果提供了ID，尝试更新已有角色
+		if char.ID > 0 {
+			var existing models.Character
+			if err := s.db.Where("id = ? AND drama_id = ?", char.ID, dramaIDUint).First(&existing).Error; err == nil {
+				// 更新角色信息
+				updates := map[string]interface{}{
+					"name":        char.Name,
+					"role":        char.Role,
+					"description": char.Description,
+					"personality": char.Personality,
+					"appearance":  char.Appearance,
+					"image_url":   char.ImageURL,
+				}
+				if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
+					s.log.Errorw("Failed to update character", "error", err, "id", char.ID)
+				}
+				characterIDs = append(characterIDs, existing.ID)
+				continue
+			}
+		}
+
+		// 2. 如果没有ID但名字已存在，直接复用（可选：也可以选择更新）
 		if existingChar, exists := existingCharMap[char.Name]; exists {
-			// 角色已存在，直接复用
 			s.log.Infow("Character already exists, reusing", "name", char.Name, "character_id", existingChar.ID)
 			characterIDs = append(characterIDs, existingChar.ID)
 			continue
 		}
 
-		// 角色不存在，创建新角色
+		// 3. 角色不存在，创建新角色
 		character := models.Character{
 			DramaID:     dramaIDUint,
 			Name:        char.Name,
@@ -493,6 +514,7 @@ func (s *DramaService) SaveCharacters(dramaID string, req *SaveCharactersRequest
 			Description: char.Description,
 			Personality: char.Personality,
 			Appearance:  char.Appearance,
+			ImageURL:    char.ImageURL,
 		}
 
 		if err := s.db.Create(&character).Error; err != nil {

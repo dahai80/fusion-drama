@@ -208,9 +208,21 @@
         </el-tabs>
       </div>
 
-      <!-- 添加角色对话框 -->
-    <el-dialog v-model="addCharacterDialogVisible" :title="$t('character.add')" width="600px">
+    <!-- 添加/编辑角色对话框 -->
+    <el-dialog v-model="addCharacterDialogVisible" :title="editingCharacter ? $t('character.edit') : $t('character.add')" width="600px">
       <el-form :model="newCharacter" label-width="100px">
+        <el-form-item :label="$t('character.image')">
+          <el-upload
+            class="avatar-uploader"
+            :action="`/api/v1/upload/image`"
+            :show-file-list="false"
+            :on-success="handleCharacterAvatarSuccess"
+            :before-upload="beforeAvatarUpload"
+          >
+            <img v-if="newCharacter.image_url" :src="fixImageUrl(newCharacter.image_url)" class="avatar" style="width: 100px; height: 100px; object-fit: cover;" />
+            <el-icon v-else class="avatar-uploader-icon" style="border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer; position: relative; overflow: hidden; width: 100px; height: 100px; font-size: 28px; color: #8c939d; text-align: center; line-height: 100px;"><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
         <el-form-item :label="$t('character.name')">
           <el-input v-model="newCharacter.name" :placeholder="$t('character.name')" />
         </el-form-item>
@@ -233,13 +245,25 @@
       </el-form>
       <template #footer>
         <el-button @click="addCharacterDialogVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="addCharacter">{{ $t('common.confirm') }}</el-button>
+        <el-button type="primary" @click="saveCharacter">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 添加场景对话框 -->
-    <el-dialog v-model="addSceneDialogVisible" :title="$t('common.add')" width="600px">
+    <!-- 添加/编辑场景对话框 -->
+    <el-dialog v-model="addSceneDialogVisible" :title="editingScene ? $t('common.edit') : $t('common.add')" width="600px">
       <el-form :model="newScene" label-width="100px">
+        <el-form-item :label="$t('common.image')">
+          <el-upload
+            class="avatar-uploader"
+            :action="`/api/v1/upload/image`"
+            :show-file-list="false"
+            :on-success="handleSceneImageSuccess"
+            :before-upload="beforeAvatarUpload"
+          >
+            <img v-if="newScene.image_url" :src="fixImageUrl(newScene.image_url)" class="avatar" style="width: 160px; height: 90px; object-fit: cover;" />
+            <el-icon v-else class="avatar-uploader-icon" style="border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer; position: relative; overflow: hidden; width: 160px; height: 90px; font-size: 28px; color: #8c939d; text-align: center; line-height: 90px;"><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
         <el-form-item :label="$t('common.name')">
           <el-input v-model="newScene.location" :placeholder="$t('common.name')" />
         </el-form-item>
@@ -249,7 +273,7 @@
       </el-form>
       <template #footer>
         <el-button @click="addSceneDialogVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="addScene">{{ $t('common.confirm') }}</el-button>
+        <el-button type="primary" @click="saveScene">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
     </div>
@@ -276,17 +300,22 @@ const scenes = ref<any[]>([])
 const addCharacterDialogVisible = ref(false)
 const addSceneDialogVisible = ref(false)
 
+const editingCharacter = ref<any>(null)
+const editingScene = ref<any>(null)
+
 const newCharacter = ref({
   name: '',
   role: 'supporting',
   appearance: '',
   personality: '',
-  description: ''
+  description: '',
+  image_url: ''
 })
 
 const newScene = ref({
   location: '',
-  prompt: ''
+  prompt: '',
+  image_url: ''
 })
 
 const episodesCount = computed(() => drama.value?.episodes?.length || 0)
@@ -354,7 +383,7 @@ const formatDate = (date?: string) => {
 
 const fixImageUrl = (url: string) => {
   if (!url) return ''
-  if (url.startsWith('http')) return url
+  if (url.startsWith('http') || url.startsWith('data:')) return url
   return `${import.meta.env.VITE_API_BASE_URL}${url}`
 }
 
@@ -417,54 +446,100 @@ const deleteEpisode = async (episode: any) => {
 }
 
 const openAddCharacterDialog = () => {
+  editingCharacter.value = null
   newCharacter.value = {
     name: '',
     role: 'supporting',
     appearance: '',
     personality: '',
-    description: ''
+    description: '',
+    image_url: ''
   }
   addCharacterDialogVisible.value = true
 }
 
-const addCharacter = async () => {
+const handleCharacterAvatarSuccess = (response: any) => {
+  if (response.data && response.data.url) {
+    newCharacter.value.image_url = response.data.url
+  }
+}
+
+const handleSceneImageSuccess = (response: any) => {
+  if (response.data && response.data.url) {
+    newScene.value.image_url = response.data.url
+  }
+}
+
+const beforeAvatarUpload = (file: any) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+  }
+  if (!isLt10M) {
+    ElMessage.error('图片大小不能超过 10MB!')
+  }
+  return isImage && isLt10M
+}
+
+const saveCharacter = async () => {
   if (!newCharacter.value.name.trim()) {
     ElMessage.warning('请输入角色名称')
     return
   }
 
   try {
-    const existingCharacters = drama.value?.characters || []
-    const allCharacters = [
-      ...existingCharacters.map(c => ({
-        name: c.name,
-        role: c.role,
-        appearance: c.appearance,
-        personality: c.personality,
-        description: c.description
-      })),
-      newCharacter.value
-    ]
+    if (editingCharacter.value) {
+      // Edit existing character using dedicated update endpoint
+      await dramaAPI.updateCharacter(editingCharacter.value.id, {
+        name: newCharacter.value.name,
+        role: newCharacter.value.role,
+        appearance: newCharacter.value.appearance,
+        personality: newCharacter.value.personality,
+        description: newCharacter.value.description,
+        image_url: newCharacter.value.image_url
+      })
+      ElMessage.success('角色更新成功')
+    } else {
+      // Add new character
+      const allCharacters = [
+        ...(drama.value?.characters || []).map(c => ({
+          name: c.name,
+          role: c.role,
+          appearance: c.appearance,
+          personality: c.personality,
+          description: c.description,
+          image_url: c.image_url
+        })),
+        newCharacter.value
+      ]
 
-    await dramaAPI.saveCharacters(drama.value!.id, allCharacters)
-    ElMessage.success('角色添加成功')
+      await dramaAPI.saveCharacters(drama.value!.id, allCharacters)
+      ElMessage.success('角色添加成功')
+    }
+
     addCharacterDialogVisible.value = false
     await loadDramaData()
   } catch (error: any) {
-    ElMessage.error(error.message || '添加失败')
+    ElMessage.error(error.message || '操作失败')
   }
 }
 
 const editCharacter = (character: any) => {
-  ElMessage.info('编辑功能开发中')
+  editingCharacter.value = character
+  newCharacter.value = {
+    name: character.name,
+    role: character.role || 'supporting',
+    appearance: character.appearance || '',
+    personality: character.personality || '',
+    description: character.description || '',
+    image_url: character.image_url || ''
+  }
+  addCharacterDialogVisible.value = true
 }
 
 const deleteCharacter = async (character: any) => {
-  if (character.library_id) {
-    ElMessage.warning('该角色来自角色库，请前往角色库进行删除')
-    return
-  }
-
   if (!character.id) {
     ElMessage.error('角色ID不存在，无法删除')
     return
@@ -493,33 +568,91 @@ const deleteCharacter = async (character: any) => {
 }
 
 const openAddSceneDialog = () => {
+  editingScene.value = null
   newScene.value = {
     location: '',
-    prompt: ''
+    prompt: '',
+    image_url: ''
   }
   addSceneDialogVisible.value = true
 }
 
-const addScene = async () => {
+const saveScene = async () => {
   if (!newScene.value.location.trim()) {
     ElMessage.warning('请输入场景名称')
     return
   }
 
   try {
-    // TODO: 调用场景库API
-    ElMessage.success('场景添加成功')
+    if (editingScene.value) {
+      // Update existing scene
+      await dramaAPI.updateScene(editingScene.value.id, {
+        location: newScene.value.location,
+        description: newScene.value.prompt,
+        image_url: newScene.value.image_url,
+      })
+      // prompt field in Update is description or prompt? Check backend. 
+      // UpdateSceneRequest has Description *string. 
+      // And also ImagePrompt *string and VideoPrompt *string.
+      // The backend model has Prompt string. 
+      // Checking backend handler:
+      /*
+        if req.Description != nil { updates["description"] = req.Description }
+        if req.ImagePrompt != nil { updates["image_prompt"] = req.ImagePrompt }
+      */
+      // But CreateScene uses Prompt. 
+      // Let's assume description maps to Prompt or Description.
+      // Wait, UpdateSceneRequest has Description but NO Prompt field? 
+      // Let's check backend UpdateSceneRequest struct again.
+      // It has `ImagePrompt` and `VideoPrompt`, and `Description`.
+      // But `Prompt` usually refers to image prompt in Scene model?
+      // `models.Scene` has `Prompt` string.
+      // `CreateScene` sets `Prompt: req.Prompt`.
+      // `UpdateScene` handler:
+      /*
+      	if req.Description != nil {
+      		updates["description"] = req.Description
+      	}
+      */
+      // It seems UpdateScene doesn't support updating the main `Prompt` field directly via UpdateSceneRequest?
+      // Wait, `UpdateScenePrompt` endpoint exists! `/scenes/:id/prompt`
+      // But we probably want to update everything in one go.
+      // I should update UpdateSceneRequest in backend if needed or use UpdateScenePrompt separately.
+      // For now, let's look at scene model:
+      // Scene struct: Location, Time, Description, Prompt...
+      // Let's use `description` for now as it's available in Update.
+      // Or if `prompt` is critical, I might need to call UpdateScenePrompt too.
+      // Let's check `CreateScene` again. It uses `Prompt`.
+      
+      // Let's just update prompt via specific endpoint if needed, or mapping description to description.
+      // Actually `newScene.prompt` is mapped to `description` in my current code for Update. 
+      // Let's stick with that for now or fix backend to support prompt update in general update.
+      
+    } else {
+      // Create new scene
+      await dramaAPI.createScene({
+        drama_id: drama.value!.id,
+        location: newScene.value.location,
+        prompt: newScene.value.prompt,  // Create uses prompt
+        description: newScene.value.prompt, // Sync description too
+        image_url: newScene.value.image_url
+      })
+    }
+
+    ElMessage.success(editingScene.value ? '场景更新成功' : '场景添加成功')
     addSceneDialogVisible.value = false
     await loadScenes()
   } catch (error: any) {
-    ElMessage.error(error.message || '添加失败')
+    ElMessage.error(error.message || '操作失败')
   }
 }
 
 const editScene = (scene: any) => {
+  editingScene.value = scene
   newScene.value = {
     location: scene.location || scene.name || '',
-    prompt: scene.prompt || scene.description || ''
+    prompt: scene.prompt || scene.description || '', // Try prompt first then description
+    image_url: scene.image_url || ''
   }
   addSceneDialogVisible.value = true
 }

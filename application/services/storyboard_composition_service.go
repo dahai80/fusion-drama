@@ -445,3 +445,32 @@ func getStringValue(s *string) string {
 	}
 	return ""
 }
+
+type CreateSceneRequest struct {
+	DramaID     uint   `json:"drama_id"`
+	Location    string `json:"location"`
+	Prompt      string `json:"prompt"`
+	ImageURL    string `json:"image_url"`
+	Description string `json:"description"`
+}
+
+func (s *StoryboardCompositionService) CreateScene(req *CreateSceneRequest) (*models.Scene, error) {
+	scene := &models.Scene{
+		DramaID:  req.DramaID,
+		Location: req.Location,
+		Prompt:   req.Prompt,
+		Status:   "draft",
+	}
+
+	if req.ImageURL != "" {
+		scene.ImageURL = &req.ImageURL
+		scene.Status = "completed"
+	}
+
+	if err := s.db.Create(scene).Error; err != nil {
+		return nil, fmt.Errorf("failed to create scene: %w", err)
+	}
+
+	s.log.Infow("Scene created successfully", "scene_id", scene.ID, "drama_id", scene.DramaID)
+	return scene, nil
+}

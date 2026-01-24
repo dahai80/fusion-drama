@@ -381,8 +381,17 @@ func (s *CharacterLibraryService) waitAndUpdateCharacterImage(characterID uint, 
 	s.log.Warnw("Character image generation timeout", "character_id", characterID, "image_gen_id", imageGenID)
 }
 
+type UpdateCharacterRequest struct {
+	Name        *string `json:"name"`
+	Role        *string `json:"role"`
+	Appearance  *string `json:"appearance"`
+	Personality *string `json:"personality"`
+	Description *string `json:"description"`
+	ImageURL    *string `json:"image_url"`
+}
+
 // UpdateCharacter 更新角色信息
-func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interface{}) error {
+func (s *CharacterLibraryService) UpdateCharacter(characterID string, req *UpdateCharacterRequest) error {
 	// 查找角色
 	var character models.Character
 	if err := s.db.Where("id = ?", characterID).First(&character).Error; err != nil {
@@ -404,25 +413,23 @@ func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interf
 	// 构建更新数据
 	updates := make(map[string]interface{})
 
-	// 使用类型断言获取请求数据
-	if reqMap, ok := req.(*struct {
-		Name        *string `json:"name"`
-		Appearance  *string `json:"appearance"`
-		Personality *string `json:"personality"`
-		Description *string `json:"description"`
-	}); ok {
-		if reqMap.Name != nil && *reqMap.Name != "" {
-			updates["name"] = *reqMap.Name
-		}
-		if reqMap.Appearance != nil {
-			updates["appearance"] = *reqMap.Appearance
-		}
-		if reqMap.Personality != nil {
-			updates["personality"] = *reqMap.Personality
-		}
-		if reqMap.Description != nil {
-			updates["description"] = *reqMap.Description
-		}
+	if req.Name != nil && *req.Name != "" {
+		updates["name"] = *req.Name
+	}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Appearance != nil {
+		updates["appearance"] = *req.Appearance
+	}
+	if req.Personality != nil {
+		updates["personality"] = *req.Personality
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.ImageURL != nil {
+		updates["image_url"] = *req.ImageURL
 	}
 
 	if len(updates) == 0 {
@@ -435,7 +442,7 @@ func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interf
 		return err
 	}
 
-	s.log.Infow("Character updated", "character_id", characterID)
+	s.log.Infow("Character updated", "character_id", characterID, "updates", updates)
 	return nil
 }
 

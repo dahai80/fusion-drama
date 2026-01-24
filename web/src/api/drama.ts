@@ -1,9 +1,9 @@
 import type {
-    CreateDramaRequest,
-    Drama,
-    DramaListQuery,
-    DramaStats,
-    UpdateDramaRequest
+  CreateDramaRequest,
+  Drama,
+  DramaListQuery,
+  DramaStats,
+  UpdateDramaRequest
 } from '../types/drama'
 import request from '../utils/request'
 
@@ -49,10 +49,14 @@ export const dramaAPI = {
   },
 
   saveCharacters(id: string, data: any[], episodeId?: string) {
-    return request.put(`/dramas/${id}/characters`, { 
+    return request.put(`/dramas/${id}/characters`, {
       characters: data,
       episode_id: episodeId ? parseInt(episodeId) : undefined
     })
+  },
+
+  updateCharacter(id: number, data: any) {
+    return request.put(`/characters/${id}`, data)
   },
 
   saveEpisodes(id: string, data: any[]) {
@@ -95,8 +99,8 @@ export const dramaAPI = {
     return request.put(`/storyboards/${storyboardId}`, data)
   },
 
-  updateScene(sceneId: string, data: { 
-    background_id?: string; 
+  updateScene(sceneId: string, data: {
+    background_id?: string;
     characters?: string[];
     location?: string;
     time?: string;
@@ -104,8 +108,19 @@ export const dramaAPI = {
     dialogue?: string;
     description?: string;
     duration?: number;
+    image_url?: string;
   }) {
     return request.put(`/scenes/${sceneId}`, data)
+  },
+
+  createScene(data: {
+    drama_id: number;
+    location: string;
+    prompt?: string;
+    description?: string;
+    image_url?: string;
+  }) {
+    return request.post('/scenes', data)
   },
 
   generateSceneImage(data: { scene_id: number; prompt?: string; model?: string }) {

@@ -218,13 +218,7 @@ func (h *CharacterLibraryHandler) UpdateCharacter(c *gin.Context) {
 
 	characterID := c.Param("id")
 
-	var req struct {
-		Name        *string `json:"name"`
-		Appearance  *string `json:"appearance"`
-		Personality *string `json:"personality"`
-		Description *string `json:"description"`
-	}
-
+	var req services2.UpdateCharacterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
