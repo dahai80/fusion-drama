@@ -54,7 +54,7 @@ export default {
     createdAt: 'Created At',
     updatedAt: 'Updated At',
     perPage: 'Per Page',
-    image:"Image"
+    image:"Image",
   },
   settings: {
     title: 'Settings',

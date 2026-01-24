@@ -71,7 +71,8 @@ export default {
     updatedAt: '更新时间',
     name: '名称',
     description: '描述',
-    image: '图片'
+    image: '图片',
+    perPage: '每页'
   },
   settings: {
     title: '设置',
