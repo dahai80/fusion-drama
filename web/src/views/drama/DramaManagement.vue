@@ -804,6 +804,8 @@ const drama = ref<Drama>();
 const activeTab = ref((route.query.tab as string) || "overview");
 const scenes = ref<any[]>([]);
 
+let pollingTimer: any = null; // Add polling timer definition
+
 const addCharacterDialogVisible = ref(false);
 const addSceneDialogVisible = ref(false);
 const addPropDialogVisible = ref(false);
@@ -849,6 +851,31 @@ const sortedEpisodes = computed(() => {
   return [...drama.value.episodes].sort(
     (a, b) => a.episode_number - b.episode_number,
   );
+});
+
+// Helper for polling
+const startPolling = (
+  callback: () => Promise<void>,
+  maxAttempts = 20,
+  interval = 3000,
+) => {
+  if (pollingTimer) clearInterval(pollingTimer);
+
+  let attempts = 0;
+  pollingTimer = setInterval(async () => {
+    attempts++;
+    await callback();
+    if (attempts >= maxAttempts) {
+      if (pollingTimer) clearInterval(pollingTimer);
+      pollingTimer = null;
+    }
+  }, interval);
+};
+
+// Clear timer on unmount
+import { onUnmounted } from "vue";
+onUnmounted(() => {
+  if (pollingTimer) clearInterval(pollingTimer);
 });
 
 const loadDramaData = async () => {
@@ -1011,9 +1038,7 @@ const generateCharacterImage = async (character: any) => {
   try {
     await characterLibraryAPI.generateCharacterImage(character.id);
     ElMessage.success("图片生成任务已提交");
-    setTimeout(() => {
-      loadDramaData();
-    }, 3000);
+    startPolling(loadDramaData);
   } catch (error: any) {
     ElMessage.error(error.message || "生成失败");
   }
@@ -1052,9 +1077,7 @@ const generateSceneImage = async (scene: any) => {
   try {
     await dramaAPI.generateSceneImage({ scene_id: scene.id });
     ElMessage.success("图片生成任务已提交");
-    setTimeout(() => {
-      loadScenes();
-    }, 3000);
+    startPolling(loadScenes);
   } catch (error: any) {
     ElMessage.error(error.message || "生成失败");
   }
@@ -1377,10 +1400,7 @@ const generatePropImage = async (prop: any) => {
   try {
     await propAPI.generateImage(prop.id);
     ElMessage.success("图片生成任务已提交");
-    // 简单起见，3秒后刷新一次，实际应该轮询
-    setTimeout(() => {
-      loadDramaData();
-    }, 3000);
+    startPolling(loadDramaData);
   } catch (error: any) {
     ElMessage.error(error.message || "生成失败");
   }

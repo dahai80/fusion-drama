@@ -390,7 +390,7 @@ Requirements:
    - appearance: Physical appearance description (150-300 words)
    - personality: Personality traits (100-200 words)
    - description: Background story and character relationships (100-200 words)
-3. Appearance must be detailed enough for AI image generation, including: gender, age, body type, facial features, hairstyle, clothing style, etc.
+3. Appearance must be detailed enough for AI image generation, including: gender, age, body type, facial features, hairstyle, clothing style, etc. but do not include any scene, background, environment information
 4. Main characters require more detailed descriptions, supporting characters can be simplified
 - **Style Requirement**: %s
 - **Image Ratio**: %s
@@ -411,7 +411,7 @@ Each element is a character object containing the above fields.`, style, imageRa
    - appearance: 外貌描述（150-300字）
    - personality: 性格特点（100-200字）
    - description: 背景故事和角色关系（100-200字）
-3. 外貌描述要足够详细，适合AI生成图片，包括：性别、年龄、体型、面部特征、发型、服装风格等
+3. 外貌描述要足够详细，适合AI生成图片，包括：性别、年龄、体型、面部特征、发型、服装风格等,但不要包含任何场景、背景、环境等信息
 4. 主要角色需要更详细的描述，次要角色可以简化
 - **风格要求**：%s
 - **图片比例**：%s
