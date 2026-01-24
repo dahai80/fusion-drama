@@ -91,7 +91,6 @@ func (s *ImageGenerationService) GenerateImage(request *GenerateImageRequest) (*
 	if err := s.db.Where("id = ? ", request.DramaID).First(&drama).Error; err != nil {
 		return nil, fmt.Errorf("drama not found")
 	}
-
 	// 注意：SceneID可能指向Scene或Storyboard表，调用方已经做过权限验证，这里不再重复验证
 
 	provider := request.Provider
@@ -532,6 +531,60 @@ func (s *ImageGenerationService) DeleteImageGeneration(imageGenID uint) error {
 	return nil
 }
 
+// UploadImageRequest 上传图片请求
+type UploadImageRequest struct {
+	StoryboardID uint   `json:"storyboard_id"`
+	DramaID      uint   `json:"drama_id"`
+	FrameType    string `json:"frame_type"`
+	ImageURL     string `json:"image_url"`
+	Prompt       string `json:"prompt"`
+}
+
+// CreateImageFromUpload 从上传的图片URL创建图片生成记录
+func (s *ImageGenerationService) CreateImageFromUpload(req *UploadImageRequest) (*models.ImageGeneration, error) {
+	// 验证storyboard存在
+	var storyboard models.Storyboard
+	if err := s.db.First(&storyboard, req.StoryboardID).Error; err != nil {
+		return nil, fmt.Errorf("storyboard not found")
+	}
+
+	// 验证drama存在
+	var drama models.Drama
+	if err := s.db.First(&drama, req.DramaID).Error; err != nil {
+		return nil, fmt.Errorf("drama not found")
+	}
+
+	prompt := req.Prompt
+	if prompt == "" {
+		prompt = "用户上传图片"
+	}
+
+	now := time.Now()
+	imageGen := &models.ImageGeneration{
+		StoryboardID: &req.StoryboardID,
+		DramaID:      req.DramaID,
+		ImageType:    string(models.ImageTypeStoryboard),
+		FrameType:    &req.FrameType,
+		Provider:     "upload",
+		Prompt:       prompt,
+		Model:        "upload",
+		ImageURL:     &req.ImageURL,
+		Status:       models.ImageStatusCompleted,
+		CompletedAt:  &now,
+	}
+
+	if err := s.db.Create(imageGen).Error; err != nil {
+		return nil, fmt.Errorf("failed to create image record: %w", err)
+	}
+
+	s.log.Infow("Image created from upload",
+		"id", imageGen.ID,
+		"storyboard_id", req.StoryboardID,
+		"frame_type", req.FrameType)
+
+	return imageGen, nil
+}
+
 func (s *ImageGenerationService) GenerateImagesForScene(sceneID string) ([]*models.ImageGeneration, error) {
 	// 转换sceneID
 	sid, err := strconv.ParseUint(sceneID, 10, 32)
@@ -750,8 +803,8 @@ func (s *ImageGenerationService) processBackgroundExtraction(taskID string, epis
 
 	// 更新任务状态为完成
 	resultData := map[string]interface{}{
-		"scenes": scenes,
-		"count":  len(scenes),
+		"scenes":     scenes,
+		"count":      len(scenes),
 		"episode_id": episodeID,
 		"drama_id":   dramaID,
 	}

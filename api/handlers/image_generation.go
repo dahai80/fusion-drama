@@ -204,3 +204,35 @@ func (h *ImageGenerationHandler) DeleteImageGeneration(c *gin.Context) {
 
 	response.Success(c, nil)
 }
+
+// UploadImage 上传图片并创建图片生成记录
+func (h *ImageGenerationHandler) UploadImage(c *gin.Context) {
+	var req struct {
+		StoryboardID uint   `json:"storyboard_id" binding:"required"`
+		DramaID      uint   `json:"drama_id" binding:"required"`
+		FrameType    string `json:"frame_type" binding:"required"`
+		ImageURL     string `json:"image_url" binding:"required"`
+		Prompt       string `json:"prompt"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	imageGen, err := h.imageService.CreateImageFromUpload(&services.UploadImageRequest{
+		StoryboardID: req.StoryboardID,
+		DramaID:      req.DramaID,
+		FrameType:    req.FrameType,
+		ImageURL:     req.ImageURL,
+		Prompt:       req.Prompt,
+	})
+
+	if err != nil {
+		h.log.Errorw("Failed to create image from upload", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, imageGen)
+}

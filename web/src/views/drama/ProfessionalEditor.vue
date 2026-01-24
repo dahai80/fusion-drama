@@ -2338,7 +2338,65 @@ const generateImage = async () => {
 }
 
 const uploadImage = () => {
-  ElMessage.info('上传图片功能开发中')
+  if (!currentStoryboard.value) {
+    ElMessage.warning('请先选择镜头')
+    return
+  }
+
+  // 创建隐藏的文件输入
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    // 验证文件大小 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      ElMessage.error('图片大小不能超过 10MB')
+      return
+    }
+
+    try {
+      // 创建 FormData
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // 上传到服务器
+      const response = await fetch('/api/v1/upload/image', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('上传失败')
+      }
+
+      const result = await response.json()
+      const imageUrl = result.data?.url
+
+      if (imageUrl && currentStoryboard.value) {
+        // 创建图片生成记录（关联到当前镜头和帧类型）
+        await imageAPI.uploadImage({
+          storyboard_id: currentStoryboard.value.id,
+          drama_id: parseInt(dramaId),
+          frame_type: selectedFrameType.value || 'first',
+          image_url: imageUrl,
+          prompt: currentFramePrompt.value || '用户上传图片'
+        })
+
+        // 刷新图片列表
+        await loadStoryboardImages(currentStoryboard.value.id, selectedFrameType.value)
+
+        ElMessage.success('图片上传成功')
+      }
+    } catch (error: any) {
+      console.error('上传图片失败:', error)
+      ElMessage.error(error.message || '上传失败')
+    }
+  }
+  input.click()
 }
 
 const goBack = () => {

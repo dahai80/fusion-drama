@@ -1,7 +1,7 @@
 import type {
-    GenerateImageRequest,
-    ImageGeneration,
-    ImageGenerationListParams
+  GenerateImageRequest,
+  ImageGeneration,
+  ImageGenerationListParams
 } from '../types/image'
 import request from '../utils/request'
 
@@ -36,5 +36,16 @@ export const imageAPI = {
 
   deleteImage(id: number) {
     return request.delete(`/images/${id}`)
+  },
+
+  // 上传图片并创建图片生成记录
+  uploadImage(data: {
+    storyboard_id: number
+    drama_id: number
+    frame_type: string
+    image_url: string
+    prompt?: string
+  }) {
+    return request.post<ImageGeneration>('/images/upload', data)
   }
 }
