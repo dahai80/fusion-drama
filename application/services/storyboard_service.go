@@ -16,22 +16,22 @@ import (
 )
 
 type StoryboardService struct {
-	db         *gorm.DB
-	aiService  *AIService
+	db          *gorm.DB
+	aiService   *AIService
 	taskService *TaskService
-	log        *logger.Logger
-	config     *config.Config
-	promptI18n *PromptI18n
+	log         *logger.Logger
+	config      *config.Config
+	promptI18n  *PromptI18n
 }
 
 func NewStoryboardService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *StoryboardService {
 	return &StoryboardService{
-		db:         db,
-		aiService:  NewAIService(db, log),
+		db:          db,
+		aiService:   NewAIService(db, log),
 		taskService: NewTaskService(db, log),
-		log:        log,
-		config:     cfg,
-		promptI18n: NewPromptI18n(cfg),
+		log:         log,
+		config:      cfg,
+		promptI18n:  NewPromptI18n(cfg),
 	}
 }
 
@@ -872,32 +872,112 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 	})
 }
 
-// UpdateStoryboardCharacters 更新分镜的角色关联
-func (s *StoryboardService) UpdateStoryboardCharacters(storyboardID string, characterIDs []uint) error {
-	// 查找分镜
-	var storyboard models.Storyboard
-	if err := s.db.First(&storyboard, storyboardID).Error; err != nil {
-		return fmt.Errorf("storyboard not found: %w", err)
+// CreateStoryboardRequest 创建分镜请求
+type CreateStoryboardRequest struct {
+	EpisodeID        uint    `json:"episode_id"`
+	SceneID          *uint   `json:"scene_id"`
+	StoryboardNumber int     `json:"storyboard_number"`
+	Title            *string `json:"title"`
+	Location         *string `json:"location"`
+	Time             *string `json:"time"`
+	ShotType         *string `json:"shot_type"`
+	Angle            *string `json:"angle"`
+	Movement         *string `json:"movement"`
+	Description      *string `json:"description"`
+	Action           *string `json:"action"`
+	Result           *string `json:"result"`
+	Atmosphere       *string `json:"atmosphere"`
+	Dialogue         *string `json:"dialogue"`
+	BgmPrompt        *string `json:"bgm_prompt"`
+	SoundEffect      *string `json:"sound_effect"`
+	Duration         int     `json:"duration"`
+	Characters       []uint  `json:"characters"`
+}
+
+// CreateStoryboard 创建单个分镜
+func (s *StoryboardService) CreateStoryboard(req *CreateStoryboardRequest) (*models.Storyboard, error) {
+	// 构建Storyboard对象
+	sb := Storyboard{
+		ShotNumber:  req.StoryboardNumber,
+		ShotType:    getString(req.ShotType),
+		Angle:       getString(req.Angle),
+		Time:        getString(req.Time),
+		Location:    getString(req.Location),
+		SceneID:     req.SceneID,
+		Movement:    getString(req.Movement),
+		Action:      getString(req.Action),
+		Dialogue:    getString(req.Dialogue),
+		Result:      getString(req.Result),
+		Atmosphere:  getString(req.Atmosphere),
+		Emotion:     "", // 可以后续添加
+		Duration:    req.Duration,
+		BgmPrompt:   getString(req.BgmPrompt),
+		SoundEffect: getString(req.SoundEffect),
+		Characters:  req.Characters,
+	}
+	if req.Title != nil {
+		sb.Title = *req.Title
 	}
 
-	// 清除现有的角色关联
-	if err := s.db.Model(&storyboard).Association("Characters").Clear(); err != nil {
-		return fmt.Errorf("failed to clear characters: %w", err)
+	// 生成提示词
+	imagePrompt := s.generateImagePrompt(sb)
+	videoPrompt := s.generateVideoPrompt(sb)
+
+	// 构建 description
+	desc := ""
+	if req.Description != nil {
+		desc = *req.Description
 	}
 
-	// 如果有新的角色ID，加载并关联
-	if len(characterIDs) > 0 {
+	modelSB := &models.Storyboard{
+		EpisodeID:        req.EpisodeID,
+		SceneID:          req.SceneID,
+		StoryboardNumber: req.StoryboardNumber,
+		Title:            req.Title,
+		Location:         req.Location,
+		Time:             req.Time,
+		ShotType:         req.ShotType,
+		Angle:            req.Angle,
+		Movement:         req.Movement,
+		Description:      &desc,
+		Action:           req.Action,
+		Result:           req.Result,
+		Atmosphere:       req.Atmosphere,
+		Dialogue:         req.Dialogue,
+		ImagePrompt:      &imagePrompt,
+		VideoPrompt:      &videoPrompt,
+		BgmPrompt:        req.BgmPrompt,
+		SoundEffect:      req.SoundEffect,
+		Duration:         req.Duration,
+	}
+
+	if err := s.db.Create(modelSB).Error; err != nil {
+		return nil, fmt.Errorf("failed to create storyboard: %w", err)
+	}
+
+	// 关联角色
+	if len(req.Characters) > 0 {
 		var characters []models.Character
-		if err := s.db.Where("id IN ?", characterIDs).Find(&characters).Error; err != nil {
-			return fmt.Errorf("failed to find characters: %w", err)
-		}
-
-		if err := s.db.Model(&storyboard).Association("Characters").Append(characters); err != nil {
-			return fmt.Errorf("failed to associate characters: %w", err)
+		if err := s.db.Where("id IN ?", req.Characters).Find(&characters).Error; err != nil {
+			s.log.Warnw("Failed to find characters for new storyboard", "error", err)
+		} else if len(characters) > 0 {
+			s.db.Model(modelSB).Association("Characters").Append(characters)
 		}
 	}
 
-	s.log.Infow("Storyboard characters updated", "storyboard_id", storyboardID, "character_count", len(characterIDs))
+	s.log.Infow("Storyboard created", "id", modelSB.ID, "episode_id", req.EpisodeID)
+	return modelSB, nil
+}
+
+// DeleteStoryboard 删除分镜
+func (s *StoryboardService) DeleteStoryboard(storyboardID uint) error {
+	result := s.db.Where("id = ? ", storyboardID).Delete(&models.Storyboard{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("storyboard not found")
+	}
 	return nil
 }
 
@@ -906,4 +986,11 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func getString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

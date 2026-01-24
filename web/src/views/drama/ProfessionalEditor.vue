@@ -29,7 +29,10 @@
                   <span class="shot-number">{{ $t('storyboard.shotNumber', { number: shot.storyboard_number }) }}</span>
                   <span class="shot-title">{{ shot.title || $t('storyboard.untitled') }}</span>
                 </div>
-                <div class="shot-duration">{{ shot.duration }}s</div>
+                <div class="shot-actions">
+                  <span class="shot-duration">{{ shot.duration }}s</span>
+                  <el-button link type="danger" :icon="Delete" @click.stop="handleDeleteStoryboard(shot)" class="delete-btn" />
+                </div>
               </div>
               <div class="shot-action" v-if="shot.action">{{ shot.action }}</div>
             </div>
@@ -2301,9 +2304,7 @@ const handleTimelineSelect = (sceneId: number) => {
   selectStoryboard(sceneId)
 }
 
-const handleAddStoryboard = async () => {
-  ElMessage.info('添加分镜功能开发中')
-}
+
 
 const togglePlay = () => {
   if (currentPlayState.value === 'playing') {
@@ -2404,6 +2405,70 @@ const goBack = () => {
     name: 'EpisodeWorkflowNew',
     params: { id: dramaId, episodeNumber }
   })
+}
+
+
+
+const handleAddStoryboard = async () => {
+  if (!episodeId.value) return
+
+  try {
+    const nextShotNumber = storyboards.value.length > 0
+      ? Math.max(...storyboards.value.map(s => s.storyboard_number)) + 1
+      : 1
+
+    await dramaAPI.createStoryboard({
+      episode_id: parseInt(episodeId.value),
+      storyboard_number: nextShotNumber,
+      title: `镜头 ${nextShotNumber}`,
+      description: '新镜头描述',
+      action: '动作描述',
+      dialogue: '',
+      duration: 5,
+      scene_id: storyboards.value.length > 0 ? storyboards.value[storyboards.value.length - 1].scene_id : undefined
+    })
+
+    ElMessage.success('添加分镜成功')
+    await loadData() // Refresh list
+    
+    // Select the new storyboard (the last one)
+    if (storyboards.value.length > 0) {
+      selectStoryboard(storyboards.value[storyboards.value.length - 1].id)
+    }
+  } catch (error: any) {
+    console.error('添加分镜失败:', error)
+    ElMessage.error(error.message || '添加分镜失败')
+  }
+}
+
+const handleDeleteStoryboard = async (storyboard: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除镜头 ${storyboard.storyboard_number} 吗？此操作不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    await dramaAPI.deleteStoryboard(storyboard.id)
+    ElMessage.success('删除分镜成功')
+    
+    // If deleted current storyboard, clear selection or select another
+    if (currentStoryboardId.value === storyboard.id) {
+      currentStoryboardId.value = undefined
+      currentStoryboard.value = undefined
+    }
+    
+    await loadData()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('删除分镜失败:', error)
+      ElMessage.error(error.message || '删除分镜失败')
+    }
+  }
 }
 
 // 加载视频合成列表

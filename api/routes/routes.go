@@ -150,7 +150,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			images.POST("", imageGenHandler.GenerateImage)
 			images.GET("/:id", imageGenHandler.GetImageGeneration)
 			images.DELETE("/:id", imageGenHandler.DeleteImageGeneration)
-		images.POST("/scene/:scene_id", imageGenHandler.GenerateImagesForScene)
+			images.POST("/scene/:scene_id", imageGenHandler.GenerateImagesForScene)
 			images.POST("/upload", imageGenHandler.UploadImage)
 			images.GET("/episode/:episode_id/backgrounds", imageGenHandler.GetBackgroundsForEpisode)
 			images.POST("/episode/:episode_id/backgrounds/extract", imageGenHandler.ExtractBackgroundsForEpisode)
@@ -188,7 +188,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 
 		storyboards := api.Group("/storyboards")
 		{
+			storyboards.GET("/episode/:episode_id/generate", storyboardHandler.GenerateStoryboard)
+			storyboards.POST("", storyboardHandler.CreateStoryboard)
 			storyboards.PUT("/:id", storyboardHandler.UpdateStoryboard)
+			storyboards.DELETE("/:id", storyboardHandler.DeleteStoryboard)
 			storyboards.POST("/:id/frame-prompt", framePromptHandler.GenerateFramePrompt)
 			storyboards.GET("/:id/frame-prompts", handlers2.GetStoryboardFramePrompts(db, log))
 		}

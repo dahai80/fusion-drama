@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/drama-generator/backend/application/services"
 	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
@@ -71,4 +73,40 @@ func (h *StoryboardHandler) UpdateStoryboard(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "Storyboard updated successfully"})
+}
+
+// CreateStoryboard 创建分镜
+func (h *StoryboardHandler) CreateStoryboard(c *gin.Context) {
+	var req services.CreateStoryboardRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	sb, err := h.storyboardService.CreateStoryboard(&req)
+	if err != nil {
+		h.log.Errorw("Failed to create storyboard", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Created(c, sb)
+}
+
+// DeleteStoryboard 删除分镜
+func (h *StoryboardHandler) DeleteStoryboard(c *gin.Context) {
+	storyboardIDStr := c.Param("id")
+	storyboardID, err := strconv.ParseUint(storyboardIDStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "Invalid ID")
+		return
+	}
+
+	if err := h.storyboardService.DeleteStoryboard(uint(storyboardID)); err != nil {
+		h.log.Errorw("Failed to delete storyboard", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
 }

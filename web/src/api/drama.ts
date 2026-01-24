@@ -138,5 +138,22 @@ export const dramaAPI = {
   // 完成集数制作（触发视频合成）
   finalizeEpisode(episodeId: string, timelineData?: any) {
     return request.post(`/episodes/${episodeId}/finalize`, timelineData || {})
+  },
+
+  createStoryboard(data: {
+    episode_id: number;
+    storyboard_number: number;
+    title?: string;
+    description?: string;
+    action?: string;
+    dialogue?: string;
+    scene_id?: number;
+    duration: number;
+  }) {
+    return request.post('/storyboards', data)
+  },
+
+  deleteStoryboard(storyboardId: number) {
+    return request.delete(`/storyboards/${storyboardId}`)
   }
 }
