@@ -371,7 +371,7 @@ func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoU
 		}
 	}
 
-	// 数据库中保持使用原始URL
+	// 数据库中使用原始URL
 	updates := map[string]interface{}{
 		"status":    models.VideoStatusCompleted,
 		"video_url": videoURL,

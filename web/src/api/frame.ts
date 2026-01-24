@@ -15,11 +15,11 @@ export interface MultiFramePrompt {
   frames: SingleFramePrompt[]
 }
 
-// 帧提示词响应
-export interface FramePromptResponse {
-  frame_type: FrameType
-  single_frame?: SingleFramePrompt
-  multi_frame?: MultiFramePrompt
+// 生成帧提示词响应 (异步任务)
+export interface GenerateFramePromptResponse {
+  task_id: string
+  status: string
+  message: string
 }
 
 // 生成帧提示词请求
@@ -34,28 +34,28 @@ export interface GenerateFramePromptRequest {
 export function generateFramePrompt(
   storyboardId: number,
   data: GenerateFramePromptRequest
-): Promise<FramePromptResponse> {
-  return request.post<FramePromptResponse>(`/storyboards/${storyboardId}/frame-prompt`, data)
+): Promise<GenerateFramePromptResponse> {
+  return request.post<GenerateFramePromptResponse>(`/storyboards/${storyboardId}/frame-prompt`, data)
 }
 
 /**
  * 生成首帧提示词
  */
-export function generateFirstFrame(storyboardId: number): Promise<FramePromptResponse> {
+export function generateFirstFrame(storyboardId: number): Promise<GenerateFramePromptResponse> {
   return generateFramePrompt(storyboardId, { frame_type: 'first' })
 }
 
 /**
  * 生成关键帧提示词
  */
-export function generateKeyFrame(storyboardId: number): Promise<FramePromptResponse> {
+export function generateKeyFrame(storyboardId: number): Promise<GenerateFramePromptResponse> {
   return generateFramePrompt(storyboardId, { frame_type: 'key' })
 }
 
 /**
  * 生成尾帧提示词
  */
-export function generateLastFrame(storyboardId: number): Promise<FramePromptResponse> {
+export function generateLastFrame(storyboardId: number): Promise<GenerateFramePromptResponse> {
   return generateFramePrompt(storyboardId, { frame_type: 'last' })
 }
 
@@ -65,7 +65,7 @@ export function generateLastFrame(storyboardId: number): Promise<FramePromptResp
 export function generatePanelFrames(
   storyboardId: number,
   panelCount: number = 3
-): Promise<FramePromptResponse> {
+): Promise<GenerateFramePromptResponse> {
   return generateFramePrompt(storyboardId, {
     frame_type: 'panel',
     panel_count: panelCount
@@ -75,7 +75,7 @@ export function generatePanelFrames(
 /**
  * 生成动作序列（5格）
  */
-export function generateActionSequence(storyboardId: number): Promise<FramePromptResponse> {
+export function generateActionSequence(storyboardId: number): Promise<GenerateFramePromptResponse> {
   return generateFramePrompt(storyboardId, { frame_type: 'action' })
 }
 

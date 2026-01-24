@@ -243,7 +243,9 @@
                 <div class="prompt-section">
                   <div class="section-label">
                     {{ $t('editor.prompt') }}
-                    <el-button size="small" type="primary" :disabled="generatingPrompt" :loading="generatingPrompt"
+                    <el-button size="small" type="primary" 
+                      :disabled="currentStoryboard && generatingPromptStates[currentStoryboard.id]" 
+                      :loading="currentStoryboard && generatingPromptStates[currentStoryboard.id]"
                       @click="extractFramePrompt" style="margin-left: 10px;">
                       {{ $t('editor.extractPrompt') }}
                     </el-button>
@@ -918,6 +920,7 @@ import { videoAPI } from '@/api/video'
 import { aiAPI } from '@/api/ai'
 import { assetAPI } from '@/api/asset'
 import { videoMergeAPI } from '@/api/videoMerge'
+import { taskAPI } from '@/api/task'
 import type { ImageGeneration } from '@/types/image'
 import type { VideoGeneration } from '@/types/video'
 import type { AIServiceConfig } from '@/types/ai'
@@ -966,7 +969,7 @@ const narrativeTab = ref('shot-prompt')
 // 图片生成相关状态
 const selectedFrameType = ref<FrameType>('first')
 const panelCount = ref(3)
-const generatingPrompt = ref(false)
+const generatingPromptStates = ref<Record<number, boolean>>({}) // 按镜头ID记录生成状态
 const framePrompts = ref<Record<string, string>>({
   key: '',
   first: '',
@@ -1499,22 +1502,56 @@ const saveStoryboardField = async (fieldName: string) => {
 }
 
 // 提取帧提示词
+// 提取帧提示词
 const extractFramePrompt = async () => {
   if (!currentStoryboard.value) return
 
-  // 记录点击时的帧类型，避免切换tab后提示词显示错位
+  const storyboardId = currentStoryboard.value.id
+  // 记录点击时的帧类型，后续任务完成时用于判断是否需要更新当前显示
   const targetFrameType = selectedFrameType.value
+  
+  if (targetFrameType === 'panel') {
+    // 如果是分镜板模式，还需要捕获当前的panelCount
+    // 注意：这里简单起见使用当前的panelCount，理想情况下应该传递参数或锁定UI
+  }
 
-  generatingPrompt.value = true
+  // 设置当前镜头的生成状态为true
+  generatingPromptStates.value[storyboardId] = true
+
   try {
     const params: any = { frame_type: targetFrameType }
     if (targetFrameType === 'panel') {
       params.panel_count = panelCount.value
     }
 
-    const result = await generateFramePrompt(currentStoryboard.value.id, params)
+    const { task_id } = await generateFramePrompt(storyboardId, params)
 
-    // 根据记录的帧类型提取prompt，确保更新到正确的位置
+    // 轮询任务状态（独立函数，不依赖组件当前状态）
+    const pollTask = async () => {
+      while (true) {
+        const task = await taskAPI.getStatus(task_id)
+        if (task.status === 'completed') {
+          let result = task.result
+          if (typeof result === 'string') {
+            try {
+              result = JSON.parse(result)
+            } catch (e) {
+              console.error('Failed to parse task result', e)
+              throw new Error('解析任务结果失败')
+            }
+          }
+          return result.response
+        } else if (task.status === 'failed') {
+          throw new Error(task.message || task.error || '生成失败')
+        }
+        // 等待1秒后继续轮询
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+
+    const result = await pollTask()
+
+    // 根据返回结果构建提示词字符串
     let extractedPrompt = ''
     if (result.single_frame) {
       extractedPrompt = result.single_frame.prompt
@@ -1525,19 +1562,31 @@ const extractFramePrompt = async () => {
         .join('\n\n')
     }
 
-    // 只在当前仍然选中该帧类型时才更新显示
-    if (selectedFrameType.value === targetFrameType) {
+    // 更新存储（这一步必须做，无论用户是否还在当前页面）
+    // 更新 session storage
+    const storageKey = getPromptStorageKey(storyboardId, targetFrameType)
+    if (storageKey) {
+      sessionStorage.setItem(storageKey, extractedPrompt)
+    }
+    
+    // 如果任务完成时，用户当前的选中状态正好是该镜头+该类型，则立即更新显示
+    if (currentStoryboard.value && currentStoryboard.value.id === storyboardId && selectedFrameType.value === targetFrameType) {
       currentFramePrompt.value = extractedPrompt
+      framePrompts.value[targetFrameType] = extractedPrompt
     }
 
-    // 存储到对应帧类型的提示词中
-    framePrompts.value[targetFrameType] = extractedPrompt
-
+    // 更新内存缓存（稍微复杂点，framePrompts 是响应式的且绑定当前镜头，这里只做sessionStorage持久化即可，
+    // 因为切换镜头时会重新读取sessionStorage。
+    // 但为了确保如果用户没切走也能看到，上面已经更新了 currentFramePrompt
+    
     ElMessage.success(`${getFrameTypeLabel(targetFrameType)}提示词提取成功`)
   } catch (error: any) {
     ElMessage.error('提取失败: ' + (error.message || '未知错误'))
   } finally {
-    generatingPrompt.value = false
+    // 清除该镜头的生成状态
+    if (generatingPromptStates.value[storyboardId]) {
+      generatingPromptStates.value[storyboardId] = false
+    }
   }
 }
 

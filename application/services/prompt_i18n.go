@@ -466,8 +466,11 @@ Output Format:
 
 // FormatUserPrompt 格式化用户提示词的通用文本
 func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
 	templates := map[string]map[string]string{
 		"en": {
+			
 			"outline_request":        "Please create a short drama outline for the following theme:\n\nTheme: %s",
 			"genre_preference":       "\nGenre preference: %s",
 			"style_requirement":      "\nStyle requirement: %s",
@@ -496,7 +499,8 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 			"shot_type_label":        "Shot type: %s",
 			"angle_label":            "Angle: %s",
 			"movement_label":         "Movement: %s",
-			"drama_info_template":    "Title: %s\nSummary: %s\nGenre: %s",
+			"drama_info_template":    "Title: %s\nSummary: %s\nGenre: %s"+"\nStyle: "+style+"\nImage ratio: "+imageRatio,
+			
 		},
 		"zh": {
 			"outline_request":        "请为以下主题创作短剧大纲：\n\n主题：%s",
@@ -527,7 +531,8 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 			"shot_type_label":        "景别: %s",
 			"angle_label":            "角度: %s",
 			"movement_label":         "运镜: %s",
-			"drama_info_template":    "剧名：%s\n简介：%s\n类型：%s",
+			"drama_info_template":    "剧名：%s\n简介：%s\n类型：%s"+"\n风格: "+style+"\n图片比例: "+imageRatio,
+
 		},
 	}
 
