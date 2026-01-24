@@ -1058,7 +1058,6 @@ const handleExtractCharacters = async () => {
     const res = await characterLibraryAPI.extractFromEpisode(
       selectedExtractEpisodeId.value,
     );
-    ElMessage.success(res.data.message);
     extractCharactersDialogVisible.value = false;
 
     // 自动刷新几次
@@ -1097,7 +1096,6 @@ const handleExtractScenes = async () => {
     const res = await dramaAPI.extractBackgrounds(
       selectedExtractEpisodeId.value.toString(),
     );
-    ElMessage.success(res.data.message);
     extractScenesDialogVisible.value = false;
 
     // 自动刷新几次
@@ -1424,7 +1422,6 @@ const handleExtractProps = async () => {
 
   try {
     const res = await propAPI.extractFromScript(selectedExtractEpisodeId.value);
-    ElMessage.success(res.data.message);
     extractPropsDialogVisible.value = false;
 
     // 自动刷新几次

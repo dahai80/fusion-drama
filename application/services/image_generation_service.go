@@ -152,6 +152,7 @@ func (s *ImageGenerationService) GenerateImage(request *GenerateImageRequest) (*
 
 func (s *ImageGenerationService) ProcessImageGeneration(imageGenID uint) {
 	var imageGen models.ImageGeneration
+	imageRatio := s.config.Style.DefaultImageRatio
 	if err := s.db.First(&imageGen, imageGenID).Error; err != nil {
 		s.log.Errorw("Failed to load image generation", "error", err, "id", imageGenID)
 		return
@@ -221,7 +222,9 @@ func (s *ImageGenerationService) ProcessImageGeneration(imageGenID uint) {
 		opts = append(opts, image.WithReferenceImages(referenceImages))
 	}
 
-	result, err := client.GenerateImage(imageGen.Prompt, opts...)
+	prompt := imageGen.Prompt
+	prompt += ", imageRatio:" + imageRatio
+	result, err := client.GenerateImage(prompt, opts...)
 	if err != nil {
 		s.log.Errorw("Image generation API call failed", "error", err, "id", imageGenID, "prompt", imageGen.Prompt)
 		s.updateImageGenError(imageGenID, err.Error())
