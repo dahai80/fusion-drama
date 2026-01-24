@@ -598,7 +598,6 @@ Configure in 2 minutes: [API Aggregation Site](https://api.chatfire.site/models)
 - 🏠 **Location**: Nanjing, China
 - 🚀 **Status**: Startup in Progress
 - 📧 **Email**: [18550175439@163.com](mailto:18550175439@163.com)
-- 💬 **WeChat**: dangbao1117 (Personal WeChat - No technical support)
 - 🐙 **GitHub**: [https://github.com/chatfire-AI/huobao-drama](https://github.com/chatfire-AI/huobao-drama)
 
 > _"Let AI help us do more creative things"_
