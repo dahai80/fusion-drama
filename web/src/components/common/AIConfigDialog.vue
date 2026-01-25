@@ -303,7 +303,7 @@ const providerConfigs: Record<AIServiceType, ProviderConfig[]> = {
     { 
       id: 'chatfire', 
       name: 'Chatfire', 
-      models: ['doubao-seedream-4-5-251128', 'nano-banana-pro']
+      models: ['nano-banana-pro', 'doubao-seedream-4-5-251128']
     },
     { 
       id: 'gemini', 
@@ -468,6 +468,10 @@ const showCreateDialog = () => {
   form.provider = 'chatfire'
   form.base_url = 'https://api.chatfire.site/v1'
   form.name = generateConfigName('chatfire', activeTab.value)
+  // 图片模型配置默认 nano
+  if (activeTab.value === 'image') {
+    form.model = ['nano-banana-pro']
+  }
   editDialogVisible.value = true
 }
 
