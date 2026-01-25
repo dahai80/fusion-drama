@@ -26,6 +26,7 @@ type Drama struct {
 	Episodes   []Episode   `gorm:"foreignKey:DramaID" json:"episodes,omitempty"`
 	Characters []Character `gorm:"foreignKey:DramaID" json:"characters,omitempty"`
 	Scenes     []Scene     `gorm:"foreignKey:DramaID" json:"scenes,omitempty"`
+	Props      []Prop      `gorm:"foreignKey:DramaID" json:"props,omitempty"`
 }
 
 func (d *Drama) TableName() string {
@@ -118,6 +119,7 @@ type Storyboard struct {
 	Episode    Episode     `gorm:"foreignKey:EpisodeID;constraint:OnDelete:CASCADE" json:"episode,omitempty"`
 	Background *Scene      `gorm:"foreignKey:SceneID" json:"background,omitempty"`
 	Characters []Character `gorm:"many2many:storyboard_characters;" json:"characters,omitempty"`
+	Props      []Prop      `gorm:"many2many:storyboard_props;" json:"props,omitempty"`
 }
 
 func (s *Storyboard) TableName() string {
@@ -145,4 +147,26 @@ type Scene struct {
 
 func (s *Scene) TableName() string {
 	return "scenes"
+}
+
+type Prop struct {
+	ID              uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	DramaID         uint           `gorm:"not null;index" json:"drama_id"`
+	Name            string         `gorm:"type:varchar(100);not null" json:"name"`
+	Type            *string        `gorm:"type:varchar(50)" json:"type"` // e.g., "weapon", "daily", "vehicle"
+	Description     *string        `gorm:"type:text" json:"description"`
+	Prompt          *string        `gorm:"type:text" json:"prompt"` // AI Image prompt
+	ImageURL        *string        `gorm:"type:varchar(500)" json:"image_url"`
+	ReferenceImages datatypes.JSON `gorm:"type:json" json:"reference_images"`
+	CreatedAt       time.Time      `gorm:"not null;autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time      `gorm:"not null;autoUpdateTime" json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Relationships
+	Drama       Drama        `gorm:"foreignKey:DramaID" json:"drama,omitempty"`
+	Storyboards []Storyboard `gorm:"many2many:storyboard_props;" json:"storyboards,omitempty"`
+}
+
+func (p *Prop) TableName() string {
+	return "props"
 }

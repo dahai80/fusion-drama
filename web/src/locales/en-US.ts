@@ -53,7 +53,8 @@ export default {
     description: 'Description',
     createdAt: 'Created At',
     updatedAt: 'Updated At',
-    perPage: 'Per Page'
+    perPage: 'Per Page',
+    image:"Image",
   },
   settings: {
     title: 'Settings',
@@ -174,7 +175,11 @@ export default {
       charactersTip: 'Characters will be automatically created during script generation',
       sceneList: 'Scene List',
       noScenes: 'No scenes yet',
-      scenesTip: 'Scenes will be automatically created during storyboard generation'
+      scenesTip: 'Scenes will be automatically created during storyboard generation',
+      propList: 'Prop List',
+      noProps: 'No props yet',
+      propStats: 'Prop Statistics',
+      propsCreated: 'Props Created'
     }
   },
   character: {
@@ -198,6 +203,26 @@ export default {
     backToProject: 'Back to Project',
     saveChanges: 'Save Changes',
     nextStep: 'Next Step: Generate Character Images'
+  },
+  prop: {
+    title: 'Prop Management',
+    add: 'Add Prop',
+    edit: 'Edit Prop',
+    delete: 'Delete Prop',
+    create: 'Create Prop',
+    name: 'Prop Name',
+    type: 'Type',
+    typePlaceholder: 'e.g., Weapon, Daily Item',
+    description: 'Description',
+    prompt: 'Image Prompt',
+    promptPlaceholder: 'English prompt for AI image generation',
+    extract: 'Extract from Script',
+    extractTitle: 'Extract Props from Script',
+    selectEpisode: 'Select Episode',
+    extractTip: 'AI will analyze the script to automatically extract key props and generate descriptions',
+    startExtract: 'Start Extracting',
+    extractSuccess: 'Prop extraction task submitted, AI analysis will take about 1 minute',
+    generateImage: 'Generate Image'
   },
   scriptGenerationPage: {
     prevStep: 'Previous',
@@ -623,6 +648,12 @@ export default {
     lightingEffect: 'Lighting Effect',
     specialEffects: 'Special Effects',
     props: 'Props',
+    addProp: 'Add Prop',
+    addPropToShot: 'Add Prop to Shot',
+    removeProp: 'Remove Prop',
+    noProps: 'No Props',
+    noPropsAvailable: 'No props available, please add props in drama management first',
+    updatePropFailed: 'Failed to update prop',
     emotionalTone: 'Emotional Tone',
     shotImage: 'Shot Image',
     noShotSelected: 'No shot selected',

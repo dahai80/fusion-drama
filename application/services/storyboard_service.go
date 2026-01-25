@@ -11,24 +11,27 @@ import (
 	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"github.com/drama-generator/backend/pkg/utils"
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 type StoryboardService struct {
-	db         *gorm.DB
-	aiService  *AIService
-	log        *logger.Logger
-	config     *config.Config
-	promptI18n *PromptI18n
+	db          *gorm.DB
+	aiService   *AIService
+	taskService *TaskService
+	log         *logger.Logger
+	config      *config.Config
+	promptI18n  *PromptI18n
 }
 
 func NewStoryboardService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *StoryboardService {
 	return &StoryboardService{
-		db:         db,
-		aiService:  NewAIService(db, log),
-		log:        log,
-		config:     cfg,
-		promptI18n: NewPromptI18n(cfg),
+		db:          db,
+		aiService:   NewAIService(db, log),
+		taskService: NewTaskService(db, log),
+		log:         log,
+		config:      cfg,
+		promptI18n:  NewPromptI18n(cfg),
 	}
 }
 
@@ -58,7 +61,7 @@ type GenerateStoryboardResult struct {
 	Total       int          `json:"total"`
 }
 
-func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (*GenerateStoryboardResult, error) {
+func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (string, error) {
 	// 从数据库获取剧集信息
 	var episode struct {
 		ID            string
@@ -74,7 +77,7 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 		First(&episode).Error
 
 	if err != nil {
-		return nil, fmt.Errorf("剧集不存在或无权限访问")
+		return "", fmt.Errorf("剧集不存在或无权限访问")
 	}
 
 	// 获取剧本内容
@@ -84,13 +87,13 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 	} else if episode.Description != nil && *episode.Description != "" {
 		scriptContent = *episode.Description
 	} else {
-		return nil, fmt.Errorf("剧本内容为空，请先生成剧集内容")
+		return "", fmt.Errorf("剧本内容为空，请先生成剧集内容")
 	}
 
 	// 获取该剧本的所有角色
 	var characters []models.Character
 	if err := s.db.Where("drama_id = ?", episode.DramaID).Order("name ASC").Find(&characters).Error; err != nil {
-		return nil, fmt.Errorf("获取角色列表失败: %w", err)
+		return "", fmt.Errorf("获取角色列表失败: %w", err)
 	}
 
 	// 构建角色列表字符串（包含ID和名称）
@@ -118,15 +121,6 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 		}
 		sceneList = fmt.Sprintf("[%s]", strings.Join(sceneInfoList, ", "))
 	}
-
-	s.log.Infow("Generating storyboard",
-		"episode_id", episodeID,
-		"drama_id", episode.DramaID,
-		"script_length", len(scriptContent),
-		"character_count", len(characters),
-		"characters", characterList,
-		"scene_count", len(scenes),
-		"scenes", sceneList)
 
 	// 使用国际化提示词
 	systemPrompt := s.promptI18n.GetStoryboardSystemPrompt()
@@ -180,7 +174,7 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 9. **配乐提示(bgm_prompt)**：描述该镜头配乐的氛围、节奏、情绪（如无特殊要求则为空字符串）
    - 例如："低沉紧张的弦乐，节奏缓慢，营造压抑氛围"
 10. **音效描述(sound_effect)**：描述该镜头的关键音效（如无特殊音效则为空字符串）
-   - 例如："金属碰撞声、脚步声、海浪拍打声"
+    - 例如："金属碰撞声、脚步声、海浪拍打声"
 11. **观众情绪**：[情绪类型]（[强度：↑↑↑/↑↑/↑/→/↓] + [落点：悬置/释放/反转]）
 
 【输出格式】请以JSON格式输出，每个镜头包含以下字段（**所有描述性字段都要详细完整**）：
@@ -230,8 +224,8 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 }
 
 **dialogue字段说明**：
-- 如果有对话，格式为：角色名：\"台词内容\"
-- 多人对话用空格分隔：角色A：\"...\" 角色B：\"...\"
+- 如果有对话，格式为：角色名："台词内容"
+- 多人对话用空格分隔：角色A："..." 角色B："..."
 - 独白格式为：（独白）内容
 - 旁白格式为：（旁白）内容
 - 无对话时填写空字符串：""
@@ -326,35 +320,69 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 - 为视频生成AI提供足够的画面构建信息
 - 避免抽象词汇，使用具象的视觉化描述`, systemPrompt, scriptLabel, scriptContent, taskLabel, taskInstruction, charListLabel, characterList, charConstraint, sceneListLabel, sceneList, sceneConstraint)
 
+	// 创建异步任务
+	task, err := s.taskService.CreateTask("storyboard_generation", episodeID)
+	if err != nil {
+		s.log.Errorw("Failed to create task", "error", err)
+		return "", fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	s.log.Infow("Generating storyboard asynchronously",
+		"task_id", task.ID,
+		"episode_id", episodeID,
+		"drama_id", episode.DramaID,
+		"script_length", len(scriptContent),
+		"character_count", len(characters),
+		"characters", characterList,
+		"scene_count", len(scenes),
+		"scenes", sceneList)
+
+	// 启动后台goroutine处理AI调用和后续逻辑
+	go s.processStoryboardGeneration(task.ID, episodeID, model, prompt)
+
+	// 立即返回任务ID
+	return task.ID, nil
+}
+
+// processStoryboardGeneration 后台处理故事板生成
+func (s *StoryboardService) processStoryboardGeneration(taskID, episodeID, model, prompt string) {
+	// 更新任务状态为处理中
+	if err := s.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始生成分镜头..."); err != nil {
+		s.log.Errorw("Failed to update task status", "error", err, "task_id", taskID)
+		return
+	}
+
+	s.log.Infow("Processing storyboard generation", "task_id", taskID, "episode_id", episodeID)
+
 	// 调用AI服务生成（如果指定了模型则使用指定的模型）
 	// 设置较大的max_tokens以确保完整返回所有分镜的JSON
 	var text string
+	var err error
 	if model != "" {
-		s.log.Infow("Using specified model for storyboard generation", "model", model)
+		s.log.Infow("Using specified model for storyboard generation", "model", model, "task_id", taskID)
 		client, getErr := s.aiService.GetAIClientForModel("text", model)
 		if getErr != nil {
-			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
-			var err error
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr, "task_id", taskID)
 			text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
-			if err != nil {
-				s.log.Errorw("Failed to generate storyboard", "error", err)
-				return nil, fmt.Errorf("生成分镜头失败: %w", err)
-			}
 		} else {
-			var err error
 			text, err = client.GenerateText(prompt, "", ai.WithMaxTokens(16000))
-			if err != nil {
-				s.log.Errorw("Failed to generate storyboard", "error", err)
-				return nil, fmt.Errorf("生成分镜头失败: %w", err)
-			}
 		}
 	} else {
-		var err error
 		text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
-		if err != nil {
-			s.log.Errorw("Failed to generate storyboard", "error", err)
-			return nil, fmt.Errorf("生成分镜头失败: %w", err)
+	}
+
+	if err != nil {
+		s.log.Errorw("Failed to generate storyboard", "error", err, "task_id", taskID)
+		if updateErr := s.taskService.UpdateTaskError(taskID, fmt.Errorf("生成分镜头失败: %w", err)); updateErr != nil {
+			s.log.Errorw("Failed to update task error", "error", updateErr, "task_id", taskID)
 		}
+		return
+	}
+
+	// 更新任务进度
+	if err := s.taskService.UpdateTaskStatus(taskID, "processing", 50, "分镜头生成完成，正在解析结果..."); err != nil {
+		s.log.Errorw("Failed to update task status", "error", err, "task_id", taskID)
+		return
 	}
 
 	// 解析JSON结果
@@ -369,15 +397,18 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 		// 成功解析为数组，包装为对象
 		result.Storyboards = storyboards
 		result.Total = len(storyboards)
-		s.log.Infow("Parsed storyboard as array format", "count", len(storyboards))
+		s.log.Infow("Parsed storyboard as array format", "count", len(storyboards), "task_id", taskID)
 	} else {
 		// 尝试解析为对象格式
 		if err := utils.SafeParseAIJSON(text, &result); err != nil {
-			s.log.Errorw("Failed to parse storyboard JSON in both formats", "error", err, "response", text[:min(500, len(text))])
-			return nil, fmt.Errorf("解析分镜头结果失败: %w", err)
+			s.log.Errorw("Failed to parse storyboard JSON in both formats", "error", err, "response", text[:min(500, len(text))], "task_id", taskID)
+			if updateErr := s.taskService.UpdateTaskError(taskID, fmt.Errorf("解析分镜头结果失败: %w", err)); updateErr != nil {
+				s.log.Errorw("Failed to update task error", "error", updateErr, "task_id", taskID)
+			}
+			return
 		}
 		result.Total = len(result.Storyboards)
-		s.log.Infow("Parsed storyboard as object format", "count", len(result.Storyboards))
+		s.log.Infow("Parsed storyboard as object format", "count", len(result.Storyboards), "task_id", taskID)
 	}
 
 	// 计算总时长（所有分镜时长之和）
@@ -387,29 +418,59 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 	}
 
 	s.log.Infow("Storyboard generated",
+		"task_id", taskID,
 		"episode_id", episodeID,
 		"count", result.Total,
 		"total_duration_seconds", totalDuration)
 
+	// 更新任务进度
+	if err := s.taskService.UpdateTaskStatus(taskID, "processing", 70, "正在保存分镜头..."); err != nil {
+		s.log.Errorw("Failed to update task status", "error", err, "task_id", taskID)
+		return
+	}
+
 	// 保存分镜头到数据库
 	if err := s.saveStoryboards(episodeID, result.Storyboards); err != nil {
-		s.log.Errorw("Failed to save storyboards", "error", err)
-		return nil, fmt.Errorf("保存分镜头失败: %w", err)
+		s.log.Errorw("Failed to save storyboards", "error", err, "task_id", taskID)
+		if updateErr := s.taskService.UpdateTaskError(taskID, fmt.Errorf("保存分镜头失败: %w", err)); updateErr != nil {
+			s.log.Errorw("Failed to update task error", "error", updateErr, "task_id", taskID)
+		}
+		return
+	}
+
+	// 更新任务进度
+	if err := s.taskService.UpdateTaskStatus(taskID, "processing", 90, "正在更新剧集时长..."); err != nil {
+		s.log.Errorw("Failed to update task status", "error", err, "task_id", taskID)
+		return
 	}
 
 	// 更新剧集时长（秒转分钟，向上取整）
 	durationMinutes := (totalDuration + 59) / 60
 	if err := s.db.Model(&models.Episode{}).Where("id = ?", episodeID).Update("duration", durationMinutes).Error; err != nil {
-		s.log.Errorw("Failed to update episode duration", "error", err)
+		s.log.Errorw("Failed to update episode duration", "error", err, "task_id", taskID)
 		// 不中断流程，只记录错误
 	} else {
 		s.log.Infow("Episode duration updated",
+			"task_id", taskID,
 			"episode_id", episodeID,
 			"duration_seconds", totalDuration,
 			"duration_minutes", durationMinutes)
 	}
 
-	return &result, nil
+	// 更新任务结果
+	resultData := gin.H{
+		"storyboards":      result.Storyboards,
+		"total":            result.Total,
+		"total_duration":   totalDuration,
+		"duration_minutes": durationMinutes,
+	}
+
+	if err := s.taskService.UpdateTaskResult(taskID, resultData); err != nil {
+		s.log.Errorw("Failed to update task result", "error", err, "task_id", taskID)
+		return
+	}
+
+	s.log.Infow("Storyboard generation completed", "task_id", taskID, "episode_id", episodeID)
 }
 
 // generateImagePrompt 生成专门用于图片生成的提示词（首帧静态画面）
@@ -559,7 +620,8 @@ func extractCompositionType(shotType string) string {
 // generateVideoPrompt 生成专门用于视频生成的提示词（包含运镜和动态元素）
 func (s *StoryboardService) generateVideoPrompt(sb Storyboard) string {
 	var parts []string
-
+	style := s.config.Style.DefaultStyle
+	videoRatio := s.config.Style.DefaultVideoRatio
 	// 1. 人物动作
 	if sb.Action != "" {
 		parts = append(parts, fmt.Sprintf("Action: %s", sb.Action))
@@ -614,8 +676,9 @@ func (s *StoryboardService) generateVideoPrompt(sb Storyboard) string {
 	}
 
 	// 9. 视频风格要求
-	parts = append(parts, "Style: cinematic anime style, smooth camera motion, natural character movement")
-
+	parts = append(parts, fmt.Sprintf("Style: %s", style))
+	// 10. 视频比例
+	parts = append(parts, fmt.Sprintf("=VideoRatio: %s", videoRatio))
 	if len(parts) > 0 {
 		return strings.Join(parts, ". ")
 	}
@@ -809,32 +872,112 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 	})
 }
 
-// UpdateStoryboardCharacters 更新分镜的角色关联
-func (s *StoryboardService) UpdateStoryboardCharacters(storyboardID string, characterIDs []uint) error {
-	// 查找分镜
-	var storyboard models.Storyboard
-	if err := s.db.First(&storyboard, storyboardID).Error; err != nil {
-		return fmt.Errorf("storyboard not found: %w", err)
+// CreateStoryboardRequest 创建分镜请求
+type CreateStoryboardRequest struct {
+	EpisodeID        uint    `json:"episode_id"`
+	SceneID          *uint   `json:"scene_id"`
+	StoryboardNumber int     `json:"storyboard_number"`
+	Title            *string `json:"title"`
+	Location         *string `json:"location"`
+	Time             *string `json:"time"`
+	ShotType         *string `json:"shot_type"`
+	Angle            *string `json:"angle"`
+	Movement         *string `json:"movement"`
+	Description      *string `json:"description"`
+	Action           *string `json:"action"`
+	Result           *string `json:"result"`
+	Atmosphere       *string `json:"atmosphere"`
+	Dialogue         *string `json:"dialogue"`
+	BgmPrompt        *string `json:"bgm_prompt"`
+	SoundEffect      *string `json:"sound_effect"`
+	Duration         int     `json:"duration"`
+	Characters       []uint  `json:"characters"`
+}
+
+// CreateStoryboard 创建单个分镜
+func (s *StoryboardService) CreateStoryboard(req *CreateStoryboardRequest) (*models.Storyboard, error) {
+	// 构建Storyboard对象
+	sb := Storyboard{
+		ShotNumber:  req.StoryboardNumber,
+		ShotType:    getString(req.ShotType),
+		Angle:       getString(req.Angle),
+		Time:        getString(req.Time),
+		Location:    getString(req.Location),
+		SceneID:     req.SceneID,
+		Movement:    getString(req.Movement),
+		Action:      getString(req.Action),
+		Dialogue:    getString(req.Dialogue),
+		Result:      getString(req.Result),
+		Atmosphere:  getString(req.Atmosphere),
+		Emotion:     "", // 可以后续添加
+		Duration:    req.Duration,
+		BgmPrompt:   getString(req.BgmPrompt),
+		SoundEffect: getString(req.SoundEffect),
+		Characters:  req.Characters,
+	}
+	if req.Title != nil {
+		sb.Title = *req.Title
 	}
 
-	// 清除现有的角色关联
-	if err := s.db.Model(&storyboard).Association("Characters").Clear(); err != nil {
-		return fmt.Errorf("failed to clear characters: %w", err)
+	// 生成提示词
+	imagePrompt := s.generateImagePrompt(sb)
+	videoPrompt := s.generateVideoPrompt(sb)
+
+	// 构建 description
+	desc := ""
+	if req.Description != nil {
+		desc = *req.Description
 	}
 
-	// 如果有新的角色ID，加载并关联
-	if len(characterIDs) > 0 {
+	modelSB := &models.Storyboard{
+		EpisodeID:        req.EpisodeID,
+		SceneID:          req.SceneID,
+		StoryboardNumber: req.StoryboardNumber,
+		Title:            req.Title,
+		Location:         req.Location,
+		Time:             req.Time,
+		ShotType:         req.ShotType,
+		Angle:            req.Angle,
+		Movement:         req.Movement,
+		Description:      &desc,
+		Action:           req.Action,
+		Result:           req.Result,
+		Atmosphere:       req.Atmosphere,
+		Dialogue:         req.Dialogue,
+		ImagePrompt:      &imagePrompt,
+		VideoPrompt:      &videoPrompt,
+		BgmPrompt:        req.BgmPrompt,
+		SoundEffect:      req.SoundEffect,
+		Duration:         req.Duration,
+	}
+
+	if err := s.db.Create(modelSB).Error; err != nil {
+		return nil, fmt.Errorf("failed to create storyboard: %w", err)
+	}
+
+	// 关联角色
+	if len(req.Characters) > 0 {
 		var characters []models.Character
-		if err := s.db.Where("id IN ?", characterIDs).Find(&characters).Error; err != nil {
-			return fmt.Errorf("failed to find characters: %w", err)
-		}
-
-		if err := s.db.Model(&storyboard).Association("Characters").Append(characters); err != nil {
-			return fmt.Errorf("failed to associate characters: %w", err)
+		if err := s.db.Where("id IN ?", req.Characters).Find(&characters).Error; err != nil {
+			s.log.Warnw("Failed to find characters for new storyboard", "error", err)
+		} else if len(characters) > 0 {
+			s.db.Model(modelSB).Association("Characters").Append(characters)
 		}
 	}
 
-	s.log.Infow("Storyboard characters updated", "storyboard_id", storyboardID, "character_count", len(characterIDs))
+	s.log.Infow("Storyboard created", "id", modelSB.ID, "episode_id", req.EpisodeID)
+	return modelSB, nil
+}
+
+// DeleteStoryboard 删除分镜
+func (s *StoryboardService) DeleteStoryboard(storyboardID uint) error {
+	result := s.db.Where("id = ? ", storyboardID).Delete(&models.Storyboard{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("storyboard not found")
+	}
 	return nil
 }
 
@@ -843,4 +986,11 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func getString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

@@ -123,12 +123,42 @@ func attemptJSONRepair(jsonStr string) string {
 	openBrackets := strings.Count(trimmed, "[")
 	closeBrackets := strings.Count(trimmed, "]")
 
-	// 4. 补全未闭合的数组
+	// 4. 处理多余的闭合括号（从末尾移除）
+	// 这是 AI 生成 JSON 时常见的问题
+	for closeBrackets > openBrackets && len(trimmed) > 0 {
+		// 从末尾向前查找多余的 ]
+		lastIdx := strings.LastIndex(trimmed, "]")
+		if lastIdx >= 0 {
+			trimmed = trimmed[:lastIdx] + trimmed[lastIdx+1:]
+			closeBrackets--
+		} else {
+			break
+		}
+	}
+
+	for closeBraces > openBraces && len(trimmed) > 0 {
+		// 从末尾向前查找多余的 }
+		lastIdx := strings.LastIndex(trimmed, "}")
+		if lastIdx >= 0 {
+			trimmed = trimmed[:lastIdx] + trimmed[lastIdx+1:]
+			closeBraces--
+		} else {
+			break
+		}
+	}
+
+	// 重新统计括号（因为可能已修改）
+	openBraces = strings.Count(trimmed, "{")
+	closeBraces = strings.Count(trimmed, "}")
+	openBrackets = strings.Count(trimmed, "[")
+	closeBrackets = strings.Count(trimmed, "]")
+
+	// 5. 补全未闭合的数组
 	for i := 0; i < openBrackets-closeBrackets; i++ {
 		trimmed += "]"
 	}
 
-	// 5. 补全未闭合的对象
+	// 6. 补全未闭合的对象
 	for i := 0; i < openBraces-closeBraces; i++ {
 		trimmed += "}"
 	}

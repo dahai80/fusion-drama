@@ -42,12 +42,18 @@ func (h *FramePromptHandler) GenerateFramePrompt(c *gin.Context) {
 		PanelCount:   req.PanelCount,
 	}
 
-	result, err := h.framePromptService.GenerateFramePrompt(serviceReq, req.Model)
+	// 直接调用服务层的异步方法，该方法会创建任务并返回任务ID
+	taskID, err := h.framePromptService.GenerateFramePrompt(serviceReq, req.Model)
 	if err != nil {
 		h.log.Errorw("Failed to generate frame prompt", "error", err)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	response.Success(c, result)
+	// 立即返回任务ID
+	response.Success(c, gin.H{
+		"task_id": taskID,
+		"status":  "pending",
+		"message": "帧提示词生成任务已创建，正在后台处理...",
+	})
 }
