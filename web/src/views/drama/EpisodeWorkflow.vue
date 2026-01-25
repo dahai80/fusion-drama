@@ -984,7 +984,9 @@ const loadAIConfigs = async () => {
       selectedTextModel.value = textModels.value[0].modelName
     }
     if (imageModels.value.length > 0 && !selectedImageModel.value) {
-      selectedImageModel.value = imageModels.value[0].modelName
+      // 优先选择包含 nano 的模型
+      const nanoModel = imageModels.value.find(m => m.modelName.toLowerCase().includes('nano'))
+      selectedImageModel.value = nanoModel ? nanoModel.modelName : imageModels.value[0].modelName
     }
     
     // 验证已选择的模型是否还在可用列表中，如果不在则重置为默认值
@@ -1002,7 +1004,9 @@ const loadAIConfigs = async () => {
     
     if (selectedImageModel.value && !availableImageModelNames.includes(selectedImageModel.value)) {
       console.warn(`已选择的图片模型 ${selectedImageModel.value} 不在可用列表中，重置为默认值`)
-      selectedImageModel.value = imageModels.value.length > 0 ? imageModels.value[0].modelName : ''
+      // 优先选择包含 nano 的模型
+      const nanoModel = imageModels.value.find(m => m.modelName.toLowerCase().includes('nano'))
+      selectedImageModel.value = imageModels.value.length > 0 ? (nanoModel ? nanoModel.modelName : imageModels.value[0].modelName) : ''
       // 更新 localStorage
       if (selectedImageModel.value) {
         localStorage.setItem(`ai_image_model_${dramaId}`, selectedImageModel.value)
