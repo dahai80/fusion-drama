@@ -96,8 +96,7 @@ const generateImage = async (scene: Scene) => {
     if (scene.description) {
       prompt += `, ${scene.description}`
     }
-    prompt += ', detailed background scene, anime style, high quality, no characters'
-    
+
     const result = await imageAPI.generateImage({
       drama_id: dramaId,
       scene_id: scene.id as number,

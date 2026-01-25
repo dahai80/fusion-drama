@@ -70,7 +70,9 @@ export default {
     createdAt: '创建时间',
     updatedAt: '更新时间',
     name: '名称',
-    description: '描述'
+    description: '描述',
+    image: '图片',
+    perPage: '每页'
   },
   settings: {
     title: '设置',
@@ -191,7 +193,11 @@ export default {
       charactersTip: '角色将在剧本生成阶段自动创建',
       sceneList: '场景列表',
       noScenes: '还没有场景',
-      scenesTip: '场景将在分镜生成阶段自动创建'
+      scenesTip: '场景将在分镜生成阶段自动创建',
+      propList: '道具列表',
+      noProps: '还没有道具',
+      propStats: '道具统计',
+      propsCreated: '已创建道具'
     }
   },
   character: {
@@ -215,6 +221,26 @@ export default {
     backToProject: '返回项目',
     saveChanges: '保存修改',
     nextStep: '下一步：生成角色图片'
+  },
+  prop: {
+    title: '道具管理',
+    add: '添加道具',
+    edit: '编辑道具',
+    delete: '删除道具',
+    create: '创建道具',
+    name: '道具名称',
+    type: '类型',
+    typePlaceholder: '如：武器、日常用品',
+    description: '道具描述',
+    prompt: '图片提示词',
+    promptPlaceholder: 'AI生成图片的英文提示词',
+    extract: '从剧本提取',
+    extractTitle: '从剧本提取道具',
+    selectEpisode: '选择章节',
+    extractTip: 'AI将分析剧本内容，自动提取关键道具并生成描述',
+    startExtract: '开始提取',
+    extractSuccess: '道具提取任务已提交，AI分析大约需要1分钟',
+    generateImage: '生成图片'
   },
   script: {
     title: '剧本生成',
@@ -525,6 +551,12 @@ export default {
     lightingEffect: '光照效果',
     specialEffects: '特效',
     props: '道具',
+    addProp: '添加道具',
+    addPropToShot: '添加道具到镜头',
+    removeProp: '移除道具',
+    noProps: '无道具',
+    noPropsAvailable: '暂无道具，请先在剧本管理中添加道具',
+    updatePropFailed: '更新道具失败',
     emotionalTone: '情绪色调',
     shotImage: '镜头图片',
     noShotSelected: '未选择镜头',

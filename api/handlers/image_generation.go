@@ -16,6 +16,7 @@ type ImageGenerationHandler struct {
 	imageService *services.ImageGenerationService
 	taskService  *services.TaskService
 	log          *logger.Logger
+	config       *config.Config
 }
 
 func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage) *ImageGenerationHandler {
@@ -23,6 +24,7 @@ func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logg
 		imageService: services.NewImageGenerationService(db, cfg, transferService, localStorage, log),
 		taskService:  services.NewTaskService(db, log),
 		log:          log,
+		config:       cfg,
 	}
 }
 
@@ -75,64 +77,35 @@ func (h *ImageGenerationHandler) GetBackgroundsForEpisode(c *gin.Context) {
 func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 	episodeID := c.Param("episode_id")
 
-	// 接收可选的 model 参数
+	// 接收可选的 model 和 style 参数
 	var req struct {
 		Model string `json:"model"`
+		Style string `json:"style"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型）
+		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型和风格）
 		req.Model = ""
+		req.Style = ""
+	}
+	// 如果style为空，使用配置中的默认风格
+	if req.Style == "" {
+		req.Style = h.config.Style.DefaultStyle + ", " + h.config.Style.DefaultSceneStyle
 	}
 
-	// 创建异步任务
-	task, err := h.taskService.CreateTask("background_extraction", episodeID)
+	// 直接调用服务层的异步方法，该方法会创建任务并返回任务ID
+	taskID, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, req.Model, req.Style)
 	if err != nil {
-		h.log.Errorw("Failed to create task", "error", err)
+		h.log.Errorw("Failed to extract backgrounds", "error", err, "episode_id", episodeID)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	// 启动后台goroutine处理
-	go h.processBackgroundExtraction(task.ID, episodeID, req.Model)
-
 	// 立即返回任务ID
 	response.Success(c, gin.H{
-		"task_id": task.ID,
+		"task_id": taskID,
 		"status":  "pending",
 		"message": "场景提取任务已创建，正在后台处理...",
 	})
-}
-
-// processBackgroundExtraction 后台处理场景提取
-func (h *ImageGenerationHandler) processBackgroundExtraction(taskID, episodeID, model string) {
-	h.log.Infow("Starting background extraction", "task_id", taskID, "episode_id", episodeID, "model", model)
-
-	// 更新任务状态为处理中
-	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始提取场景..."); err != nil {
-		h.log.Errorw("Failed to update task status", "error", err)
-	}
-
-	// 调用实际的提取逻辑
-	backgrounds, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, model)
-	if err != nil {
-		h.log.Errorw("Failed to extract backgrounds", "error", err, "task_id", taskID)
-		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
-			h.log.Errorw("Failed to update task error", "error", updateErr)
-		}
-		return
-	}
-
-	// 更新任务结果
-	result := gin.H{
-		"backgrounds": backgrounds,
-		"total":       len(backgrounds),
-	}
-	if err := h.taskService.UpdateTaskResult(taskID, result); err != nil {
-		h.log.Errorw("Failed to update task result", "error", err)
-		return
-	}
-
-	h.log.Infow("Background extraction completed", "task_id", taskID, "total", len(backgrounds))
 }
 
 func (h *ImageGenerationHandler) BatchGenerateForEpisode(c *gin.Context) {
@@ -230,4 +203,36 @@ func (h *ImageGenerationHandler) DeleteImageGeneration(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+// UploadImage 上传图片并创建图片生成记录
+func (h *ImageGenerationHandler) UploadImage(c *gin.Context) {
+	var req struct {
+		StoryboardID uint   `json:"storyboard_id" binding:"required"`
+		DramaID      uint   `json:"drama_id" binding:"required"`
+		FrameType    string `json:"frame_type" binding:"required"`
+		ImageURL     string `json:"image_url" binding:"required"`
+		Prompt       string `json:"prompt"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	imageGen, err := h.imageService.CreateImageFromUpload(&services.UploadImageRequest{
+		StoryboardID: req.StoryboardID,
+		DramaID:      req.DramaID,
+		FrameType:    req.FrameType,
+		ImageURL:     req.ImageURL,
+		Prompt:       req.Prompt,
+	})
+
+	if err != nil {
+		h.log.Errorw("Failed to create image from upload", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, imageGen)
 }

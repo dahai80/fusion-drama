@@ -30,56 +30,18 @@ func (h *ScriptGenerationHandler) GenerateCharacters(c *gin.Context) {
 		return
 	}
 
-	// 创建异步任务
-	task, err := h.taskService.CreateTask("character_generation", req.DramaID)
+	// 直接调用服务层的异步方法，该方法会创建任务并返回任务ID
+	taskID, err := h.scriptService.GenerateCharacters(&req)
 	if err != nil {
-		h.log.Errorw("Failed to create task", "error", err)
+		h.log.Errorw("Failed to generate characters", "error", err, "drama_id", req.DramaID)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	// 复制req值，避免goroutine中使用指针导致的并发问题
-	reqCopy := req
-
-	// 启动后台goroutine处理
-	go h.processCharacterGeneration(task.ID, &reqCopy)
-
 	// 立即返回任务ID
 	response.Success(c, gin.H{
-		"task_id": task.ID,
+		"task_id": taskID,
 		"status":  "pending",
 		"message": "角色生成任务已创建，正在后台处理...",
 	})
-}
-
-// processCharacterGeneration 后台处理角色生成
-func (h *ScriptGenerationHandler) processCharacterGeneration(taskID string, req *services.GenerateCharactersRequest) {
-	h.log.Infow("Starting character generation", "task_id", taskID, "drama_id", req.DramaID)
-
-	// 更新任务状态为处理中
-	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始生成角色..."); err != nil {
-		h.log.Errorw("Failed to update task status", "error", err)
-	}
-
-	// 调用实际的生成逻辑
-	characters, err := h.scriptService.GenerateCharacters(req)
-	if err != nil {
-		h.log.Errorw("Failed to generate characters", "error", err, "task_id", taskID)
-		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
-			h.log.Errorw("Failed to update task error", "error", updateErr)
-		}
-		return
-	}
-
-	// 更新任务结果
-	result := gin.H{
-		"characters": characters,
-		"total":      len(characters),
-	}
-	if err := h.taskService.UpdateTaskResult(taskID, result); err != nil {
-		h.log.Errorw("Failed to update task result", "error", err)
-		return
-	}
-
-	h.log.Infow("Character generation completed", "task_id", taskID, "total", len(characters))
 }

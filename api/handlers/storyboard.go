@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/drama-generator/backend/application/services"
 	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
@@ -36,51 +38,20 @@ func (h *StoryboardHandler) GenerateStoryboard(c *gin.Context) {
 		req.Model = ""
 	}
 
-	// 创建异步任务
-	task, err := h.taskService.CreateTask("storyboard_generation", episodeID)
+	// 调用生成服务，该服务已经是异步的，会返回任务ID
+	taskID, err := h.storyboardService.GenerateStoryboard(episodeID, req.Model)
 	if err != nil {
-		h.log.Errorw("Failed to create task", "error", err)
+		h.log.Errorw("Failed to generate storyboard", "error", err, "episode_id", episodeID)
 		response.InternalError(c, err.Error())
 		return
 	}
 
-	// 启动后台goroutine处理
-	go h.processStoryboardGeneration(task.ID, episodeID, req.Model)
-
 	// 立即返回任务ID
 	response.Success(c, gin.H{
-		"task_id": task.ID,
+		"task_id": taskID,
 		"status":  "pending",
 		"message": "分镜头生成任务已创建，正在后台处理...",
 	})
-}
-
-// processStoryboardGeneration 后台处理分镜生成
-func (h *StoryboardHandler) processStoryboardGeneration(taskID, episodeID, model string) {
-	h.log.Infow("Starting storyboard generation", "task_id", taskID, "episode_id", episodeID, "model", model)
-
-	// 更新任务状态为处理中
-	if err := h.taskService.UpdateTaskStatus(taskID, "processing", 10, "开始生成分镜..."); err != nil {
-		h.log.Errorw("Failed to update task status", "error", err)
-	}
-
-	// 调用实际的生成逻辑
-	result, err := h.storyboardService.GenerateStoryboard(episodeID, model)
-	if err != nil {
-		h.log.Errorw("Failed to generate storyboard", "error", err, "task_id", taskID)
-		if updateErr := h.taskService.UpdateTaskError(taskID, err); updateErr != nil {
-			h.log.Errorw("Failed to update task error", "error", updateErr)
-		}
-		return
-	}
-
-	// 更新任务结果
-	if err := h.taskService.UpdateTaskResult(taskID, result); err != nil {
-		h.log.Errorw("Failed to update task result", "error", err)
-		return
-	}
-
-	h.log.Infow("Storyboard generation completed", "task_id", taskID, "total", result.Total)
 }
 
 // UpdateStoryboard 更新分镜
@@ -102,4 +73,40 @@ func (h *StoryboardHandler) UpdateStoryboard(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "Storyboard updated successfully"})
+}
+
+// CreateStoryboard 创建分镜
+func (h *StoryboardHandler) CreateStoryboard(c *gin.Context) {
+	var req services.CreateStoryboardRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	sb, err := h.storyboardService.CreateStoryboard(&req)
+	if err != nil {
+		h.log.Errorw("Failed to create storyboard", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Created(c, sb)
+}
+
+// DeleteStoryboard 删除分镜
+func (h *StoryboardHandler) DeleteStoryboard(c *gin.Context) {
+	storyboardIDStr := c.Param("id")
+	storyboardID, err := strconv.ParseUint(storyboardIDStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "Invalid ID")
+		return
+	}
+
+	if err := h.storyboardService.DeleteStoryboard(uint(storyboardID)); err != nil {
+		h.log.Errorw("Failed to delete storyboard", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
 }

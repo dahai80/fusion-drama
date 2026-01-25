@@ -20,7 +20,7 @@ type CharacterLibraryHandler struct {
 
 func NewCharacterLibraryHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services2.ResourceTransferService, localStorage *storage.LocalStorage) *CharacterLibraryHandler {
 	return &CharacterLibraryHandler{
-		libraryService: services2.NewCharacterLibraryService(db, log),
+		libraryService: services2.NewCharacterLibraryService(db, log, cfg),
 		imageService:   services2.NewImageGenerationService(db, cfg, transferService, localStorage, log),
 		log:            log,
 	}
@@ -218,13 +218,7 @@ func (h *CharacterLibraryHandler) UpdateCharacter(c *gin.Context) {
 
 	characterID := c.Param("id")
 
-	var req struct {
-		Name        *string `json:"name"`
-		Appearance  *string `json:"appearance"`
-		Personality *string `json:"personality"`
-		Description *string `json:"description"`
-	}
-
+	var req services2.UpdateCharacterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -272,4 +266,23 @@ func (h *CharacterLibraryHandler) DeleteCharacter(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "角色已删除"})
+}
+
+// ExtractCharacters 从剧本提取角色
+func (h *CharacterLibraryHandler) ExtractCharacters(c *gin.Context) {
+	episodeIDStr := c.Param("episode_id")
+	episodeID, err := strconv.ParseUint(episodeIDStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "Invalid episode_id")
+		return
+	}
+
+	taskID, err := h.libraryService.ExtractCharactersFromScript(uint(episodeID))
+	if err != nil {
+		h.log.Errorw("Failed to extract characters", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"task_id": taskID, "message": "角色提取任务已提交"})
 }

@@ -105,5 +105,10 @@ export const characterLibraryAPI = {
   // 删除角色
   deleteCharacter(characterId: number) {
     return request.delete(`/characters/${characterId}`)
+  },
+
+  // 从剧本提取角色
+  extractFromEpisode(episodeId: number) {
+    return request.post<{ task_id: string; message: string }>(`/episodes/${episodeId}/characters/extract`)
   }
 }

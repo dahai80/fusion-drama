@@ -53,6 +53,21 @@ type ChatCompletionResponse struct {
 	} `json:"usage"`
 }
 
+type ImageGenerationRequest struct {
+	Model  string `json:"model,omitempty"`
+	Prompt string `json:"prompt"`
+	N      int    `json:"n,omitempty"`
+	Size   string `json:"size,omitempty"`
+}
+
+type ImageGenerationResponse struct {
+	Created int64 `json:"created"`
+	Data    []struct {
+		URL     string `json:"url"`
+		B64JSON string `json:"b64_json"`
+	} `json:"data"`
+}
+
 type ErrorResponse struct {
 	Error struct {
 		Message string `json:"message"`
@@ -247,6 +262,72 @@ func (c *OpenAIClient) GenerateText(prompt string, systemPrompt string, options 
 	}
 
 	return resp.Choices[0].Message.Content, nil
+}
+
+func (c *OpenAIClient) GenerateImage(prompt string, size string, n int) ([]string, error) {
+	// 图片生成端点通常是 /v1/images/generations
+	// 如果 c.Endpoint 是 chat 端点，我们需要将其替换
+	// 这是一个简单的处理逻辑，实际可能需要更复杂的配置
+	imageEndpoint := "/v1/images/generations"
+
+	// 如果 BaseURL 是类似 api.openai.com，那么直接拼接
+	url := c.BaseURL + imageEndpoint
+
+	reqBody := ImageGenerationRequest{
+		Prompt: prompt,
+		N:      n,
+		Size:   size,
+		Model:  c.Model, // 如果是DALL-E 3，模型名很重要
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Error.Message != "" {
+			return nil, fmt.Errorf("API error: %s", errResp.Error.Message)
+		}
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var imgResp ImageGenerationResponse
+	if err := json.Unmarshal(body, &imgResp); err != nil {
+		return nil, err
+	}
+
+	var urls []string
+	for _, data := range imgResp.Data {
+		if data.URL != "" {
+			urls = append(urls, data.URL)
+		} else if data.B64JSON != "" {
+			// 如果返回的是base64，添加前缀
+			urls = append(urls, "data:image/png;base64,"+data.B64JSON)
+		}
+	}
+
+	return urls, nil
 }
 
 func (c *OpenAIClient) TestConnection() error {

@@ -424,3 +424,12 @@ func (s *AIService) GenerateText(prompt string, systemPrompt string, options ...
 
 	return client.GenerateText(prompt, systemPrompt, options...)
 }
+
+func (s *AIService) GenerateImage(prompt string, size string, n int) ([]string, error) {
+	client, err := s.GetAIClient("image")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AI client for image: %w", err)
+	}
+
+	return client.GenerateImage(prompt, size, n)
+}

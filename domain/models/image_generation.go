@@ -12,6 +12,7 @@ type ImageGeneration struct {
 	DramaID         uint                  `gorm:"not null;index" json:"drama_id"`
 	SceneID         *uint                 `gorm:"index" json:"scene_id,omitempty"`
 	CharacterID     *uint                 `gorm:"index" json:"character_id,omitempty"`
+	PropID          *uint                 `gorm:"index" json:"prop_id,omitempty"`
 	ImageType       string                `gorm:"size:20;index;default:'storyboard'" json:"image_type"`
 	FrameType       *string               `gorm:"size:20" json:"frame_type,omitempty"`
 	Provider        string                `gorm:"size:50;not null" json:"provider"`
@@ -41,6 +42,7 @@ type ImageGeneration struct {
 	Drama      Drama       `gorm:"foreignKey:DramaID" json:"drama,omitempty"`
 	Scene      *Scene      `gorm:"foreignKey:SceneID" json:"scene,omitempty"`
 	Character  *Character  `gorm:"foreignKey:CharacterID" json:"character,omitempty"`
+	Prop       *Prop       `gorm:"foreignKey:PropID" json:"prop,omitempty"`
 }
 
 func (ImageGeneration) TableName() string {
@@ -71,5 +73,6 @@ type ImageType string
 const (
 	ImageTypeCharacter  ImageType = "character"  // 角色图片
 	ImageTypeScene      ImageType = "scene"      // 场景图片
+	ImageTypeProp       ImageType = "prop"       // 道具图片
 	ImageTypeStoryboard ImageType = "storyboard" // 分镜图片
 )

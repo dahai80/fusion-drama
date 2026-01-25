@@ -6,19 +6,30 @@ import (
 	"time"
 
 	models "github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/pkg/ai"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
+	"github.com/drama-generator/backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
 type CharacterLibraryService struct {
-	db  *gorm.DB
-	log *logger.Logger
+	db          *gorm.DB
+	log         *logger.Logger
+	config      *config.Config
+	aiService   *AIService
+	taskService *TaskService
+	promptI18n  *PromptI18n
 }
 
-func NewCharacterLibraryService(db *gorm.DB, log *logger.Logger) *CharacterLibraryService {
+func NewCharacterLibraryService(db *gorm.DB, log *logger.Logger, cfg *config.Config) *CharacterLibraryService {
 	return &CharacterLibraryService{
-		db:  db,
-		log: log,
+		db:          db,
+		log:         log,
+		config:      cfg,
+		aiService:   NewAIService(db, log),
+		taskService: NewTaskService(db, log),
+		promptI18n:  NewPromptI18n(cfg),
 	}
 }
 
@@ -280,7 +291,7 @@ func (s *CharacterLibraryService) DeleteCharacter(characterID uint) error {
 }
 
 // GenerateCharacterImage AI生成角色形象
-func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, imageService *ImageGenerationService, modelName string) (*models.ImageGeneration, error) {
+func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, imageService *ImageGenerationService, modelName string, style string) (*models.ImageGeneration, error) {
 	// 查找角色
 	var character models.Character
 	if err := s.db.Where("id = ?", characterID).First(&character).Error; err != nil {
@@ -311,17 +322,9 @@ func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, ima
 		prompt = character.Name
 	}
 
-	// 添加角色画像和风格要求
-	prompt += ", character portrait, full body or upper body shot"
-
-	// 添加干净背景要求 - 确保背景简洁不干扰主体
-	prompt += ", simple clean background, plain solid color background, white or light gray background"
-	prompt += ", studio lighting, professional photography"
-
-	// 添加质量和风格要求
-	prompt += ", high quality, detailed, anime style, character design"
-	prompt += ", no complex background, no scenery, focus on character"
-
+	prompt += s.config.Style.DefaultStyle
+	prompt += s.config.Style.DefaultRoleStyle
+	prompt += s.config.Style.DefaultRoleRatio
 	// 调用图片生成服务
 	dramaIDStr := fmt.Sprintf("%d", character.DramaID)
 	imageType := "character"
@@ -386,8 +389,17 @@ func (s *CharacterLibraryService) waitAndUpdateCharacterImage(characterID uint, 
 	s.log.Warnw("Character image generation timeout", "character_id", characterID, "image_gen_id", imageGenID)
 }
 
+type UpdateCharacterRequest struct {
+	Name        *string `json:"name"`
+	Role        *string `json:"role"`
+	Appearance  *string `json:"appearance"`
+	Personality *string `json:"personality"`
+	Description *string `json:"description"`
+	ImageURL    *string `json:"image_url"`
+}
+
 // UpdateCharacter 更新角色信息
-func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interface{}) error {
+func (s *CharacterLibraryService) UpdateCharacter(characterID string, req *UpdateCharacterRequest) error {
 	// 查找角色
 	var character models.Character
 	if err := s.db.Where("id = ?", characterID).First(&character).Error; err != nil {
@@ -409,25 +421,23 @@ func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interf
 	// 构建更新数据
 	updates := make(map[string]interface{})
 
-	// 使用类型断言获取请求数据
-	if reqMap, ok := req.(*struct {
-		Name        *string `json:"name"`
-		Appearance  *string `json:"appearance"`
-		Personality *string `json:"personality"`
-		Description *string `json:"description"`
-	}); ok {
-		if reqMap.Name != nil && *reqMap.Name != "" {
-			updates["name"] = *reqMap.Name
-		}
-		if reqMap.Appearance != nil {
-			updates["appearance"] = *reqMap.Appearance
-		}
-		if reqMap.Personality != nil {
-			updates["personality"] = *reqMap.Personality
-		}
-		if reqMap.Description != nil {
-			updates["description"] = *reqMap.Description
-		}
+	if req.Name != nil && *req.Name != "" {
+		updates["name"] = *req.Name
+	}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Appearance != nil {
+		updates["appearance"] = *req.Appearance
+	}
+	if req.Personality != nil {
+		updates["personality"] = *req.Personality
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.ImageURL != nil {
+		updates["image_url"] = *req.ImageURL
 	}
 
 	if len(updates) == 0 {
@@ -440,7 +450,7 @@ func (s *CharacterLibraryService) UpdateCharacter(characterID string, req interf
 		return err
 	}
 
-	s.log.Infow("Character updated", "character_id", characterID)
+	s.log.Infow("Character updated", "character_id", characterID, "updates", updates)
 	return nil
 }
 
@@ -454,7 +464,7 @@ func (s *CharacterLibraryService) BatchGenerateCharacterImages(characterIDs []st
 	for _, characterID := range characterIDs {
 		// 为每个角色启动单独的 goroutine
 		go func(charID string) {
-			imageGen, err := s.GenerateCharacterImage(charID, imageService, modelName)
+			imageGen, err := s.GenerateCharacterImage(charID, imageService, modelName, "") // 批量生成暂不支持自定义风格，使用默认值
 			if err != nil {
 				s.log.Errorw("Failed to generate character image in batch",
 					"character_id", charID,
@@ -470,4 +480,99 @@ func (s *CharacterLibraryService) BatchGenerateCharacterImages(characterIDs []st
 
 	s.log.Infow("Batch character image generation tasks submitted",
 		"total", len(characterIDs))
+}
+
+// ExtractCharactersFromScript 从分集剧本中提取角色
+func (s *CharacterLibraryService) ExtractCharactersFromScript(episodeID uint) (string, error) {
+	var episode models.Episode
+	if err := s.db.First(&episode, episodeID).Error; err != nil {
+		return "", fmt.Errorf("episode not found")
+	}
+
+	if episode.ScriptContent == nil || *episode.ScriptContent == "" {
+		return "", fmt.Errorf("剧本内容为空")
+	}
+
+	task, err := s.taskService.CreateTask("character_extraction", fmt.Sprintf("%d", episode.DramaID))
+	if err != nil {
+		return "", fmt.Errorf("创建任务失败: %w", err)
+	}
+
+	go s.processCharacterExtraction(task.ID, episode)
+
+	return task.ID, nil
+}
+
+func (s *CharacterLibraryService) processCharacterExtraction(taskID string, episode models.Episode) {
+	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在分析剧本...")
+
+	script := ""
+	if episode.ScriptContent != nil {
+		script = *episode.ScriptContent
+	}
+
+	prompt := s.promptI18n.GetCharacterExtractionPrompt()
+	userPrompt := fmt.Sprintf("【剧本内容】\n%s", script)
+
+	response, err := s.aiService.GenerateText(userPrompt, prompt, ai.WithMaxTokens(3000))
+	if err != nil {
+		s.taskService.UpdateTaskError(taskID, err)
+		return
+	}
+
+	s.taskService.UpdateTaskStatus(taskID, "processing", 50, "正在整理角色数据...")
+
+	var extractedCharacters []struct {
+		Name        string `json:"name"`
+		Role        string `json:"role"`
+		Appearance  string `json:"appearance"`
+		Personality string `json:"personality"`
+		Description string `json:"description"`
+	}
+
+	if err := utils.SafeParseAIJSON(response, &extractedCharacters); err != nil {
+		s.log.Errorw("Failed to parse AI response for characters", "error", err, "response", response)
+		s.taskService.UpdateTaskError(taskID, fmt.Errorf("解析AI响应失败"))
+		return
+	}
+
+	var savedCharacters []models.Character
+	for _, charData := range extractedCharacters {
+		// 检查是否已存在同名角色
+		var existingCharacter models.Character
+		err := s.db.Where("drama_id = ? AND name = ?", episode.DramaID, charData.Name).First(&existingCharacter).Error
+
+		if err == nil {
+			// 如果存在，只关联，不更新（或者可以选更新，这里暂不更新）
+			if err := s.db.Model(&episode).Association("Characters").Append(&existingCharacter); err != nil {
+				s.log.Warnw("Failed to associate existing character", "error", err)
+			}
+			savedCharacters = append(savedCharacters, existingCharacter)
+		} else {
+			// 创建新角色
+			newCharacter := models.Character{
+				DramaID:     episode.DramaID,
+				Name:        charData.Name,
+				Role:        &charData.Role,
+				Appearance:  &charData.Appearance,
+				Personality: &charData.Personality,
+				Description: &charData.Description,
+			}
+			if err := s.db.Create(&newCharacter).Error; err != nil {
+				s.log.Errorw("Failed to create extracted character", "error", err)
+				continue
+			}
+
+			// 关联到分集
+			if err := s.db.Model(&episode).Association("Characters").Append(&newCharacter); err != nil {
+				s.log.Warnw("Failed to associate new character", "error", err)
+			}
+			savedCharacters = append(savedCharacters, newCharacter)
+		}
+	}
+
+	s.taskService.UpdateTaskResult(taskID, map[string]interface{}{
+		"characters": savedCharacters,
+		"count":      len(savedCharacters),
+	})
 }

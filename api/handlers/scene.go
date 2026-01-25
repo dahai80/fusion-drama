@@ -111,3 +111,25 @@ func (h *SceneHandler) DeleteScene(c *gin.Context) {
 
 	response.Success(c, gin.H{"message": "场景已删除"})
 }
+
+func (h *SceneHandler) CreateScene(c *gin.Context) {
+	var req services2.CreateSceneRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request")
+		return
+	}
+
+	if req.DramaID == 0 {
+		response.BadRequest(c, "drama_id is required")
+		return
+	}
+
+	scene, err := h.sceneService.CreateScene(&req)
+	if err != nil {
+		h.log.Errorw("Failed to create scene", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, scene)
+}
