@@ -234,8 +234,8 @@
                 <el-card shadow="hover" class="character-card">
                   <div class="character-preview">
                     <img
-                      v-if="character.image_url"
-                      :src="fixImageUrl(character.image_url)"
+                      v-if="character.local_path || character.image_url"
+                      :src="getImageUrl(character)"
                       :alt="character.name"
                     />
                     <el-avatar v-else :size="120">{{
@@ -310,8 +310,8 @@
                 <el-card shadow="hover" class="scene-card">
                   <div class="scene-preview">
                     <img
-                      v-if="scene.image_url"
-                      :src="fixImageUrl(scene.image_url)"
+                      v-if="scene.local_path || scene.image_url"
+                      :src="getImageUrl(scene)"
                       :alt="scene.name"
                     />
                     <div v-else class="scene-placeholder">
@@ -372,8 +372,8 @@
                 <el-card shadow="hover" class="scene-card">
                   <div class="scene-preview">
                     <img
-                      v-if="prop.image_url"
-                      :src="fixImageUrl(prop.image_url)"
+                      v-if="hasImage(prop)"
+                      :src="getImageUrl(prop)"
                       :alt="prop.name"
                     />
                     <div v-else class="scene-placeholder">
@@ -434,8 +434,8 @@
               :before-upload="beforeAvatarUpload"
             >
               <img
-                v-if="newCharacter.image_url"
-                :src="fixImageUrl(newCharacter.image_url)"
+                v-if="hasImage(newCharacter)"
+                :src="getImageUrl(newCharacter)"
                 class="avatar"
                 style="width: 100px; height: 100px; object-fit: cover"
               />
@@ -526,8 +526,8 @@
               :before-upload="beforeAvatarUpload"
             >
               <img
-                v-if="newScene.image_url"
-                :src="fixImageUrl(newScene.image_url)"
+                v-if="hasImage(newScene)"
+                :src="getImageUrl(newScene)"
                 class="avatar"
                 style="width: 160px; height: 90px; object-fit: cover"
               />
@@ -592,8 +592,8 @@
               :before-upload="beforeAvatarUpload"
             >
               <img
-                v-if="newProp.image_url"
-                :src="fixImageUrl(newProp.image_url)"
+                v-if="hasImage(newProp)"
+                :src="getImageUrl(newProp)"
                 class="avatar"
                 style="width: 100px; height: 100px; object-fit: cover"
               />
@@ -796,6 +796,7 @@ import { characterLibraryAPI } from "@/api/character-library";
 import { propAPI } from "@/api/prop";
 import type { Drama } from "@/types/drama";
 import { AppHeader, StatCard, EmptyState } from "@/components/common";
+import { getImageUrl, hasImage } from "@/utils/image";
 
 const router = useRouter();
 const route = useRoute();
@@ -825,6 +826,7 @@ const newCharacter = ref({
   personality: "",
   description: "",
   image_url: "",
+  local_path: "",
 });
 
 const newProp = ref({
@@ -833,12 +835,14 @@ const newProp = ref({
   prompt: "",
   type: "",
   image_url: "",
+  local_path: "",
 });
 
 const newScene = ref({
   location: "",
   prompt: "",
   image_url: "",
+  local_path: "",
 });
 
 const episodesCount = computed(() => drama.value?.episodes?.length || 0);
@@ -932,12 +936,6 @@ const formatDate = (date?: string) => {
   return new Date(date).toLocaleString("zh-CN");
 };
 
-const fixImageUrl = (url: string) => {
-  if (!url) return "";
-  if (url.startsWith("http") || url.startsWith("data:")) return url;
-  return `${import.meta.env.VITE_API_BASE_URL}${url}`;
-};
-
 const createNewEpisode = () => {
   const nextEpisodeNumber = episodesCount.value + 1;
   router.push({
@@ -1012,12 +1010,14 @@ const openAddCharacterDialog = () => {
 const handleCharacterAvatarSuccess = (response: any) => {
   if (response.data && response.data.url) {
     newCharacter.value.image_url = response.data.url;
+    newCharacter.value.local_path = response.data.local_path || "";
   }
 };
 
 const handleSceneImageSuccess = (response: any) => {
   if (response.data && response.data.url) {
     newScene.value.image_url = response.data.url;
+    newScene.value.local_path = response.data.local_path || "";
   }
 };
 
@@ -1126,6 +1126,7 @@ const saveCharacter = async () => {
         personality: newCharacter.value.personality,
         description: newCharacter.value.description,
         image_url: newCharacter.value.image_url,
+        local_path: newCharacter.value.local_path,
       });
       ElMessage.success("角色更新成功");
     } else {
@@ -1138,6 +1139,7 @@ const saveCharacter = async () => {
           personality: c.personality,
           description: c.description,
           image_url: c.image_url,
+          local_path: c.local_path,
         })),
         newCharacter.value,
       ];
@@ -1162,6 +1164,7 @@ const editCharacter = (character: any) => {
     personality: character.personality || "",
     description: character.description || "",
     image_url: character.image_url || "",
+    local_path: character.local_path || "",
   };
   addCharacterDialogVisible.value = true;
 };
@@ -1217,6 +1220,7 @@ const saveScene = async () => {
         location: newScene.value.location,
         description: newScene.value.prompt,
         image_url: newScene.value.image_url,
+        local_path: newScene.value.local_path,
       });
       // prompt field in Update is description or prompt? Check backend.
       // UpdateSceneRequest has Description *string.
@@ -1259,9 +1263,10 @@ const saveScene = async () => {
       await dramaAPI.createScene({
         drama_id: drama.value!.id,
         location: newScene.value.location,
-        prompt: newScene.value.prompt, // Create uses prompt
-        description: newScene.value.prompt, // Sync description too
+        prompt: newScene.value.prompt,
+        description: newScene.value.prompt,
         image_url: newScene.value.image_url,
+        local_path: newScene.value.local_path,
       });
     }
 
@@ -1277,8 +1282,9 @@ const editScene = (scene: any) => {
   editingScene.value = scene;
   newScene.value = {
     location: scene.location || scene.name || "",
-    prompt: scene.prompt || scene.description || "", // Try prompt first then description
+    prompt: scene.prompt || scene.description || "",
     image_url: scene.image_url || "",
+    local_path: scene.local_path || "",
   };
   addSceneDialogVisible.value = true;
 };
@@ -1319,6 +1325,7 @@ const openAddPropDialog = () => {
     prompt: "",
     type: "",
     image_url: "",
+    local_path: "",
   };
   addPropDialogVisible.value = true;
 };
@@ -1337,6 +1344,7 @@ const saveProp = async () => {
       prompt: newProp.value.prompt,
       type: newProp.value.type,
       image_url: newProp.value.image_url,
+      local_path: newProp.value.local_path,
     };
 
     if (editingProp.value) {
@@ -1362,6 +1370,7 @@ const editProp = (prop: any) => {
     prompt: prop.prompt || "",
     type: prop.type || "",
     image_url: prop.image_url || "",
+    local_path: prop.local_path || "",
   };
   addPropDialogVisible.value = true;
 };
@@ -1407,6 +1416,7 @@ const generatePropImage = async (prop: any) => {
 const handlePropImageSuccess = (response: any) => {
   if (response.data && response.data.url) {
     newProp.value.image_url = response.data.url;
+    newProp.value.local_path = response.data.local_path || "";
   }
 };
 
