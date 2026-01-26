@@ -105,6 +105,18 @@ func (f *FFmpeg) MergeVideos(opts *MergeOptions) (string, error) {
 }
 
 func (f *FFmpeg) downloadVideo(url, destPath string) (string, error) {
+	// 检查是否是本地文件路径
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		// 这是本地文件路径，检查文件是否存在
+		if _, err := os.Stat(url); err == nil {
+			f.log.Infow("Using local video file", "path", url)
+			return url, nil
+		} else {
+			return "", fmt.Errorf("local file not found: %s", url)
+		}
+	}
+
+	// 远程 URL，需要下载
 	f.log.Infow("Downloading video", "url", url, "dest", destPath)
 
 	resp, err := http.Get(url)

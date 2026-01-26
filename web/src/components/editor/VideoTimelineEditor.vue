@@ -392,6 +392,7 @@ import {
 } from '@element-plus/icons-vue'
 import { videoMerger, type MergeProgress } from '@/utils/videoMerger'
 import { trimAndMergeVideos } from '@/utils/ffmpeg'
+import { getVideoUrl } from '@/utils/image'
 
 interface Scene {
   id: string
@@ -458,7 +459,7 @@ const availableStoryboards = computed(() => {
       storyboard_number: a.storyboard_num || a.id,
       storyboard_num: a.storyboard_num,
       storyboard_id: a.storyboard_id,
-      video_url: a.url,
+      video_url: getVideoUrl(a), // 优先使用 local_path
       duration: a.duration || 0,
       name: a.name,
       isAsset: true,

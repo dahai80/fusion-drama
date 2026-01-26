@@ -379,21 +379,37 @@ func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoU
 	}
 
 	// 如果视频已下载到本地，探测真实时长
-	if localVideoPath != nil && s.ffmpeg != nil {
+	// 特别是当 AI 服务返回的 duration 为 0 或 nil 时，必须探测
+	shouldProbe := localVideoPath != nil && s.ffmpeg != nil && (duration == nil || *duration == 0)
+	if shouldProbe {
 		absPath := s.localStorage.GetAbsolutePath(*localVideoPath)
 		if probedDuration, err := s.ffmpeg.GetVideoDuration(absPath); err == nil {
 			// 转换为整数秒（向上取整）
 			durationInt := int(probedDuration + 0.5)
 			duration = &durationInt
-			s.log.Infow("Probed video duration",
+			s.log.Infow("Probed video duration (was 0 or nil)",
 				"id", videoGenID,
 				"duration_seconds", durationInt,
 				"duration_float", probedDuration)
 		} else {
-			s.log.Warnw("Failed to probe video duration, using provided duration",
+			s.log.Errorw("Failed to probe video duration, duration will be 0",
 				"error", err,
 				"id", videoGenID,
 				"local_path", *localVideoPath)
+		}
+	} else if localVideoPath != nil && s.ffmpeg != nil && duration != nil && *duration > 0 {
+		// 即使有 duration，也验证一下（可选）
+		absPath := s.localStorage.GetAbsolutePath(*localVideoPath)
+		if probedDuration, err := s.ffmpeg.GetVideoDuration(absPath); err == nil {
+			durationInt := int(probedDuration + 0.5)
+			if durationInt != *duration {
+				s.log.Warnw("Probed duration differs from provided duration",
+					"id", videoGenID,
+					"provided", *duration,
+					"probed", durationInt)
+				// 使用探测到的时长（更准确）
+				duration = &durationInt
+			}
 		}
 	}
 

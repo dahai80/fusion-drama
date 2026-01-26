@@ -268,6 +268,7 @@ func (s *AssetService) ImportFromVideoGen(videoGenID uint) (*models.Asset, error
 		Name:          fmt.Sprintf("Video_%d", videoGen.ID),
 		Type:          models.AssetTypeVideo,
 		URL:           *videoGen.VideoURL,
+		LocalPath:     videoGen.LocalPath, // 同步 local_path 到 assets 表
 		DramaID:       &dramaID,
 		EpisodeID:     episodeID,
 		StoryboardID:  videoGen.StoryboardID,

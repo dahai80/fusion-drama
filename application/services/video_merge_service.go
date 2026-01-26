@@ -412,15 +412,23 @@ func (s *VideoMergeService) FinalizeEpisode(episodeID string, timelineData *Fina
 			var sceneID uint
 
 			if clip.AssetID != "" {
-				// 从素材库获取视频URL
+				// 从素材库获取视频，优先使用 local_path
 				var asset models.Asset
 				if err := s.db.Where("id = ? AND type = ?", clip.AssetID, models.AssetTypeVideo).First(&asset).Error; err == nil {
-					videoURL = asset.URL
+					// 优先使用 local_path（本地文件）
+					if asset.LocalPath != nil && *asset.LocalPath != "" {
+						// 构建完整的本地路径
+						videoURL = filepath.Join(s.storagePath, *asset.LocalPath)
+						s.log.Infow("Using local video from asset library", "asset_id", clip.AssetID, "local_path", videoURL)
+					} else {
+						// 回退到远程 URL
+						videoURL = asset.URL
+						s.log.Infow("Using remote video from asset library", "asset_id", clip.AssetID, "video_url", videoURL)
+					}
 					// 如果asset关联了storyboard，使用关联的storyboard_id
 					if asset.StoryboardID != nil {
 						sceneID = *asset.StoryboardID
 					}
-					s.log.Infow("Using video from asset library", "asset_id", clip.AssetID, "video_url", videoURL)
 				} else {
 					s.log.Warnw("Asset not found, will try storyboard video", "asset_id", clip.AssetID, "error", err)
 				}
@@ -434,10 +442,25 @@ func (s *VideoMergeService) FinalizeEpisode(episodeID string, timelineData *Fina
 					continue
 				}
 
-				if scene.VideoURL != nil && *scene.VideoURL != "" {
+				// 查找关联的 video_generation 记录以获取 local_path
+				var videoGen models.VideoGeneration
+				if err := s.db.Where("storyboard_id = ? AND status = ?", scene.ID, "completed").Order("created_at DESC").First(&videoGen).Error; err == nil {
+					if videoGen.LocalPath != nil && *videoGen.LocalPath != "" {
+						// 使用本地路径
+						videoURL = filepath.Join(s.storagePath, *videoGen.LocalPath)
+						sceneID = scene.ID
+						s.log.Infow("Using local video from video_generation", "storyboard_id", clip.StoryboardID, "local_path", videoURL)
+					} else if scene.VideoURL != nil && *scene.VideoURL != "" {
+						// 回退到远程 URL
+						videoURL = *scene.VideoURL
+						sceneID = scene.ID
+						s.log.Infow("Using remote video from storyboard", "storyboard_id", clip.StoryboardID, "video_url", videoURL)
+					}
+				} else if scene.VideoURL != nil && *scene.VideoURL != "" {
+					// 如果没有找到 video_generation，直接使用 storyboard 的 video_url
 					videoURL = *scene.VideoURL
 					sceneID = scene.ID
-					s.log.Infow("Using video from storyboard", "storyboard_id", clip.StoryboardID, "video_url", videoURL)
+					s.log.Infow("Using video from storyboard (no video_generation found)", "storyboard_id", clip.StoryboardID, "video_url", videoURL)
 				}
 			}
 
@@ -482,17 +505,42 @@ func (s *VideoMergeService) FinalizeEpisode(episodeID string, timelineData *Fina
 				scene.ID, models.AssetTypeVideo, episode.ID).
 				Order("created_at DESC").
 				First(&asset).Error; err == nil {
-				videoURL = asset.URL
-				s.log.Infow("Using video from asset library for storyboard",
-					"storyboard_id", scene.ID,
-					"asset_id", asset.ID,
-					"video_url", videoURL)
-			} else if scene.VideoURL != nil && *scene.VideoURL != "" {
-				// 如果素材库没有，使用storyboard的video_url作为fallback
-				videoURL = *scene.VideoURL
-				s.log.Infow("Using fallback video from storyboard",
-					"storyboard_id", scene.ID,
-					"video_url", videoURL)
+				// 优先使用 local_path
+				if asset.LocalPath != nil && *asset.LocalPath != "" {
+					videoURL = filepath.Join(s.storagePath, *asset.LocalPath)
+					s.log.Infow("Using local video from asset library for storyboard",
+						"storyboard_id", scene.ID,
+						"asset_id", asset.ID,
+						"local_path", videoURL)
+				} else {
+					videoURL = asset.URL
+					s.log.Infow("Using remote video from asset library for storyboard",
+						"storyboard_id", scene.ID,
+						"asset_id", asset.ID,
+						"video_url", videoURL)
+				}
+			} else {
+				// 如果素材库没有，查找 video_generation 记录
+				var videoGen models.VideoGeneration
+				if err := s.db.Where("storyboard_id = ? AND status = ?", scene.ID, "completed").Order("created_at DESC").First(&videoGen).Error; err == nil {
+					if videoGen.LocalPath != nil && *videoGen.LocalPath != "" {
+						videoURL = filepath.Join(s.storagePath, *videoGen.LocalPath)
+						s.log.Infow("Using local video from video_generation for storyboard",
+							"storyboard_id", scene.ID,
+							"local_path", videoURL)
+					} else if scene.VideoURL != nil && *scene.VideoURL != "" {
+						videoURL = *scene.VideoURL
+						s.log.Infow("Using remote video from storyboard",
+							"storyboard_id", scene.ID,
+							"video_url", videoURL)
+					}
+				} else if scene.VideoURL != nil && *scene.VideoURL != "" {
+					// 最后回退到 storyboard 的 video_url
+					videoURL = *scene.VideoURL
+					s.log.Infow("Using fallback video from storyboard",
+						"storyboard_id", scene.ID,
+						"video_url", videoURL)
+				}
 			}
 
 			// 跳过没有视频的场景

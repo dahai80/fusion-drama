@@ -22,7 +22,7 @@ type DramaHandler struct {
 func NewDramaHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService) *DramaHandler {
 	return &DramaHandler{
 		db:                db,
-		dramaService:      services.NewDramaService(db, log),
+		dramaService:      services.NewDramaService(db, cfg, log),
 		videoMergeService: services.NewVideoMergeService(db, transferService, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log),
 		log:               log,
 	}

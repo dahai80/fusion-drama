@@ -1511,7 +1511,7 @@
                         @click="playVideo(video)"
                       >
                         <video
-                          :src="video.video_url"
+                          :src="getVideoUrl(video)"
                           preload="metadata"
                           style="
                             width: 100%;
@@ -1944,8 +1944,8 @@
         >
           <div class="scene-image">
             <img
-              v-if="scene.image_url"
-              :src="scene.image_url"
+              v-if="hasImage(scene)"
+              :src="getImageUrl(scene)"
               :alt="scene.location"
             />
             <el-icon v-else :size="48" color="#ccc">
@@ -1974,7 +1974,7 @@
       <div class="video-preview-container" v-if="previewVideo">
         <video
           v-if="previewVideo.video_url"
-          :src="previewVideo.video_url"
+          :src="getVideoUrl(previewVideo)"
           controls
           autoplay
           style="
@@ -2092,7 +2092,7 @@ import type { VideoMerge } from "@/api/videoMerge";
 import VideoTimelineEditor from "@/components/editor/VideoTimelineEditor.vue";
 import type { Drama, Episode, Storyboard } from "@/types/drama";
 import { AppHeader } from "@/components/common";
-import { getImageUrl, hasImage } from "@/utils/image";
+import { getImageUrl, hasImage, getVideoUrl } from "@/utils/image";
 
 const route = useRoute();
 const router = useRouter();
@@ -2548,17 +2548,16 @@ watch(selectedFrameType, (newType) => {
   // 设置切换标志，防止watch(currentFramePrompt)错误保存
   isSwitchingFrameType.value = true;
 
-  // 从 framePrompts 对象中加载该帧类型的提示词
-  currentFramePrompt.value = framePrompts.value[newType] || "";
-
-  // 从 sessionStorage 中加载该帧类型之前的提示词（如果framePrompts中没有）
-  if (!currentFramePrompt.value) {
-    const storageKey = `frame_prompt_${currentStoryboard.value.id}_${newType}`;
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
-      currentFramePrompt.value = stored;
-      framePrompts.value[newType] = stored;
-    }
+  // 优先从 sessionStorage 中加载该帧类型的提示词（确保数据准确）
+  const storageKey = `frame_prompt_${currentStoryboard.value.id}_${newType}`;
+  const stored = sessionStorage.getItem(storageKey);
+  
+  if (stored) {
+    currentFramePrompt.value = stored;
+    framePrompts.value[newType] = stored;
+  } else {
+    // 如果 sessionStorage 中没有，再尝试从 framePrompts 对象中读取
+    currentFramePrompt.value = framePrompts.value[newType] || "";
   }
 
   // 重新加载该帧类型的图片
@@ -2584,6 +2583,14 @@ watch(currentStoryboard, async (newStoryboard) => {
   // 设置切换标志
   isSwitchingFrameType.value = true;
 
+  // 清空 framePrompts 对象，避免显示上一个镜头的提示词
+  framePrompts.value = {
+    key: "",
+    first: "",
+    last: "",
+    panel: "",
+  };
+
   // 加载当前帧类型的提示词
   const storageKey = getPromptStorageKey(
     newStoryboard.id,
@@ -2592,6 +2599,10 @@ watch(currentStoryboard, async (newStoryboard) => {
   if (storageKey) {
     const stored = sessionStorage.getItem(storageKey);
     currentFramePrompt.value = stored || "";
+    // 同时更新 framePrompts 对象
+    if (stored) {
+      framePrompts.value[selectedFrameType.value] = stored;
+    }
   } else {
     currentFramePrompt.value = "";
   }

@@ -8,19 +8,22 @@ import (
 	"time"
 
 	"github.com/drama-generator/backend/domain/models"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"gorm.io/gorm"
 )
 
 type DramaService struct {
-	db  *gorm.DB
-	log *logger.Logger
+	db      *gorm.DB
+	log     *logger.Logger
+	baseURL string
 }
 
-func NewDramaService(db *gorm.DB, log *logger.Logger) *DramaService {
+func NewDramaService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *DramaService {
 	return &DramaService{
-		db:  db,
-		log: log,
+		db:      db,
+		log:     log,
+		baseURL: cfg.Storage.BaseURL,
 	}
 }
 
@@ -188,7 +191,8 @@ func (s *DramaService) GetDrama(dramaID string) (*models.Drama, error) {
 		drama.Scenes = append(drama.Scenes, *scene)
 	}
 
-	// local_path 已通过 Preload 从 characters 和 scenes 表加载，无需额外查询
+	// 为所有场景的 local_path 添加 base_url 前缀
+	// s.addBaseURLToScenes(&drama)
 
 	return &drama, nil
 }
@@ -655,4 +659,25 @@ func (s *DramaService) SaveProgress(dramaID string, req *SaveProgressRequest) er
 
 	s.log.Infow("Progress saved", "drama_id", dramaID, "step", req.CurrentStep)
 	return nil
+}
+
+// addBaseURLToScenes 为剧本中所有场景的 local_path 添加 base_url 前缀
+func (s *DramaService) addBaseURLToScenes(drama *models.Drama) {
+	// 处理 drama.Scenes
+	for i := range drama.Scenes {
+		if drama.Scenes[i].LocalPath != nil && *drama.Scenes[i].LocalPath != "" {
+			fullPath := fmt.Sprintf("%s/%s", s.baseURL, *drama.Scenes[i].LocalPath)
+			drama.Scenes[i].LocalPath = &fullPath
+		}
+	}
+
+	// 处理 drama.Episodes[].Scenes
+	for i := range drama.Episodes {
+		for j := range drama.Episodes[i].Scenes {
+			if drama.Episodes[i].Scenes[j].LocalPath != nil && *drama.Episodes[i].Scenes[j].LocalPath != "" {
+				fullPath := fmt.Sprintf("%s/%s", s.baseURL, *drama.Episodes[i].Scenes[j].LocalPath)
+				drama.Episodes[i].Scenes[j].LocalPath = &fullPath
+			}
+		}
+	}
 }

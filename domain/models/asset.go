@@ -25,7 +25,7 @@ type Asset struct {
 	Category     *string   `gorm:"type:varchar(50);index" json:"category,omitempty"`
 	URL          string    `gorm:"type:varchar(1000);not null" json:"url"`
 	ThumbnailURL *string   `gorm:"type:varchar(1000)" json:"thumbnail_url,omitempty"`
-	LocalPath    *string   `gorm:"type:varchar(500)" json:"local_path,omitempty"`
+	LocalPath    *string   `gorm:"type:varchar(500)" json:"local_path"`
 
 	FileSize *int64  `json:"file_size,omitempty"`
 	MimeType *string `gorm:"type:varchar(100)" json:"mime_type,omitempty"`

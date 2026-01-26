@@ -136,7 +136,7 @@ type Scene struct {
 	Prompt          string         `gorm:"type:text;not null" json:"prompt"`
 	StoryboardCount int            `gorm:"default:1" json:"storyboard_count"`
 	ImageURL        *string        `gorm:"type:varchar(500)" json:"image_url"`
-	LocalPath       *string        `gorm:"type:text" json:"local_path,omitempty"`
+	LocalPath       *string        `gorm:"type:text" json:"local_path"`
 	Status          string         `gorm:"type:varchar(20);default:'pending'" json:"status"` // pending, generated, failed
 	CreatedAt       time.Time      `gorm:"not null;autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"not null;autoUpdateTime" json:"updated_at"`
