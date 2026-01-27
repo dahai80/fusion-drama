@@ -554,7 +554,7 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 
 ## 📋 Changelog
 
-### v1.0.3 (2026-01-27)
+### v1.0.4 (2026-01-27)
 
 #### 🚀 Major Updates
 
@@ -568,7 +568,7 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 
 - Added migration script for processing historical data. For detailed instructions, please refer to [MIGRATE_README.md](MIGRATE_README.md)
 
-### v1.0.2 (2026-01-16)
+### v1.0.3 (2026-01-16)
 
 #### 🚀 Major Updates
 
@@ -577,7 +577,7 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 - Docker cross-platform support for `host.docker.internal` to access host services
 - Streamlined documentation and deployment guides
 
-### v1.0.1 (2026-01-14)
+### v1.0.2 (2026-01-14)
 
 #### 🐛 Bug Fixes / 🔧 Improvements
 
