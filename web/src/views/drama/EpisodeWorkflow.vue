@@ -2229,21 +2229,25 @@ const handleUploadSuccess = async (response: any) => {
     const imageUrl = response.url || response.data?.url;
     const localPath = response.local_path || response.data?.local_path;
 
-    if (!imageUrl) {
+    if (!imageUrl && !localPath) {
       ElMessage.error("上传失败：未获取到图片地址");
       return;
     }
 
     if (currentUploadTarget.value?.type === "character") {
-      await characterLibraryAPI.uploadCharacterImage(
+      await characterLibraryAPI.updateCharacter(
         currentUploadTarget.value.id.toString(),
-        imageUrl,
+        {
+          image_url: imageUrl,
+          local_path: localPath,
+        },
       );
       ElMessage.success("上传成功！");
     } else if (currentUploadTarget.value?.type === "scene") {
       // 更新场景图片
       await dramaAPI.updateScene(currentUploadTarget.value.id.toString(), {
         image_url: imageUrl,
+        local_path: localPath,
       });
       ElMessage.success($t("workflow.sceneImageUploadSuccess"));
     }
@@ -2339,7 +2343,7 @@ const saveScene = async () => {
     // 创建场景，关联到当前章节
     await dramaAPI.createScene({
       drama_id: parseInt(dramaId),
-      episode_id: currentEpisode.value.id,
+      episode_id: parseInt(currentEpisode.value.id),
       location: newScene.value.location,
       time: newScene.value.time || "",
       prompt: newScene.value.prompt,

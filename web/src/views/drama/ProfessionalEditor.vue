@@ -3649,7 +3649,7 @@ const selectScene = async (sceneId: number) => {
 
   try {
     // TODO: 调用API更新分镜的scene_id
-    await dramaAPI.updateScene(currentStoryboard.value.id.toString(), {
+    await dramaAPI.updateStoryboard(currentStoryboard.value.id.toString(), {
       scene_id: sceneId,
     });
 

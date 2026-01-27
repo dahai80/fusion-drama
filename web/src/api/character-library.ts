@@ -98,6 +98,8 @@ export const characterLibraryAPI = {
     appearance?: string
     personality?: string
     description?: string
+    image_url?: string
+    local_path?: string
   }) {
     return request.put(`/characters/${characterId}`, data)
   },

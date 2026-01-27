@@ -110,6 +110,7 @@ export const dramaAPI = {
     description?: string;
     duration?: number;
     image_url?: string;
+    local_path?: string;
   }) {
     return request.put(`/scenes/${sceneId}`, data)
   },

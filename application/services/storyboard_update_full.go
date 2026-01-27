@@ -77,6 +77,10 @@ func (s *StoryboardService) UpdateStoryboard(storyboardID string, updates map[st
 		updateData["duration"] = int(val)
 		sb.Duration = int(val)
 	}
+	if val, ok := updates["scene_id"].(float64); ok {
+		sceneID := uint(val)
+		updateData["scene_id"] = sceneID
+	}
 
 	// 使用当前数据库值填充缺失字段（用于生成提示词）
 	if sb.Title == "" && storyboard.Title != nil {
