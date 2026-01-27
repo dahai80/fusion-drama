@@ -2551,7 +2551,7 @@ watch(selectedFrameType, (newType) => {
   // 优先从 sessionStorage 中加载该帧类型的提示词（确保数据准确）
   const storageKey = `frame_prompt_${currentStoryboard.value.id}_${newType}`;
   const stored = sessionStorage.getItem(storageKey);
-  
+
   if (stored) {
     currentFramePrompt.value = stored;
     framePrompts.value[newType] = stored;
@@ -4559,6 +4559,7 @@ onBeforeUnmount(() => {
   gap: 16px;
   max-height: 500px;
   overflow-y: auto;
+  padding: 10px;
 
   .scene-card {
     border: 2px solid var(--border-primary);
