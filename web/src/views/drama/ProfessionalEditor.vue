@@ -3927,8 +3927,11 @@ const downloadVideo = async (url: string, title: string) => {
       duration: 0,
     });
 
+    // 处理相对路径，添加 /static/ 前缀
+    const videoUrl = url.startsWith("http") ? url : `/static/${url}`;
+
     // 使用fetch获取视频blob
-    const response = await fetch(url);
+    const response = await fetch(videoUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -3960,7 +3963,9 @@ const downloadVideo = async (url: string, title: string) => {
 
 // 预览合成视频
 const previewMergedVideo = (url: string) => {
-  window.open(url, "_blank");
+  // 处理相对路径，添加 /static/ 前缀
+  const videoUrl = url.startsWith("http") ? url : `/static/${url}`;
+  window.open(videoUrl, "_blank");
 };
 
 // 删除视频合成记录
