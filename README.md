@@ -25,7 +25,7 @@ Huobao Drama is an AI-powered short drama production platform that automates the
 - **🤖 AI-Driven**: Parse scripts using large language models to extract characters, scenes, and storyboards
 - **🎨 Intelligent Creation**: AI-generated character portraits and scene backgrounds
 - **📹 Video Generation**: Automatic storyboard video generation using text-to-video and image-to-video models
-- **🔄 Complete Workflow**: End-to-end production workflow from idea to final video
+- **🔄 Complete Workflow**: End-to-end production workflow from idea to final video。
 
 ### 🛠️ Technical Architecture
 
@@ -234,6 +234,14 @@ Database tables are automatically created on first startup (using GORM AutoMigra
 ---
 
 ## 📦 Deployment
+
+### ☁️ Cloud One-Click Deployment (Recommended 3080Ti)
+
+👉 [优云智算，一键部署](https://www.compshare.cn/images/CaWEHpAA8t1H?referral_code=8hUJOaWz3YzG64FI2OlCiB&ytag=GPU_YY_YX_GitHub_huobaoai)
+
+> ⚠️ **Note**: Please save your data to local storage promptly when using cloud deployment
+
+---
 
 ### 🐳 Docker Deployment (Recommended)
 
