@@ -20,6 +20,8 @@
 
 Huobao Drama is an AI-powered short drama production platform that automates the entire workflow from script generation, character design, storyboarding to video composition.
 
+火宝短剧商业版地址：[火宝短剧商业版](https://drama.chatfire.site/shortvideo)
+
 ### 🎯 Core Features
 
 - **🤖 AI-Driven**: Parse scripts using large language models to extract characters, scenes, and storyboards
