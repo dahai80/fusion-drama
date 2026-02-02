@@ -541,7 +541,7 @@
                         :preview-src-list="
                           generatedImages
                             .filter((i) => hasImage(i))
-                            .map((i) => i.image_url!)
+                            .map((i) => getImageUrl(i)!)
                         "
                         :initial-index="
                           generatedImages
@@ -832,7 +832,7 @@
                           />
                           <div
                             class="preview-icon"
-                            @click.stop="previewImage(img.image_url)"
+                            @click.stop="previewImage(getImageUrl(img))"
                             style="
                               position: absolute;
                               top: 4px;
@@ -914,7 +914,7 @@
                           />
                           <div
                             class="preview-icon"
-                            @click.stop="previewImage(img.image_url)"
+                            @click.stop="previewImage(getImageUrl(img))"
                             style="
                               position: absolute;
                               top: 4px;
@@ -996,7 +996,7 @@
                           />
                           <div
                             class="preview-icon"
-                            @click.stop="previewImage(img.image_url)"
+                            @click.stop="previewImage(getImageUrl(img))"
                             style="
                               position: absolute;
                               top: 4px;
@@ -1078,7 +1078,7 @@
                           />
                           <div
                             class="preview-icon"
-                            @click.stop="previewImage(img.image_url)"
+                            @click.stop="previewImage(getImageUrl(img))"
                             style="
                               position: absolute;
                               top: 4px;
@@ -1160,7 +1160,7 @@
                           />
                           <div
                             class="preview-icon"
-                            @click.stop="previewImage(img.image_url)"
+                            @click.stop="previewImage(getImageUrl(img))"
                             style="
                               position: absolute;
                               top: 4px;
@@ -3238,7 +3238,7 @@ const handleImageSelect = (imageId: number) => {
   }
 };
 
-// 预览图片
+// 预览图片（使用已导入的 getImageUrl 工具函数来获取正确的图片URL）
 const previewImage = (url: string) => {
   // 使用Element Plus的图片预览
   const viewer = document.createElement("div");
