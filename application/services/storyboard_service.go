@@ -363,12 +363,12 @@ func (s *StoryboardService) processStoryboardGeneration(taskID, episodeID, model
 		client, getErr := s.aiService.GetAIClientForModel("text", model)
 		if getErr != nil {
 			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr, "task_id", taskID)
-			text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(46000))
+			text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
 		} else {
-			text, err = client.GenerateText(prompt, "", ai.WithMaxTokens(46000))
+			text, err = client.GenerateText(prompt, "", ai.WithMaxTokens(16000))
 		}
 	} else {
-		text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(46000))
+		text, err = s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
 	}
 
 	if err != nil {

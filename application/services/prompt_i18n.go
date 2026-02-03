@@ -289,6 +289,46 @@ Return a JSON object containing:
 - description：简化的中文描述（供参考）`, style, imageRatio)
 }
 
+// GetActionSequenceFramePrompt 获取动作序列提示词
+func (p *PromptI18n) GetActionSequenceFramePrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
+	if p.IsEnglish() {
+		return fmt.Sprintf(`You are a professional director and image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information, strictly following the requirements below.
+
+**Core Requirements:**
+
+1. **3x3 Grid Layout:** A total of nine tiles arranged in 3 rows and 3 columns.
+2. **Action Evolution:** Tiles 1 through 9 must demonstrate a progression of movement.
+3. **Distinct Shot Varieties:** Each tile must reflect a different action or camera angle.
+4. **Strict Character Consistency:** Maintain identical facial features, hairstyles, and outfits across all frames.
+
+* **Style Requirement:** %s
+* **Aspect Ratio:** %s
+
+**Output Format:**
+Return a JSON object containing:
+
+* **prompt**: The complete Chinese image generation prompt (detailed description, optimized for AI image generation).
+* **description**: A simplified Chinese description (for reference)`, style, imageRatio)
+	}
+
+	return fmt.Sprintf(`你是一个专业的导演和图像生成提示词专家。请根据提供的镜头信息，严格按照以下的要求生成适合用于AI图像生成的提示词。
+
+**核心要求：**
+1. 3行3列共九宫格
+2. 1-9宫格需要展示动作演进
+3. 每个宫格需要体现出不同的动作镜头
+4. 所有画格严格保持角色一致性
+
+- **风格要求**：%s
+- **图片比例**：%s
+输出格式：
+返回一个JSON对象，包含：
+- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
+- description：简化的中文描述（供参考）`, style, imageRatio)
+}
+
 // GetLastFramePrompt 获取尾帧提示词
 func (p *PromptI18n) GetLastFramePrompt() string {
 	style := p.config.Style.DefaultStyle

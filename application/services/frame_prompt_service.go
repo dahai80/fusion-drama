@@ -371,21 +371,66 @@ func (s *FramePromptService) generatePanelFrames(sb models.Storyboard, scene *mo
 	}
 }
 
-// generateActionSequence 生成动作序列（5-8格）
+// generateActionSequence 生成动作序列（3x3宫格）
 func (s *FramePromptService) generateActionSequence(sb models.Storyboard, scene *models.Scene, model string) *MultiFramePrompt {
-	// 将动作分解为5个步骤
-	frames := make([]SingleFramePrompt, 5)
+	// 构建上下文信息
+	contextInfo := s.buildStoryboardContext(sb, scene)
 
-	// 简化实现：均匀分布从首帧到尾帧
-	frames[0] = *s.generateFirstFrame(sb, scene, model)
-	frames[1] = *s.generateKeyFrame(sb, scene, model)
-	frames[2] = *s.generateKeyFrame(sb, scene, model)
-	frames[3] = *s.generateKeyFrame(sb, scene, model)
-	frames[4] = *s.generateLastFrame(sb, scene, model)
+	// 使用国际化提示词 - 专门为动作序列设计的提示词
+	systemPrompt := s.promptI18n.GetActionSequenceFramePrompt()
+	userPrompt := s.promptI18n.FormatUserPrompt("frame_info", contextInfo)
 
+	// 调用AI生成（如果指定了模型则使用指定的模型）
+	var aiResponse string
+	var err error
+	if model != "" {
+		client, getErr := s.aiService.GetAIClientForModel("text", model)
+		if getErr != nil {
+			s.log.Warnw("Failed to get client for specified model, using default", "model", model, "error", getErr)
+			aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+		} else {
+			aiResponse, err = client.GenerateText(userPrompt, systemPrompt)
+		}
+	} else {
+		aiResponse, err = s.aiService.GenerateText(userPrompt, systemPrompt)
+	}
+
+	if err != nil {
+		s.log.Warnw("AI generation failed for action sequence, using fallback", "error", err)
+		// 降级方案：使用简单拼接
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "3x3 storyboard grid action sequence, character consistency, continuous movement progression")
+		return &MultiFramePrompt{
+			Layout: "grid_3x3",
+			Frames: []SingleFramePrompt{
+				{
+					Prompt:      fallbackPrompt,
+					Description: "3x3宫格动作序列，展示连贯的动作演进",
+				},
+			},
+		}
+	}
+
+	// 解析AI返回的JSON
+	result := s.parseFramePromptJSON(aiResponse)
+	if result == nil {
+		// JSON解析失败，使用降级方案
+		s.log.Warnw("Failed to parse AI JSON response for action sequence, using fallback", "storyboard_id", sb.ID, "response", aiResponse)
+		fallbackPrompt := s.buildFallbackPrompt(sb, scene, "3x3 storyboard grid action sequence, character consistency, continuous movement progression")
+		return &MultiFramePrompt{
+			Layout: "grid_3x3",
+			Frames: []SingleFramePrompt{
+				{
+					Prompt:      fallbackPrompt,
+					Description: "3x3宫格动作序列，展示连贯的动作演进",
+				},
+			},
+		}
+	}
+
+	// 动作序列是一个整体的3x3宫格图片，所以只返回一个prompt
 	return &MultiFramePrompt{
-		Layout: "horizontal_5",
-		Frames: frames,
+		Layout: "grid_3x3",
+		Frames: []SingleFramePrompt{*result},
 	}
 }
 

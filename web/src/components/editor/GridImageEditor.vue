@@ -1,23 +1,17 @@
 <template>
-  <el-dialog
-    v-model="visible"
-    :title="$t('editor.gridImageEditor')"
-    width="900px"
-    :close-on-click-modal="false"
-    @close="handleClose"
-    align-center
-  >
+  <el-dialog v-model="visible" :title="$t('editor.gridImageEditor')" width="900px" :close-on-click-modal="false"
+    @close="handleClose" align-center>
     <!-- 宫格类型选择 -->
     <div class="grid-type-selector">
       <div class="section-label">{{ $t("editor.gridType") }}</div>
-      <el-radio-group v-model="gridType" size="small" @change="initGridImages">
+      <el-radio-group v-model="gridType" @change="initGridImages">
         <el-radio-button :label="4">{{
           $t("editor.fourGrid")
-        }}</el-radio-button>
+          }}</el-radio-button>
         <el-radio-button :label="6">{{ $t("editor.sixGrid") }}</el-radio-button>
         <el-radio-button :label="9">{{
           $t("editor.nineGrid")
-        }}</el-radio-button>
+          }}</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -25,19 +19,20 @@
     <div class="grid-editor">
       <div class="section-label">{{ $t("editor.editGridImage") }}</div>
       <div class="grid-container" :class="`grid-${gridType}`">
-        <div
-          v-for="(item, index) in gridImages"
-          :key="index"
-          class="grid-cell"
-          @click="handleGridCellClick(index)"
-        >
+        <div v-for="(item, index) in gridImages" :key="index" class="grid-cell" @click="handleGridCellClick(index)">
           <img v-if="item.url" :src="item.url" alt="" />
           <div v-else class="grid-cell-placeholder">
-            <el-icon :size="32"><Plus /></el-icon>
+            <el-icon :size="32">
+              <Plus />
+            </el-icon>
           </div>
           <div v-if="item.url" class="grid-cell-actions">
-            <el-icon @click.stop="previewGridCell(index)"><ZoomIn /></el-icon>
-            <el-icon @click.stop="removeGridCell(index)"><Delete /></el-icon>
+            <el-icon @click.stop="previewGridCell(index)">
+              <ZoomIn />
+            </el-icon>
+            <el-icon @click.stop="removeGridCell(index)">
+              <Delete />
+            </el-icon>
           </div>
         </div>
       </div>
@@ -47,58 +42,33 @@
       <div class="dialog-footer">
         <el-button @click="clearGrid">{{ $t("editor.clear") }}</el-button>
         <el-button @click="handleClose">{{ $t("common.cancel") }}</el-button>
-        <el-button
-          type="primary"
-          :loading="creating"
-          :disabled="!isGridComplete"
-          @click="createGridImage"
-        >
+        <el-button type="primary" :loading="creating" :disabled="!isGridComplete" @click="createGridImage">
           {{ creating ? $t("editor.creating") : $t("editor.createGridImage") }}
         </el-button>
       </div>
     </template>
 
     <!-- 图片选择对话框 -->
-    <el-dialog
-      v-model="showImageSelector"
-      :title="$t('editor.selectImage')"
-      width="900px"
-      :close-on-click-modal="false"
-      append-to-body
-    >
+    <el-dialog v-model="showImageSelector" :title="$t('editor.selectImage')" width="900px" :close-on-click-modal="false"
+      append-to-body>
       <el-tabs type="border-card">
         <el-tab-pane :label="$t('editor.existingImages')">
           <div class="image-selector-grid">
-            <div
-              v-for="img in allImages"
-              :key="img.id"
-              class="image-selector-item"
-              @click="selectImageForGrid(img)"
-            >
-              <el-image
-                :src="getImageUrl(img)"
-                fit="cover"
-                style="width: 100%; height: 150px"
-              />
+            <div v-for="img in allImages" :key="img.id" class="image-selector-item" @click="selectImageForGrid(img)">
+              <el-image :src="getImageUrl(img)" fit="cover" style="width: 100%; height: 150px" />
               <div class="image-selector-label">
                 {{ getFrameTypeText(img.frame_type) }}
               </div>
             </div>
           </div>
-          <el-empty
-            v-if="allImages.length === 0"
-            :description="$t('editor.noImagesAvailable')"
-          />
+          <el-empty v-if="allImages.length === 0" :description="$t('editor.noImagesAvailable')" />
         </el-tab-pane>
         <el-tab-pane :label="$t('editor.uploadNewImage')">
-          <el-upload
-            drag
-            :auto-upload="false"
-            :show-file-list="false"
-            accept="image/*"
-            :on-change="handleUploadForGrid"
-          >
-            <el-icon :size="67"><Upload /></el-icon>
+          <el-upload drag :auto-upload="false" :show-file-list="false" accept="image/*"
+            :on-change="handleUploadForGrid">
+            <el-icon :size="67">
+              <Upload />
+            </el-icon>
             <div class="el-upload__text">
               {{ $t("common.upload") }}<em>{{ $t("common.upload") }}</em>
             </div>
@@ -113,27 +83,21 @@
       <template #footer>
         <el-button @click="showImageSelector = false">{{
           $t("common.cancel")
-        }}</el-button>
+          }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 宫格图片预览对话框 -->
-    <el-dialog
-      v-model="showGridImagePreview"
-      :title="$t('editor.preview')"
-      width="800px"
-      append-to-body
-      align-center
-    >
+    <el-dialog v-model="showGridImagePreview" :title="$t('editor.preview')" width="800px" append-to-body align-center>
       <div v-if="previewGridImage" class="grid-preview-container">
         <img :src="previewGridImage.url" style="width: 100%; display: block" />
         <div style="margin-top: 16px; text-align: center">
           <el-button type="primary" @click="replaceGridImage">{{
             $t("editor.replaceImage")
-          }}</el-button>
+            }}</el-button>
           <el-button @click="showGridImagePreview = false">{{
             $t("common.close")
-          }}</el-button>
+            }}</el-button>
         </div>
       </div>
     </el-dialog>
