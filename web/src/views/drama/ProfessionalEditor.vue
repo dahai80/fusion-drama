@@ -522,7 +522,9 @@
                 <!-- 生成结果 -->
                 <div
                   class="generation-result"
-                  v-if="generatedImages.length > 0"
+                  v-if="
+                    generatedImages.length > 0 || selectedFrameType === 'action'
+                  "
                 >
                   <div class="section-label">
                     {{ $t("editor.generationResult") }} ({{
@@ -530,6 +532,21 @@
                     }})
                   </div>
                   <div class="image-grid">
+                    <!-- 动作序列入口按钮 -->
+                    <div
+                      v-if="selectedFrameType === 'action'"
+                      class="image-item grid-entry-button"
+                      @click="showGridEditor = true"
+                    >
+                      <div class="grid-entry-placeholder">
+                        <el-icon :size="32"><Plus /></el-icon>
+                      </div>
+                      <div class="image-info">
+                        <span class="frame-type-tag">{{
+                          $t("editor.createGridImage")
+                        }}</span>
+                      </div>
+                    </div>
                     <div
                       v-for="img in generatedImages"
                       :key="img.id"
@@ -1827,8 +1844,8 @@
     >
       <div class="character-image-preview" v-if="previewCharacter">
         <img
-          v-if="previewCharacter.image_url"
-          :src="previewCharacter.image_url"
+          v-if="previewCharacter.local_path"
+          :src="getImageUrl(previewCharacter)"
           :alt="previewCharacter.name"
         />
         <el-empty v-else description="暂无图片" />
@@ -1869,7 +1886,11 @@
           @click="toggleCharacterInShot(char.id)"
         >
           <div class="character-avatar-large">
-            <img v-if="char.image_url" :src="char.image_url" :alt="char.name" />
+            <img
+              v-if="char.local_path"
+              :src="getImageUrl(char)"
+              :alt="char.name"
+            />
             <span v-else>{{ char.name?.[0] || "?" }}</span>
           </div>
           <div class="character-info">
@@ -1906,7 +1927,11 @@
           @click="togglePropInShot(prop.id)"
         >
           <div class="character-avatar-large">
-            <img v-if="prop.image_url" :src="prop.image_url" :alt="prop.name" />
+            <img
+              v-if="prop.local_path"
+              :src="getImageUrl(prop)"
+              :alt="prop.name"
+            />
             <el-icon v-else :size="32"><Box /></el-icon>
           </div>
           <div class="character-info">
@@ -2033,6 +2058,15 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 宫格图片编辑器组件 -->
+    <GridImageEditor
+      v-model="showGridEditor"
+      :storyboard-id="currentStoryboard?.id || 0"
+      :drama-id="dramaId"
+      :all-images="allGeneratedImages"
+      @success="handleGridImageSuccess"
+    />
   </div>
 </template>
 
@@ -2090,6 +2124,7 @@ import type { AIServiceConfig } from "@/types/ai";
 import type { Asset } from "@/types/asset";
 import type { VideoMerge } from "@/api/videoMerge";
 import VideoTimelineEditor from "@/components/editor/VideoTimelineEditor.vue";
+import GridImageEditor from "@/components/editor/GridImageEditor.vue";
 import type { Drama, Episode, Storyboard } from "@/types/drama";
 import { AppHeader } from "@/components/common";
 import { getImageUrl, hasImage, getVideoUrl } from "@/utils/image";
@@ -2149,6 +2184,12 @@ const isSwitchingFrameType = ref(false); // 标志位：是否正在切换帧类
 const loadingImages = ref(false);
 let pollingTimer: any = null;
 let pollingFrameType: FrameType | null = null; // 记录正在轮询的帧类型
+
+// 宫格图片编辑器状态
+const showGridEditor = ref(false);
+
+// 所有已生成的图片（用于宫格编辑器选择）
+const allGeneratedImages = ref<ImageGeneration[]>([]);
 
 // 视频生成相关状态
 const videoDuration = ref(5); // 默认5秒，会根据镜头duration自动更新
@@ -2614,6 +2655,9 @@ watch(currentStoryboard, async (newStoryboard) => {
 
   // 加载该分镜的图片列表（根据当前选择的帧类型）
   await loadStoryboardImages(newStoryboard.id, selectedFrameType.value);
+
+  // 加载所有已生成的图片（用于宫格编辑器）
+  await loadAllGeneratedImages();
 
   // 加载视频参考图片（所有帧类型）
   await loadVideoReferenceImages(newStoryboard.id);
@@ -3767,6 +3811,32 @@ const uploadImage = () => {
   input.click();
 };
 
+// 加载所有已生成的图片（用于宫格编辑器）
+const loadAllGeneratedImages = async () => {
+  if (!currentStoryboard.value) return;
+
+  try {
+    const result = await imageAPI.listImages({
+      storyboard_id: currentStoryboard.value.id,
+      page: 1,
+      page_size: 100,
+    });
+    allGeneratedImages.value = result.items || [];
+  } catch (error: any) {
+    console.error("加载所有图片失败:", error);
+  }
+};
+
+// 处理宫格图片创建成功
+const handleGridImageSuccess = async () => {
+  if (currentStoryboard.value) {
+    // 刷新动作序列图片列表
+    await loadStoryboardImages(currentStoryboard.value.id, "action");
+    // 重新加载所有图片
+    await loadAllGeneratedImages();
+  }
+};
+
 const goBack = () => {
   router.replace({
     name: "EpisodeWorkflowNew",
@@ -4637,6 +4707,7 @@ onBeforeUnmount(() => {
   gap: 16px;
   max-height: 500px;
   overflow-y: auto;
+  padding: 12px;
 
   .character-card {
     position: relative;
@@ -5928,7 +5999,187 @@ onBeforeUnmount(() => {
   line-height: 1.5;
   color: var(--text-secondary);
   word-break: break-word;
-  max-height: 80px;
+  max-height: 300px;
   overflow-y: auto;
+}
+
+/* 宫格图片入口按钮样式 */
+.grid-entry-button {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.grid-entry-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.grid-entry-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 150px;
+  border: 2px dashed var(--border-primary);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.grid-entry-button:hover .grid-entry-placeholder {
+  border-color: var(--accent);
+  background: var(--bg-card);
+}
+
+/* 宫格图片编辑器样式 */
+.creation-mode-selector,
+.grid-type-selector {
+  margin-bottom: 16px;
+}
+
+.grid-editor {
+  margin-bottom: 20px;
+}
+
+.grid-container {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+}
+
+.grid-container.grid-4 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-container.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-container.grid-9 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px dashed var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--bg-card);
+}
+
+.grid-cell:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+}
+
+.grid-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.grid-cell-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+.grid-cell-placeholder p {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.grid-cell-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.grid-cell:hover .grid-cell-actions {
+  opacity: 1;
+}
+
+.grid-cell-actions .el-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.grid-cell-actions .el-icon:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+.grid-controls {
+  display: flex;
+  gap: 12px;
+}
+
+/* 图片选择器样式 */
+.image-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.image-selector-item {
+  position: relative;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.image-selector-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+  transform: translateY(-2px);
+}
+
+.image-selector-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 12px;
+  text-align: center;
+}
+
+.grid-preview-container {
+  text-align: center;
+}
+
+.grid-preview-container img {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 </style>
