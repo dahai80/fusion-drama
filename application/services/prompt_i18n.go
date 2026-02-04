@@ -294,40 +294,56 @@ func (p *PromptI18n) GetActionSequenceFramePrompt() string {
 	style := p.config.Style.DefaultStyle
 	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return fmt.Sprintf(`You are a professional director and image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information, strictly following the requirements below.
+		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompts. You need to generate a prompt describing a 3x3 grid action sequence.
 
-**Core Requirements:**
+**Core Logic:**
 
-1. **3x3 Grid Layout:** A total of nine tiles arranged in 3 rows and 3 columns.
-2. **Action Evolution:** Tiles 1 through 9 must demonstrate a progression of movement.
-3. **Distinct Shot Varieties:** Each tile must reflect a different action or camera angle.
-4. **Strict Character Consistency:** Maintain identical facial features, hairstyles, and outfits across all frames.
+1. **Wholeness:** This is a complete single image containing a 3x3 grid layout, showing 9 consecutive actions of the same subject.
+2. **Visual Anchoring:** The subject, clothing, and art style must be highly consistent across all 9 grid cells.
+3. **Action Progression:** From cell 1 to cell 9, show a complete action sequence (e.g., standing → walking → running → jumping → landing).
+4. **Prompt Engineering:** Use high-quality visual vocabulary (lighting, materials, composition, depth of field).
+
+**Important:** You need to generate **ONE** complete prompt to describe the entire 3x3 grid image, not 9 separate prompts.
 
 * **Style Requirement:** %s
 * **Aspect Ratio:** %s
 
-**Output Format:**
-Return a JSON object containing:
+**Output Specification:**
+Must return a **JSON object** with the following structure:
+* prompt: **Complete English image generation prompt** (describing the entire 3x3 grid layout, subject characteristics, progression of 9 actions, environment, lighting details, ensuring AI can directly generate a complete image containing 9 cells).
+* description: **Simplified English description** (summarizing the core content of this action sequence).
 
-* **prompt**: The complete Chinese image generation prompt (detailed description, optimized for AI image generation).
-* **description**: A simplified Chinese description (for reference)`, style, imageRatio)
+**Example Format:**
+{
+  "prompt": "3x3 grid action sequence showing a black-clad swordsman's continuous actions. Cell 1: standing ready stance, Cell 2: drawing sword, Cell 3: charging forward, Cell 4: jumping into air, Cell 5: mid-air spin, Cell 6: downward strike, Cell 7: landing pose, Cell 8: sheathing sword, Cell 9: alert standing. All cells maintain character consistency, cinematic lighting, 35mm lens, high contrast.",
+  "description": "Black-clad swordsman's complete action sequence from drawing sword to attack"
+}`, style, imageRatio)
 	}
 
-	return fmt.Sprintf(`**Role:** 你是一位精通视觉叙事与图像生成提示词的专家。你能将用户描述的模糊场景，转化为具有逻辑连贯性、动作多样性的 9 组图片生成指令。
+	return fmt.Sprintf(`**Role:** 你是一位精通视觉叙事与图像生成提示词的专家。你需要生成一个描述 3x3 九宫格动作序列的提示词。
 
 **Core Logic:**
 
-1. **视觉锚定：** 保持主体、服装、画风在 9 个动作中高度一致。
-2. **动作矩阵：** 按照 3x3 九宫格逻辑设计 9 个完全不同的动作（如：行走、奔跑、回眸、战斗准备、跳跃、坐下、思考、倒地、特写凝视）。
-3. **提示词工程：** 使用高质量的视觉词汇（光影、材质、构图、景深）。
+1. **整体性:** 这是一张完整的图片,包含 3x3 九宫格布局,展示同一主体的 9 个连续动作。
+2. **视觉锚定:** 所有 9 个格子中的主体、服装、画风必须高度一致。
+3. **动作演进:** 从格子 1 到格子 9,展示一个完整的动作序列(如:从站立→行走→奔跑→跳跃→落地)。
+4. **提示词工程:** 使用高质量的视觉词汇(光影、材质、构图、景深)。
+
+**重要:** 你需要生成 **一个** 完整的提示词来描述整个 3x3 九宫格图片,而不是 9 个独立的提示词。
 
 **Aspect Ratio:** 
 * %s
 
 **Output Specification:**
-必须返回一个 **JSON 对象**，其结构如下：
-* prompt: **完整的中文图片生成提示词**（包含主体+动作细节+环境+光影细节，确保 AI 能直接生成高质量图像）。
-* description: **简化的中文描述**（概括该动作的核心）。`, imageRatio)
+必须返回一个 **JSON 对象**,其结构如下:
+* prompt: **完整的中文图片生成提示词**(描述整个 3x3 九宫格的布局、主体特征、9 个动作的演进过程、环境、光影细节,确保 AI 能直接生成一张包含 9 个格子的完整图像)。
+* description: **简化的中文描述**(概括这个动作序列的核心内容)。
+
+**示例格式:**
+{
+  "prompt": "3x3 九宫格动作序列图,展示一个黑衣剑客的连续动作。格子 1:站立准备姿态,格子 2:拔剑动作,格子 3:向前冲刺,格子 4:跳跃腾空,格子 5:空中旋转,格子 6:下劈攻击,格子 7:落地姿态,格子 8:收剑动作,格子 9:警戒站立。所有格子保持角色一致性,电影级光影,35mm 镜头,高对比度。",
+  "description": "黑衣剑客从拔剑到攻击的完整动作序列"
+}`, imageRatio)
 }
 
 // GetLastFramePrompt 获取尾帧提示词

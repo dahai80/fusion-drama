@@ -589,7 +589,7 @@
                         class="crop-icon-overlay"
                         @click.stop="openCropDialog(img)"
                       >
-                        <el-icon :size="24" color="#fff">
+                        <el-icon :size="18" color="#fff">
                           <Crop />
                         </el-icon>
                       </div>
@@ -3556,12 +3556,35 @@ const startVideoPolling = () => {
     }
 
     try {
+      // 保存旧的视频列表用于对比
+      const oldVideos = [...generatedVideos.value];
+      
       const result = await videoAPI.listVideos({
         storyboard_id: currentStoryboard.value.id.toString(),
         page: 1,
         page_size: 50,
       });
       generatedVideos.value = result.items || [];
+
+      // 检测是否有视频从 processing 变为 completed
+      const hasNewlyCompleted = generatedVideos.value.some((newVideo) => {
+        const oldVideo = oldVideos.find((v) => v.id === newVideo.id);
+        return (
+          oldVideo &&
+          (oldVideo.status === "pending" || oldVideo.status === "processing") &&
+          newVideo.status === "completed"
+        );
+      });
+
+      // 如果有视频完成，重新加载分镜列表以更新 duration
+      if (hasNewlyCompleted && episodeId.value) {
+        try {
+          const storyboardsRes = await dramaAPI.getStoryboards(episodeId.value.toString());
+          storyboards.value = storyboardsRes?.storyboards || [];
+        } catch (error) {
+          console.error("重新加载分镜列表失败:", error);
+        }
+      }
 
       // 如果没有进行中的任务，停止轮询
       const hasPendingOrProcessing = generatedVideos.value.some(
@@ -6098,10 +6121,10 @@ onBeforeUnmount(() => {
 
 .crop-icon-overlay {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 36px;
-  height: 36px;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
   background: rgba(0, 0, 0, 0.7);
   border-radius: 50%;
   display: flex;

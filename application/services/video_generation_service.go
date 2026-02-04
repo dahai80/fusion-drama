@@ -522,7 +522,8 @@ func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoU
 		"video_url":  videoURL,
 		"local_path": localVideoPath,
 	}
-	if duration != nil {
+	// 只有当 duration 大于 0 时才保存，避免保存无效的 0 值
+	if duration != nil && *duration > 0 {
 		updates["duration"] = *duration
 	}
 	if width != nil {
@@ -547,7 +548,8 @@ func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoU
 			storyboardUpdates := map[string]interface{}{
 				"video_url": videoURL,
 			}
-			if duration != nil {
+			// 只有当 duration 大于 0 时才更新，避免用无效的 0 值覆盖
+			if duration != nil && *duration > 0 {
 				storyboardUpdates["duration"] = *duration
 			}
 			if err := s.db.Model(&models.Storyboard{}).Where("id = ?", *videoGen.StoryboardID).Updates(storyboardUpdates).Error; err != nil {
