@@ -8,19 +8,19 @@
     class="create-dialog"
     @closed="handleClosed"
   >
-    <div class="dialog-desc">{{ $t('drama.createDesc') }}</div>
-    
-    <el-form 
-      ref="formRef" 
-      :model="form" 
-      :rules="rules" 
+    <div class="dialog-desc">{{ $t("drama.createDesc") }}</div>
+
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
       label-position="top"
       class="create-form"
       @submit.prevent="handleSubmit"
     >
       <el-form-item :label="$t('drama.projectName')" prop="title" required>
-        <el-input 
-          v-model="form.title" 
+        <el-input
+          v-model="form.title"
           :placeholder="$t('drama.projectNamePlaceholder')"
           size="large"
           maxlength="100"
@@ -29,9 +29,9 @@
       </el-form-item>
 
       <el-form-item :label="$t('drama.projectDesc')" prop="description">
-        <el-input 
-          v-model="form.description" 
-          type="textarea" 
+        <el-input
+          v-model="form.description"
+          type="textarea"
           :rows="4"
           :placeholder="$t('drama.projectDescPlaceholder')"
           maxlength="500"
@@ -39,21 +39,40 @@
           resize="none"
         />
       </el-form-item>
+
+      <el-form-item :label="$t('drama.style')" prop="style" required>
+        <el-select
+          v-model="form.style"
+          :placeholder="$t('drama.stylePlaceholder')"
+          size="large"
+          style="width: 100%"
+        >
+          <el-option :label="$t('drama.styles.ghibli')" value="ghibli" />
+          <el-option :label="$t('drama.styles.guoman')" value="guoman" />
+          <el-option :label="$t('drama.styles.wasteland')" value="wasteland" />
+          <el-option :label="$t('drama.styles.nostalgia')" value="nostalgia" />
+          <el-option :label="$t('drama.styles.pixel')" value="pixel" />
+          <el-option :label="$t('drama.styles.voxel')" value="voxel" />
+          <el-option :label="$t('drama.styles.urban')" value="urban" />
+          <el-option :label="$t('drama.styles.guoman3d')" value="guoman3d" />
+          <el-option :label="$t('drama.styles.chibi3d')" value="chibi3d" />
+        </el-select>
+      </el-form-item>
     </el-form>
 
     <template #footer>
       <div class="dialog-footer">
         <el-button size="large" @click="handleClose">
-          {{ $t('common.cancel') }}
+          {{ $t("common.cancel") }}
         </el-button>
-        <el-button 
-          type="primary" 
+        <el-button
+          type="primary"
           size="large"
           :loading="loading"
           @click="handleSubmit"
         >
           <el-icon v-if="!loading"><Plus /></el-icon>
-          {{ $t('drama.createNew') }}
+          {{ $t("drama.createNew") }}
         </el-button>
       </div>
     </template>
@@ -61,87 +80,97 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { dramaAPI } from '@/api/drama'
-import type { CreateDramaRequest } from '@/types/drama'
+import { ref, reactive, watch } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
+import { dramaAPI } from "@/api/drama";
+import type { CreateDramaRequest } from "@/types/drama";
 
 /**
  * CreateDramaDialog - Reusable dialog for creating new drama projects
  * 创建短剧弹窗 - 可复用的创建短剧项目弹窗
  */
 const props = defineProps<{
-  modelValue: boolean
-}>()
+  modelValue: boolean;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  'created': [id: string]
-}>()
+  "update:modelValue": [value: boolean];
+  created: [id: string];
+}>();
 
-const router = useRouter()
-const formRef = ref<FormInstance>()
-const loading = ref(false)
+const router = useRouter();
+const formRef = ref<FormInstance>();
+const loading = ref(false);
 
 // v-model binding / 双向绑定
-const visible = ref(props.modelValue)
-watch(() => props.modelValue, (val) => {
-  visible.value = val
-})
+const visible = ref(props.modelValue);
+watch(
+  () => props.modelValue,
+  (val) => {
+    visible.value = val;
+  },
+);
 watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
+  emit("update:modelValue", val);
+});
 
 // Form data / 表单数据
 const form = reactive<CreateDramaRequest>({
-  title: '',
-  description: ''
-})
+  title: "",
+  description: "",
+  style: "ghibli",
+});
 
 // Validation rules / 验证规则
 const rules: FormRules = {
   title: [
-    { required: true, message: '请输入项目标题', trigger: 'blur' },
-    { min: 1, max: 100, message: '标题长度在 1 到 100 个字符', trigger: 'blur' }
-  ]
-}
+    { required: true, message: "请输入项目标题", trigger: "blur" },
+    {
+      min: 1,
+      max: 100,
+      message: "标题长度在 1 到 100 个字符",
+      trigger: "blur",
+    },
+  ],
+  style: [{ required: true, message: "请选择风格", trigger: "change" }],
+};
 
 // Reset form when dialog closes / 关闭时重置表单
 const handleClosed = () => {
-  form.title = ''
-  form.description = ''
-  formRef.value?.resetFields()
-}
+  form.title = "";
+  form.description = "";
+  formRef.value?.resetFields();
+};
 
 // Close dialog / 关闭弹窗
 const handleClose = () => {
-  visible.value = false
-}
+  visible.value = false;
+};
 
 // Submit form / 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  
+  if (!formRef.value) return;
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
-      loading.value = true
+      loading.value = true;
       try {
-        const drama = await dramaAPI.create(form)
-        ElMessage.success('创建成功')
-        visible.value = false
-        emit('created', drama.id)
+        const drama = await dramaAPI.create(form);
+        ElMessage.success("创建成功");
+        visible.value = false;
+        emit("created", drama.id);
         // Navigate to drama detail page / 跳转到短剧详情页
-        router.push(`/dramas/${drama.id}`)
+        router.push(`/dramas/${drama.id}`);
       } catch (error: any) {
-        ElMessage.error(error.message || '创建失败')
+        ElMessage.error(error.message || "创建失败");
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     }
-  })
-}
+  });
+};
 </script>
 
 <style scoped>

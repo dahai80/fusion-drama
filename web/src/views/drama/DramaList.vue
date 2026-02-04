@@ -7,40 +7,69 @@
       <AppHeader :fixed="false">
         <template #left>
           <div class="page-title">
-            <h1>{{ $t('drama.title') }}</h1>
-            <span class="subtitle">{{ $t('drama.totalProjects', { count: total }) }}</span>
+            <h1>{{ $t("drama.title") }}</h1>
+            <span class="subtitle">{{
+              $t("drama.totalProjects", { count: total })
+            }}</span>
           </div>
         </template>
         <template #right>
-          <el-button type="primary" @click="handleCreate" class="header-btn primary">
+          <el-button
+            type="primary"
+            @click="handleCreate"
+            class="header-btn primary"
+          >
             <el-icon>
               <Plus />
             </el-icon>
-            <span class="btn-text">{{ $t('drama.createNew') }}</span>
+            <span class="btn-text">{{ $t("drama.createNew") }}</span>
           </el-button>
         </template>
       </AppHeader>
 
       <!-- Project Grid / 项目网格 -->
-      <div v-loading="loading" class="projects-grid" :class="{ 'is-empty': !loading && dramas.length === 0 }">
+      <div
+        v-loading="loading"
+        class="projects-grid"
+        :class="{ 'is-empty': !loading && dramas.length === 0 }"
+      >
         <!-- Empty state / 空状态 -->
-        <EmptyState v-if="!loading && dramas.length === 0" :title="$t('drama.empty')"
-          :description="$t('drama.emptyHint')" :icon="Film">
+        <EmptyState
+          v-if="!loading && dramas.length === 0"
+          :title="$t('drama.empty')"
+          :description="$t('drama.emptyHint')"
+          :icon="Film"
+        >
           <el-button type="primary" @click="handleCreate">
             <el-icon>
               <Plus />
             </el-icon>
-            {{ $t('drama.createNew') }}
+            {{ $t("drama.createNew") }}
           </el-button>
         </EmptyState>
 
         <!-- Project Cards / 项目卡片列表 -->
-        <ProjectCard v-for="drama in dramas" :key="drama.id" :title="drama.title" :description="drama.description"
-          :updated-at="drama.updated_at" :episode-count="drama.total_episodes || 0" @click="viewDrama(drama.id)">
+        <ProjectCard
+          v-for="drama in dramas"
+          :key="drama.id"
+          :title="drama.title"
+          :description="drama.description"
+          :updated-at="drama.updated_at"
+          :episode-count="drama.total_episodes || 0"
+          @click="viewDrama(drama.id)"
+        >
           <template #actions>
-            <ActionButton :icon="Edit" :tooltip="$t('common.edit')" @click="editDrama(drama.id)" />
-            <el-popconfirm :title="$t('drama.deleteConfirm')" :confirm-button-text="$t('common.confirm')"
-              :cancel-button-text="$t('common.cancel')" @confirm="deleteDrama(drama.id)">
+            <ActionButton
+              :icon="Edit"
+              :tooltip="$t('common.edit')"
+              @click="editDrama(drama.id)"
+            />
+            <el-popconfirm
+              :title="$t('drama.deleteConfirm')"
+              :confirm-button-text="$t('common.confirm')"
+              :cancel-button-text="$t('common.cancel')"
+              @confirm="deleteDrama(drama.id)"
+            >
               <template #reference>
                 <el-button :icon="Delete" class="action-button danger" link />
               </template>
@@ -50,22 +79,75 @@
       </div>
 
       <!-- Edit Dialog / 编辑对话框 -->
-      <el-dialog v-model="editDialogVisible" :title="$t('drama.editProject')" width="520px"
-        :close-on-click-modal="false" class="edit-dialog">
-        <el-form :model="editForm" label-position="top" v-loading="editLoading" class="edit-form">
+      <el-dialog
+        v-model="editDialogVisible"
+        :title="$t('drama.editProject')"
+        width="520px"
+        :close-on-click-modal="false"
+        class="edit-dialog"
+      >
+        <el-form
+          :model="editForm"
+          label-position="top"
+          v-loading="editLoading"
+          class="edit-form"
+        >
           <el-form-item :label="$t('drama.projectName')" required>
-            <el-input v-model="editForm.title" :placeholder="$t('drama.projectNamePlaceholder')" size="large" />
+            <el-input
+              v-model="editForm.title"
+              :placeholder="$t('drama.projectNamePlaceholder')"
+              size="large"
+            />
           </el-form-item>
           <el-form-item :label="$t('drama.projectDesc')">
-            <el-input v-model="editForm.description" type="textarea" :rows="4"
-              :placeholder="$t('drama.projectDescPlaceholder')" resize="none" />
+            <el-input
+              v-model="editForm.description"
+              type="textarea"
+              :rows="4"
+              :placeholder="$t('drama.projectDescPlaceholder')"
+              resize="none"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('drama.style')" required>
+            <el-select
+              v-model="editForm.style"
+              :placeholder="$t('drama.stylePlaceholder')"
+              size="large"
+              style="width: 100%"
+            >
+              <el-option :label="$t('drama.styles.ghibli')" value="ghibli" />
+              <el-option :label="$t('drama.styles.guoman')" value="guoman" />
+              <el-option
+                :label="$t('drama.styles.wasteland')"
+                value="wasteland"
+              />
+              <el-option
+                :label="$t('drama.styles.nostalgia')"
+                value="nostalgia"
+              />
+              <el-option :label="$t('drama.styles.pixel')" value="pixel" />
+              <el-option :label="$t('drama.styles.voxel')" value="voxel" />
+              <el-option :label="$t('drama.styles.urban')" value="urban" />
+              <el-option
+                :label="$t('drama.styles.guoman3d')"
+                value="guoman3d"
+              />
+              <el-option :label="$t('drama.styles.chibi3d')" value="chibi3d" />
+            </el-select>
           </el-form-item>
         </el-form>
         <template #footer>
           <div class="dialog-footer">
-            <el-button @click="editDialogVisible = false" size="large">{{ $t('common.cancel') }}</el-button>
-            <el-button type="primary" @click="saveEdit" :loading="editLoading" size="large">
-              {{ $t('common.save') }}
+            <el-button @click="editDialogVisible = false" size="large">{{
+              $t("common.cancel")
+            }}</el-button>
+            <el-button
+              type="primary"
+              @click="saveEdit"
+              :loading="editLoading"
+              size="large"
+            >
+              {{ $t("common.save") }}
             </el-button>
           </div>
         </template>
@@ -73,23 +155,36 @@
 
       <!-- Create Drama Dialog / 创建短剧弹窗 -->
       <CreateDramaDialog v-model="createDialogVisible" @created="loadDramas" />
-
     </div>
 
     <!-- Sticky Pagination / 吸底分页器 -->
     <div v-if="total > 0" class="pagination-sticky">
       <div class="pagination-inner">
         <div class="pagination-info">
-          <span class="pagination-total">{{ $t('drama.totalProjects', { count: total }) }}</span>
+          <span class="pagination-total">{{
+            $t("drama.totalProjects", { count: total })
+          }}</span>
         </div>
         <div class="pagination-controls">
-          <el-pagination v-model:current-page="queryParams.page" v-model:page-size="queryParams.page_size"
-            :total="total" :page-sizes="[12, 24, 36, 48]" :pager-count="5" layout="prev, pager, next"
-            @size-change="loadDramas" @current-change="loadDramas" />
+          <el-pagination
+            v-model:current-page="queryParams.page"
+            v-model:page-size="queryParams.page_size"
+            :total="total"
+            :page-sizes="[12, 24, 36, 48]"
+            :pager-count="5"
+            layout="prev, pager, next"
+            @size-change="loadDramas"
+            @current-change="loadDramas"
+          />
         </div>
         <div class="pagination-size">
-          <span class="size-label">{{ $t('common.perPage') }}</span>
-          <el-select v-model="queryParams.page_size" size="small" class="size-select" @change="loadDramas">
+          <span class="size-label">{{ $t("common.perPage") }}</span>
+          <el-select
+            v-model="queryParams.page_size"
+            size="small"
+            class="size-select"
+            @change="loadDramas"
+          >
             <el-option :value="12" label="12" />
             <el-option :value="24" label="24" />
             <el-option :value="36" label="36" />
@@ -102,9 +197,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 import {
   Plus,
   Film,
@@ -112,108 +207,117 @@ import {
   Edit,
   View,
   Delete,
-  InfoFilled
-} from '@element-plus/icons-vue'
-import { dramaAPI } from '@/api/drama'
-import type { Drama, DramaListQuery } from '@/types/drama'
-import { AppHeader, ProjectCard, ActionButton, CreateDramaDialog, EmptyState } from '@/components/common'
+  InfoFilled,
+} from "@element-plus/icons-vue";
+import { dramaAPI } from "@/api/drama";
+import type { Drama, DramaListQuery } from "@/types/drama";
+import {
+  AppHeader,
+  ProjectCard,
+  ActionButton,
+  CreateDramaDialog,
+  EmptyState,
+} from "@/components/common";
 
-const router = useRouter()
-const loading = ref(false)
-const dramas = ref<Drama[]>([])
-const total = ref(0)
+const router = useRouter();
+const loading = ref(false);
+const dramas = ref<Drama[]>([]);
+const total = ref(0);
 
 const queryParams = ref<DramaListQuery>({
   page: 1,
-  page_size: 12
-})
+  page_size: 12,
+});
 
 // Create dialog state / 创建弹窗状态
-const createDialogVisible = ref(false)
+const createDialogVisible = ref(false);
 
 // Load drama list / 加载短剧列表
 const loadDramas = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    const res = await dramaAPI.list(queryParams.value)
-    dramas.value = res.items || []
-    total.value = res.pagination?.total || 0
+    const res = await dramaAPI.list(queryParams.value);
+    dramas.value = res.items || [];
+    total.value = res.pagination?.total || 0;
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    ElMessage.error(error.message || "加载失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // Navigation handlers / 导航处理
-const handleCreate = () => createDialogVisible.value = true
-const viewDrama = (id: string) => router.push(`/dramas/${id}`)
+const handleCreate = () => (createDialogVisible.value = true);
+const viewDrama = (id: string) => router.push(`/dramas/${id}`);
 
 // Edit dialog state / 编辑对话框状态
-const editDialogVisible = ref(false)
-const editLoading = ref(false)
+const editDialogVisible = ref(false);
+const editLoading = ref(false);
 const editForm = ref({
-  id: '',
-  title: '',
-  description: ''
-})
+  id: "",
+  title: "",
+  description: "",
+  style: "ghibli",
+});
 
 // Open edit dialog / 打开编辑对话框
 const editDrama = async (id: string) => {
-  editLoading.value = true
-  editDialogVisible.value = true
+  editLoading.value = true;
+  editDialogVisible.value = true;
   try {
-    const drama = await dramaAPI.get(id)
+    const drama = await dramaAPI.get(id);
     editForm.value = {
       id: drama.id,
       title: drama.title,
-      description: drama.description || ''
-    }
+      description: drama.description || "",
+      style: drama.style || "ghibli",
+    };
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
-    editDialogVisible.value = false
+    ElMessage.error(error.message || "加载失败");
+    editDialogVisible.value = false;
   } finally {
-    editLoading.value = false
+    editLoading.value = false;
   }
-}
+};
 
 // Save edit changes / 保存编辑更改
 const saveEdit = async () => {
   if (!editForm.value.title) {
-    ElMessage.warning('请输入项目名称')
-    return
+    ElMessage.warning("请输入项目名称");
+    return;
   }
 
-  editLoading.value = true
+  editLoading.value = true;
   try {
     await dramaAPI.update(editForm.value.id, {
       title: editForm.value.title,
-      description: editForm.value.description
-    })
-    ElMessage.success('保存成功')
-    editDialogVisible.value = false
-    loadDramas()
+      description: editForm.value.description,
+      style: editForm.value.style,
+    });
+    ElMessage.success("保存成功");
+    editDialogVisible.value = false;
+    loadDramas();
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    ElMessage.error(error.message || "保存失败");
   } finally {
-    editLoading.value = false
+    editLoading.value = false;
   }
-}
+};
 
 // Delete drama / 删除短剧
 const deleteDrama = async (id: string) => {
   try {
-    await dramaAPI.delete(id)
-    ElMessage.success('删除成功')
-    loadDramas()
+    await dramaAPI.delete(id);
+    ElMessage.success("删除成功");
+    loadDramas();
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    ElMessage.error(error.message || "删除失败");
   }
-}
+};
 
 onMounted(() => {
-  loadDramas()
-})
+  loadDramas();
+});
 </script>
 
 <style scoped>
