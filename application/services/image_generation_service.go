@@ -1319,12 +1319,5 @@ func (s *ImageGenerationService) loadImageAsBase64(localPath string) (string, er
 	// 构建 data URI
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
 
-	s.log.Infow("Converted local image to base64",
-		"local_path", localPath,
-		"full_path", fullPath,
-		"mime_type", mimeType,
-		"size_bytes", len(fileData),
-		"base64_length", len(base64Data))
-
 	return dataURI, nil
 }
