@@ -294,30 +294,48 @@ func (p *PromptI18n) GetActionSequenceFramePrompt() string {
 	style := p.config.Style.DefaultStyle
 	imageRatio := p.config.Style.DefaultImageRatio
 	if p.IsEnglish() {
-		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompts. You need to generate a prompt describing a 3x3 grid action sequence.
+		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompting. You need to generate a single prompt that describes a 3x3 grid action sequence.
 
 **Core Logic:**
 
-1. **Wholeness:** This is a complete single image containing a 3x3 grid layout, showing 9 consecutive actions of the same subject.
-2. **Visual Anchoring:** The subject, clothing, and art style must be highly consistent across all 9 grid cells.
-3. **Action Progression:** From cell 1 to cell 9, show a complete action sequence (e.g., standing → walking → running → jumping → landing).
-4. **Prompt Engineering:** Use high-quality visual vocabulary (lighting, materials, composition, depth of field).
+1. **Holistic Integration:** This is a single, complete image containing a 3x3 grid layout, showcasing 9 sequential actions of the same subject.
+2. **Visual Anchoring:** The subject, clothing, art style, and character consistency must be identical across all 9 frames.
+3. **Action Evolution:** From Frame 1 to Frame 9, display a complete action sequence (e.g., Standing → Walking → Running → Jumping → Landing).
+4. **Prompt Engineering:** Use high-quality visual vocabulary (lighting, textures, composition, depth of field).
 
-**Important:** You need to generate **ONE** complete prompt to describe the entire 3x3 grid image, not 9 separate prompts.
+**Important:**
 
-* **Style Requirement:** %s
-* **Aspect Ratio:** %s
+You must generate **ONE** comprehensive prompt to describe the entire 3x3 grid image, rather than 9 independent prompts.
+
+Each frame **must** follow these specific rules:
+
+- **Frame 1:** Preparation/Initial stance
+- **Frame 2:** Anticipation/Body adjustment
+- **Frame 3:** Initiation/Beginning of movement
+- **Frame 4:** Acceleration/Power building
+- **Frame 5:** Peak of tension/Just before the burst
+- **Frame 6:** Action burst/The climax moment
+- **Frame 7:** Power release/Inertia continuation
+- **Frame 8:** Deceleration/Follow-through
+- **Frame 9:** Complete conclusion/Return to stillness
+
+**Aspect Ratio:** * %s
 
 **Output Specification:**
-Must return a **JSON object** with the following structure:
-* prompt: **Complete English image generation prompt** (describing the entire 3x3 grid layout, subject characteristics, progression of 9 actions, environment, lighting details, ensuring AI can directly generate a complete image containing 9 cells).
-* description: **Simplified English description** (summarizing the core content of this action sequence).
+
+You must return a **JSON object** with the following structure:
+
+- **prompt**: A **complete English image generation prompt** (describing the 3x3 grid layout, subject features, the evolution of the 9 actions, environment, and lighting details to ensure the AI generates one single image containing 9 frames).
+- **description**: A **simplified English description** (summarizing the core content of the action sequence).
 
 **Example Format:**
+
 {
-  "prompt": "3x3 grid action sequence showing a black-clad swordsman's continuous actions. Cell 1: standing ready stance, Cell 2: drawing sword, Cell 3: charging forward, Cell 4: jumping into air, Cell 5: mid-air spin, Cell 6: downward strike, Cell 7: landing pose, Cell 8: sheathing sword, Cell 9: alert standing. All cells maintain character consistency, cinematic lighting, 35mm lens, high contrast.",
-  "description": "Black-clad swordsman's complete action sequence from drawing sword to attack"
-}`, style, imageRatio)
+  "prompt": "Action sequence layout, 3x3 grid composition\n [Frame 1]: [Subject] standing naturally in [Setting], feet shoulder-width apart...\n---\n [Frame 2]: [Subject] locking eyes forward, leaning body slightly...\n---\n [Frame 3]: [Subject's legs] bending slightly, center of gravity lowering...\n---\n [Frame 4]: [Subject] pushing off with back leg, body moving forward, dust rising from [Setting's ground]...\n---\n [Frame 5]: [Subject's clothing] fluttering, body leaning deep, fist charging power...\n---\n [Frame 6]: [Subject] sprinting at full speed, fist striking out...\n---\n [Frame 7]: [Subject] impact moment, body lunging forward...\n---\n [Frame 8]: [Subject] slowing down, pulling back the fist...\n---\n [Frame 9]: [Subject's full appearance] standing firm in [Setting], recovering original stance.",
+  "description": "Complete action sequence of a swordsman in black from drawing a blade to striking."
+}
+
+`, style, imageRatio)
 	}
 
 	return fmt.Sprintf(`**Role:** 你是一位精通视觉叙事与图像生成提示词的专家。你需要生成一个描述 3x3 九宫格动作序列的提示词。
@@ -329,7 +347,18 @@ Must return a **JSON object** with the following structure:
 3. **动作演进:** 从格子 1 到格子 9,展示一个完整的动作序列(如:从站立→行走→奔跑→跳跃→落地)。
 4. **提示词工程:** 使用高质量的视觉词汇(光影、材质、构图、景深)。
 
-**重要:** 你需要生成 **一个** 完整的提示词来描述整个 3x3 九宫格图片,而不是 9 个独立的提示词。
+**重要:** 
+你需要生成 **一个** 完整的提示词来描述整个 3x3 九宫格图片,而不是 9 个独立的提示词。
+每一格要求**必须**遵守如下规则：
+- **第1格**：动作准备/初始姿态
+- **第2格**：预备动作/身体调整
+- **第3格**：动作启动/开始移动
+- **第4格**：加速阶段/力量积蓄
+- **第5格**：蓄力顶点/即将爆发
+- **第6格**：动作爆发/高潮瞬间
+- **第7格**：力量释放/惯性延续
+- **第8格**：动作缓冲/逐渐收势
+- **第9格**：完全收尾/回归静止
 
 **Aspect Ratio:** 
 * %s
@@ -341,7 +370,7 @@ Must return a **JSON object** with the following structure:
 
 **示例格式:**
 {
-  "prompt": "3x3 九宫格动作序列图,展示一个黑衣剑客的连续动作。格子 1:站立准备姿态,格子 2:拔剑动作,格子 3:向前冲刺,格子 4:跳跃腾空,格子 5:空中旋转,格子 6:下劈攻击,格子 7:落地姿态,格子 8:收剑动作,格子 9:警戒站立。所有格子保持角色一致性,电影级光影,35mm 镜头,高对比度。",
+  "prompt": "动作序列布局，3x3方格布局\n [第1格]: [角色参考图2] 在 [场景参考图1] 中自然站立，双脚分开...\n---\n [第2格]: [角色参考图2] 眼神锁定，身体前倾...\n---\n [第3格]: [角色参考图2的腿部] 双腿微屈，重心下沉...\n---\n [第4格]: [角色参考图2] 后腿蹬地，身体前移，[场景参考图1的地面] 扬起尘土...\n---\n [第5格]: [角色参考图2的服装] 身体前倾，拳头蓄力...\n---\n [第6格]: [角色参考图2] 全速冲刺，拳头击出...\n---\n [第7格]: [角色参考图2] 拳头击中，身体前冲...\n---\n [第8格]: [角色参考图2] 减速收拳...\n---\n [第9格]: [角色参考图2的完整外观] 在 [场景参考图1] 中站稳，恢复姿态。\n",
   "description": "黑衣剑客从拔剑到攻击的完整动作序列"
 }`, imageRatio)
 }

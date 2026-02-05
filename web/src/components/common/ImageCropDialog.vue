@@ -1,21 +1,53 @@
 <template>
-  <el-dialog v-model="dialogVisible" title="裁剪动作序列图" width="1200px" :close-on-click-modal="false" destroy-on-close
-    class="crop-dialog" align-center top="5vh">
+  <el-dialog
+    v-model="dialogVisible"
+    title="裁剪动作序列图"
+    width="70vw"
+    :close-on-click-modal="false"
+    destroy-on-close
+    class="crop-dialog"
+    align-center
+    style="height: 90vh"
+  >
     <div class="crop-container">
       <!-- 下方区域 -->
       <div class="content-area">
         <!-- 左侧裁剪区域 -->
         <div class="crop-area">
           <div class="crop-canvas-wrapper">
-            <cropper-canvas ref="cropperCanvasRef" background class="cropper-canvas-element">
-              <cropper-image v-if="imageUrl" ref="cropperImageRef" :src="imageUrl" alt="crop" rotatable scalable
-                skewable translatable />
-              <cropper-shade hidden></cropper-shade>
+            <cropper-canvas
+              ref="cropperCanvasRef"
+              background
+              class="cropper-canvas-element"
+            >
+              <cropper-image
+                v-if="imageUrl"
+                ref="cropperImageRef"
+                :src="imageUrl"
+                alt="crop"
+                rotatable
+                scalable
+                skewable
+                translatable
+              />
+              <cropper-shade
+                hidden
+                style="min-width: 300px; min-height: 300px"
+              ></cropper-shade>
               <cropper-handle action="move" plain></cropper-handle>
-              <cropper-selection initial-coverage="0.7" movable outlined aspectRatio="1">
-                <cropper-grid role="grid" bordered covered></cropper-grid>
-                <cropper-crosshair centered></cropper-crosshair>
-                <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
+              <cropper-selection
+                movable
+                resizable
+                outlined
+                aspectRatio="1"
+                style="min-width: 300px; min-height: 300px"
+              >
+                <!-- <cropper-grid role="grid" bordered covered></cropper-grid> -->
+                <!-- <cropper-crosshair centered></cropper-crosshair> -->
+                <cropper-handle
+                  action="move"
+                  theme-color="rgba(255, 255, 255, 0.35)"
+                ></cropper-handle>
                 <cropper-handle action="n-resize"></cropper-handle>
                 <cropper-handle action="e-resize"></cropper-handle>
                 <cropper-handle action="s-resize"></cropper-handle>
@@ -27,31 +59,68 @@
               </cropper-selection>
             </cropper-canvas>
           </div>
-          <div class="crop-controls">
-            <el-button type="primary" @click="cropImage" :disabled="!canCrop">
-              裁剪
-            </el-button>
-            <el-button @click="resetCrop">重置</el-button>
-          </div>
         </div>
 
         <!-- 缩放控制区域 -->
         <div class="zoom-control">
-          <el-button :icon="ZoomIn" circle @click="handleZoomIn" :disabled="zoomLevel >= 200" />
-          <el-slider v-model="zoomLevel" :min="50" :max="200" :step="5" vertical height="300px"
-            @change="handleZoomChange" />
-          <el-button :icon="ZoomOut" circle @click="handleZoomOut" :disabled="zoomLevel <= 50" />
-          <div class="zoom-label">{{ zoomLevel }}%</div>
+          <div class="slider-box">
+            <el-button
+              :icon="ZoomIn"
+              circle
+              @click="handleZoomIn"
+              :disabled="zoomLevel >= 200"
+            />
+            <el-slider
+              v-model="zoomLevel"
+              :min="50"
+              :max="200"
+              :step="1"
+              vertical
+              height="300px"
+              @change="handleZoomChange"
+            />
+            <el-button
+              :icon="ZoomOut"
+              circle
+              @click="handleZoomOut"
+              :disabled="zoomLevel <= 50"
+            />
+            <div class="zoom-label">{{ zoomLevel }}%</div>
+          </div>
+
+          <div class="crop-actions">
+            <!-- 裁剪和重置按钮 -->
+            <el-button
+              :icon="Crop"
+              circle
+              type="primary"
+              @click="cropImage"
+              :disabled="!canCrop"
+              title="裁剪"
+            />
+            <el-button
+              :icon="RefreshLeft"
+              circle
+              @click="resetCrop"
+              title="重置"
+              style="margin: 0"
+            />
+          </div>
         </div>
 
         <!-- 右侧预览区域 -->
         <div class="preview-area">
           <!-- 顶部文件夹区域 -->
           <div class="folder-area">
-            <div v-for="folder in folders" :key="folder.type" class="folder-item"
+            <div
+              v-for="folder in folders"
+              :key="folder.type"
+              class="folder-item"
               :class="{ 'drag-over': dragOverFolder === folder.type }"
-              @dragover.prevent="handleFolderDragOver(folder.type)" @dragleave="handleFolderDragLeave"
-              @drop="handleFolderDrop($event, folder.type)">
+              @dragover.prevent="handleFolderDragOver(folder.type)"
+              @dragleave="handleFolderDragLeave"
+              @drop="handleFolderDrop($event, folder.type)"
+            >
               <el-icon :size="20" class="folder-icon">
                 <Folder />
               </el-icon>
@@ -63,11 +132,21 @@
             已裁剪图片 ({{ croppedImages.length }})
           </div>
           <div class="preview-grid">
-            <div v-for="(img, index) in croppedImages" :key="index" class="preview-item" draggable="true"
-              @dragstart="handleImageDragStart($event, img, index)" @dragend="handleImageDragEnd">
+            <div
+              v-for="(img, index) in croppedImages"
+              :key="index"
+              class="preview-item"
+              draggable="true"
+              @dragstart="handleImageDragStart($event, img, index)"
+              @dragend="handleImageDragEnd"
+            >
               <img :src="img.url" alt="cropped" />
               <div class="preview-overlay">
-                <el-icon :size="16" class="delete-icon" @click="removeCroppedImage(index)">
+                <el-icon
+                  :size="16"
+                  class="delete-icon"
+                  @click="removeCroppedImage(index)"
+                >
                   <Close />
                 </el-icon>
               </div>
@@ -91,7 +170,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from "vue";
-import { Folder, Close, ZoomIn, ZoomOut } from "@element-plus/icons-vue";
+import {
+  Folder,
+  Close,
+  ZoomIn,
+  ZoomOut,
+  Crop,
+  RefreshLeft,
+} from "@element-plus/icons-vue";
 import "cropperjs";
 
 interface CroppedImage {
@@ -211,14 +297,14 @@ const resetCrop = () => {
 
 const handleZoomIn = () => {
   if (zoomLevel.value < 200) {
-    zoomLevel.value = Math.min(200, zoomLevel.value + 10);
+    zoomLevel.value = Math.min(200, zoomLevel.value + 2);
     applyZoom();
   }
 };
 
 const handleZoomOut = () => {
   if (zoomLevel.value > 50) {
-    zoomLevel.value = Math.max(50, zoomLevel.value - 10);
+    zoomLevel.value = Math.max(50, zoomLevel.value - 2);
     applyZoom();
   }
 };
@@ -312,20 +398,27 @@ const handleSave = () => {
 };
 </script>
 
+<style>
+.crop-dialog .el-dialog__body {
+  height: calc(100% - 120px) !important;
+}
+</style>
+
 <style scoped>
-.crop-dialog :deep(.el-dialog) {
+:deep(.crop-dialog.el-dialog) {
   width: 1200px;
-  height: 85vh;
+  height: 90vh;
   margin: 0;
   display: flex;
   flex-direction: column;
 }
 
-.crop-dialog :deep(.el-dialog__body) {
+:deep(.crop-dialog .el-dialog__body) {
   padding: 16px;
   flex: 1;
   overflow: hidden;
   display: flex;
+  height: calc(100% - 120px) !important;
 }
 
 .crop-container {
@@ -384,11 +477,12 @@ const handleSave = () => {
   gap: 20px;
   min-height: 0;
   overflow: hidden;
+  justify-content: center;
 }
 
 .crop-area {
   flex: 1;
-  max-width: 550px;
+  max-width: 700px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -403,13 +497,23 @@ const handleSave = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
   padding: 16px 8px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   height: fit-content;
   align-self: center;
+  height: 100%;
+}
+
+.slider-box,
+.crop-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
 }
 
 .zoom-label {
@@ -681,6 +785,7 @@ const handleSave = () => {
   padding: 16px;
   background: var(--bg-primary);
   min-height: 0;
+  max-width: 420px;
 }
 
 .preview-grid {

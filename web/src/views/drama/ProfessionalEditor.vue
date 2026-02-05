@@ -2174,7 +2174,7 @@ const availableScenes = ref<any[]>([]);
 const props = ref<any[]>([]);
 const showPropSelector = ref(false);
 
-const currentStoryboardId = ref<number | null>(null);
+const currentStoryboardId = ref<string | null>(null);
 const activeTab = ref("shot");
 const showSceneSelector = ref(false);
 const showCharacterSelector = ref(false);
@@ -2990,7 +2990,7 @@ const getFrameTypeLabel = (frameType: string): string => {
 
 // 加载分镜的图片列表
 const loadStoryboardImages = async (
-  storyboardId: number,
+  storyboardId: string | number,
   frameType?: string,
 ) => {
   loadingImages.value = true;
@@ -3558,7 +3558,7 @@ const startVideoPolling = () => {
     try {
       // 保存旧的视频列表用于对比
       const oldVideos = [...generatedVideos.value];
-      
+
       const result = await videoAPI.listVideos({
         storyboard_id: currentStoryboard.value.id.toString(),
         page: 1,
@@ -3579,7 +3579,9 @@ const startVideoPolling = () => {
       // 如果有视频完成，重新加载分镜列表以更新 duration
       if (hasNewlyCompleted && episodeId.value) {
         try {
-          const storyboardsRes = await dramaAPI.getStoryboards(episodeId.value.toString());
+          const storyboardsRes = await dramaAPI.getStoryboards(
+            episodeId.value.toString(),
+          );
           storyboards.value = storyboardsRes?.storyboards || [];
         } catch (error) {
           console.error("重新加载分镜列表失败:", error);
@@ -3763,12 +3765,12 @@ const selectScene = async (sceneId: number) => {
   }
 };
 
-const selectStoryboard = (id: number) => {
+const selectStoryboard = (id: string) => {
   currentStoryboardId.value = id;
 };
 
 const handleTimelineSelect = (sceneId: number) => {
-  selectStoryboard(sceneId);
+  selectStoryboard(String(sceneId));
 };
 
 const togglePlay = () => {
@@ -3933,12 +3935,11 @@ const handleCropSave = async (images: { blob: Blob; frameType: string }[]) => {
 
     ElMessage.success("裁剪图片保存成功");
 
-    // 刷新图片列表
+    // 刷新图片列表 - 刷新所有帧类型的图片，确保新裁剪的图片能在视频生成tab中被选择到
     if (currentStoryboard.value) {
-      await loadStoryboardImages(
-        currentStoryboard.value.id.toString(),
-        selectedFrameType.value,
-      );
+      // 刷新当前镜头的所有图片（不限制帧类型）
+      await loadStoryboardImages(currentStoryboard.value.id);
+      // 刷新所有生成的图片列表
       await loadAllGeneratedImages();
     }
   } catch (error) {
@@ -6150,7 +6151,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all 0.3s ease;
   border: none !important;
-  min-height: 84px;
+  min-height: 88px;
 }
 
 .grid-entry-button:hover {
