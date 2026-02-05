@@ -15,11 +15,7 @@
         <!-- 左侧裁剪区域 -->
         <div class="crop-area">
           <div class="crop-canvas-wrapper">
-            <cropper-canvas
-              ref="cropperCanvasRef"
-              background
-              class="cropper-canvas-element"
-            >
+            <cropper-canvas ref="cropperCanvasRef" background class="cropper-canvas-element">
               <cropper-image
                 v-if="imageUrl"
                 ref="cropperImageRef"
@@ -30,24 +26,20 @@
                 skewable
                 translatable
               />
-              <cropper-shade
-                hidden
-                style="min-width: 300px; min-height: 300px"
-              ></cropper-shade>
+              <cropper-shade hidden style="min-width: 300px; min-height: 300px"></cropper-shade>
               <cropper-handle action="move" plain></cropper-handle>
               <cropper-selection
+                :width="300"
+                :height="300"
+                style="min-width: 300px; min-height: 300px"
                 movable
                 resizable
                 outlined
                 aspectRatio="1"
-                style="min-width: 300px; min-height: 300px"
               >
                 <!-- <cropper-grid role="grid" bordered covered></cropper-grid> -->
                 <!-- <cropper-crosshair centered></cropper-crosshair> -->
-                <cropper-handle
-                  action="move"
-                  theme-color="rgba(255, 255, 255, 0.35)"
-                ></cropper-handle>
+                <cropper-handle action="move" theme-color="rgba(255, 255, 255, 0.35)"></cropper-handle>
                 <cropper-handle action="n-resize"></cropper-handle>
                 <cropper-handle action="e-resize"></cropper-handle>
                 <cropper-handle action="s-resize"></cropper-handle>
@@ -64,12 +56,7 @@
         <!-- 缩放控制区域 -->
         <div class="zoom-control">
           <div class="slider-box">
-            <el-button
-              :icon="ZoomIn"
-              circle
-              @click="handleZoomIn"
-              :disabled="zoomLevel >= 200"
-            />
+            <el-button :icon="ZoomIn" circle @click="handleZoomIn" :disabled="zoomLevel >= 200" />
             <el-slider
               v-model="zoomLevel"
               :min="50"
@@ -79,32 +66,14 @@
               height="300px"
               @change="handleZoomChange"
             />
-            <el-button
-              :icon="ZoomOut"
-              circle
-              @click="handleZoomOut"
-              :disabled="zoomLevel <= 50"
-            />
+            <el-button :icon="ZoomOut" circle @click="handleZoomOut" :disabled="zoomLevel <= 50" />
             <div class="zoom-label">{{ zoomLevel }}%</div>
           </div>
 
           <div class="crop-actions">
             <!-- 裁剪和重置按钮 -->
-            <el-button
-              :icon="Crop"
-              circle
-              type="primary"
-              @click="cropImage"
-              :disabled="!canCrop"
-              title="裁剪"
-            />
-            <el-button
-              :icon="RefreshLeft"
-              circle
-              @click="resetCrop"
-              title="重置"
-              style="margin: 0"
-            />
+            <el-button :icon="Crop" circle type="primary" @click="cropImage" :disabled="!canCrop" title="裁剪" />
+            <el-button :icon="RefreshLeft" circle @click="resetCrop" title="重置" style="margin: 0" />
           </div>
         </div>
 
@@ -116,7 +85,9 @@
               v-for="folder in folders"
               :key="folder.type"
               class="folder-item"
-              :class="{ 'drag-over': dragOverFolder === folder.type }"
+              :class="{
+                'drag-over': dragOverFolder === folder.type,
+              }"
               @dragover.prevent="handleFolderDragOver(folder.type)"
               @dragleave="handleFolderDragLeave"
               @drop="handleFolderDrop($event, folder.type)"
@@ -128,9 +99,7 @@
               <el-badge :value="folder.count" :hidden="folder.count === 0" />
             </div>
           </div>
-          <div class="preview-title">
-            已裁剪图片 ({{ croppedImages.length }})
-          </div>
+          <div class="preview-title">已裁剪图片 ({{ croppedImages.length }})</div>
           <div class="preview-grid">
             <div
               v-for="(img, index) in croppedImages"
@@ -142,11 +111,7 @@
             >
               <img :src="img.url" alt="cropped" />
               <div class="preview-overlay">
-                <el-icon
-                  :size="16"
-                  class="delete-icon"
-                  @click="removeCroppedImage(index)"
-                >
+                <el-icon :size="16" class="delete-icon" @click="removeCroppedImage(index)">
                   <Close />
                 </el-icon>
               </div>
@@ -161,225 +126,209 @@
 
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" @click="handleSave" :loading="saving">
-        保存
-      </el-button>
+      <el-button type="primary" @click="handleSave" :loading="saving"> 保存 </el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from "vue";
-import {
-  Folder,
-  Close,
-  ZoomIn,
-  ZoomOut,
-  Crop,
-  RefreshLeft,
-} from "@element-plus/icons-vue";
-import "cropperjs";
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { Folder, Close, ZoomIn, ZoomOut, Crop, RefreshLeft } from '@element-plus/icons-vue'
+import 'cropperjs'
 
 interface CroppedImage {
-  url: string;
-  blob: Blob;
-  frameType?: string;
+  url: string
+  blob: Blob
+  frameType?: string
 }
 
 interface Props {
-  modelValue: boolean;
-  imageUrl?: string;
+  modelValue: boolean
+  imageUrl?: string
 }
 
 interface Emits {
-  (e: "update:modelValue", value: boolean): void;
-  (e: "save", images: { blob: Blob; frameType: string }[]): void;
+  (e: 'update:modelValue', value: boolean): void
+  (e: 'save', images: { blob: Blob; frameType: string }[]): void
 }
 
-const props = defineProps<Props>();
-const emit = defineEmits<Emits>();
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
 const dialogVisible = computed({
   get: () => props.modelValue,
-  set: (val) => emit("update:modelValue", val),
-});
+  set: (val) => emit('update:modelValue', val),
+})
 
-const cropperCanvasRef = ref<any>();
-const cropperImageRef = ref<any>();
-const croppedImages = ref<CroppedImage[]>([]);
-const dragOverFolder = ref<string | null>(null);
-const draggingImageIndex = ref<number | null>(null);
-const saving = ref(false);
-const zoomLevel = ref(100);
-const previousZoomLevel = ref(100);
+const cropperCanvasRef = ref<any>()
+const cropperImageRef = ref<any>()
+const croppedImages = ref<CroppedImage[]>([])
+const dragOverFolder = ref<string | null>(null)
+const draggingImageIndex = ref<number | null>(null)
+const saving = ref(false)
+const zoomLevel = ref(100)
+const previousZoomLevel = ref(100)
 
 const folders = computed(() => [
   {
-    type: "first",
-    name: "首帧",
-    count: croppedImages.value.filter((img) => img.frameType === "first")
-      .length,
+    type: 'first',
+    name: '首帧',
+    count: croppedImages.value.filter((img) => img.frameType === 'first').length,
   },
   {
-    type: "last",
-    name: "尾帧",
-    count: croppedImages.value.filter((img) => img.frameType === "last").length,
+    type: 'last',
+    name: '尾帧',
+    count: croppedImages.value.filter((img) => img.frameType === 'last').length,
   },
   {
-    type: "key",
-    name: "关键帧",
-    count: croppedImages.value.filter((img) => img.frameType === "key").length,
+    type: 'key',
+    name: '关键帧',
+    count: croppedImages.value.filter((img) => img.frameType === 'key').length,
   },
-]);
+])
 
 const canCrop = computed(() => {
-  return (
-    cropperCanvasRef.value !== undefined && cropperImageRef.value !== undefined
-  );
-});
+  return cropperCanvasRef.value !== undefined && cropperImageRef.value !== undefined
+})
 watch(
   () => props.modelValue,
   (val) => {
     if (val) {
       nextTick(() => {
-        console.log("Dialog opened, canvas ref:", cropperCanvasRef.value);
-        console.log("Image ref:", cropperImageRef.value);
-      });
+        console.log('Dialog opened, canvas ref:', cropperCanvasRef.value)
+        console.log('Image ref:', cropperImageRef.value)
+      })
     }
   },
-);
+)
 
 const cropImage = async () => {
   if (!cropperCanvasRef.value) {
-    console.error("Cropper canvas not found");
-    return;
+    console.error('Cropper canvas not found')
+    return
   }
 
   try {
     // 使用 Web Components API 的 $toCanvas 方法获取裁剪后的画布
-    const selection = cropperCanvasRef.value.querySelector("cropper-selection");
+    const selection = cropperCanvasRef.value.querySelector('cropper-selection')
     if (!selection) {
-      console.error("Cropper selection not found");
-      return;
+      console.error('Cropper selection not found')
+      return
     }
 
     // 获取选区的 canvas
-    const canvas = await selection.$toCanvas();
+    const canvas = await selection.$toCanvas()
     if (!canvas) {
-      console.error("Failed to get canvas");
-      return;
+      console.error('Failed to get canvas')
+      return
     }
 
     // 转换为 Blob
     canvas.toBlob((blob) => {
-      if (!blob) return;
+      if (!blob) return
 
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob)
       croppedImages.value.push({
         url,
         blob,
         frameType: undefined,
-      });
-      console.log("Image cropped successfully");
-    });
+      })
+      console.log('Image cropped successfully')
+    })
   } catch (error) {
-    console.error("Error cropping image:", error);
+    console.error('Error cropping image:', error)
   }
-};
+}
 
 const resetCrop = () => {
   if (cropperImageRef.value && cropperImageRef.value.$resetTransform) {
-    cropperImageRef.value.$resetTransform();
-    zoomLevel.value = 100;
-    console.log("Crop reset");
+    cropperImageRef.value.$resetTransform()
+    zoomLevel.value = 100
+    console.log('Crop reset')
   }
-};
+}
 
 const handleZoomIn = () => {
   if (zoomLevel.value < 200) {
-    zoomLevel.value = Math.min(200, zoomLevel.value + 2);
-    applyZoom();
+    zoomLevel.value = Math.min(200, zoomLevel.value + 2)
+    applyZoom()
   }
-};
+}
 
 const handleZoomOut = () => {
   if (zoomLevel.value > 50) {
-    zoomLevel.value = Math.max(50, zoomLevel.value - 2);
-    applyZoom();
+    zoomLevel.value = Math.max(50, zoomLevel.value - 2)
+    applyZoom()
   }
-};
+}
 
 const handleZoomChange = (value: number) => {
-  zoomLevel.value = value;
-  applyZoom();
-};
+  zoomLevel.value = value
+  applyZoom()
+}
 
 const applyZoom = () => {
   if (cropperImageRef.value && cropperImageRef.value.$scale) {
     // 计算相对于上一次的缩放比例
-    const ratio = zoomLevel.value / previousZoomLevel.value;
-    cropperImageRef.value.$scale(ratio);
-    previousZoomLevel.value = zoomLevel.value;
+    const ratio = zoomLevel.value / previousZoomLevel.value
+    cropperImageRef.value.$scale(ratio)
+    previousZoomLevel.value = zoomLevel.value
   }
-};
+}
 
 const removeCroppedImage = (index: number) => {
-  const img = croppedImages.value[index];
-  URL.revokeObjectURL(img.url);
-  croppedImages.value.splice(index, 1);
-};
+  const img = croppedImages.value[index]
+  URL.revokeObjectURL(img.url)
+  croppedImages.value.splice(index, 1)
+}
 
-const handleImageDragStart = (
-  event: DragEvent,
-  img: CroppedImage,
-  index: number,
-) => {
-  draggingImageIndex.value = index;
+const handleImageDragStart = (event: DragEvent, img: CroppedImage, index: number) => {
+  draggingImageIndex.value = index
   if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.effectAllowed = 'move'
   }
-};
+}
 
 const handleImageDragEnd = () => {
-  draggingImageIndex.value = null;
-  dragOverFolder.value = null;
-};
+  draggingImageIndex.value = null
+  dragOverFolder.value = null
+}
 
 const handleFolderDragOver = (folderType: string) => {
-  dragOverFolder.value = folderType;
-};
+  dragOverFolder.value = folderType
+}
 
 const handleFolderDragLeave = () => {
-  dragOverFolder.value = null;
-};
+  dragOverFolder.value = null
+}
 
 const handleFolderDrop = (event: DragEvent, folderType: string) => {
-  event.preventDefault();
-  dragOverFolder.value = null;
+  event.preventDefault()
+  dragOverFolder.value = null
 
-  if (draggingImageIndex.value === null) return;
+  if (draggingImageIndex.value === null) return
 
-  const img = croppedImages.value[draggingImageIndex.value];
-  img.frameType = folderType;
-  draggingImageIndex.value = null;
-};
+  const img = croppedImages.value[draggingImageIndex.value]
+  img.frameType = folderType
+  draggingImageIndex.value = null
+}
 
 const getFrameTypeName = (type: string) => {
   const map: Record<string, string> = {
-    first: "首帧",
-    last: "尾帧",
-    key: "关键帧",
-  };
-  return map[type] || type;
-};
+    first: '首帧',
+    last: '尾帧',
+    key: '关键帧',
+  }
+  return map[type] || type
+}
 
 const handleClose = () => {
   croppedImages.value.forEach((img) => {
-    URL.revokeObjectURL(img.url);
-  });
-  croppedImages.value = [];
-  dialogVisible.value = false;
-};
+    URL.revokeObjectURL(img.url)
+  })
+  croppedImages.value = []
+  dialogVisible.value = false
+}
 
 const handleSave = () => {
   const imagesToSave = croppedImages.value
@@ -387,15 +336,15 @@ const handleSave = () => {
     .map((img) => ({
       blob: img.blob,
       frameType: img.frameType!,
-    }));
+    }))
 
   if (imagesToSave.length === 0) {
-    return;
+    return
   }
 
-  emit("save", imagesToSave);
-  handleClose();
-};
+  emit('save', imagesToSave)
+  handleClose()
+}
 </script>
 
 <style>
@@ -639,7 +588,7 @@ const handleSave = () => {
 .crop-canvas-wrapper :deep(.cropper-center::before),
 .crop-canvas-wrapper :deep(.cropper-center::after) {
   background-color: #eee;
-  content: " ";
+  content: ' ';
   display: block;
   position: absolute;
 }
