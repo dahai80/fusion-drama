@@ -84,7 +84,13 @@ func (s *PropService) processPropExtraction(taskID string, episode models.Episod
 		script = *episode.ScriptContent
 	}
 
-	promptTemplate := s.promptI18n.GetPropExtractionPrompt()
+	// 获取 drama 的 style 信息
+	var drama models.Drama
+	if err := s.db.First(&drama, episode.DramaID).Error; err != nil {
+		s.log.Warnw("Failed to load drama", "error", err, "drama_id", episode.DramaID)
+	}
+
+	promptTemplate := s.promptI18n.GetPropExtractionPrompt(drama.Style)
 	prompt := fmt.Sprintf(promptTemplate, script)
 
 	response, err := s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(2000))
@@ -164,15 +170,8 @@ func (s *PropService) processPropImageGeneration(taskID string, prop models.Prop
 	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在生成图片...")
 
 	// 准备生成参数
-	imageStyle := s.config.Style.DefaultStyle
-	if s.config != nil && s.config.Style.DefaultPropStyle != "" {
-		imageStyle += ", " + s.config.Style.DefaultPropStyle
-	}
-
+	imageStyle := "Modern Japanese anime style"
 	imageSize := "1024x1024"
-	if s.config != nil && s.config.Style.DefaultImageSize != "" {
-		imageSize = s.config.Style.DefaultImageSize
-	}
 
 	// 创建生成请求
 	req := &GenerateImageRequest{
@@ -183,17 +182,6 @@ func (s *PropService) processPropImageGeneration(taskID string, prop models.Prop
 		Size:      imageSize,
 		Style:     &imageStyle,
 		Provider:  s.config.AI.DefaultImageProvider, // 使用默认配置
-	}
-
-	// 增加默认比例（如果有配置）
-	// 注意：GenerateImageRequest 最好增加 Ratio 字段，或者在 PropService 这里拼接到 prompt
-	// 目前 ImageGenerationService 支持 Width/Height 和 Size
-	// 如果配置了 Ratio，可能需要转换为 Size 或 Model 参数
-	// 简单起见，如果 Prompt 中需要 Ratio，可以追加
-	if s.config != nil && s.config.Style.DefaultPropRatio != "" {
-		// 这里暂不处理，因为 ImageGenerationService 主要靠 Size 控制
-		// 如果需要，可以调整 prompt
-		// req.Prompt += ", ratio: " + s.config.Style.DefaultPropRatio
 	}
 
 	// 调用 ImageGenerationService
