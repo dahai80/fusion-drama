@@ -163,6 +163,12 @@ func (s *ImageGenerationService) ProcessImageGeneration(imageGenID uint) {
 		return
 	}
 
+	// 获取drama的style信息
+	var drama models.Drama
+	if err := s.db.First(&drama, imageGen.DramaID).Error; err != nil {
+		s.log.Warnw("Failed to load drama for style", "error", err, "drama_id", imageGen.DramaID)
+	}
+
 	s.db.Model(&imageGen).Update("status", models.ImageStatusProcessing)
 
 	// 如果关联了background，同步更新background为generating状态
@@ -214,7 +220,7 @@ func (s *ImageGenerationService) ProcessImageGeneration(imageGenID uint) {
 					"local_path", imgPath)
 			} else {
 				referenceImages = append(referenceImages, base64Image)
-				s.log.Infow("Loaded local image as base64 for generation",
+				s.log.Infow("Loaded local image for generation",
 					"id", imageGenID,
 					"local_path", imgPath)
 			}
@@ -256,7 +262,22 @@ func (s *ImageGenerationService) ProcessImageGeneration(imageGenID uint) {
 		opts = append(opts, image.WithReferenceImages(referenceImages))
 	}
 
+	// 构建完整的提示词：风格提示词 + 用户提示词
 	prompt := imageGen.Prompt
+
+	// 如果drama有风格设置，添加风格提示词
+	if drama.Style != "" && drama.Style != "realistic" {
+		stylePrompt := s.promptI18n.GetStylePrompt(drama.Style)
+		if stylePrompt != "" {
+			// 将风格提示词作为系统级约束添加到提示词前面
+			prompt = stylePrompt + "\n\n" + prompt
+			s.log.Infow("Added style prompt to image generation",
+				"id", imageGenID,
+				"style", drama.Style,
+				"style_prompt_length", len(stylePrompt))
+		}
+	}
+
 	prompt += ", imageRatio:" + imageRatio
 	result, err := client.GenerateImage(prompt, opts...)
 	if err != nil {
@@ -1318,13 +1339,6 @@ func (s *ImageGenerationService) loadImageAsBase64(localPath string) (string, er
 
 	// 构建 data URI
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
-
-	s.log.Infow("Converted local image to base64",
-		"local_path", localPath,
-		"full_path", fullPath,
-		"mime_type", mimeType,
-		"size_bytes", len(fileData),
-		"base64_length", len(base64Data))
 
 	return dataURI, nil
 }

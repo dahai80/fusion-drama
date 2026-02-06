@@ -53,722 +53,722 @@
         </template>
       </AppHeader>
 
-      <!-- 阶段 0: 章节内容 + 提取角色场景 -->
-      <el-card
-        v-show="currentStep === 0"
-        shadow="never"
-        class="stage-card stage-card-fullscreen"
-      >
-        <div class="stage-body stage-body-fullscreen">
-          <!-- 未保存时显示输入框 -->
-          <div v-if="!hasScript" class="generation-form">
-            <el-input
-              v-model="scriptContent"
-              type="textarea"
-              :placeholder="$t('workflow.scriptPlaceholder')"
-              class="script-textarea script-textarea-fullscreen"
-            />
-
-            <div class="action-buttons-inline">
-              <el-button
-                type="primary"
-                size="default"
-                @click="saveChapterScript"
-                :disabled="!scriptContent.trim() || generatingScript"
-              >
-                <el-icon><Check /></el-icon>
-                <span>{{ $t("workflow.saveChapter") }}</span>
-              </el-button>
-            </div>
-          </div>
-
-          <!-- 已保存时显示内容 -->
-          <div v-if="hasScript" class="overview-section">
-            <div class="episode-info">
-              <h3>
-                {{ $t("workflow.chapterContent", { number: episodeNumber }) }}
-              </h3>
-              <el-tag type="success" size="large">{{
-                $t("workflow.saved")
-              }}</el-tag>
-            </div>
-            <div class="overview-content">
+      <div class="content-container">
+        <!-- 阶段 0: 章节内容 + 提取角色场景 -->
+        <el-card
+          v-show="currentStep === 0"
+          shadow="never"
+          class="stage-card stage-card-fullscreen"
+        >
+          <div class="stage-body stage-body-fullscreen">
+            <!-- 未保存时显示输入框 -->
+            <div v-if="!hasScript" class="generation-form">
               <el-input
-                v-model="currentEpisode.script_content"
+                v-model="scriptContent"
                 type="textarea"
-                :rows="15"
-                readonly
-                class="script-display"
+                :placeholder="$t('workflow.scriptPlaceholder')"
+                class="script-textarea script-textarea-fullscreen"
               />
-            </div>
 
-            <el-divider />
-
-            <!-- 显示已提取的角色和场景 -->
-            <div v-if="hasExtractedData" class="extracted-info">
-              <el-alert
-                type="success"
-                :closable="false"
-                style="margin-bottom: 16px"
-              >
-                <template #title>
-                  <div style="display: flex; align-items: center; gap: 16px">
-                    <span>✅ {{ $t("workflow.extractedData") }}</span>
-                    <el-tag v-if="hasCharacters" type="success"
-                      >{{ $t("workflow.characters") }}:
-                      {{ charactersCount }}</el-tag
-                    >
-                    <el-tag v-if="currentEpisode?.scenes" type="success"
-                      >{{ $t("workflow.scenes") }}:
-                      {{ currentEpisode.scenes.length }}</el-tag
-                    >
-                  </div>
-                </template>
-              </el-alert>
-
-              <!-- 角色列表 -->
-              <div v-if="hasCharacters" style="margin-bottom: 16px">
-                <h4 class="extracted-title">
-                  {{ $t("workflow.extractedCharacters") }}：
-                </h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px">
-                  <el-tag
-                    v-for="char in currentEpisode?.characters"
-                    :key="char.id"
-                    type="info"
-                  >
-                    {{ char.name }}
-                    <span v-if="char.role" class="secondary-text"
-                      >({{ char.role }})</span
-                    >
-                  </el-tag>
-                </div>
-              </div>
-
-              <!-- 场景列表 -->
-              <div
-                v-if="
-                  currentEpisode?.scenes && currentEpisode.scenes.length > 0
-                "
-              >
-                <h4 class="extracted-title">
-                  {{ $t("workflow.extractedScenes") }}：
-                </h4>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px">
-                  <el-tag
-                    v-for="scene in currentEpisode.scenes"
-                    :key="scene.id"
-                    type="warning"
-                  >
-                    {{ scene.location }}
-                    <span class="secondary-text">· {{ scene.time }}</span>
-                  </el-tag>
-                </div>
-              </div>
-            </div>
-
-            <el-divider />
-
-            <div class="action-buttons">
-              <el-button
-                type="primary"
-                size="large"
-                @click="handleExtractCharactersAndBackgrounds"
-                :loading="extractingCharactersAndBackgrounds"
-                :disabled="!hasScript"
-              >
-                <el-icon><MagicStick /></el-icon>
-                {{
-                  hasExtractedData
-                    ? $t("workflow.reExtract")
-                    : $t("workflow.extractCharactersAndScenes")
-                }}
-              </el-button>
-              <el-button
-                type="success"
-                size="large"
-                @click="nextStep"
-                :disabled="!hasExtractedData"
-              >
-                {{ $t("workflow.nextStepGenerateImages") }}
-                <el-icon><ArrowRight /></el-icon>
-              </el-button>
-              <div v-if="!hasExtractedData" style="margin-top: 8px">
-                <el-alert
-                  type="warning"
-                  :closable="false"
-                  style="display: inline-block"
-                >
-                  <template #title>
-                    <span style="font-size: 12px">
-                      {{ $t("workflow.extractWarning") }}
-                    </span>
-                  </template>
-                </el-alert>
-              </div>
-            </div>
-          </div>
-        </div>
-      </el-card>
-
-      <!-- 阶段 1: 生成图片 -->
-      <el-card v-show="currentStep === 1" class="workflow-card">
-        <div class="stage-body">
-          <!-- 角色图片生成 -->
-          <div class="image-gen-section">
-            <div class="section-header">
-              <div class="section-title">
-                <h3>
-                  <el-icon><User /></el-icon>
-                  {{ $t("workflow.characterImages") }}
-                </h3>
-                <el-alert type="info" :closable="false" style="margin: 0">
-                  {{
-                    $t("workflow.characterCount", { count: charactersCount })
-                  }}
-                </el-alert>
-              </div>
-              <div class="section-actions">
-                <el-checkbox
-                  v-model="selectAllCharacters"
-                  @change="toggleSelectAllCharacters"
-                  style="margin-right: 12px"
-                >
-                  {{ $t("workflow.selectAll") }}
-                </el-checkbox>
+              <div class="action-buttons-inline">
                 <el-button
                   type="primary"
-                  @click="batchGenerateCharacterImages"
-                  :loading="batchGeneratingCharacters"
-                  :disabled="selectedCharacterIds.length === 0"
                   size="default"
+                  @click="saveChapterScript"
+                  :disabled="!scriptContent.trim() || generatingScript"
                 >
-                  {{ $t("workflow.batchGenerate") }} ({{
-                    selectedCharacterIds.length
-                  }})
+                  <el-icon><Check /></el-icon>
+                  <span>{{ $t("workflow.saveChapter") }}</span>
                 </el-button>
               </div>
             </div>
 
-            <div class="character-image-list">
-              <div
-                v-for="char in currentEpisode?.characters"
-                :key="char.id"
-                class="character-item"
-              >
-                <el-card shadow="hover" class="fixed-card">
-                  <div class="card-header">
-                    <el-checkbox
-                      v-model="selectedCharacterIds"
-                      :value="char.id"
-                      style="margin-right: 8px"
-                    />
-                    <div class="header-left">
-                      <h4>{{ char.name }}</h4>
-                      <el-tag size="small">{{ char.role }}</el-tag>
-                    </div>
-                    <el-button
-                      type="danger"
-                      size="small"
-                      :icon="Delete"
-                      circle
-                      @click="deleteCharacter(char.id)"
-                      :title="$t('workflow.deleteCharacter')"
-                    />
-                  </div>
+            <!-- 已保存时显示内容 -->
+            <div v-if="hasScript" class="overview-section">
+              <div class="episode-info">
+                <h3>
+                  {{ $t("workflow.chapterContent", { number: episodeNumber }) }}
+                </h3>
+                <el-tag type="success" size="large">{{
+                  $t("workflow.saved")
+                }}</el-tag>
+              </div>
+              <div class="overview-content">
+                <el-input
+                  v-model="currentEpisode.script_content"
+                  type="textarea"
+                  :rows="15"
+                  readonly
+                  class="script-display"
+                />
+              </div>
 
-                  <div class="card-image-container">
-                    <div v-if="hasImage(char)" class="char-image">
-                      <el-image :src="getImageUrl(char)" fit="cover" />
-                    </div>
-                    <div
-                      v-else-if="
-                        char.image_generation_status === 'pending' ||
-                        char.image_generation_status === 'processing' ||
-                        generatingCharacterImages[char.id]
-                      "
-                      class="char-placeholder generating"
-                    >
-                      <el-icon :size="64" class="rotating"><Loading /></el-icon>
-                      <span>{{ $t("common.generating") }}</span>
-                      <el-tag
-                        type="warning"
-                        size="small"
-                        style="margin-top: 8px"
-                        >{{
-                          char.image_generation_status === "pending"
-                            ? $t("common.queuing")
-                            : $t("common.processing")
-                        }}</el-tag
+              <el-divider />
+
+              <!-- 显示已提取的角色和场景 -->
+              <div v-if="hasExtractedData" class="extracted-info">
+                <el-alert
+                  type="success"
+                  :closable="false"
+                  style="margin-bottom: 16px"
+                >
+                  <template #title>
+                    <div style="display: flex; align-items: center; gap: 16px">
+                      <span>✅ {{ $t("workflow.extractedData") }}</span>
+                      <el-tag v-if="hasCharacters" type="success"
+                        >{{ $t("workflow.characters") }}:
+                        {{ charactersCount }}</el-tag
+                      >
+                      <el-tag v-if="currentEpisode?.scenes" type="success"
+                        >{{ $t("workflow.scenes") }}:
+                        {{ currentEpisode.scenes.length }}</el-tag
                       >
                     </div>
-                    <div
-                      v-else-if="char.image_generation_status === 'failed'"
-                      class="char-placeholder failed"
-                    >
-                      <el-icon :size="64"><WarningFilled /></el-icon>
-                      <span>{{ $t("common.generateFailed") }}</span>
-                      <el-tag
-                        type="danger"
-                        size="small"
-                        style="margin-top: 8px"
-                        >{{ $t("common.clickToRegenerate") }}</el-tag
-                      >
-                    </div>
-                    <div v-else class="char-placeholder">
-                      <el-icon :size="64"><User /></el-icon>
-                      <span>{{ $t("common.notGenerated") }}</span>
-                    </div>
-                  </div>
+                  </template>
+                </el-alert>
 
-                  <div class="card-actions">
-                    <el-tooltip
-                      :content="$t('tooltip.editPrompt')"
-                      placement="top"
+                <!-- 角色列表 -->
+                <div v-if="hasCharacters" style="margin-bottom: 16px">
+                  <h4 class="extracted-title">
+                    {{ $t("workflow.extractedCharacters") }}：
+                  </h4>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                    <el-tag
+                      v-for="char in currentEpisode?.characters"
+                      :key="char.id"
+                      type="info"
                     >
-                      <el-button
-                        size="small"
-                        @click="openPromptDialog(char, 'character')"
-                        :icon="Edit"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('tooltip.aiGenerate')"
-                      placement="top"
-                    >
-                      <el-button
-                        type="primary"
-                        size="small"
-                        @click="generateCharacterImage(char.id)"
-                        :loading="generatingCharacterImages[char.id]"
-                        :icon="MagicStick"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('tooltip.uploadImage')"
-                      placement="top"
-                    >
-                      <el-button
-                        size="small"
-                        @click="uploadCharacterImage(char.id)"
-                        :icon="Upload"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('tooltip.selectFromLibrary')"
-                      placement="top"
-                    >
-                      <el-button
-                        size="small"
-                        @click="selectFromLibrary(char.id)"
-                        :icon="Picture"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('workflow.addToLibrary')"
-                      placement="top"
-                    >
-                      <el-button
-                        size="small"
-                        @click="addToCharacterLibrary(char)"
-                        :icon="FolderAdd"
-                        :disabled="!char.image_url"
-                        circle
-                      />
-                    </el-tooltip>
+                      {{ char.name }}
+                      <span v-if="char.role" class="secondary-text"
+                        >({{ char.role }})</span
+                      >
+                    </el-tag>
                   </div>
-                </el-card>
+                </div>
+
+                <!-- 场景列表 -->
+                <div
+                  v-if="
+                    currentEpisode?.scenes && currentEpisode.scenes.length > 0
+                  "
+                >
+                  <h4 class="extracted-title">
+                    {{ $t("workflow.extractedScenes") }}：
+                  </h4>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                    <el-tag
+                      v-for="scene in currentEpisode.scenes"
+                      :key="scene.id"
+                      type="warning"
+                    >
+                      {{ scene.location }}
+                      <span class="secondary-text">· {{ scene.time }}</span>
+                    </el-tag>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+        </el-card>
 
-          <el-divider />
-
-          <!-- 场景图片生成 -->
-          <div class="image-gen-section">
-            <div class="section-header">
-              <div class="section-title">
-                <h3>
-                  <el-icon><Place /></el-icon>
-                  {{ $t("workflow.sceneImages") }}
-                </h3>
-                <el-alert type="info" :closable="false" style="margin: 0">
-                  {{
-                    $t("workflow.sceneCount", {
-                      count: currentEpisode?.scenes?.length || 0,
-                    })
-                  }}
-                </el-alert>
+        <!-- 阶段 1: 生成图片 -->
+        <el-card v-show="currentStep === 1" class="workflow-card">
+          <div class="stage-body">
+            <!-- 角色图片生成 -->
+            <div class="image-gen-section">
+              <div class="section-header">
+                <div class="section-title">
+                  <h3>
+                    <el-icon><User /></el-icon>
+                    {{ $t("workflow.characterImages") }}
+                  </h3>
+                  <el-alert type="info" :closable="false" style="margin: 0">
+                    {{
+                      $t("workflow.characterCount", { count: charactersCount })
+                    }}
+                  </el-alert>
+                </div>
+                <div class="section-actions">
+                  <el-checkbox
+                    v-model="selectAllCharacters"
+                    @change="toggleSelectAllCharacters"
+                    style="margin-right: 12px"
+                  >
+                    {{ $t("workflow.selectAll") }}
+                  </el-checkbox>
+                  <el-button
+                    type="primary"
+                    @click="batchGenerateCharacterImages"
+                    :loading="batchGeneratingCharacters"
+                    :disabled="selectedCharacterIds.length === 0"
+                    size="default"
+                  >
+                    {{ $t("workflow.batchGenerate") }} ({{
+                      selectedCharacterIds.length
+                    }})
+                  </el-button>
+                </div>
               </div>
-              <div class="section-actions">
-                <!-- <el-button
+
+              <div class="character-image-list">
+                <div
+                  v-for="char in currentEpisode?.characters"
+                  :key="char.id"
+                  class="character-item"
+                >
+                  <el-card shadow="hover" class="fixed-card">
+                    <div class="card-header">
+                      <el-checkbox
+                        v-model="selectedCharacterIds"
+                        :value="char.id"
+                        style="margin-right: 8px"
+                      />
+                      <div class="header-left">
+                        <h4>{{ char.name }}</h4>
+                        <el-tag size="small">{{ char.role }}</el-tag>
+                      </div>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        :icon="Delete"
+                        circle
+                        @click="deleteCharacter(char.id)"
+                        :title="$t('workflow.deleteCharacter')"
+                      />
+                    </div>
+
+                    <div class="card-image-container">
+                      <div v-if="hasImage(char)" class="char-image">
+                        <el-image :src="getImageUrl(char)" fit="cover" />
+                      </div>
+                      <div
+                        v-else-if="
+                          char.image_generation_status === 'pending' ||
+                          char.image_generation_status === 'processing' ||
+                          generatingCharacterImages[char.id]
+                        "
+                        class="char-placeholder generating"
+                      >
+                        <el-icon :size="64" class="rotating"
+                          ><Loading
+                        /></el-icon>
+                        <span>{{ $t("common.generating") }}</span>
+                        <el-tag
+                          type="warning"
+                          size="small"
+                          style="margin-top: 8px"
+                          >{{
+                            char.image_generation_status === "pending"
+                              ? $t("common.queuing")
+                              : $t("common.processing")
+                          }}</el-tag
+                        >
+                      </div>
+                      <div
+                        v-else-if="char.image_generation_status === 'failed'"
+                        class="char-placeholder failed"
+                      >
+                        <el-icon :size="64"><WarningFilled /></el-icon>
+                        <span>{{ $t("common.generateFailed") }}</span>
+                        <el-tag
+                          type="danger"
+                          size="small"
+                          style="margin-top: 8px"
+                          >{{ $t("common.clickToRegenerate") }}</el-tag
+                        >
+                      </div>
+                      <div v-else class="char-placeholder">
+                        <el-icon :size="64"><User /></el-icon>
+                        <span>{{ $t("common.notGenerated") }}</span>
+                      </div>
+                    </div>
+
+                    <div class="card-actions">
+                      <el-tooltip
+                        :content="$t('tooltip.editPrompt')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="openPromptDialog(char, 'character')"
+                          :icon="Edit"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('tooltip.aiGenerate')"
+                        placement="top"
+                      >
+                        <el-button
+                          type="primary"
+                          size="small"
+                          @click="generateCharacterImage(char.id)"
+                          :loading="generatingCharacterImages[char.id]"
+                          :icon="MagicStick"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('tooltip.uploadImage')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="uploadCharacterImage(char.id)"
+                          :icon="Upload"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('tooltip.selectFromLibrary')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="selectFromLibrary(char.id)"
+                          :icon="Picture"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('workflow.addToLibrary')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="addToCharacterLibrary(char)"
+                          :icon="FolderAdd"
+                          :disabled="!char.image_url"
+                          circle
+                        />
+                      </el-tooltip>
+                    </div>
+                  </el-card>
+                </div>
+              </div>
+            </div>
+
+            <el-divider />
+
+            <!-- 场景图片生成 -->
+            <div class="image-gen-section">
+              <div class="section-header">
+                <div class="section-title">
+                  <h3>
+                    <el-icon><Place /></el-icon>
+                    {{ $t("workflow.sceneImages") }}
+                  </h3>
+                  <el-alert type="info" :closable="false" style="margin: 0">
+                    {{
+                      $t("workflow.sceneCount", {
+                        count: currentEpisode?.scenes?.length || 0,
+                      })
+                    }}
+                  </el-alert>
+                </div>
+                <div class="section-actions">
+                  <!-- <el-button
                   :icon="Document"
                   @click="openExtractSceneDialog"
                   size="default"
                 >
                   {{ $t("workflow.extractFromScript") }}
                 </el-button> -->
-                <el-checkbox
-                  v-model="selectAllScenes"
-                  @change="toggleSelectAllScenes"
-                  style="margin-left: 12px; margin-right: 12px"
-                >
-                  {{ $t("workflow.selectAll") }}
-                </el-checkbox>
-                <el-button
-                  type="primary"
-                  @click="batchGenerateSceneImages"
-                  :loading="batchGeneratingScenes"
-                  :disabled="selectedSceneIds.length === 0"
-                  size="default"
-                >
-                  {{ $t("workflow.batchGenerateSelected") }} ({{
-                    selectedSceneIds.length
-                  }})
-                </el-button>
-
-                <el-button
-                  :icon="Plus"
-                  @click="openAddSceneDialog"
-                  size="default"
-                >
-                  {{ $t("workflow.addScene") }}
-                </el-button>
-              </div>
-            </div>
-
-            <div class="scene-image-list">
-              <div
-                v-for="scene in currentEpisode?.scenes"
-                :key="scene.id"
-                class="scene-item"
-              >
-                <el-card shadow="hover" class="fixed-card">
-                  <div class="card-header">
-                    <el-checkbox
-                      v-model="selectedSceneIds"
-                      :value="scene.id"
-                      style="margin-right: 8px"
-                    />
-                    <div class="header-left">
-                      <h4>{{ scene.location }}</h4>
-                      <el-tag size="small">{{ scene.time }}</el-tag>
-                    </div>
-                  </div>
-
-                  <div class="card-image-container">
-                    <div v-if="hasImage(scene)" class="scene-image">
-                      <el-image :src="getImageUrl(scene)" fit="cover" />
-                    </div>
-                    <div
-                      v-else-if="
-                        scene.image_generation_status === 'pending' ||
-                        scene.image_generation_status === 'processing' ||
-                        generatingSceneImages[scene.id]
-                      "
-                      class="scene-placeholder generating"
-                    >
-                      <el-icon :size="64" class="rotating"><Loading /></el-icon>
-                      <span>{{ $t("common.generating") }}</span>
-                      <el-tag
-                        type="warning"
-                        size="small"
-                        style="margin-top: 8px"
-                        >{{
-                          scene.image_generation_status === "pending"
-                            ? $t("common.queuing")
-                            : $t("common.processing")
-                        }}</el-tag
-                      >
-                    </div>
-                    <div
-                      v-else-if="scene.image_generation_status === 'failed'"
-                      class="scene-placeholder failed"
-                      @click="generateSceneImage(scene.id)"
-                      style="cursor: pointer"
-                    >
-                      <el-icon :size="64"><WarningFilled /></el-icon>
-                      <span>{{ $t("common.generateFailed") }}</span>
-                      <el-tag
-                        type="danger"
-                        size="small"
-                        style="margin-top: 8px"
-                        >{{ $t("common.clickToRegenerate") }}</el-tag
-                      >
-                    </div>
-                    <div v-else class="scene-placeholder">
-                      <el-icon :size="64"><Place /></el-icon>
-                      <span>{{ $t("common.notGenerated") }}</span>
-                    </div>
-                  </div>
-
-                  <div class="card-actions">
-                    <el-tooltip
-                      :content="$t('tooltip.editPrompt')"
-                      placement="top"
-                    >
-                      <el-button
-                        size="small"
-                        @click="openPromptDialog(scene, 'scene')"
-                        :icon="Edit"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('tooltip.aiGenerate')"
-                      placement="top"
-                    >
-                      <el-button
-                        type="primary"
-                        size="small"
-                        @click="generateSceneImage(scene.id)"
-                        :loading="generatingSceneImages[scene.id]"
-                        :icon="MagicStick"
-                        circle
-                      />
-                    </el-tooltip>
-                    <el-tooltip
-                      :content="$t('tooltip.uploadImage')"
-                      placement="top"
-                    >
-                      <el-button
-                        size="small"
-                        @click="uploadSceneImage(scene.id)"
-                        :icon="Upload"
-                        circle
-                      />
-                    </el-tooltip>
-                  </div>
-                </el-card>
-              </div>
-            </div>
-          </div>
-
-          <el-divider />
-
-          <div class="action-buttons">
-            <el-button size="large" @click="prevStep">
-              <el-icon><ArrowLeft /></el-icon>
-              {{ $t("workflow.prevStep") }}
-            </el-button>
-            <el-button
-              type="success"
-              size="large"
-              @click="nextStep"
-              :disabled="!allImagesGenerated"
-            >
-              {{ $t("workflow.nextStepSplitShots") }}
-              <el-icon><ArrowRight /></el-icon>
-            </el-button>
-            <div v-if="!allImagesGenerated" style="margin-top: 8px">
-              <el-alert
-                type="warning"
-                :closable="false"
-                style="display: inline-block"
-              >
-                <template #title>
-                  <span style="font-size: 12px">
-                    {{ $t("workflow.generateAllImagesFirst") }}
-                  </span>
-                </template>
-              </el-alert>
-            </div>
-          </div>
-        </div>
-      </el-card>
-
-      <!-- 阶段 2: 拆分分镜 -->
-      <el-card v-show="currentStep === 2" shadow="never" class="stage-card">
-        <div class="stage-body">
-          <!-- 分镜列表 -->
-          <div
-            v-if="
-              currentEpisode?.storyboards &&
-              currentEpisode.storyboards.length > 0
-            "
-            class="shots-list"
-          >
-            <div class="shots-header">
-              <h3>{{ $t("workflow.shotList") }}</h3>
-            </div>
-
-            <el-table
-              :data="currentEpisode.storyboards"
-              border
-              stripe
-              style="margin-top: 16px"
-            >
-              <el-table-column
-                type="index"
-                :label="$t('storyboard.table.number')"
-                width="60"
-              />
-              <el-table-column
-                :label="$t('storyboard.table.title')"
-                width="120"
-                show-overflow-tooltip
-              >
-                <template #default="{ row }">
-                  {{ row.title || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.shotType')"
-                width="80"
-              >
-                <template #default="{ row }">
-                  {{ row.shot_type || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.movement')"
-                width="80"
-              >
-                <template #default="{ row }">
-                  {{ row.movement || "-" }}
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.location')"
-                width="150"
-              >
-                <template #default="{ row }">
-                  <el-popover
-                    placement="right"
-                    :width="300"
-                    trigger="hover"
-                    :content="row.action || '-'"
+                  <el-checkbox
+                    v-model="selectAllScenes"
+                    @change="toggleSelectAllScenes"
+                    style="margin-left: 12px; margin-right: 12px"
                   >
-                    <template #reference>
-                      <!-- 单行打点 -->
-                      <span class="overflow-tooltip">{{
-                        row.location || "-"
-                      }}</span>
-                    </template>
-                  </el-popover>
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.character')"
-                width="100"
-              >
-                <template #default="{ row }">
-                  <span v-if="row.characters && row.characters.length > 0">
-                    {{ row.characters.map((c) => c.name || c).join(", ") }}
-                  </span>
-                  <span v-else>-</span>
-                </template>
-              </el-table-column>
-              <el-table-column :label="$t('storyboard.table.action')">
-                <template #default="{ row }">
-                  <el-popover
-                    placement="right"
-                    :width="300"
-                    trigger="hover"
-                    :content="row.action || '-'"
-                  >
-                    <template #reference>
-                      <!-- 单行打点 -->
-                      <span class="overflow-tooltip">{{
-                        row.action || "-"
-                      }}</span>
-                    </template>
-                  </el-popover>
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.duration')"
-                width="80"
-              >
-                <template #default="{ row }">
-                  {{ row.duration || "-" }}秒
-                </template>
-              </el-table-column>
-              <el-table-column
-                :label="$t('storyboard.table.operations')"
-                width="100"
-                fixed="right"
-              >
-                <template #default="{ row, $index }">
+                    {{ $t("workflow.selectAll") }}
+                  </el-checkbox>
                   <el-button
                     type="primary"
-                    size="small"
-                    @click="editShot(row, $index)"
+                    @click="batchGenerateSceneImages"
+                    :loading="batchGeneratingScenes"
+                    :disabled="selectedSceneIds.length === 0"
+                    size="default"
                   >
-                    {{ $t("common.edit") }}
+                    {{ $t("workflow.batchGenerateSelected") }} ({{
+                      selectedSceneIds.length
+                    }})
                   </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
 
-            <div class="action-buttons" style="margin-top: 24px">
-              <el-button size="large" @click="prevStep">
-                <el-icon><ArrowLeft /></el-icon>
-                {{ $t("workflow.prevStep") }}
-              </el-button>
-              <el-button @click="regenerateShots" :icon="MagicStick">
-                {{ $t("workflow.reSplitShots") }}
-              </el-button>
-              <el-button
-                type="success"
-                size="large"
-                @click="goToProfessionalUI"
-              >
-                {{ $t("workflow.enterProfessional") }}
-                <el-icon><ArrowRight /></el-icon>
-              </el-button>
-            </div>
-          </div>
-
-          <!-- 未拆分时显示 -->
-          <div v-else class="empty-shots">
-            <el-empty :description="$t('workflow.splitStoryboardFirst')">
-              <el-button
-                type="primary"
-                @click="generateShots"
-                :loading="generatingShots"
-                :icon="MagicStick"
-              >
-                {{
-                  generatingShots
-                    ? $t("workflow.aiSplitting")
-                    : $t("workflow.aiAutoSplit")
-                }}
-              </el-button>
-
-              <!-- 任务进度显示 -->
-              <div
-                v-if="generatingShots"
-                style="
-                  margin-top: 24px;
-                  max-width: 400px;
-                  margin-left: auto;
-                  margin-right: auto;
-                "
-              >
-                <el-progress
-                  :percentage="taskProgress"
-                  :status="taskProgress === 100 ? 'success' : undefined"
-                >
-                  <template #default="{ percentage }">
-                    <span style="font-size: 12px">{{ percentage }}%</span>
-                  </template>
-                </el-progress>
-                <div class="task-message">
-                  {{ taskMessage }}
+                  <el-button
+                    :icon="Plus"
+                    @click="openAddSceneDialog"
+                    size="default"
+                  >
+                    {{ $t("workflow.addScene") }}
+                  </el-button>
                 </div>
               </div>
-            </el-empty>
+
+              <div class="scene-image-list">
+                <div
+                  v-for="scene in currentEpisode?.scenes"
+                  :key="scene.id"
+                  class="scene-item"
+                >
+                  <el-card shadow="hover" class="fixed-card">
+                    <div class="card-header">
+                      <el-checkbox
+                        v-model="selectedSceneIds"
+                        :value="scene.id"
+                        style="margin-right: 8px"
+                      />
+                      <div class="header-left">
+                        <h4>{{ scene.location }}</h4>
+                        <el-tag size="small">{{ scene.time }}</el-tag>
+                      </div>
+                    </div>
+
+                    <div class="card-image-container">
+                      <div v-if="hasImage(scene)" class="scene-image">
+                        <el-image :src="getImageUrl(scene)" fit="cover" />
+                      </div>
+                      <div
+                        v-else-if="
+                          scene.image_generation_status === 'pending' ||
+                          scene.image_generation_status === 'processing' ||
+                          generatingSceneImages[scene.id]
+                        "
+                        class="scene-placeholder generating"
+                      >
+                        <el-icon :size="64" class="rotating"
+                          ><Loading
+                        /></el-icon>
+                        <span>{{ $t("common.generating") }}</span>
+                        <el-tag
+                          type="warning"
+                          size="small"
+                          style="margin-top: 8px"
+                          >{{
+                            scene.image_generation_status === "pending"
+                              ? $t("common.queuing")
+                              : $t("common.processing")
+                          }}</el-tag
+                        >
+                      </div>
+                      <div
+                        v-else-if="scene.image_generation_status === 'failed'"
+                        class="scene-placeholder failed"
+                        @click="generateSceneImage(scene.id)"
+                        style="cursor: pointer"
+                      >
+                        <el-icon :size="64"><WarningFilled /></el-icon>
+                        <span>{{ $t("common.generateFailed") }}</span>
+                        <el-tag
+                          type="danger"
+                          size="small"
+                          style="margin-top: 8px"
+                          >{{ $t("common.clickToRegenerate") }}</el-tag
+                        >
+                      </div>
+                      <div v-else class="scene-placeholder">
+                        <el-icon :size="64"><Place /></el-icon>
+                        <span>{{ $t("common.notGenerated") }}</span>
+                      </div>
+                    </div>
+
+                    <div class="card-actions">
+                      <el-tooltip
+                        :content="$t('tooltip.editPrompt')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="openPromptDialog(scene, 'scene')"
+                          :icon="Edit"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('tooltip.aiGenerate')"
+                        placement="top"
+                      >
+                        <el-button
+                          type="primary"
+                          size="small"
+                          @click="generateSceneImage(scene.id)"
+                          :loading="generatingSceneImages[scene.id]"
+                          :icon="MagicStick"
+                          circle
+                        />
+                      </el-tooltip>
+                      <el-tooltip
+                        :content="$t('tooltip.uploadImage')"
+                        placement="top"
+                      >
+                        <el-button
+                          size="small"
+                          @click="uploadSceneImage(scene.id)"
+                          :icon="Upload"
+                          circle
+                        />
+                      </el-tooltip>
+                    </div>
+                  </el-card>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 阶段 2: 拆分分镜 -->
+        <el-card v-show="currentStep === 2" shadow="never" class="stage-card">
+          <div class="stage-body">
+            <!-- 分镜列表 -->
+            <div
+              v-if="
+                currentEpisode?.storyboards &&
+                currentEpisode.storyboards.length > 0
+              "
+              class="shots-list"
+            >
+              <div class="shots-header">
+                <h3>{{ $t("workflow.shotList") }}</h3>
+              </div>
+
+              <el-table
+                :data="currentEpisode.storyboards"
+                border
+                stripe
+                style="margin-top: 16px"
+              >
+                <el-table-column
+                  type="index"
+                  :label="$t('storyboard.table.number')"
+                  width="60"
+                />
+                <el-table-column
+                  :label="$t('storyboard.table.title')"
+                  width="120"
+                  show-overflow-tooltip
+                >
+                  <template #default="{ row }">
+                    {{ row.title || "-" }}
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.shotType')"
+                  width="80"
+                >
+                  <template #default="{ row }">
+                    {{ row.shot_type || "-" }}
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.movement')"
+                  width="80"
+                >
+                  <template #default="{ row }">
+                    {{ row.movement || "-" }}
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.location')"
+                  width="150"
+                >
+                  <template #default="{ row }">
+                    <el-popover
+                      placement="right"
+                      :width="300"
+                      trigger="hover"
+                      :content="row.action || '-'"
+                    >
+                      <template #reference>
+                        <!-- 单行打点 -->
+                        <span class="overflow-tooltip">{{
+                          row.location || "-"
+                        }}</span>
+                      </template>
+                    </el-popover>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.character')"
+                  width="100"
+                >
+                  <template #default="{ row }">
+                    <span v-if="row.characters && row.characters.length > 0">
+                      {{ row.characters.map((c) => c.name || c).join(", ") }}
+                    </span>
+                    <span v-else>-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column :label="$t('storyboard.table.action')">
+                  <template #default="{ row }">
+                    <el-popover
+                      placement="right"
+                      :width="300"
+                      trigger="hover"
+                      :content="row.action || '-'"
+                    >
+                      <template #reference>
+                        <!-- 单行打点 -->
+                        <span class="overflow-tooltip">{{
+                          row.action || "-"
+                        }}</span>
+                      </template>
+                    </el-popover>
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.duration')"
+                  width="80"
+                >
+                  <template #default="{ row }">
+                    {{ row.duration || "-" }}秒
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  :label="$t('storyboard.table.operations')"
+                  width="100"
+                  fixed="right"
+                >
+                  <template #default="{ row, $index }">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      @click="editShot(row, $index)"
+                    >
+                      {{ $t("common.edit") }}
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+
+            <!-- 未拆分时显示 -->
+            <div v-else class="empty-shots">
+              <el-empty :description="$t('workflow.splitStoryboardFirst')">
+                <el-button
+                  type="primary"
+                  @click="generateShots"
+                  :loading="generatingShots"
+                  :icon="MagicStick"
+                >
+                  {{
+                    generatingShots
+                      ? $t("workflow.aiSplitting")
+                      : $t("workflow.aiAutoSplit")
+                  }}
+                </el-button>
+
+                <!-- 任务进度显示 -->
+                <div
+                  v-if="generatingShots"
+                  style="
+                    margin-top: 24px;
+                    max-width: 400px;
+                    margin-left: auto;
+                    margin-right: auto;
+                  "
+                >
+                  <el-progress
+                    :percentage="taskProgress"
+                    :status="taskProgress === 100 ? 'success' : undefined"
+                  >
+                    <template #default="{ percentage }">
+                      <span style="font-size: 12px">{{ percentage }}%</span>
+                    </template>
+                  </el-progress>
+                  <div class="task-message">
+                    {{ taskMessage }}
+                  </div>
+                </div>
+              </el-empty>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <div class="actions-container">
+        <div class="action-buttons" v-show="currentStep === 0">
+          <el-button
+            type="primary"
+            size="large"
+            @click="handleExtractCharactersAndBackgrounds"
+            :loading="extractingCharactersAndBackgrounds"
+            :disabled="!hasScript"
+          >
+            <el-icon><MagicStick /></el-icon>
+            {{
+              hasExtractedData
+                ? $t("workflow.reExtract")
+                : $t("workflow.extractCharactersAndScenes")
+            }}
+          </el-button>
+          <el-button
+            type="success"
+            size="large"
+            @click="nextStep"
+            :disabled="!hasExtractedData"
+          >
+            {{ $t("workflow.nextStepGenerateImages") }}
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+          <div v-if="!hasExtractedData" style="margin-top: 8px">
+            <el-alert
+              type="warning"
+              :closable="false"
+              style="display: inline-block"
+            >
+              <template #title>
+                <span style="font-size: 12px">
+                  {{ $t("workflow.extractWarning") }}
+                </span>
+              </template>
+            </el-alert>
           </div>
         </div>
-      </el-card>
 
-      <!-- 阶段 3: 专业制作（占位，实际跳转到专业UI页面） -->
+        <div class="action-buttons" v-show="currentStep === 1">
+          <el-button size="large" @click="prevStep">
+            <el-icon><ArrowLeft /></el-icon>
+            {{ $t("workflow.prevStep") }}
+          </el-button>
+          <el-button
+            type="success"
+            size="large"
+            @click="nextStep"
+            :disabled="!allImagesGenerated"
+          >
+            {{ $t("workflow.nextStepSplitShots") }}
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+          <div v-if="!allImagesGenerated" style="margin-top: 8px">
+            <el-alert
+              type="warning"
+              :closable="false"
+              style="display: inline-block"
+            >
+              <template #title>
+                <span style="font-size: 12px">
+                  {{ $t("workflow.generateAllImagesFirst") }}
+                </span>
+              </template>
+            </el-alert>
+          </div>
+        </div>
 
+        <div class="action-buttons" v-show="currentStep === 2">
+          <el-button size="large" @click="prevStep">
+            <el-icon><ArrowLeft /></el-icon>
+            {{ $t("workflow.prevStep") }}
+          </el-button>
+          <el-button size="large" @click="regenerateShots" :icon="MagicStick">
+            {{ $t("workflow.reSplitShots") }}
+          </el-button>
+          <el-button type="success" size="large" @click="goToProfessionalUI">
+            {{ $t("workflow.enterProfessional") }}
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="components-box">
       <!-- 镜头编辑对话框 -->
       <el-dialog
         v-model="shotEditDialogVisible"
@@ -2474,8 +2474,24 @@ onMounted(() => {
 }
 
 .content-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   margin: 0 auto;
   width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.content-container {
+  height: calc(100% - 134px);
+  overflow-y: auto;
+}
+
+.actions-container {
+  height: 70px;
+  background: var(--bg-card);
+  overflow: hidden;
 }
 
 /* Header styles matching PageHeader component */
@@ -2548,6 +2564,7 @@ onMounted(() => {
 }
 
 .workflow-card {
+  height: calc(100% - 24px);
   margin: 12px;
   background: var(--bg-card);
   border-radius: var(--radius-lg);

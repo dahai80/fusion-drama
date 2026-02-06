@@ -289,6 +289,92 @@ Return a JSON object containing:
 - description：简化的中文描述（供参考）`, style, imageRatio)
 }
 
+// GetActionSequenceFramePrompt 获取动作序列提示词
+func (p *PromptI18n) GetActionSequenceFramePrompt() string {
+	style := p.config.Style.DefaultStyle
+	imageRatio := p.config.Style.DefaultImageRatio
+	if p.IsEnglish() {
+		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompting. You need to generate a single prompt that describes a 3x3 grid action sequence.
+
+**Core Logic:**
+
+1. **Holistic Integration:** This is a single, complete image containing a 3x3 grid layout, showcasing 9 sequential actions of the same subject.
+2. **Visual Anchoring:** The subject, clothing, art style, and character consistency must be identical across all 9 frames.
+3. **Action Evolution:** From Frame 1 to Frame 9, display a complete action sequence (e.g., Standing → Walking → Running → Jumping → Landing).
+4. **Prompt Engineering:** Use high-quality visual vocabulary (lighting, textures, composition, depth of field).
+
+**Important:**
+
+You must generate **ONE** comprehensive prompt to describe the entire 3x3 grid image, rather than 9 independent prompts.
+
+Each frame **must** follow these specific rules:
+
+- **Frame 1:** Preparation/Initial stance
+- **Frame 2:** Anticipation/Body adjustment
+- **Frame 3:** Initiation/Beginning of movement
+- **Frame 4:** Acceleration/Power building
+- **Frame 5:** Peak of tension/Just before the burst
+- **Frame 6:** Action burst/The climax moment
+- **Frame 7:** Power release/Inertia continuation
+- **Frame 8:** Deceleration/Follow-through
+- **Frame 9:** Complete conclusion/Return to stillness
+
+**Aspect Ratio:** * %s
+
+**Output Specification:**
+
+You must return a **JSON object** with the following structure:
+
+- **prompt**: A **complete English image generation prompt** (describing the 3x3 grid layout, subject features, the evolution of the 9 actions, environment, and lighting details to ensure the AI generates one single image containing 9 frames).
+- **description**: A **simplified English description** (summarizing the core content of the action sequence).
+
+**Example Format:**
+
+{
+  "prompt": "Action sequence layout, 3x3 grid composition\n [Frame 1]: [Subject] standing naturally in [Setting], feet shoulder-width apart...\n---\n [Frame 2]: [Subject] locking eyes forward, leaning body slightly...\n---\n [Frame 3]: [Subject's legs] bending slightly, center of gravity lowering...\n---\n [Frame 4]: [Subject] pushing off with back leg, body moving forward, dust rising from [Setting's ground]...\n---\n [Frame 5]: [Subject's clothing] fluttering, body leaning deep, fist charging power...\n---\n [Frame 6]: [Subject] sprinting at full speed, fist striking out...\n---\n [Frame 7]: [Subject] impact moment, body lunging forward...\n---\n [Frame 8]: [Subject] slowing down, pulling back the fist...\n---\n [Frame 9]: [Subject's full appearance] standing firm in [Setting], recovering original stance.",
+  "description": "Complete action sequence of a swordsman in black from drawing a blade to striking."
+}
+
+`, style, imageRatio)
+	}
+
+	return fmt.Sprintf(`**Role:** 你是一位精通视觉叙事与图像生成提示词的专家。你需要生成一个描述 3x3 九宫格动作序列的提示词。
+
+**Core Logic:**
+
+1. **整体性:** 这是一张完整的图片,包含 3x3 九宫格布局,展示同一主体的 9 个连续动作。
+2. **视觉锚定:** 所有 9 个格子中的主体、服装、画风必须高度一致。
+3. **动作演进:** 从格子 1 到格子 9,展示一个完整的动作序列(如:从站立→行走→奔跑→跳跃→落地)。
+4. **提示词工程:** 使用高质量的视觉词汇(光影、材质、构图、景深)。
+
+**重要:** 
+你需要生成 **一个** 完整的提示词来描述整个 3x3 九宫格图片,而不是 9 个独立的提示词。
+每一格要求**必须**遵守如下规则：
+- **第1格**：动作准备/初始姿态
+- **第2格**：预备动作/身体调整
+- **第3格**：动作启动/开始移动
+- **第4格**：加速阶段/力量积蓄
+- **第5格**：蓄力顶点/即将爆发
+- **第6格**：动作爆发/高潮瞬间
+- **第7格**：力量释放/惯性延续
+- **第8格**：动作缓冲/逐渐收势
+- **第9格**：完全收尾/回归静止
+
+**Aspect Ratio:** 
+* %s
+
+**Output Specification:**
+必须返回一个 **JSON 对象**,其结构如下:
+* prompt: **完整的中文图片生成提示词**(描述整个 3x3 九宫格的布局、主体特征、9 个动作的演进过程、环境、光影细节,确保 AI 能直接生成一张包含 9 个格子的完整图像)。
+* description: **简化的中文描述**(概括这个动作序列的核心内容)。
+
+**示例格式:**
+{
+  "prompt": "动作序列布局，3x3方格布局\n [第1格]: [角色参考图2] 在 [场景参考图1] 中自然站立，双脚分开...\n---\n [第2格]: [角色参考图2] 眼神锁定，身体前倾...\n---\n [第3格]: [角色参考图2的腿部] 双腿微屈，重心下沉...\n---\n [第4格]: [角色参考图2] 后腿蹬地，身体前移，[场景参考图1的地面] 扬起尘土...\n---\n [第5格]: [角色参考图2的服装] 身体前倾，拳头蓄力...\n---\n [第6格]: [角色参考图2] 全速冲刺，拳头击出...\n---\n [第7格]: [角色参考图2] 拳头击中，身体前冲...\n---\n [第8格]: [角色参考图2] 减速收拳...\n---\n [第9格]: [角色参考图2的完整外观] 在 [场景参考图1] 中站稳，恢复姿态。\n",
+  "description": "黑衣剑客从拔剑到攻击的完整动作序列"
+}`, imageRatio)
+}
+
 // GetLastFramePrompt 获取尾帧提示词
 func (p *PromptI18n) GetLastFramePrompt() string {
 	style := p.config.Style.DefaultStyle
@@ -606,4 +692,268 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 		return fmt.Sprintf(template, args...)
 	}
 	return template
+}
+
+// GetStylePrompt 获取风格提示词
+func (p *PromptI18n) GetStylePrompt(style string) string {
+	if style == "" {
+		return ""
+	}
+
+	stylePrompts := map[string]map[string]string{
+		"zh": {
+			"ghibli": `**[专家角色定位]**
+你现在是一位吉卜力工作室顶级美术指导与背景画师，擅长捕捉"宏大自然与微观生活"的平衡感，深谙宫崎骏式的色彩心理学。
+
+**[风格核心逻辑]**
+- **视觉流派与质感**：采用经典的吉卜力风格。画面具有浓郁的水彩晕染质感（Watercolor texture），拒绝冰冷的3D渲染，强调温暖且有呼吸感的笔触。线条清晰且细腻，呈现出赛璐珞（Cel-shading）上色的明快感。
+- **色彩与光影美学**：使用**"高调色彩美学"**。主色调明亮、通透、高饱和度但色相柔和。光影模拟"夏日午后"的自然采光，光线如同浸透在空气中，具有极佳的明度。阴影部分带有微妙的蓝紫色调，增加画面的通透感。
+- **氛围意向**：怀旧、宁静、牧歌式的（Pastoral）、微风感。画面要传达出一种"世界依然美好"的宁静感和探索欲。`,
+
+			"guoman": `**[专家角色定位]**
+你是一位顶尖的数字插画艺术家，擅长将传统东方韵味与现代游戏美术的华丽视觉特效（VFX）相结合，是"东方幻想主义"构图的大师。
+
+**[风格核心逻辑]**
+- **视觉流派与质感**：融合了**新国风数字艺术（Modern Zen Illustration）**与**史诗级奇幻渲染**。画面质感细腻且带有微微的丝滑感，类似高精度的2D数字绘画。强调光影的体积感，画面中包含大量微小的粒子效果和发光氛围。
+- **核心色彩与发光美学**：使用**"撞色与内生光影"**。主色调通常是冷暖色调的剧烈碰撞（如靛青色与金橙色）。画面逻辑的核心在于**"局部发光"**：暗部点缀着发光的荧光元素（如荧光植物、灯火或水晶质感），这种对比营造了强烈的魔法感和神秘感。
+- **装饰性元素逻辑**：强调**"线条的流动感"**。画面中充斥着优美的曲线，这些线条通常由发光带、飘带或自然界的纹理（如流水的走势）组成，增强了整体的装饰性和节奏感。`,
+
+			"wasteland": `**[专家角色定位]**
+你是一位专注于"末世叙事"的视觉艺术家，擅长运用**硬核线条（Hard Line-art）**和**复古平面印刷感**来营造史诗般的荒凉氛围，深受让·吉罗（Moebius）和现代废土科幻插画的影响。
+
+**[风格核心逻辑]**
+- **视觉流派与笔触质感**：采用**硬缘线条绘图风格（Hard-edged Line Art）**。画面强调清晰的黑色轮廓线，具有强烈的漫画插图感。质感上呈现出一种**颗粒状的平面印刷感（Grainy textures）**或类似旧报纸、复古海报的纹理，拒绝平滑的渐变，倾向于使用排线或点阵来表现阴影。
+- **色彩美学逻辑**：采用**"低频限色色调（Limited Palette）"**。画面通常被一种压抑且统一的色调统治（如灰土色、铁锈橙、荒漠黄）。核心视觉冲击力来自于**一个强烈的对比色点**（如此处巨大的红色落日），这种"单点高亮"的逻辑在灰暗的废土背景中能瞬间抓住视线。
+- **光影表现手法**：使用**"高对比度强侧光（High-contrast Side Lighting）"**。模拟黄昏或黎明的低角度光线，产生极长的投影。光影逻辑极其简化，明暗交界线生硬且明确，营造出一种干枯、灼热且寂静的戏剧张力。`,
+
+			"nostalgia": `**[专家角色定位]**
+你是一位专注于**"怀旧赛璐珞（Nostalgic Cel-shading）"**风格的视觉艺术家，擅长模拟20世纪80-90年代手绘动画的质感，利用色彩与噪点营造一种温和、感性且略带忧郁的都市氛围。
+
+**[风格核心逻辑]**
+- **视觉流派与画面质感**：采用经典的**90年代复古动画风格（90s Retro Anime Style）**。画面具有明显的**胶片颗粒感（Film grain）**和微弱的**色散效果（Chromatic aberration）**，模拟旧式电视或磁带的播放质感。质感上强调"不完美的细腻"，即线条略显柔和，不像现代矢量图那样锐利，给人一种手工绘制的温度感。
+- **色彩美学逻辑**：使用**"低对比度粉紫色调（Muted Pastel Palette）"**。画面被一种柔和的、如梦境般的暮色统治，通常以淡紫色、藕粉色或灰蓝色为主基调。色彩逻辑的核心在于**"弱化的黑场"**：没有纯黑，所有深色都带有紫色或蓝色的倾向。这种色调能瞬间勾勒出一种孤独但温馨的"都市黄昏"感。
+- **光影表现手法**：强调**"弥散的点光源（Diffuse Point Lights）"**。光线不是硬性的投射，而是呈晕染状。例如，路灯、车灯或月亮周围有一圈柔和的朦胧光晕（Glow effect）。地面通常带有微弱的雨后反光或湿润感，增加光影的层次感和梦幻感。`,
+
+			"pixel": `**[专家角色定位]**
+你是一位资深的**8位/16位像素艺术家 (Pixel Art Consultant)**，擅长利用受限的分辨率和调色盘来构建具有极强代入感的虚拟世界，模拟早期电子游戏（如《星露谷物语》或经典RPG）的视觉美学。
+
+**[风格核心逻辑]**
+- **视觉流派与画面质感**：采用纯正的**像素艺术风格 (Pixel Art)**。画面由清晰可见的方格（Pixels）组成，强调**"阶梯状线条 (Aliased lines)"**。质感上完全摒弃平滑的渐变和模糊，追求一种数码化的、网格化的块状美感。
+- **色彩美学逻辑**：使用**"受限调色盘 (Limited Color Palette)"**。色彩选择极度精简，不追求自然的过渡，而是通过大面积的色块叠加。色彩逻辑的核心在于**"抖动算法思维 (Dithering logic)"**：通过不同颜色方格的交替排列来模拟明暗变化，色调通常饱和度中等，呈现出一种清爽、明快的电子游戏感。
+- **光影表现手法**：强调**"色块式阴影 (Flat Shading)"**。光影表现不使用羽化或软光，而是通过增加一层更深的同色系像素块来表示投影。光线通常是恒定的，没有复杂的反射或折射，太阳或光源本身也被处理成一个规则的像素圆点。`,
+
+			"voxel": `**[专家角色定位]**
+你是一位顶尖的**3D体素建模师 (Voxel Artist)**，擅长利用统一规格的立方体单位构建充满童趣、模块化且具有高度秩序感的微缩世界。你的视觉风格强调**低多边形（Low-poly）的纯粹性**与**现代实时光影渲染**的结合。
+
+**[风格核心逻辑]**
+- **视觉流派与质感**：采用**三维体素风格 (3D Voxel Style)**。画面由无数等比例的立方体单元（Voxels）堆叠而成，呈现出一种强烈的模块化感。质感上具有明显的**"方块化线条"**，物体表面是平整的色块，这种简化的几何语言创造了一种独特的数字美感。
+- **色彩美学逻辑**：使用**"自然饱和度与渐变光影"**。色彩通常根据环境属性进行大块划分（如草地的绿、土地的褐），但关键在于**色彩的微小扰动 (Color Jitter)**：同一区域的方块颜色会有微妙的深浅差异，模拟真实环境的随机感。色调通常明亮、清新，充满活力感。
+- **光影表现手法**：强调**"全局光照渲染 (Global Illumination)"**。这是体素艺术升华的关键：尽管物体是方块状的，但光影必须是**电影级的写实渲染**。光线具有温暖的体积感（如耶稣光），阴影边缘柔和且带有环境遮蔽（AO）效果，方块边缘会被高亮勾勒，使画面看起来像是一个精致的现实微缩模型。`,
+
+			"urban": `**[专家角色定位]**
+你是一位顶尖的**网漫主笔（Lead Webtoon Artist）**，擅长创作具有现代都市感的人物立绘。你的视觉风格强调**锐利的轮廓线**、**利落的穿搭逻辑**以及**冷色调的都市氛围**，旨在营造一种"高冷、精致、工业化美感"的视觉冲击。
+
+**[风格核心逻辑]**
+- **视觉流派与画面质感**：采用**现代韩漫数字绘图风格 (Modern Webtoon Art Style)**。画面具有极干净的**矢量线条 (Crisp line art)**，没有任何多余的笔触。质感上呈现出一种平滑的数字皮肤质感，强调色彩的整洁度，避免了复杂的笔触叠加。
+- **色彩美学逻辑**：使用**"冷调都市灰（Muted Urban Tones）"**。画面以黑、白、灰、深蓝等中性色为主色调。色彩逻辑的核心在于**"高对比度的荧光色反差"**：整体处于清冷的低饱和度环境下，但利用背景中的**霓虹灯（Neon glow）**或电子屏产生高亮的粉、蓝、紫偏色，营造出一种深夜都市的疏离感。
+- **光影表现手法**：强调**"硬边赛璐珞阴影 (Hard Cel-shading)"**。阴影边缘极其干脆，没有渐变。光影逻辑模仿**"环境侧光"**：光线通常来自侧方的霓虹招牌，在人物一侧留下窄长的亮边（Rim lighting），增强了人物的轮廓感和立体感。`,
+
+			"guoman3d": `**[专家角色定位]**
+你是一位顶级**次世代游戏美术总监 (Lead Technical Artist)**，擅长使用虚幻引擎 5 (UE5) 创作高精度的 3D 仙侠角色。你的风格以**物理渲染 (PBR)** 的极高真实度、复杂的服饰层次感以及极具东方美学的全局光照处理著称。
+
+**[风格核心逻辑]**
+- **视觉流派与画面质感**：采用**高精细 3D 写实渲染风格 (High-fidelity 3D Rendering)**。画面具有极强的**次世代游戏质感 (Next-gen game aesthetic)**，强调皮肤的次表面散射 (SSS) 效果和极其真实的服饰纹理（如丝绸的平滑感、皮革的磨损感、金属的拉丝质感）。整体呈现出一种细腻的数码雕琢美，边缘锐利且细节丰富。
+- **色彩美学逻辑**：使用**"素雅沉稳的中性色调 (Sophisticated Neutral Palette)"**。不同于高饱和度的动漫风格，这种逻辑倾向于使用低饱和、高明度的色彩（如米白、石青、灰褐），并配以小面积的暗红色或金色作为高级感点缀。光影色彩通常偏向**清晨或傍晚的自然日光**，给人一种宁静、肃穆且大气的东方韵味。
+- **光影表现手法**：强调**"电影级动态光影 (Cinematic Lighting)"**。光源方向明确（通常是明亮的侧逆光），在人物边缘勾勒出一层淡淡的金边 (Rim Light)，将主体与背景完美分离。同时利用环境遮蔽 (AO) 增加细节深度，让服饰的每一个褶皱都清晰可见，呈现出一种沉浸式的戏剧张力。`,
+
+			"chibi3d": `**[专家角色定位]**
+你是一位顶尖的 **3D 玩具设计师与灯光渲染师**，擅长创作高精细度的数字手办。你的视觉风格结合了 **Q 版二头身比例 (Chibi proportions)** 与 **超写实材质渲染 (PBR Rendering)**，旨在营造一种精致、可爱且具有高级触感的"数字潮流玩具"视觉效果。
+
+**[风格核心逻辑]**
+- **视觉流派与画面质感**：采用 **3D 盲盒艺术风格 (Blind Box / Toy Art Style)**。画面具有极强的 **类塑料与树脂质感 (Plastic and Resin texture)**，表面圆润、平滑，边缘带有微妙的倒角。主体呈现出明显的 **Q 版比例**（大头小身），增强了亲和力。
+- **色彩美学逻辑**：使用 **"温和的高饱和调色盘 (Muted Vibrant Palette)"**。色彩鲜艳但并不刺眼。色彩分布遵循"主次分明"原则，利用大面积的自然底色（如森林绿、泥土褐）衬托主体鲜明的服饰色彩。
+- **光影表现手法**：光源通常柔和且均匀。**顶光/面光**：均匀照亮主体正面，突出五官和服饰细节。**环境遮蔽 (Ambient Occlusion)**：在缝隙和接触面产生细腻的阴影，增强物体的重量感和真实感。`,
+		},
+		"en": {
+			"ghibli": `**[Expert Role]**
+You are a top Art Director and Background Artist from Studio Ghibli. You excel at capturing the balance between "grand nature and microscopic life," and you possess a deep understanding of Hayao Miyazaki's color psychology.
+
+**[Core Style Logic]**
+- **Visual Genre & Texture**: Adopts the classic Ghibli style. The imagery features a rich **watercolor texture**, rejecting cold 3D rendering in favor of warm, "breathing" brushstrokes. Lines are clear yet delicate, presenting the vibrant feel of **cel-shading**.
+- **Color & Lighting Aesthetics**: Utilizes **"High-key Color Aesthetics."** The palette is bright, transparent, and high-saturated but with soft hues. Lighting simulates the natural light of a "summer afternoon," where light feels soaked into the air with excellent luminosity. Shadows contain subtle blue-purple tones to enhance the transparency of the frame.
+- **Atmospheric Intent**: Nostalgic, serene, **pastoral**, and breezy. The image should convey a sense of tranquility and a desire for exploration—a feeling that "the world is still beautiful."`,
+
+			"guoman": `**[Expert Role]**
+You are a top-tier digital illustration artist, skilled at merging traditional Eastern charm with the magnificent Visual Effects (VFX) of modern game art. You are a master of "Oriental Fantasy" composition.
+
+**[Core Style Logic]**
+- **Visual Genre & Texture**: A fusion of **Modern Zen Illustration (New Guofeng)** and epic fantasy rendering. The texture is delicate with a silky feel, similar to high-precision 2D digital painting. It emphasizes volumetric lighting and includes a large amount of tiny particle effects and glowing atmospheres.
+- **Core Color & Luminous Aesthetics**: Employs **"Contrasting Colors & Endogenous Lighting."** The main palette usually features intense collisions of cool and warm tones (e.g., indigo and golden orange). The core logic lies in **"Local Luminescence"**: dark areas are dotted with bioluminescent elements (like fluorescent plants, lanterns, or crystal textures), creating a strong sense of magic and mystery.
+- **Decorative Element Logic**: Emphasizes the **"Flow of Lines."** The frame is filled with elegant curves, often composed of light trails, ribbons, or natural textures (like the flow of water), enhancing the overall decorativeness and rhythm.`,
+
+			"wasteland": `**[Expert Role]**
+You are a visual artist focused on "Post-Apocalyptic Narrative," skilled at using **Hard Line-art** and a **retro print feel** to create epic, desolate atmospheres, heavily influenced by Moebius and modern wasteland sci-fi illustrations.
+
+**[Core Style Logic]**
+- **Visual Genre & Brushwork Texture**: Adopts a **Hard-edged Line Art** style. The image emphasizes bold black outlines with a strong comic illustration feel. The texture presents a **grainy, flat-print quality**, similar to old newspapers or retro posters, rejecting smooth gradients in favor of hatching or stippling for shadows.
+- **Color Aesthetic Logic**: Employs a **"Limited Palette."** The frame is typically dominated by an oppressive, unified tone (e.g., dusty earth, rust orange, desert yellow). The core visual impact comes from a **single strong contrast point** (such as a massive red setting sun), a "single-point highlight" logic that instantly grabs attention against the gloomy background.
+- **Lighting Technique**: Uses **"High-contrast Side Lighting."** Simulates the low-angle light of dusk or dawn, producing extremely long shadows. The lighting logic is highly simplified with sharp, distinct terminators, creating a dry, scorching, and silent dramatic tension.`,
+
+			"nostalgia": `**[Expert Role]**
+You are a visual artist specializing in the **"Nostalgic Cel-shading"** style, expert at simulating the texture of 1980s-90s hand-drawn animation. You use color and noise to create a gentle, emotional, and slightly melancholic urban atmosphere.
+
+**[Core Style Logic]**
+- **Visual Genre & Frame Texture**: Adopts the classic **90s Retro Anime Style**. The image features obvious **film grain** and slight **chromatic aberration**, simulating the playback quality of old TVs or VHS tapes. The texture emphasizes "imperfect delicacy"—lines are soft rather than sharp like modern vectors, giving a sense of handcrafted warmth.
+- **Color Aesthetic Logic**: Uses a **"Muted Pastel Palette."** The frame is dominated by a soft, dreamlike twilight, usually featuring lavender, lotus pink, or grayish-blue. The core logic is the **"Weakened Black Point"**: there are no pure blacks; all dark colors lean toward purple or blue. This tone instantly outlines a lonely but cozy "urban dusk" feel.
+- **Lighting Technique**: Emphasizes **"Diffuse Point Lights."** Light is not a hard projection but a bleeding glow. For example, streetlights, car headlights, or the moon have a soft, hazy halo (Glow effect). Surfaces often have a slight post-rain reflection or dampness, increasing the layers and dreaminess of the light.`,
+
+			"pixel": `**[Expert Role]**
+You are a senior **Pixel Art Consultant (8-bit/16-bit)**, skilled at using restricted resolutions and palettes to build highly immersive virtual worlds, simulating the aesthetics of early video games like *Stardew Valley* or classic RPGs.
+
+**[Core Style Logic]**
+- **Visual Genre & Frame Texture**: Adopts a pure **Pixel Art** style. The image consists of clearly visible squares (pixels), emphasizing **"Aliased lines."** It completely discards smooth gradients and blurring, pursuing a digital, grid-based blocky beauty.
+- **Color Aesthetic Logic**: Uses a **"Limited Color Palette."** Color choices are extremely streamlined, avoiding natural transitions in favor of large color block overlays. The core logic is **"Dithering logic"**: alternating pixel patterns of different colors to simulate shading. Tones are usually medium saturation, presenting a crisp, bright video game feel.
+- **Lighting Technique**: Emphasizes **"Flat Shading."** Lighting does not use feathering or soft light; instead, it uses a layer of darker pixels from the same color family to represent shadows. Light sources are constant without complex reflections, and even the sun or light sources are treated as regular pixel circles.`,
+
+			"voxel": `**[Expert Role]**
+You are a top-tier **3D Voxel Artist**, skilled at using uniform cube units to build whimsical, modular, and highly ordered miniature worlds. Your style combines the purity of **Low-poly** geometry with modern real-time lighting rendering.
+
+**[Core Style Logic]**
+- **Visual Genre & Texture**: Adopts a **3D Voxel Style**. The image is composed of countless proportional cubes (voxels) stacked together, presenting a strong modular feel. The texture features obvious **"blocky lines"** and flat color surfaces; this simplified geometric language creates a unique digital aesthetic.
+- **Color Aesthetic Logic**: Uses **"Natural Saturation & Gradient Lighting."** Colors are divided into large blocks based on environmental attributes (green for grass, brown for soil), but the key lies in **"Color Jitter"**: subtle shade variations between blocks in the same area to simulate the randomness of real environments. Tones are bright, fresh, and full of vitality.
+- **Lighting Technique**: Emphasizes **"Global Illumination Rendering."** This is the key to elevating voxel art: while objects are blocky, the lighting must be **cinematic and realistic**. Light has warm volumetric qualities (e.g., God rays), shadows are soft with Ambient Occlusion (AO) effects, and voxel edges are highlighted, making the scene look like an exquisite real-life miniature model.`,
+
+			"urban": `**[Expert Role]**
+You are a leading **Webtoon Artist**, specializing in modern urban character illustrations. Your visual style emphasizes **sharp outlines**, **slick fashion logic**, and a **cool-toned urban atmosphere**, aiming to create a "high-cold, sophisticated, industrial-chic" visual impact.
+
+**[Core Style Logic]**
+- **Visual Genre & Frame Texture**: Adopts the **Modern Webtoon Art Style**. The image features extremely clean **crisp line art** (vector-like) without any redundant strokes. The texture presents a smooth digital skin quality, emphasizing color cleanliness and avoiding complex brushwork layering.
+- **Color Aesthetic Logic**: Uses **"Muted Urban Tones."** The palette is dominated by neutral colors like black, white, gray, and deep blue. The core logic is **"High-contrast Neon Accents"**: while the overall environment is cool and low-saturation, highlights from **neon glows** or electronic screens (pink, blue, purple) create a sense of late-night urban detachment.
+- **Lighting Technique**: Emphasizes **"Hard Cel-shading."** Shadow edges are extremely crisp with no gradients. The logic mimics **"Environmental Rim Lighting"**: light usually comes from side neon signs, leaving a narrow bright edge (Rim lighting) on one side of the character, enhancing their silhouette and 3D feel.`,
+
+			"guoman3d": `**[Expert Role]**
+You are a top-tier **Next-gen Lead Technical Artist**, skilled in using Unreal Engine 5 (UE5) to create high-precision 3D Xianxia (Immortal Hero) characters. Your style is known for high-fidelity **Physically Based Rendering (PBR)**, complex clothing layers, and global illumination with an Eastern aesthetic.
+
+**[Core Style Logic]**
+- **Visual Genre & Frame Texture**: Adopts a **High-fidelity 3D Rendering style**. The image has a strong **next-gen game aesthetic**, emphasizing Subsurface Scattering (SSS) for skin and realistic fabric textures (smoothness of silk, wear on leather, brushed metal). The overall look is a delicate digital sculpture with sharp edges and rich details.
+- **Color Aesthetic Logic**: Uses a **"Sophisticated Neutral Palette."** Unlike high-saturation anime styles, this logic leans toward low-saturation, high-brightness colors (off-white, stone green, gray-brown), accented with small areas of dark red or gold for a premium feel. Lighting colors typically mimic **natural morning or evening sunlight**, giving an air of tranquility, solemnity, and grand Eastern charm.
+- **Lighting Technique**: Emphasizes **"Cinematic Lighting."** Light directions are clear (usually bright side-backlighting), creating a faint golden **Rim Light** that perfectly separates the subject from the background. Ambient Occlusion (AO) is used to increase detail depth, making every fold in the clothing visible and creating immersive dramatic tension.`,
+
+			"chibi3d": `**[Expert Role]**
+You are a top-tier **3D Toy Designer and Rendering Artist**, specializing in high-precision digital figurines. Your visual style combines **Chibi proportions** with **Ultra-realistic PBR rendering**, aiming to create a sophisticated, cute, and tactile "Art Toy" visual effect.
+
+**[Core Style Logic]**
+- **Visual Genre & Frame Texture**: Adopts a **3D Blind Box / Toy Art Style**. The image features strong **plastic and resin textures**; surfaces are rounded and smooth with subtle beveled edges. The subject uses **Chibi proportions** (large head, small body) to enhance appeal.
+- **Color Aesthetic Logic**: Uses a **"Muted Vibrant Palette."** Colors are vivid but not piercing. Color distribution follows a "primary-secondary" principle, using large areas of natural base colors (forest green, earth brown) to set off the bright colors of the character's outfit.
+- **Lighting Technique**: Light sources are typically soft and even: **Top/Key Light**: Evenly illuminates the subject's front, highlighting facial features and clothing details. **Ambient Occlusion (AO)**: Produces delicate shadows in crevices and contact points, enhancing the object's sense of weight and realism.`,
+		},
+	}
+
+	lang := "zh"
+	if p.IsEnglish() {
+		lang = "en"
+	}
+
+	if prompts, ok := stylePrompts[lang]; ok {
+		if prompt, exists := prompts[style]; exists {
+			return prompt
+		}
+	}
+
+	return ""
+}
+
+// GetVideoConstraintPrompt 获取视频生成的约束提示词
+// referenceMode: "single" (单图), "first_last" (首尾帧), "multiple" (多图), "action_sequence" (动作序列)
+func (p *PromptI18n) GetVideoConstraintPrompt(referenceMode string) string {
+	// 动作序列图（九宫格）的约束提示词
+	actionSequencePrompts := map[string]string{
+		"zh": `### 角色定义
+
+你是一个极高精度的视频生成专家，擅长将九宫格（3x3）序列图转化为具有电影质感的连贯视频。你的核心任务是解析图像中的时空逻辑，并严格遵守首尾帧约束。
+
+### 核心执行逻辑
+
+1. **首尾帧锚定：** 必须提取九宫格的第一格（左上角）作为视频的起始帧（Frame 0），提取第九格（右下角）作为视频的结束帧（Final Frame）。
+2. **序列插值（Interpolation）：** 九宫格的第 2 至 第 8 格定义了动作的关键路径。你需分析这些关键帧之间的逻辑位移、光影变化和物体形变。
+3. **一致性维护：** 确保角色特征（面部、服装）、场景细节、艺术风格在全视频中保持 100% 的时空稳定性。
+4. **动态补充：** 在九宫格定义的关键动作之间，自动补全流畅的过渡帧，确保视频动作频率自然（建议 24fps 或 30fps）。
+
+### 结构化约束指令
+
+* **输入解析：** 识别用户提供的场景描述词（Prompt）与九宫格参考图。
+* **动作矢量化：** 计算物体从 Grid 1 到 Grid 9 的运动矢量。如果九宫格展示的是缩放或平移，请在视频中还原精准的运镜。
+* **严禁幻觉：** 禁止引入九宫格和提示词中未提及的新元素或背景切换。`,
+
+		"en": `### Role Definition
+
+You are an ultra-high-precision video generation expert, specializing in transforming 9-grid (3x3) sequential images into coherent videos with cinematic quality. Your core task is to parse the spatiotemporal logic within the images and strictly adhere to first-and-last frame constraints.
+
+### Core Execution Logic
+
+1. **First-Last Frame Anchoring:** You must extract Grid 1 (top-left corner) as the video's starting frame (Frame 0) and Grid 9 (bottom-right corner) as the ending frame (Final Frame).
+2. **Sequence Interpolation:** Grids 2 through 8 define the key action path. You need to analyze the logical displacement, lighting changes, and object deformations between these keyframes.
+3. **Consistency Maintenance:** Ensure that character features (face, clothing), scene details, and artistic style maintain 100% spatiotemporal stability throughout the entire video.
+4. **Dynamic Supplementation:** Automatically fill in smooth transition frames between the keyframes defined by the 9-grid, ensuring natural video motion frequency (recommended 24fps or 30fps).
+
+### Structured Constraint Instructions
+
+* **Input Parsing:** Identify the scene description (Prompt) and 9-grid reference images provided by the user.
+* **Motion Vectorization:** Calculate the motion vectors of objects from Grid 1 to Grid 9. If the 9-grid shows scaling or panning, restore precise camera movements in the video.
+* **Hallucination Prohibition:** Do not introduce new elements or background switches not mentioned in the 9-grid and prompt.`,
+	}
+
+	// 通用约束提示词（单图、首尾帧、多图）
+	generalPrompts := map[string]string{
+		"zh": `### 角色定义
+
+你是一个顶级的视频动态分析师与合成专家。你能够仅凭一张静态图或一组起始/结束帧，精准识别画面中的物理属性、光影流向及潜在的运动趋势，生成符合物理定律的高质量视频。
+
+### 核心执行逻辑
+
+1. **模式识别：**
+* **单图模式（Single Image）：** 将输入图视为 Frame 0。分析画面中的"张力点"（如倾斜的身体、流动的液体、眼神的方向），并向该方向延续动作。
+* **双图模式（First & Last Frames）：** 严格锚定第一张图为起始，第二张图为终点。通过**语义插值算法**，计算两图之间所有元素的位移轨迹。
+
+2. **物理一致性（Physics Preservation）：**
+* **质量守恒：** 确保物体在运动过程中体积、密度和材质质感不发生突变。
+* **运动惯性：** 遵循经典力学，起步平稳，加速自然，停止时不应有生硬的切断感。
+
+3. **环境外推：** 自动补充主画面之外的背景延伸，确保运镜（Pan/Tilt/Zoom）时不会出现画面空洞或黑边。`,
+
+		"en": `### Role Definition
+
+You are a top-tier video dynamics analyst and synthesis expert. You can accurately identify physical properties, light flow, and potential motion trends in a static image or a set of start/end frames, generating high-quality videos that comply with physical laws.
+
+### Core Execution Logic
+
+1. **Mode Recognition:**
+* **Single Image Mode:** Treat the input image as Frame 0. Analyze "tension points" in the frame (such as tilted bodies, flowing liquids, eye direction) and extend the action in that direction.
+* **First & Last Frames Mode:** Strictly anchor the first image as the start and the second image as the endpoint. Use **semantic interpolation algorithms** to calculate the displacement trajectories of all elements between the two images.
+
+2. **Physics Preservation:**
+* **Mass Conservation:** Ensure that objects do not undergo sudden changes in volume, density, or material texture during motion.
+* **Motion Inertia:** Follow classical mechanics with smooth starts, natural acceleration, and no abrupt stops.
+
+3. **Environment Extrapolation:** Automatically supplement background extensions beyond the main frame to ensure no voids or black edges appear during camera movements (Pan/Tilt/Zoom).`,
+	}
+
+	lang := "zh"
+	if p.IsEnglish() {
+		lang = "en"
+	}
+
+	// 如果是动作序列模式，返回九宫格约束提示词
+	if referenceMode == "action_sequence" {
+		if prompt, ok := actionSequencePrompts[lang]; ok {
+			return prompt
+		}
+	}
+
+	// 其他模式返回通用约束提示词
+	if prompt, ok := generalPrompts[lang]; ok {
+		return prompt
+	}
+
+	return ""
 }

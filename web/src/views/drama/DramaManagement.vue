@@ -233,10 +233,11 @@
               >
                 <el-card shadow="hover" class="character-card">
                   <div class="character-preview">
-                    <img
+                    <ImagePreview
                       v-if="character.local_path || character.image_url"
-                      :src="getImageUrl(character)"
+                      :image-url="getImageUrl(character)"
                       :alt="character.name"
+                      :size="120"
                     />
                     <el-avatar v-else :size="120">{{
                       character.name[0]
@@ -244,19 +245,21 @@
                   </div>
 
                   <div class="character-info">
-                    <h4>{{ character.name }}</h4>
-                    <el-tag
-                      :type="character.role === 'main' ? 'danger' : 'info'"
-                      size="small"
-                    >
-                      {{
-                        character.role === "main"
-                          ? "Main"
-                          : character.role === "supporting"
-                            ? "Supporting"
-                            : "Minor"
-                      }}
-                    </el-tag>
+                    <div class="character-name">
+                      <h4>{{ character.name }}</h4>
+                      <el-tag
+                        :type="character.role === 'main' ? 'danger' : 'info'"
+                        size="small"
+                      >
+                        {{
+                          character.role === "main"
+                            ? "Main"
+                            : character.role === "supporting"
+                              ? "Supporting"
+                              : "Minor"
+                        }}
+                      </el-tag>
+                    </div>
                     <p class="desc">
                       {{ character.appearance || character.description }}
                     </p>
@@ -298,14 +301,12 @@
               <el-col :span="6" v-for="scene in scenes" :key="scene.id">
                 <el-card shadow="hover" class="scene-card">
                   <div class="scene-preview">
-                    <img
-                      v-if="scene.local_path || scene.image_url"
-                      :src="getImageUrl(scene)"
-                      :alt="scene.name"
+                    <ImagePreview
+                      :image-url="getImageUrl(scene)"
+                      :alt="scene.location + ' - ' + scene.time"
+                      :size="120"
+                      :show-placeholder-text="false"
                     />
-                    <div v-else class="scene-placeholder">
-                      <el-icon :size="48"><Picture /></el-icon>
-                    </div>
                   </div>
 
                   <div class="scene-info">
@@ -360,14 +361,12 @@
               <el-col :span="6" v-for="prop in drama?.props" :key="prop.id">
                 <el-card shadow="hover" class="scene-card">
                   <div class="scene-preview">
-                    <img
-                      v-if="hasImage(prop)"
-                      :src="getImageUrl(prop)"
+                    <ImagePreview
+                      :image-url="getImageUrl(prop)"
                       :alt="prop.name"
+                      :size="120"
+                      :show-placeholder-text="false"
                     />
-                    <div v-else class="scene-placeholder">
-                      <el-icon :size="48"><Box /></el-icon>
-                    </div>
                   </div>
 
                   <div class="scene-info">
@@ -784,7 +783,12 @@ import { dramaAPI } from "@/api/drama";
 import { characterLibraryAPI } from "@/api/character-library";
 import { propAPI } from "@/api/prop";
 import type { Drama } from "@/types/drama";
-import { AppHeader, StatCard, EmptyState } from "@/components/common";
+import {
+  AppHeader,
+  StatCard,
+  EmptyState,
+  ImagePreview,
+} from "@/components/common";
 import { getImageUrl, hasImage } from "@/utils/image";
 
 const router = useRouter();
@@ -1596,9 +1600,16 @@ onMounted(() => {
   padding: var(--space-4);
 }
 
+.character-name {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .character-info h4,
 .scene-info h4 {
-  margin: 0 0 var(--space-2) 0;
+  /* margin: 0 0 var(--space-2) 0; */
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);

@@ -126,16 +126,15 @@
   --shadow-card: 0 2px 4px 0 rgb(0 0 0 / 0.3);
   --shadow-card-hover: 0 8px 20px -4px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(34, 211, 238, 0.15);
 
-  --el-fill-color-blank: #181F28;
+  --el-fill-color-blank: #181f28;
   --el-border-color: #4d4d4d;
   --el-border-color-light: #2a333d;
   --el-fill-color-light: #2a333d;
-  --el-bg-color-overlay: #181F28;
+  --el-bg-color-overlay: #181f28;
   --el-text-color-regular: #e8edf3;
   --el-descriptions-table-border: #4d4d4d;
   --el-border-color-lighter: #4d4d4d;
   --el-text-color-primary: #e8edf3;
-
 }
 
 /* ========================================
@@ -151,10 +150,20 @@ html,
 body {
   width: 100%;
   height: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  transition:
+    background-color var(--transition-normal),
+    color var(--transition-normal);
 }
 
 #app {
@@ -773,6 +782,13 @@ body {
   background: var(--text-muted);
 }
 
+/* 图片样式 */
+.el-image-viewer__close,
+.el-image-viewer__actions {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+}
+
 /* ========================================
    Utility Classes / 工具类
    ======================================== */
@@ -889,7 +905,9 @@ body {
 
 /* Hover lift effect / 悬停提升效果 */
 .hover-lift {
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  transition:
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal);
 }
 
 .hover-lift:hover {
@@ -940,6 +958,34 @@ body {
 }
 
 /* Scrollbar styling / 滚动条样式 */
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: var(--radius-full);
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Firefox 滚动条样式 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-secondary) var(--bg-secondary);
+}
+
+/* 自定义滚动条类 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -955,7 +1001,7 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--accent);
 }
 
 /* Hide scrollbar / 隐藏滚动条 */
@@ -1027,7 +1073,6 @@ body {
 }
 
 @keyframes pulse {
-
   0%,
   100% {
     opacity: 1;
@@ -1059,7 +1104,6 @@ body {
 }
 
 @keyframes bounce {
-
   0%,
   100% {
     transform: translateY(-5%);
@@ -1107,7 +1151,6 @@ body {
 }
 
 @keyframes status-pulse {
-
   0%,
   100% {
     box-shadow: 0 0 0 0 currentColor;
@@ -1131,7 +1174,13 @@ body {
 }
 
 .font-display {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
