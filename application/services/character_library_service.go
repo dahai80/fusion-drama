@@ -334,9 +334,7 @@ func (s *CharacterLibraryService) GenerateCharacterImage(characterID string, ima
 		prompt = character.Name
 	}
 
-	prompt += s.config.Style.DefaultStyle
-	prompt += s.config.Style.DefaultRoleStyle
-	prompt += s.config.Style.DefaultRoleRatio
+	prompt += ", Modern Japanese anime style"
 	// 调用图片生成服务
 	dramaIDStr := fmt.Sprintf("%d", character.DramaID)
 	imageType := "character"

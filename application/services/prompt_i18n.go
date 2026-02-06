@@ -145,19 +145,12 @@ func (p *PromptI18n) GetStoryboardSystemPrompt() string {
 
 // GetSceneExtractionPrompt 获取场景提取提示词
 func (p *PromptI18n) GetSceneExtractionPrompt(style string) string {
-	// 如果未指定风格，使用配置中的默认风格
-	if style == "" {
-		style = p.config.Style.DefaultSceneStyle
-	} else {
-		// 默认风格加style
-		style = p.config.Style.DefaultSceneStyle + ", " + style
-	}
-	// 如果配置也没有，使用硬编码默认值
+	// 如果未指定风格，使用硬编码默认值
 	if style == "" {
 		style = "Modern Japanese anime style"
 	}
-	// default_image_ratio
-	imageRatio := p.config.Style.DefaultImageRatio
+	// 默认图片比例
+	imageRatio := "16:9"
 
 	if p.IsEnglish() {
 		return fmt.Sprintf(`[Task] Extract all unique scene backgrounds from the script
@@ -209,8 +202,8 @@ Each element containing:
 
 // GetFirstFramePrompt 获取首帧提示词
 func (p *PromptI18n) GetFirstFramePrompt() string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	if p.IsEnglish() {
 		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
@@ -250,8 +243,8 @@ Return a JSON object containing:
 
 // GetKeyFramePrompt 获取关键帧提示词
 func (p *PromptI18n) GetKeyFramePrompt() string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	if p.IsEnglish() {
 		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
@@ -291,8 +284,8 @@ Return a JSON object containing:
 
 // GetActionSequenceFramePrompt 获取动作序列提示词
 func (p *PromptI18n) GetActionSequenceFramePrompt() string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	if p.IsEnglish() {
 		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompting. You need to generate a single prompt that describes a 3x3 grid action sequence.
 
@@ -377,8 +370,8 @@ You must return a **JSON object** with the following structure:
 
 // GetLastFramePrompt 获取尾帧提示词
 func (p *PromptI18n) GetLastFramePrompt() string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	if p.IsEnglish() {
 		return fmt.Sprintf(`You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
 
@@ -461,8 +454,8 @@ Return a JSON object containing:
 
 // GetCharacterExtractionPrompt 获取角色提取提示词
 func (p *PromptI18n) GetCharacterExtractionPrompt() string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	if p.IsEnglish() {
 		return fmt.Sprintf(`You are a professional character analyst, skilled at extracting and analyzing character information from scripts.
 
@@ -508,11 +501,8 @@ Each element is a character object containing the above fields.`, style, imageRa
 
 // GetPropExtractionPrompt 获取道具提取提示词
 func (p *PromptI18n) GetPropExtractionPrompt() string {
-	style := p.config.Style.DefaultStyle + ", " + p.config.Style.DefaultPropStyle
-	imageRatio := p.config.Style.DefaultPropRatio
-	if imageRatio == "" {
-		imageRatio = p.config.Style.DefaultImageRatio
-	}
+	style := "Modern Japanese anime style"
+	imageRatio := "1:1"
 
 	if p.IsEnglish() {
 		return fmt.Sprintf(`Please extract key props from the following script.
@@ -610,8 +600,8 @@ Output Format:
 
 // FormatUserPrompt 格式化用户提示词的通用文本
 func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
-	style := p.config.Style.DefaultStyle
-	imageRatio := p.config.Style.DefaultImageRatio
+	style := "Modern Japanese anime style"
+	imageRatio := "16:9"
 	templates := map[string]map[string]string{
 		"en": {
 

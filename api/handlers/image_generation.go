@@ -87,9 +87,9 @@ func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 		req.Model = ""
 		req.Style = ""
 	}
-	// 如果style为空，使用配置中的默认风格
+	// 如果style为空，使用硬编码默认风格
 	if req.Style == "" {
-		req.Style = h.config.Style.DefaultStyle + ", " + h.config.Style.DefaultSceneStyle
+		req.Style = "Modern Japanese anime style"
 	}
 
 	// 直接调用服务层的异步方法，该方法会创建任务并返回任务ID

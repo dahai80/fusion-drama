@@ -620,8 +620,8 @@ func extractCompositionType(shotType string) string {
 // generateVideoPrompt 生成专门用于视频生成的提示词（包含运镜和动态元素）
 func (s *StoryboardService) generateVideoPrompt(sb Storyboard) string {
 	var parts []string
-	style := s.config.Style.DefaultStyle
-	videoRatio := s.config.Style.DefaultVideoRatio
+	style := "Modern Japanese anime style"
+	videoRatio := "16:9"
 	// 1. 人物动作
 	if sb.Action != "" {
 		parts = append(parts, fmt.Sprintf("Action: %s", sb.Action))
