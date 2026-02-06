@@ -566,6 +566,22 @@ A: GORM automatically creates tables on first startup, check logs to confirm mig
 
 ## 📋 Changelog
 
+### v1.0.5 (2026-02-06)
+
+#### 🎨 Major Features
+
+- **🎭 Global Style System**: Introduced comprehensive style selection support across the entire project. Users can now define custom visual styles at the drama level, which automatically applies to all AI-generated content including characters, scenes, and storyboards, ensuring consistent artistic direction throughout the production.
+
+- **✂️ Nine-Grid Sequence Image Cropping**: Added cropping tool for action sequence images. Users can now extract individual frames from 3x3 grid layouts and designate them as first frames, last frames, or keyframes for video generation, providing greater flexibility in shot composition and continuity.
+
+#### 🚀 Enhancements
+
+- **📐 Optimized Action Sequence Grid**: Enhanced the visual quality and layout of nine-grid action sequence images with improved spacing, alignment, and frame transitions.
+
+- **🔧 Manual Grid Assembly**: Introduced manual grid composition tools supporting 2x2 (four-grid), 2x3 (six-grid), and 3x3 (nine-grid) layouts, allowing users to create custom action sequences from individual frames.
+
+- **🗑️ Content Management**: Added delete functionality for both generated images and videos, enabling better asset organization and storage management.
+
 ### v1.0.4 (2026-01-27)
 
 #### 🚀 Major Updates
