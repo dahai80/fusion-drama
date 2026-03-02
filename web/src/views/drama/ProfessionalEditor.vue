@@ -156,7 +156,6 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, VideoCamera } from '@element-plus/icons-vue'
-import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import GridImageEditor from '@/components/editor/GridImageEditor.vue'
 import { AppHeader, ImageCropDialog } from '@/components/common'
 import { getImageUrl, getVideoUrl } from '@/utils/image'
@@ -183,7 +182,7 @@ const imageGen = useFrameImageGeneration(
   editor.dramaId,
 )
 
-const timelineEditorRef = ref<InstanceType<typeof VideoTimelineEditor> | null>(null)
+const timelineEditorRef = ref(null)
 
 const videoGen = useVideoGenerationPro(
   editor.currentStoryboard,
@@ -207,9 +206,9 @@ const goToComposition = () => {
 }
 
 
-// 当前分镜索引
+// 当前分镜索引（-1 表示未选中或 ID 失效）
 const currentStoryboardIndex = computed(() => {
-  if (!editor.currentStoryboardId.value) return 0
+  if (!editor.currentStoryboardId.value) return -1
   return editor.storyboards.value.findIndex(
     (s: any) => String(s.id) === String(editor.currentStoryboardId.value)
   )
@@ -224,7 +223,7 @@ const selectPrevStoryboard = () => {
 
 const selectNextStoryboard = () => {
   const idx = currentStoryboardIndex.value
-  if (idx < editor.storyboards.value.length - 1) {
+  if (idx >= 0 && idx < editor.storyboards.value.length - 1) {
     editor.selectStoryboard(String(editor.storyboards.value[idx + 1].id))
   }
 }
