@@ -722,6 +722,8 @@ export function useVideoGenerationPro(
     selectedReferenceMode,
     generatingVideo,
     generatedVideos,
+    loadingVideos,
+    addingToAssets,
     videoModelCapabilities,
     videoAssets,
     currentModelCapability,

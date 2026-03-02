@@ -6,7 +6,7 @@
         :key="scene.id"
         class="scene-card"
         :class="{ selected: currentSceneId === scene.id }"
-        @click="$emit('select', scene.id)"
+        @click="$emit('select', Number(scene.id))"
       >
         <div class="scene-image">
           <img v-if="hasImage(scene)" :src="getImageUrl(scene)" :alt="scene.location" />

@@ -172,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ArrowLeft, VideoCamera } from '@element-plus/icons-vue'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import GridImageEditor from '@/components/editor/GridImageEditor.vue'
@@ -250,19 +250,6 @@ const handleMergeCompleted = async (mergeId: number) => {
   await merge.handleMergeCompleted()
   activeTab.value = 'composition'
 }
-
-// storyboard 切换时加载图片和视频
-watch(
-  () => editor.currentStoryboard.value,
-  async (newStoryboard) => {
-    if (newStoryboard) {
-      await imageGen.loadStoryboardImages(newStoryboard.id)
-      await imageGen.loadAllGeneratedImages()
-      await imageGen.loadVideoReferenceImages(newStoryboard.id)
-      await videoGen.loadStoryboardVideos(newStoryboard.id)
-    }
-  },
-)
 
 // 生命周期
 onMounted(async () => {

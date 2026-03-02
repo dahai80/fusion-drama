@@ -556,6 +556,7 @@ export function useFrameImageGeneration(
     allGeneratedImages,
     videoReferenceImages,
     loadingImages,
+    panelCount,
     extractFramePrompt,
     generateFrameImage,
     uploadImage,
