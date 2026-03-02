@@ -224,8 +224,47 @@
           </div>
         </PanelSection>
 
-        <!-- 视频生成结果区 -->
+        <!-- 视频生成区（控制 + 结果列表） -->
         <PanelSection :title="$t('professionalEditor.videoGeneration')" icon="🎬" :default-open="true">
+          <!-- 视频提示词预览 -->
+          <div class="prompt-preview" v-if="currentStoryboard.video_prompt">
+            <span class="prompt-text">{{ currentStoryboard.video_prompt }}</span>
+            <button class="copy-btn" type="button" @click="copyPrompt" :title="$t('common.copy')">
+              <el-icon><CopyDocument /></el-icon>
+            </button>
+          </div>
+          <!-- 模型选择 -->
+          <el-select
+            v-model="videoGen.selectedVideoModel.value"
+            :placeholder="$t('video.selectVideoModel')"
+            size="small"
+            style="width:100%;margin-top:6px"
+          >
+            <el-option
+              v-for="model in videoGen.videoModelCapabilities.value"
+              :key="model.id"
+              :label="model.name"
+              :value="model.id"
+            />
+          </el-select>
+          <!-- 生成按钮 -->
+          <button
+            class="gen-btn"
+            type="button"
+            @click="videoGen.generateVideo()"
+            :disabled="!videoGen.selectedVideoModel.value || videoGen.generatingVideo.value"
+            :class="{ loading: videoGen.generatingVideo.value }"
+          >
+            <el-icon v-if="!videoGen.generatingVideo.value"><VideoCamera /></el-icon>
+            <el-icon v-else class="rotating"><Loading /></el-icon>
+            {{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}
+          </button>
+          <!-- 合成工作台入口 -->
+          <button class="composition-link-btn" type="button" @click="$emit('go-to-composition')">
+            {{ $t('editor.compositionWorkbench') }}
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+          <!-- 生成结果列表 -->
           <div v-if="videoGen.generatedVideos.value?.length > 0" class="video-result-list">
             <div
               v-for="video in videoGen.generatedVideos.value"
@@ -259,63 +298,6 @@
         </PanelSection>
 
       </div><!-- end panel-scroll -->
-
-      <!-- ===== 固定底部：视频生成控制 ===== -->
-      <div class="panel-gen">
-        <!-- 视频提示词预览 -->
-        <div class="prompt-preview" v-if="currentStoryboard.video_prompt">
-          <span class="prompt-text">{{ currentStoryboard.video_prompt }}</span>
-          <button class="copy-btn" type="button" @click="copyPrompt" :title="$t('common.copy')">
-            <el-icon><CopyDocument /></el-icon>
-          </button>
-        </div>
-        <!-- 模型选择 -->
-        <el-select
-          v-model="videoGen.selectedVideoModel.value"
-          :placeholder="$t('video.selectVideoModel')"
-          size="small"
-          style="width:100%"
-        >
-          <el-option
-            v-for="model in videoGen.videoModelCapabilities.value"
-            :key="model.id"
-            :label="model.name"
-            :value="model.id"
-          />
-        </el-select>
-        <!-- 生成按钮 -->
-        <button
-          class="gen-btn"
-          type="button"
-          @click="videoGen.generateVideo()"
-          :disabled="!videoGen.selectedVideoModel.value || videoGen.generatingVideo.value"
-          :class="{ loading: videoGen.generatingVideo.value }"
-        >
-          <el-icon v-if="!videoGen.generatingVideo.value"><VideoCamera /></el-icon>
-          <el-icon v-else class="rotating"><Loading /></el-icon>
-          {{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}
-        </button>
-        <!-- 最近生成结果 + 合成工作台入口 -->
-        <div class="recent-row">
-          <div class="recent-results" v-if="recentVideos.length">
-            <div
-              v-for="video in recentVideos"
-              :key="video.id"
-              class="recent-thumb"
-              @click="videoGen.playVideo(video)"
-            >
-              <video v-if="video.video_url" :src="getVideoUrl(video)" preload="metadata" />
-              <div class="recent-thumb-overlay">
-                <el-icon color="white"><VideoPlay /></el-icon>
-              </div>
-            </div>
-          </div>
-          <button class="composition-link-btn" type="button" @click="$emit('go-to-composition')">
-            {{ $t('editor.compositionWorkbench') }}
-            <el-icon><ArrowRight /></el-icon>
-          </button>
-        </div>
-      </div>
 
     </template>
   </div>
@@ -361,12 +343,6 @@ const emit = defineEmits<{
 
 const isFirst = computed(() => props.storyboardIndex <= 0)
 const isLast = computed(() => props.storyboardIndex >= props.totalStoryboards - 1)
-
-const recentVideos = computed(() =>
-  (props.videoGen.generatedVideos.value || [])
-    .filter((v: any) => v.video_url && v.status === 'completed')
-    .slice(0, 3)
-)
 
 const copyPrompt = () => {
   if (props.currentStoryboard?.video_prompt) {
@@ -630,17 +606,6 @@ const copyPrompt = () => {
   p { font-size: 10px; margin: 0; }
 }
 
-/* 固定底部生成区 */
-.panel-gen {
-  flex-shrink: 0;
-  padding: 8px 10px;
-  border-top: 2px solid var(--border-primary, #e4e7ed);
-  background: var(--bg-card, #fff);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
 .prompt-preview {
   display: flex;
   align-items: flex-start;
@@ -690,36 +655,6 @@ const copyPrompt = () => {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .rotating { animation: spin 1s linear infinite; }
-
-.recent-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.recent-results {
-  display: flex;
-  gap: 5px;
-  flex: 1;
-}
-.recent-thumb {
-  width: 52px; height: 30px;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid var(--border-primary, #e4e7ed);
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-
-  video { width: 100%; height: 100%; object-fit: cover; }
-  &:hover .recent-thumb-overlay { opacity: 1; }
-}
-.recent-thumb-overlay {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity 150ms;
-}
 
 .composition-link-btn {
   display: flex;
