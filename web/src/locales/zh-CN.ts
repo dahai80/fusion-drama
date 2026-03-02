@@ -625,6 +625,9 @@ export default {
     currentPreviewAlt: '当前分镜预览',
     // StoryboardList
     imageStatus: '图',
+    statusNone: '未生成',
+    statusGenerating: '生成中',
+    statusDone: '已生成',
     // GenerationTab
     imageGeneration: '图片生成',
     videoGeneration: '视频生成',

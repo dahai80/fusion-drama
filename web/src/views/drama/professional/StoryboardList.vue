@@ -41,7 +41,10 @@
 
 <script setup lang="ts">
 import { Refresh, Picture, Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import type { Storyboard } from '@/types/drama'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   storyboards: Storyboard[]
@@ -75,9 +78,9 @@ const getStatusClass = (storyboard: Storyboard) => {
 
 const getStatusText = (storyboard: Storyboard) => {
   const cls = getStatusClass(storyboard)
-  if (cls === 'status-generating') return '生成中'
-  if (cls === 'status-done') return '已生成'
-  return '未生成'
+  if (cls === 'status-generating') return t('professionalEditor.statusGenerating')
+  if (cls === 'status-done') return t('professionalEditor.statusDone')
+  return t('professionalEditor.statusNone')
 }
 </script>
 
