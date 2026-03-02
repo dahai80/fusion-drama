@@ -773,6 +773,8 @@ export default {
   editor: {
     backToEpisode: '返回剧集编辑',
     episode: '第{number}集',
+    generatedProgress: '{count}/{total} 已生成',
+    compositionWorkbench: '合成工作台',
     settings: '设置',
     basicInfo: '基础信息',
     sceneProduction: '场景制作',

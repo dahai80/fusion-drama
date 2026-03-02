@@ -851,6 +851,8 @@ export default {
   editor: {
     backToEpisode: 'Back to Episode Edit',
     episode: 'Episode {number}',
+    generatedProgress: '{count}/{total} Generated',
+    compositionWorkbench: 'Composition Workbench',
     settings: 'Settings',
     basicInfo: 'Basic Info',
     sceneProduction: 'Scene Production',

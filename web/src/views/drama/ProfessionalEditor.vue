@@ -11,10 +11,10 @@
       </template>
       <template #right>
         <span class="gen-progress" v-if="editor.storyboards.value.length > 0">
-          {{ generatedCount }}/{{ editor.storyboards.value.length }} 已生成
+          {{ $t('editor.generatedProgress', { count: generatedCount, total: editor.storyboards.value.length }) }}
         </span>
         <button class="composition-btn" @click="goToComposition">
-          合成工作台
+          {{ $t('editor.compositionWorkbench') }}
           <el-icon><ArrowRight /></el-icon>
         </button>
       </template>
