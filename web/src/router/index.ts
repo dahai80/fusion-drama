@@ -75,7 +75,7 @@ const routes: RouteRecordRaw[] = [
     meta: { fullscreen: true }
   },
   {
-    path: '/dramas/:id/episode/:episodeId/composition',
+    path: '/dramas/:dramaId/episode/:episodeNumber/composition',
     name: 'CompositionWorkbench',
     component: () => import('@/views/drama/professional/CompositionWorkbench.vue'),
   },
