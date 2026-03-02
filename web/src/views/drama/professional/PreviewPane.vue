@@ -12,11 +12,11 @@
         v-else-if="currentPreviewUrl"
         :src="currentPreviewUrl"
         class="preview-media"
-        alt="当前分镜预览"
+        :alt="$t('professionalEditor.currentPreviewAlt')"
       />
       <div v-else class="preview-placeholder">
         <el-icon :size="48" color="#444"><Picture /></el-icon>
-        <p>暂无预览图，请先生成图片</p>
+        <p>{{ $t('professionalEditor.noPreview') }}</p>
       </div>
       <div class="preview-info-overlay">
         <span class="preview-shot-num">#{{ currentStoryboard.storyboard_number }}</span>
@@ -26,7 +26,7 @@
     </template>
     <div v-else class="preview-placeholder">
       <el-icon :size="48" color="#444"><Picture /></el-icon>
-      <p>请从左侧选择分镜</p>
+      <p>{{ $t('professionalEditor.selectStoryboard') }}</p>
     </div>
   </div>
 </template>

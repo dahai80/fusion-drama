@@ -92,7 +92,7 @@ export function useProfessionalEditor() {
         (e) => e.episode_number === episodeNumber,
       )
       if (!ep) {
-        ElMessage.error('章节不存在')
+        ElMessage.error($t('professionalEditor.episodeNotExist'))
         router.back()
         return
       }
@@ -111,7 +111,7 @@ export function useProfessionalEditor() {
       availableScenes.value = dramaRes.scenes || []
       props.value = dramaRes.props || []
     } catch (error: any) {
-      ElMessage.error('加载数据失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.loadFailed') + ': ' + (error.message || ''))
     }
   }
 
@@ -149,7 +149,7 @@ export function useProfessionalEditor() {
             : undefined,
       })
 
-      ElMessage.success('添加分镜成功')
+      ElMessage.success($t('professionalEditor.addStoryboardSuccess'))
       await loadData()
 
       if (storyboards.value.length > 0) {
@@ -157,24 +157,24 @@ export function useProfessionalEditor() {
       }
     } catch (error: any) {
       console.error('添加分镜失败:', error)
-      ElMessage.error(error.message || '添加分镜失败')
+      ElMessage.error(error.message || $t('professionalEditor.addStoryboardFailed'))
     }
   }
 
   const handleDeleteStoryboard = async (storyboard: any) => {
     try {
       await ElMessageBox.confirm(
-        `确定要删除镜头 ${storyboard.storyboard_number} 吗？此操作不可恢复。`,
-        '删除确认',
+        $t('professionalEditor.deleteStoryboardConfirm', { number: storyboard.storyboard_number }),
+        $t('professionalEditor.deleteStoryboardTitle'),
         {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
+          confirmButtonText: $t('common.confirm'),
+          cancelButtonText: $t('common.cancel'),
           type: 'warning',
         },
       )
 
       await dramaAPI.deleteStoryboard(storyboard.id)
-      ElMessage.success('删除分镜成功')
+      ElMessage.success($t('professionalEditor.deleteStoryboardSuccess'))
 
       if (currentStoryboardId.value === storyboard.id) {
         currentStoryboardId.value = null
@@ -184,7 +184,7 @@ export function useProfessionalEditor() {
     } catch (error: any) {
       if (error !== 'cancel') {
         console.error('删除分镜失败:', error)
-        ElMessage.error(error.message || '删除分镜失败')
+        ElMessage.error(error.message || $t('professionalEditor.deleteStoryboardFailed'))
       }
     }
   }
@@ -200,7 +200,7 @@ export function useProfessionalEditor() {
         updateData,
       )
     } catch (error: any) {
-      ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
     }
   }
 
@@ -234,12 +234,12 @@ export function useProfessionalEditor() {
       })
 
       if (existIndex > -1) {
-        ElMessage.success(`已移除角色: ${char.name}`)
+        ElMessage.success($t('professionalEditor.characterRemoved', { name: char.name }))
       } else {
-        ElMessage.success(`已添加角色: ${char.name}`)
+        ElMessage.success($t('professionalEditor.characterAdded', { name: char.name }))
       }
     } catch (error: any) {
-      ElMessage.error('保存失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
       if (existIndex > -1) {
         currentStoryboard.value.characters.push(char)
       } else {
@@ -311,9 +311,9 @@ export function useProfessionalEditor() {
 
       await loadData()
       showSceneSelector.value = false
-      ElMessage.success('场景关联成功')
+      ElMessage.success($t('professionalEditor.sceneLinked'))
     } catch (error: any) {
-      ElMessage.error(error.message || '场景关联失败')
+      ElMessage.error(error.message || $t('professionalEditor.sceneLinkFailed'))
     }
   }
 

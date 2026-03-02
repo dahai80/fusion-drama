@@ -7,7 +7,7 @@
         <el-button size="small" text @click="$emit('show-scene-selector')">{{ $t('storyboard.selectScene') }}</el-button>
       </div>
       <div class="scene-preview-v2" v-if="hasImage(currentStoryboard.background)" @click="$emit('show-scene-image')">
-        <img :src="getImageUrl(currentStoryboard.background)" alt="场景" />
+        <img :src="getImageUrl(currentStoryboard.background)" :alt="$t('storyboard.scene')" />
         <div class="scene-info-overlay">
           {{ currentStoryboard.background?.location }} · {{ currentStoryboard.background?.time }}
         </div>
@@ -63,33 +63,48 @@
         <div class="setting-row">
           <label>{{ $t('editor.shotType') }}</label>
           <el-select v-model="currentStoryboard.shot_type" clearable size="small" @change="$emit('save-field', 'shot_type')">
-            <el-option label="大远景" value="大远景" /><el-option label="远景" value="远景" />
-            <el-option label="全景" value="全景" /><el-option label="中全景" value="中全景" />
-            <el-option label="中景" value="中景" /><el-option label="中近景" value="中近景" />
-            <el-option label="近景" value="近景" /><el-option label="特写" value="特写" />
-            <el-option label="大特写" value="大特写" />
+            <el-option :label="$t('professionalEditor.shot.extremeLong')" value="大远景" />
+            <el-option :label="$t('professionalEditor.shot.long')" value="远景" />
+            <el-option :label="$t('professionalEditor.shot.full')" value="全景" />
+            <el-option :label="$t('professionalEditor.shot.mediumFull')" value="中全景" />
+            <el-option :label="$t('professionalEditor.shot.medium')" value="中景" />
+            <el-option :label="$t('professionalEditor.shot.mediumClose')" value="中近景" />
+            <el-option :label="$t('professionalEditor.shot.close')" value="近景" />
+            <el-option :label="$t('professionalEditor.shot.closeUp')" value="特写" />
+            <el-option :label="$t('professionalEditor.shot.extremeCloseUp')" value="大特写" />
           </el-select>
         </div>
         <div class="setting-row">
           <label>{{ $t('editor.movement') }}</label>
           <el-select v-model="currentStoryboard.movement" clearable size="small" @change="$emit('save-field', 'movement')">
-            <el-option label="固定镜头" value="固定镜头" /><el-option label="推镜" value="推镜" />
-            <el-option label="拉镜" value="拉镜" /><el-option label="摇镜" value="摇镜" />
-            <el-option label="移镜" value="移镜" /><el-option label="跟镜" value="跟镜" />
-            <el-option label="升降镜头" value="升降镜头" /><el-option label="环绕" value="环绕" />
-            <el-option label="甩镜" value="甩镜" /><el-option label="变焦" value="变焦" />
-            <el-option label="手持晃动" value="手持晃动" /><el-option label="航拍" value="航拍" />
+            <el-option :label="$t('professionalEditor.movement.fixed')" value="固定镜头" />
+            <el-option :label="$t('professionalEditor.movement.push')" value="推镜" />
+            <el-option :label="$t('professionalEditor.movement.pull')" value="拉镜" />
+            <el-option :label="$t('professionalEditor.movement.pan')" value="摇镜" />
+            <el-option :label="$t('professionalEditor.movement.dolly')" value="移镜" />
+            <el-option :label="$t('professionalEditor.movement.tracking')" value="跟镜" />
+            <el-option :label="$t('professionalEditor.movement.crane')" value="升降镜头" />
+            <el-option :label="$t('professionalEditor.movement.orbit')" value="环绕" />
+            <el-option :label="$t('professionalEditor.movement.whip')" value="甩镜" />
+            <el-option :label="$t('professionalEditor.movement.zoom')" value="变焦" />
+            <el-option :label="$t('professionalEditor.movement.handheld')" value="手持晃动" />
+            <el-option :label="$t('professionalEditor.movement.aerial')" value="航拍" />
           </el-select>
         </div>
         <div class="setting-row">
           <label>{{ $t('editor.angle') }}</label>
           <el-select v-model="currentStoryboard.angle" clearable size="small" @change="$emit('save-field', 'angle')">
-            <el-option label="平视" value="平视" /><el-option label="俯视" value="俯视" />
-            <el-option label="仰视" value="仰视" /><el-option label="大俯视（鸟瞰）" value="大俯视（鸟瞰）" />
-            <el-option label="大仰视" value="大仰视" /><el-option label="正侧面" value="正侧面" />
-            <el-option label="斜侧面" value="斜侧面" /><el-option label="背面" value="背面" />
-            <el-option label="倾斜（荷兰角）" value="倾斜（荷兰角）" /><el-option label="主观视角" value="主观视角" />
-            <el-option label="过肩" value="过肩" />
+            <el-option :label="$t('professionalEditor.angle.eye')" value="平视" />
+            <el-option :label="$t('professionalEditor.angle.high')" value="俯视" />
+            <el-option :label="$t('professionalEditor.angle.low')" value="仰视" />
+            <el-option :label="$t('professionalEditor.angle.birdEye')" value="大俯视（鸟瞰）" />
+            <el-option :label="$t('professionalEditor.angle.extremeLow')" value="大仰视" />
+            <el-option :label="$t('professionalEditor.angle.side')" value="正侧面" />
+            <el-option :label="$t('professionalEditor.angle.oblique')" value="斜侧面" />
+            <el-option :label="$t('professionalEditor.angle.back')" value="背面" />
+            <el-option :label="$t('professionalEditor.angle.dutch')" value="倾斜（荷兰角）" />
+            <el-option :label="$t('professionalEditor.angle.pov')" value="主观视角" />
+            <el-option :label="$t('professionalEditor.angle.overShoulder')" value="过肩" />
           </el-select>
         </div>
       </div>

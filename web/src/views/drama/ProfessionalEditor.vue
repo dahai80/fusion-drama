@@ -34,7 +34,7 @@
         <!-- 右栏：Tab 面板 -->
         <div class="property-panel" v-if="editor.currentStoryboard.value">
           <el-tabs v-model="activeTab" class="panel-tabs">
-            <el-tab-pane :label="$t('editor.properties')" name="properties">
+            <el-tab-pane :label="$t('professionalEditor.properties')" name="properties">
               <PropertiesTab
                 :current-storyboard="editor.currentStoryboard.value"
                 :current-storyboard-characters="editor.currentStoryboardCharacters.value"
@@ -49,7 +49,7 @@
                 @toggle-prop="editor.togglePropInShot"
               />
             </el-tab-pane>
-            <el-tab-pane :label="$t('editor.generation')" name="generation">
+            <el-tab-pane :label="$t('professionalEditor.generation')" name="generation">
               <GenerationTab
                 :current-storyboard="editor.currentStoryboard.value"
                 :image-gen="imageGen"
@@ -57,7 +57,7 @@
                 @generate-image="handleGenerateImage"
               />
             </el-tab-pane>
-            <el-tab-pane :label="$t('editor.composition')" name="composition">
+            <el-tab-pane :label="$t('professionalEditor.composition')" name="composition">
               <CompositionTab
                 :video-merges="merge.videoMerges.value"
                 :loading-merges="merge.loadingMerges.value"
@@ -69,7 +69,7 @@
           </el-tabs>
         </div>
         <div class="property-panel property-panel-empty" v-else>
-          <el-empty description="请从左侧选择分镜" />
+          <el-empty :description="$t('professionalEditor.selectStoryboard')" />
         </div>
       </div>
 
@@ -114,23 +114,23 @@
     <el-dialog v-model="editor.showCharacterImagePreview.value" :title="editor.previewCharacter.value?.name" width="600px">
       <div class="image-preview-content" v-if="editor.previewCharacter.value">
         <img v-if="editor.previewCharacter.value.local_path" :src="getImageUrl(editor.previewCharacter.value)" :alt="editor.previewCharacter.value.name" />
-        <el-empty v-else description="暂无图片" />
+        <el-empty v-else :description="$t('professionalEditor.noPhoto')" />
       </div>
     </el-dialog>
 
     <!-- 场景大图预览 -->
     <el-dialog
       v-model="editor.showSceneImagePreview.value"
-      :title="editor.currentStoryboard.value?.background ? `${editor.currentStoryboard.value.background.location} · ${editor.currentStoryboard.value.background.time}` : '场景预览'"
+      :title="editor.currentStoryboard.value?.background ? `${editor.currentStoryboard.value.background.location} · ${editor.currentStoryboard.value.background.time}` : $t('professionalEditor.scenePreview')"
       width="800px"
     >
       <div class="image-preview-content" v-if="editor.currentStoryboard.value?.background?.image_url">
-        <img :src="editor.currentStoryboard.value.background.image_url" alt="场景" />
+        <img :src="editor.currentStoryboard.value.background.image_url" :alt="$t('professionalEditor.scenePreview')" />
       </div>
     </el-dialog>
 
     <!-- 视频预览对话框 -->
-    <el-dialog v-model="videoGen.showVideoPreview.value" title="视频预览" width="800px" destroy-on-close>
+    <el-dialog v-model="videoGen.showVideoPreview.value" :title="$t('professionalEditor.videoPreview')" width="800px" destroy-on-close>
       <div class="video-preview-container" v-if="videoGen.previewVideo.value">
         <video
           v-if="videoGen.previewVideo.value.video_url"
@@ -140,7 +140,7 @@
         />
         <div v-else style="text-align:center;padding:40px">
           <el-icon :size="48" color="#ccc"><VideoCamera /></el-icon>
-          <p style="margin-top:16px;color:#909399">视频生成中...</p>
+          <p style="margin-top:16px;color:#909399">{{ $t('professionalEditor.videoGeneratingMsg') }}</p>
         </div>
         <div class="video-meta" style="margin-top:12px">
           <el-tag :type="imageGen.getStatusType(videoGen.previewVideo.value.status)" size="small">

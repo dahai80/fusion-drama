@@ -1,7 +1,7 @@
 <template>
   <div class="generation-tab">
     <!-- ── 图片生成 ── -->
-    <div class="section-title">图片生成</div>
+    <div class="section-title">{{ $t('professionalEditor.imageGeneration') }}</div>
     <div class="field-group">
       <div class="field-label">{{ $t('editor.selectFrameType') }}</div>
       <el-radio-group v-model="imageGen.selectedFrameType.value" size="small">
@@ -66,10 +66,10 @@
     <el-divider />
 
     <!-- ── 视频生成 ── -->
-    <div class="section-title">视频生成</div>
+    <div class="section-title">{{ $t('professionalEditor.videoGeneration') }}</div>
     <div class="field-group">
-      <div class="field-label">视频提示词</div>
-      <div class="video-prompt-display">{{ currentStoryboard?.video_prompt || '暂无提示词' }}</div>
+      <div class="field-label">{{ $t('professionalEditor.videoPrompt') }}</div>
+      <div class="video-prompt-display">{{ currentStoryboard?.video_prompt || $t('professionalEditor.noPrompt') }}</div>
     </div>
     <div class="field-group">
       <div class="field-label">{{ $t('video.model') }}</div>
@@ -78,15 +78,15 @@
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span>{{ model.name }}</span>
             <div style="display:flex;gap:4px">
-              <el-tag v-if="model.supportMultipleImages" size="small" type="success">多图</el-tag>
-              <el-tag v-if="model.supportFirstLastFrame" size="small" type="primary">首尾帧</el-tag>
+              <el-tag v-if="model.supportMultipleImages" size="small" type="success">{{ $t('professionalEditor.multiImage') }}</el-tag>
+              <el-tag v-if="model.supportFirstLastFrame" size="small" type="primary">{{ $t('professionalEditor.firstLastFrame') }}</el-tag>
             </div>
           </div>
         </el-option>
       </el-select>
     </div>
     <div class="field-group" v-if="videoGen.selectedVideoModel.value && videoGen.availableReferenceModes.value.length > 0">
-      <div class="field-label">参考图模式</div>
+      <div class="field-label">{{ $t('professionalEditor.refImageMode') }}</div>
       <el-select v-model="videoGen.selectedReferenceMode.value" size="small" style="width:100%">
         <el-option v-for="mode in videoGen.availableReferenceModes.value" :key="mode.value" :label="mode.label" :value="mode.value" />
       </el-select>
@@ -100,12 +100,12 @@
     </div>
     <!-- 参考图选择 -->
     <div class="field-group" v-if="videoGen.selectedReferenceMode.value && videoGen.selectedReferenceMode.value !== 'none'">
-      <div class="field-label">选择参考图</div>
+      <div class="field-label">{{ $t('professionalEditor.selectRefImage') }}</div>
       <el-radio-group v-model="videoGen.selectedVideoFrameType.value" size="small">
-        <el-radio-button value="first">首帧</el-radio-button>
-        <el-radio-button value="last">尾帧</el-radio-button>
-        <el-radio-button value="action">动作序列</el-radio-button>
-        <el-radio-button value="key">关键帧</el-radio-button>
+        <el-radio-button value="first">{{ $t('professionalEditor.firstFrame') }}</el-radio-button>
+        <el-radio-button value="last">{{ $t('professionalEditor.lastFrame') }}</el-radio-button>
+        <el-radio-button value="action">{{ $t('professionalEditor.actionSequence') }}</el-radio-button>
+        <el-radio-button value="key">{{ $t('professionalEditor.keyFrame') }}</el-radio-button>
       </el-radio-group>
       <div class="ref-image-grid">
         <div
@@ -120,13 +120,13 @@
         </div>
         <el-empty
           v-if="!imageGen.videoReferenceImages.value.some(i => i.status==='completed' && i.image_url && i.frame_type===videoGen.selectedVideoFrameType.value)"
-          description="暂无图片" :image-size="40"
+          :description="$t('professionalEditor.noImages')" :image-size="40"
         />
       </div>
       <!-- 首尾帧模式预览框 -->
       <div v-if="videoGen.selectedReferenceMode.value === 'first_last'" class="frame-slots-row">
         <div class="frame-slot">
-          <div class="frame-slot-label">首帧</div>
+          <div class="frame-slot-label">{{ $t('professionalEditor.firstFrame') }}</div>
           <div class="image-slot-mini" @click="videoGen.firstFrameSlotImage.value && videoGen.removeSelectedImage(videoGen.firstFrameSlotImage.value.id)">
             <img v-if="videoGen.firstFrameSlotImage.value" :src="videoGen.firstFrameSlotImage.value.image_url" />
             <el-icon v-else><Plus /></el-icon>
@@ -134,7 +134,7 @@
         </div>
         <span style="color:#c0c4cc;font-size:18px">→</span>
         <div class="frame-slot">
-          <div class="frame-slot-label">尾帧</div>
+          <div class="frame-slot-label">{{ $t('professionalEditor.lastFrame') }}</div>
           <div class="image-slot-mini" @click="videoGen.lastFrameSlotImage.value && videoGen.removeSelectedImage(videoGen.lastFrameSlotImage.value.id)">
             <img v-if="videoGen.lastFrameSlotImage.value" :src="videoGen.lastFrameSlotImage.value.image_url" />
             <el-icon v-else><Plus /></el-icon>
@@ -148,7 +148,7 @@
         type="primary" :icon="VideoCamera" :loading="videoGen.generatingVideo.value"
         :disabled="!videoGen.selectedVideoModel.value || (videoGen.selectedReferenceMode.value !== 'none' && videoGen.selectedImagesForVideo.value.length === 0)"
         @click="videoGen.generateVideo()"
-      >{{ videoGen.generatingVideo.value ? '生成中...' : '生成视频' }}</el-button>
+      >{{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}</el-button>
     </div>
     <!-- 视频结果 -->
     <div class="result-grid" v-if="videoGen.generatedVideos.value.length > 0" style="margin-top:8px">

@@ -1,4 +1,5 @@
 import { ref, watch, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { generateFramePrompt, type FrameType } from '@/api/frame'
 import { imageAPI } from '@/api/image'
@@ -11,6 +12,8 @@ export function useFrameImageGeneration(
   currentStoryboard: Ref<Storyboard | null>,
   dramaId: number,
 ) {
+  const { t: $t } = useI18n()
+
   // 状态
   const selectedFrameType = ref<FrameType>('first')
   const panelCount = ref(3)
@@ -194,9 +197,9 @@ export function useFrameImageGeneration(
         framePrompts.value[targetFrameType] = extractedPrompt
       }
 
-      ElMessage.success(`${getFrameTypeLabel(targetFrameType)}提示词提取成功`)
+      ElMessage.success($t('professionalEditor.promptExtracted', { type: getFrameTypeLabel(targetFrameType) }))
     } catch (error: any) {
-      ElMessage.error('提取失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.extractFailed') + ': ' + (error.message || ''))
     } finally {
       const stateKey2 = `${storyboardId}_${targetFrameType}`
       if (generatingPromptStates.value[stateKey2]) {
@@ -341,13 +344,13 @@ export function useFrameImageGeneration(
 
       const refMsg =
         referenceImages.length > 0
-          ? ` (已添加${referenceImages.length}张参考图)`
+          ? ` (+${referenceImages.length} ref)`
           : ''
-      ElMessage.success(`图片生成任务已提交${refMsg}`)
+      ElMessage.success($t('professionalEditor.imageTaskSubmitted', { msg: refMsg }))
 
       startPolling()
     } catch (error: any) {
-      ElMessage.error('生成失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
     } finally {
       generatingImage.value = false
     }
@@ -356,7 +359,7 @@ export function useFrameImageGeneration(
   // 上传图片
   const uploadImage = async () => {
     if (!currentStoryboard.value) {
-      ElMessage.warning('请先选择镜头')
+      ElMessage.warning($t('professionalEditor.selectShotFirst'))
       return
     }
 
@@ -369,7 +372,7 @@ export function useFrameImageGeneration(
       if (!file) return
 
       if (file.size > 10 * 1024 * 1024) {
-        ElMessage.error('图片大小不能超过 10MB')
+        ElMessage.error($t('professionalEditor.imageSizeLimit'))
         return
       }
 
@@ -395,7 +398,7 @@ export function useFrameImageGeneration(
             drama_id: Number(dramaId),
             frame_type: selectedFrameType.value || 'first',
             image_url: imageUrl,
-            prompt: currentFramePrompt.value || '用户上传图片',
+            prompt: currentFramePrompt.value || 'User uploaded image',
           })
 
           await loadStoryboardImages(
@@ -403,11 +406,11 @@ export function useFrameImageGeneration(
             selectedFrameType.value,
           )
 
-          ElMessage.success('图片上传成功')
+          ElMessage.success($t('professionalEditor.uploadSuccess'))
         }
       } catch (error: any) {
         console.error('上传图片失败:', error)
-        ElMessage.error(error.message || '上传失败')
+        ElMessage.error(error.message || $t('professionalEditor.uploadFailed'))
       }
     }
     input.click()
@@ -418,14 +421,14 @@ export function useFrameImageGeneration(
     if (!currentStoryboard.value) return
 
     try {
-      await ElMessageBox.confirm('确定要删除这张图片吗？', '确认删除', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      await ElMessageBox.confirm($t('professionalEditor.deleteImageConfirm'), $t('professionalEditor.deleteConfirmTitle'), {
+        confirmButtonText: $t('common.confirm'),
+        cancelButtonText: $t('common.cancel'),
         type: 'warning',
       })
 
       await imageAPI.deleteImage(img.id)
-      ElMessage.success('删除成功')
+      ElMessage.success($t('message.deleteSuccess'))
 
       await loadStoryboardImages(
         currentStoryboard.value.id,
@@ -434,7 +437,7 @@ export function useFrameImageGeneration(
     } catch (error: any) {
       if (error !== 'cancel') {
         console.error('删除图片失败:', error)
-        ElMessage.error(error.message || '删除失败')
+        ElMessage.error(error.message || $t('message.deleteFailed'))
       }
     }
   }
@@ -509,7 +512,7 @@ export function useFrameImageGeneration(
         })
       }
 
-      ElMessage.success('裁剪图片保存成功')
+      ElMessage.success($t('professionalEditor.cropSaveSuccess'))
 
       if (currentStoryboard.value) {
         await loadStoryboardImages(currentStoryboard.value.id)
@@ -517,17 +520,17 @@ export function useFrameImageGeneration(
       }
     } catch (error) {
       console.error('Failed to save cropped images:', error)
-      ElMessage.error('保存裁剪图片失败')
+      ElMessage.error($t('professionalEditor.cropSaveFailed'))
     }
   }
 
   // 辅助
   const getStatusText = (status: string) => {
     const statusTextMap: Record<string, string> = {
-      pending: '等待中',
-      processing: '生成中',
-      completed: '已完成',
-      failed: '失败',
+      pending: $t('professionalEditor.statusPending'),
+      processing: $t('professionalEditor.statusProcessing'),
+      completed: $t('professionalEditor.statusCompleted'),
+      failed: $t('professionalEditor.statusFailed'),
     }
     return statusTextMap[status] || status
   }

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" title="选择场景背景" width="800px">
+  <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" :title="$t('professionalEditor.selectSceneBackground')" width="800px">
     <div class="scene-selector-grid">
       <div
         v-for="scene in scenes"
@@ -18,7 +18,7 @@
         </div>
       </div>
       <div v-if="scenes.length === 0" class="empty-scenes">
-        <el-empty description="暂无可用场景" />
+        <el-empty :description="$t('professionalEditor.noAvailableScenes')" />
       </div>
     </div>
   </el-dialog>

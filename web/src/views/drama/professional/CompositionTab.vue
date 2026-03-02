@@ -1,6 +1,6 @@
 <template>
   <div class="composition-tab" v-loading="loadingMerges">
-    <el-empty v-if="videoMerges.length === 0" description="暂无合成记录" :image-size="60" />
+    <el-empty v-if="videoMerges.length === 0" :description="$t('professionalEditor.noMergeRecords')" :image-size="60" />
     <div v-else class="merge-list-v2">
       <div v-for="merge in videoMerges" :key="merge.id" class="merge-item-v2" :class="'merge-' + merge.status">
         <div class="merge-item-header">
@@ -8,12 +8,12 @@
           <el-tag
             :type="merge.status === 'completed' ? 'success' : merge.status === 'failed' ? 'danger' : 'warning'"
             size="small"
-          >{{ merge.status === 'pending' ? '等待中' : merge.status === 'processing' ? '合成中' : merge.status === 'completed' ? '已完成' : '失败' }}</el-tag>
+          >{{ merge.status === 'pending' ? $t('professionalEditor.statusPending') : merge.status === 'processing' ? $t('professionalEditor.statusProcessing') : merge.status === 'completed' ? $t('professionalEditor.statusCompleted') : $t('professionalEditor.statusFailed') }}</el-tag>
         </div>
         <div class="merge-item-actions">
-          <el-button v-if="merge.status === 'completed' && merge.merged_url" type="primary" size="small" @click="$emit('download', merge.merged_url, merge.title)">下载</el-button>
-          <el-button v-if="merge.status === 'completed' && merge.merged_url" size="small" @click="$emit('preview', merge.merged_url)">预览</el-button>
-          <el-button type="danger" size="small" @click="$emit('delete', merge.id)">删除</el-button>
+          <el-button v-if="merge.status === 'completed' && merge.merged_url" type="primary" size="small" @click="$emit('download', merge.merged_url, merge.title)">{{ $t('common.download') }}</el-button>
+          <el-button v-if="merge.status === 'completed' && merge.merged_url" size="small" @click="$emit('preview', merge.merged_url)">{{ $t('professionalEditor.preview') }}</el-button>
+          <el-button type="danger" size="small" @click="$emit('delete', merge.id)">{{ $t('common.delete') }}</el-button>
         </div>
         <div v-if="merge.status === 'failed' && merge.error_msg" class="merge-error-v2">{{ merge.error_msg }}</div>
       </div>

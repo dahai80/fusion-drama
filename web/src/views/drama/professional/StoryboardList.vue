@@ -33,7 +33,7 @@
             <span
               class="status-dot"
               :class="(shot as any).background?.image_url ? 'dot-image' : 'dot-empty'"
-            >图</span>
+            >{{ $t('professionalEditor.imageStatus') }}</span>
           </div>
         </div>
         <!-- 删除按钮 -->

@@ -1,4 +1,5 @@
 import { ref, computed, watch, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { dramaAPI } from '@/api/drama'
 import { imageAPI } from '@/api/image'
@@ -145,6 +146,8 @@ export function useVideoGenerationPro(
   videoReferenceImages: Ref<ImageGeneration[]>,
   timelineEditorRef: Ref<any>,
 ) {
+  const { t: $t } = useI18n()
+
   // 状态
   const videoDuration = ref(5)
   const selectedVideoFrameType = ref<FrameType>('first')
@@ -298,7 +301,7 @@ export function useVideoGenerationPro(
       )
     } catch (error: any) {
       console.error('加载视频模型配置失败:', error)
-      ElMessage.error('加载视频模型失败')
+      ElMessage.error($t('professionalEditor.loadVideoModelsFailed'))
     }
   }
 
@@ -349,11 +352,11 @@ export function useVideoGenerationPro(
 
   const handleImageSelect = (imageId: number) => {
     if (!selectedReferenceMode.value) {
-      ElMessage.warning('请先选择参考图模式')
+      ElMessage.warning($t('professionalEditor.selectRefModeFirst'))
       return
     }
     if (!currentModelCapability.value) {
-      ElMessage.warning('请先选择视频生成模型')
+      ElMessage.warning($t('professionalEditor.selectVideoModelFirst'))
       return
     }
 
@@ -385,19 +388,19 @@ export function useVideoGenerationPro(
         } else if (frameType === 'last') {
           selectedLastImageForVideo.value = imageId
         } else {
-          ElMessage.warning('首尾帧模式下，请选择首帧或尾帧类型的图片')
+          ElMessage.warning($t('professionalEditor.firstLastFrameOnly'))
         }
         break
       }
       case 'multiple':
         if (selectedImagesForVideo.value.length >= capability.maxImages) {
-          ElMessage.warning(`最多只能选择${capability.maxImages}张图片`)
+          ElMessage.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
           return
         }
         selectedImagesForVideo.value.push(imageId)
         break
       default:
-        ElMessage.warning('未知的参考图模式')
+        ElMessage.warning($t('professionalEditor.unknownRefMode'))
     }
   }
 
@@ -416,7 +419,7 @@ export function useVideoGenerationPro(
     const currentIndex = selectedImagesForVideo.value.indexOf(img.id)
     if (currentIndex > -1) {
       selectedImagesForVideo.value.splice(currentIndex, 1)
-      ElMessage.success('已取消首帧参考')
+      ElMessage.success($t('professionalEditor.cancelledFirstFrame'))
       return
     }
 
@@ -433,28 +436,28 @@ export function useVideoGenerationPro(
         capability &&
         selectedImagesForVideo.value.length >= capability.maxImages
       ) {
-        ElMessage.warning(`最多只能选择${capability.maxImages}张图片`)
+        ElMessage.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
         return
       }
       selectedImagesForVideo.value.push(img.id)
     }
-    ElMessage.success('已添加为首帧参考')
+    ElMessage.success($t('professionalEditor.addedAsFirstFrame'))
   }
 
   const generateVideo = async () => {
     if (!selectedVideoModel.value) {
-      ElMessage.warning('请先选择视频生成模型')
+      ElMessage.warning($t('professionalEditor.selectVideoModelFirst'))
       return
     }
     if (!currentStoryboard.value) {
-      ElMessage.warning('请先选择分镜')
+      ElMessage.warning($t('professionalEditor.selectStoryboardFirst'))
       return
     }
     if (
       selectedReferenceMode.value !== 'none' &&
       selectedImagesForVideo.value.length === 0
     ) {
-      ElMessage.warning('请选择参考图片')
+      ElMessage.warning($t('professionalEditor.selectRefImages'))
       return
     }
 
@@ -471,7 +474,7 @@ export function useVideoGenerationPro(
           (img) => img.id === selectedImagesForVideo.value[0],
         )
       if (!selectedImage || !selectedImage.image_url) {
-        ElMessage.error('请选择有效的参考图片')
+        ElMessage.error($t('professionalEditor.selectValidRefImages'))
         return
       }
     }
@@ -548,10 +551,10 @@ export function useVideoGenerationPro(
 
       const result = await videoAPI.generateVideo(requestParams)
       generatedVideos.value.unshift(result)
-      ElMessage.success('视频生成任务已提交')
+      ElMessage.success($t('professionalEditor.videoTaskSubmitted'))
       startVideoPolling()
     } catch (error: any) {
-      ElMessage.error('生成失败: ' + (error.message || '未知错误'))
+      ElMessage.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
     } finally {
       generatingVideo.value = false
     }
@@ -645,7 +648,7 @@ export function useVideoGenerationPro(
 
   const addVideoToAssets = async (video: VideoGeneration) => {
     if (video.status !== 'completed' || !video.video_url) {
-      ElMessage.warning('只能添加已完成的视频到素材库')
+      ElMessage.warning($t('professionalEditor.onlyCompletedVideo'))
       return
     }
 
@@ -669,7 +672,7 @@ export function useVideoGenerationPro(
       }
 
       await assetAPI.importFromVideo(video.id)
-      ElMessage.success('已添加到素材库')
+      ElMessage.success($t('professionalEditor.addedToAssets'))
 
       await loadVideoAssets()
 
@@ -682,7 +685,7 @@ export function useVideoGenerationPro(
         }
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '添加失败')
+      ElMessage.error(error.message || $t('professionalEditor.addToAssetsFailed'))
     } finally {
       addingToAssets.value.delete(video.id)
     }
@@ -693,23 +696,23 @@ export function useVideoGenerationPro(
 
     try {
       await ElMessageBox.confirm(
-        '确定要删除这个视频吗？删除后无法恢复。',
-        '确认删除',
+        $t('professionalEditor.deleteVideoConfirm'),
+        $t('professionalEditor.deleteVideoTitle'),
         {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
+          confirmButtonText: $t('common.confirm'),
+          cancelButtonText: $t('common.cancel'),
           type: 'warning',
         },
       )
 
       await videoAPI.deleteVideo(video.id)
-      ElMessage.success('删除成功')
+      ElMessage.success($t('message.deleteSuccess'))
 
       await loadStoryboardVideos(Number(currentStoryboard.value.id))
     } catch (error: any) {
       if (error !== 'cancel') {
         console.error('删除视频失败:', error)
-        ElMessage.error(error.message || '删除失败')
+        ElMessage.error(error.message || $t('message.deleteFailed'))
       }
     }
   }

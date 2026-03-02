@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" title="添加角色到镜头" width="800px">
+  <el-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" :title="$t('professionalEditor.addCharacterToShot')" width="800px">
     <div class="character-selector-grid">
       <div
         v-for="char in characters"
@@ -14,18 +14,18 @@
         </div>
         <div class="character-info">
           <div class="character-name">{{ char.name }}</div>
-          <div class="character-role">{{ char.role || '角色' }}</div>
+          <div class="character-role">{{ char.role || $t('professionalEditor.role') }}</div>
         </div>
         <div class="character-check" v-if="isInCurrentShot(char.id)">
           <el-icon color="#409eff" :size="24"><Check /></el-icon>
         </div>
       </div>
       <div v-if="characters.length === 0" class="empty-characters">
-        <el-empty description="暂无角色，请先在剧集中创建角色" />
+        <el-empty :description="$t('professionalEditor.noCharactersAvailable')" />
       </div>
     </div>
     <template #footer>
-      <el-button @click="$emit('update:modelValue', false)">关闭</el-button>
+      <el-button @click="$emit('update:modelValue', false)">{{ $t('common.close') }}</el-button>
     </template>
   </el-dialog>
 </template>
