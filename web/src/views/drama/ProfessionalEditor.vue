@@ -172,7 +172,6 @@ import PropSelector from './professional/dialogs/PropSelector.vue'
 import { useProfessionalEditor } from '@/composables/useProfessionalEditor'
 import { useFrameImageGeneration } from '@/composables/useFrameImageGeneration'
 import { useVideoGenerationPro } from '@/composables/useVideoGenerationPro'
-import { useVideoMerge } from '@/composables/useVideoMerge'
 
 // 初始化 composables
 const editor = useProfessionalEditor()
@@ -192,8 +191,6 @@ const videoGen = useVideoGenerationPro(
   imageGen.videoReferenceImages,
   timelineEditorRef,
 )
-
-const merge = useVideoMerge(editor.episodeId)
 
 const router = useRouter()
 
@@ -251,14 +248,6 @@ const handleGenerateImage = () => {
   imageGen.generateFrameImage(editor.currentStoryboardCharacters.value)
 }
 
-const handleTimelineSelect = (sceneId: number) => {
-  editor.selectStoryboard(String(sceneId))
-}
-
-const handleMergeCompleted = async (mergeId: number) => {
-  await merge.handleMergeCompleted()
-}
-
 const handleRegenerateFromList = async (storyboard: any) => {
   // 选中该分镜后触发生成
   await editor.selectStoryboard(String(storyboard.id))
@@ -271,13 +260,11 @@ onMounted(async () => {
   await editor.loadData()
   await videoGen.loadVideoModels()
   await videoGen.loadVideoAssets()
-  await merge.loadVideoMerges()
 })
 
 onBeforeUnmount(() => {
   imageGen.stopPolling()
   videoGen.stopVideoPolling()
-  merge.stopMergePolling()
 })
 </script>
 
