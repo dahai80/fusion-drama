@@ -75,6 +75,8 @@ export default {
     addToTimeline: '添加到时间线',
     deleteAsset: '删除素材',
     confirmDelete: '确认删除',
+    copy: '复制',
+    copied: '已复制',
     tip: '提示',
     status: '状态',
     createdAt: '创建时间',
@@ -623,6 +625,11 @@ export default {
     noPreview: '暂无预览图，请先生成图片',
     selectStoryboard: '请从左侧选择分镜',
     currentPreviewAlt: '当前分镜预览',
+    // SceneEditorPanel section titles
+    sectionSceneElements: '场景要素',
+    sectionShotSettings: '镜头设置',
+    sectionContent: '内容描述',
+    sectionAudio: '音频氛围',
     // StoryboardList
     imageStatus: '图',
     statusNone: '未生成',

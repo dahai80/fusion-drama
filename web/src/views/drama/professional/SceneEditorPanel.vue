@@ -27,7 +27,7 @@
       <div class="panel-scroll">
 
         <!-- Section 1: 场景要素 -->
-        <PanelSection title="场景要素" icon="🎬" :default-open="true">
+        <PanelSection :title="$t('professionalEditor.sectionSceneElements')" icon="🎬" :default-open="true">
           <!-- 场景 -->
           <div class="field-group">
             <div class="field-label">
@@ -84,7 +84,7 @@
         </PanelSection>
 
         <!-- Section 2: 镜头设置 -->
-        <PanelSection title="镜头设置" icon="🎥" :default-open="true">
+        <PanelSection :title="$t('professionalEditor.sectionShotSettings')" icon="🎥" :default-open="true">
           <div class="shot-row">
             <div class="shot-item">
               <label>{{ $t('editor.shotType') }}</label>
@@ -137,7 +137,7 @@
         </PanelSection>
 
         <!-- Section 3: 内容描述 -->
-        <PanelSection title="内容描述" icon="📝" :default-open="true">
+        <PanelSection :title="$t('professionalEditor.sectionContent')" icon="📝" :default-open="true">
           <div class="field-group">
             <div class="field-label">{{ $t('editor.action') }}</div>
             <el-input v-model="currentStoryboard.action" type="textarea" :rows="3" :placeholder="$t('editor.actionPlaceholder')" @blur="$emit('save-field', 'action')" />
@@ -157,7 +157,7 @@
         </PanelSection>
 
         <!-- Section 4: 音频氛围（默认折叠） -->
-        <PanelSection title="音频氛围" icon="🔊" :default-open="false">
+        <PanelSection :title="$t('professionalEditor.sectionAudio')" icon="🔊" :default-open="false">
           <div class="field-group">
             <div class="field-label">{{ $t('editor.soundEffects') }}</div>
             <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="$emit('save-field', 'sound_effect')" />
@@ -330,7 +330,7 @@ const recentVideos = computed(() =>
 const copyPrompt = () => {
   if (props.currentStoryboard?.video_prompt) {
     navigator.clipboard.writeText(props.currentStoryboard.video_prompt)
-    ElMessage.success('已复制')
+    ElMessage.success(t('common.copied'))
   }
 }
 </script>
