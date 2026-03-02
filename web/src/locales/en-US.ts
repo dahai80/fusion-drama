@@ -853,6 +853,8 @@ export default {
     episode: 'Episode {number}',
     generatedProgress: '{count}/{total} Generated',
     compositionWorkbench: 'Composition Workbench',
+    backToEditor: 'Back to Editor',
+    compositionHistory: 'Composition History',
     settings: 'Settings',
     basicInfo: 'Basic Info',
     sceneProduction: 'Scene Production',

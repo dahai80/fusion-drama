@@ -775,6 +775,8 @@ export default {
     episode: '第{number}集',
     generatedProgress: '{count}/{total} 已生成',
     compositionWorkbench: '合成工作台',
+    backToEditor: '返回编辑器',
+    compositionHistory: '合成记录',
     settings: '设置',
     basicInfo: '基础信息',
     sceneProduction: '场景制作',
