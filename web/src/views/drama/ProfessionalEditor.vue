@@ -83,20 +83,6 @@
       </div>
 
       <!-- 底部：时间线 -->
-      <div class="editor-timeline">
-        <VideoTimelineEditor
-          ref="timelineEditorRef"
-          v-if="editor.storyboards.value.length > 0"
-          :scenes="(editor.storyboards.value as any[])"
-          :episode-id="editor.episodeId.value.toString()"
-          :drama-id="editor.dramaId.toString()"
-          :assets="videoGen.videoAssets.value"
-          @select-scene="handleTimelineSelect"
-          @asset-deleted="videoGen.loadVideoAssets"
-          @merge-completed="handleMergeCompleted"
-        />
-        <el-empty v-else :description="$t('storyboard.noStoryboard')" class="empty-timeline" />
-      </div>
     </div>
 
     <!-- ===== 弹窗 ===== -->
@@ -340,20 +326,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* 底部时间线 */
-.editor-timeline {
-  height: 220px;
-  min-height: 180px;
-  border-top: 1px solid var(--el-border-color-lighter);
-  overflow: hidden;
-}
-
-.empty-timeline {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* 顶栏 */
 .back-btn {
