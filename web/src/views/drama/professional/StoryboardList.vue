@@ -12,56 +12,73 @@
         :class="{ active: currentStoryboardId === shot.id }"
         @click="$emit('select', shot.id)"
       >
-        <!-- 缩略图 -->
-        <div class="card-thumbnail">
-          <img
-            v-if="getStoryboardThumbnail(shot)"
-            :src="getStoryboardThumbnail(shot) ?? undefined"
-            alt=""
-            class="thumbnail-img"
-          />
-          <div v-else class="thumbnail-placeholder">
-            <el-icon :size="18" color="#aaa"><Picture /></el-icon>
+        <!-- 缩略图区域 16:9 大图 -->
+        <div class="card-thumb">
+          <img v-if="getStoryboardThumbnail(shot)" :src="getStoryboardThumbnail(shot) ?? undefined" alt="" />
+          <div v-else class="thumb-placeholder">
+            <el-icon :size="20"><Picture /></el-icon>
           </div>
-          <div class="shot-number-badge">#{{ shot.storyboard_number }}</div>
+          <!-- 生成状态指示器 -->
+          <div class="gen-status">
+            <span class="status-dot" :class="getStatusClass(shot)"></span>
+            <span class="status-label">{{ getStatusText(shot) }}</span>
+          </div>
+          <!-- hover 重新生成按钮 -->
+          <button class="regen-btn" @click.stop="$emit('regenerate', shot)" title="重新生成">
+            <el-icon><Refresh /></el-icon>
+          </button>
         </div>
-        <!-- 信息区 -->
+        <!-- 底部信息条 -->
         <div class="card-info">
-          <div class="card-title">{{ shot.title || $t('storyboard.untitled') }}</div>
-          <div class="card-meta">
-            <span class="card-duration">{{ shot.duration }}s</span>
-            <span
-              class="status-dot"
-              :class="(shot as any).background?.image_url ? 'dot-image' : 'dot-empty'"
-            >{{ $t('professionalEditor.imageStatus') }}</span>
-          </div>
+          <span class="card-num">#{{ shot.storyboard_number || shot.id }}</span>
+          <span class="card-name">{{ shot.title || $t('storyboard.untitled') }}</span>
+          <span class="card-duration" v-if="shot.duration">{{ shot.duration }}s</span>
         </div>
-        <!-- 删除按钮 -->
-        <el-button
-          link type="danger" :icon="Delete" size="small"
-          class="card-delete-btn"
-          @click.stop="$emit('delete', shot)"
-        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Plus, Picture, Delete } from '@element-plus/icons-vue'
+import { Refresh, Picture, Plus } from '@element-plus/icons-vue'
 import type { Storyboard } from '@/types/drama'
 
-defineProps<{
+const props = defineProps<{
   storyboards: Storyboard[]
   currentStoryboardId: string | null
   getStoryboardThumbnail: (s: any) => string | null
+  generatedVideos?: any[]
+  generatingIds?: Set<string>
 }>()
 
 defineEmits<{
   select: [id: string]
   add: []
   delete: [storyboard: Storyboard]
+  regenerate: [storyboard: Storyboard]
 }>()
+
+// 判断某分镜的状态
+const getStatusClass = (storyboard: Storyboard) => {
+  const sid = String(storyboard.id)
+  if (props.generatingIds?.has(sid)) return 'status-generating'
+  // 如果没有 generatingIds，从 generatedVideos 中判断 pending/processing 状态
+  const isPending = props.generatedVideos?.some(
+    (v) => String(v.storyboard_id) === sid && (v.status === 'pending' || v.status === 'processing')
+  )
+  if (isPending) return 'status-generating'
+  const hasVideo = props.generatedVideos?.some(
+    (v) => String(v.storyboard_id) === sid && v.status === 'completed' && v.video_url
+  )
+  return hasVideo ? 'status-done' : 'status-none'
+}
+
+const getStatusText = (storyboard: Storyboard) => {
+  const cls = getStatusClass(storyboard)
+  if (cls === 'status-generating') return '生成中'
+  if (cls === 'status-done') return '已生成'
+  return '未生成'
+}
 </script>
 
 <style scoped lang="scss">
@@ -99,67 +116,99 @@ defineEmits<{
   gap: 4px;
 }
 
+// 卡片
 .storyboard-card {
+  position: relative;
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: all 150ms;
+
+  &:hover .regen-btn { opacity: 1; }
+  &:hover { border-color: #a0cfff; }
+
+  &.active {
+    border-color: var(--accent, #e8a243);
+    border-left-width: 4px;
+  }
+}
+
+// 缩略图
+.card-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-secondary, #f5f7fa);
+  overflow: hidden;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.thumb-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted, #c0c4cc);
+}
+
+// 生成状态标签
+.gen-status {
+  position: absolute;
+  bottom: 4px; left: 4px;
+  display: flex; align-items: center; gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.55);
+  font-size: 10px;
+  color: #fff;
+  pointer-events: none;
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.status-none { background: #6b7280; }
+  &.status-generating {
+    background: var(--accent, #e8a243);
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+  &.status-done { background: #22c55e; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+
+// hover 重新生成按钮
+.regen-btn {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 24px; height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 150ms;
+
+  &:hover { background: rgba(0,0,0,0.75); }
+}
+
+// 底部信息条
+.card-info {
   display: flex;
   align-items: center;
-  gap: 7px;
-  background: #fff;
-  border: 2px solid transparent;
-  border-radius: 7px;
-  padding: 5px;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  position: relative;
-
-  &:hover { border-color: #a0cfff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  &.active { border-color: #409eff; background: #ecf5ff; }
+  gap: 5px;
+  padding: 5px 8px;
+  background: var(--bg-card, #fff);
 }
 
-.card-thumbnail {
-  width: 68px;
-  height: 44px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
-  position: relative;
-  background: #e0e0e0;
-
-  .thumbnail-img { width: 100%; height: 100%; object-fit: cover; }
-  .thumbnail-placeholder {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    background: #e8e8e8;
-  }
-  .shot-number-badge {
-    position: absolute; bottom: 2px; left: 2px;
-    background: rgba(0,0,0,.6); color: #fff;
-    font-size: 9px; padding: 0 3px; border-radius: 2px; line-height: 15px;
-  }
-}
-
-.card-info {
-  flex: 1;
-  min-width: 0;
-
-  .card-title {
-    font-size: 12px; font-weight: 500;
-    color: var(--text-primary, #303133);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 3px;
-  }
-  .card-meta {
-    display: flex; align-items: center; justify-content: space-between;
-    .card-duration { font-size: 11px; color: #909399; }
-  }
-  .status-dot {
-    font-size: 10px; padding: 1px 4px; border-radius: 3px; font-weight: 500;
-    &.dot-image { background: #ecf5ff; color: #409eff; }
-    &.dot-empty { background: #f4f4f5; color: #c0c4cc; }
-  }
-}
-
-.card-delete-btn {
-  flex-shrink: 0; opacity: 0; transition: opacity 0.15s;
-}
-.storyboard-card:hover .card-delete-btn { opacity: 1; }
+.card-num { font-size: 11px; color: var(--text-muted, #909399); flex-shrink: 0; }
+.card-name { font-size: 12px; color: var(--text-primary, #303133); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-duration { font-size: 11px; color: var(--text-muted, #909399); flex-shrink: 0; }
 </style>

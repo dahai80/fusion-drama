@@ -28,9 +28,12 @@
           :storyboards="editor.storyboards.value"
           :current-storyboard-id="editor.currentStoryboardId.value"
           :get-storyboard-thumbnail="imageGen.getStoryboardThumbnail"
+          :generated-videos="videoGen.generatedVideos.value"
+          :generating-ids="new Set()"
           @select="editor.selectStoryboard"
           @add="editor.handleAddStoryboard"
           @delete="editor.handleDeleteStoryboard"
+          @regenerate="handleRegenerateFromList"
         />
 
         <!-- 中间：预览 -->
@@ -255,6 +258,13 @@ const handleTimelineSelect = (sceneId: number) => {
 const handleMergeCompleted = async (mergeId: number) => {
   await merge.handleMergeCompleted()
   activeTab.value = 'composition'
+}
+
+const handleRegenerateFromList = async (storyboard: any) => {
+  // 选中该分镜后触发生成
+  await editor.selectStoryboard(String(storyboard.id))
+  // 触发视频生成
+  await videoGen.generateVideo()
 }
 
 // 生命周期
