@@ -261,19 +261,25 @@
           <el-icon v-else class="rotating"><Loading /></el-icon>
           {{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}
         </button>
-        <!-- 最近生成结果 -->
-        <div class="recent-results" v-if="recentVideos.length">
-          <div
-            v-for="video in recentVideos"
-            :key="video.id"
-            class="recent-thumb"
-            @click="videoGen.playVideo(video)"
-          >
-            <video v-if="video.video_url" :src="getVideoUrl(video)" preload="metadata" />
-            <div class="recent-thumb-overlay">
-              <el-icon color="white"><VideoPlay /></el-icon>
+        <!-- 最近生成结果 + 合成工作台入口 -->
+        <div class="recent-row">
+          <div class="recent-results" v-if="recentVideos.length">
+            <div
+              v-for="video in recentVideos"
+              :key="video.id"
+              class="recent-thumb"
+              @click="videoGen.playVideo(video)"
+            >
+              <video v-if="video.video_url" :src="getVideoUrl(video)" preload="metadata" />
+              <div class="recent-thumb-overlay">
+                <el-icon color="white"><VideoPlay /></el-icon>
+              </div>
             </div>
           </div>
+          <button class="composition-link-btn" type="button" @click="$emit('go-to-composition')">
+            {{ $t('editor.compositionWorkbench') }}
+            <el-icon><ArrowRight /></el-icon>
+          </button>
         </div>
       </div>
 
@@ -316,6 +322,7 @@ const emit = defineEmits<{
   'toggle-character': [charId: number]
   'toggle-prop': [propId: number]
   'generate-image': []
+  'go-to-composition': []
 }>()
 
 const isFirst = computed(() => props.storyboardIndex <= 0)
@@ -568,9 +575,16 @@ const copyPrompt = () => {
 @keyframes spin { to { transform: rotate(360deg); } }
 .rotating { animation: spin 1s linear infinite; }
 
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .recent-results {
   display: flex;
   gap: 5px;
+  flex: 1;
 }
 .recent-thumb {
   width: 52px; height: 30px;
@@ -589,5 +603,26 @@ const copyPrompt = () => {
   background: rgba(0,0,0,0.4);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity 150ms;
+}
+
+.composition-link-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-primary, #e4e7ed);
+  border-radius: 5px;
+  background: none;
+  color: var(--text-secondary, #606266);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 120ms;
+
+  &:hover {
+    border-color: var(--accent, #e8a243);
+    color: var(--accent, #e8a243);
+  }
 }
 </style>

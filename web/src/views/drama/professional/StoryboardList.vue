@@ -127,6 +127,7 @@ const getStatusText = (storyboard: Storyboard) => {
   overflow: hidden;
   border: 2px solid var(--border-primary, #e5e7eb);
   background: var(--bg-elevated, #ffffff);
+  flex-shrink: 0;
   transition: all 150ms;
 
   &:hover .regen-btn { opacity: 1; }

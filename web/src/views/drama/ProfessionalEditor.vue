@@ -64,6 +64,7 @@
             @toggle-character="editor.toggleCharacterInShot"
             @toggle-prop="editor.togglePropInShot"
             @generate-image="handleGenerateImage"
+            @go-to-composition="goToComposition"
           />
         </div>
       </div>
