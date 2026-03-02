@@ -1,1807 +1,510 @@
 <template>
-  <div class="professional-editor">
-    <!-- 顶部工具栏 -->
-    <AppHeader
-      :fixed="false"
-    >
+  <div class="professional-editor-v2">
+    <!-- ===== 顶栏 ===== -->
+    <AppHeader :fixed="false">
       <template #left>
         <el-button text @click="goBack" class="back-btn">
-          <el-icon>
-            <ArrowLeft />
-          </el-icon>
-          <span>{{ $t("editor.backToEpisode") }}</span>
+          <el-icon><ArrowLeft /></el-icon>
+          <span>{{ $t('editor.backToEpisode') }}</span>
         </el-button>
-        <span class="episode-title"
-          >{{ drama?.title }} -
-          {{ $t("editor.episode", { number: episodeNumber }) }}</span
-        >
+        <span class="episode-title">{{ drama?.title }} - {{ $t('editor.episode', { number: episodeNumber }) }}</span>
       </template>
     </AppHeader>
 
-    <!-- 主编辑区域 -->
-    <div class="editor-main">
-      <!-- 左侧分镜列表 -->
-      <div class="storyboard-panel">
-        <div class="panel-header">
-          <h3>{{ $t("storyboard.scriptStructure") }}</h3>
-          <el-button text :icon="Plus" @click="handleAddStoryboard">{{
-            $t("storyboard.add")
-          }}</el-button>
-        </div>
+    <!-- ===== 主编辑区 ===== -->
+    <div class="editor-main-v2">
 
-        <div class="storyboard-list">
+      <!-- ===== 左侧：分镜缩略图列表 ===== -->
+      <div class="storyboard-panel-v2">
+        <div class="panel-header-v2">
+          <span class="panel-title">{{ $t('storyboard.scriptStructure') }}</span>
+          <el-button text :icon="Plus" size="small" @click="handleAddStoryboard">{{ $t('storyboard.add') }}</el-button>
+        </div>
+        <div class="storyboard-cards">
           <div
-            v-for="(shot, index) in storyboards"
+            v-for="shot in storyboards"
             :key="shot.id"
-            class="storyboard-item"
+            class="storyboard-card"
             :class="{ active: currentStoryboardId === shot.id }"
             @click="selectStoryboard(shot.id)"
           >
-            <div class="shot-content">
-              <div class="shot-header">
-                <div class="shot-title-row">
-                  <span class="shot-number">{{
-                    $t("storyboard.shotNumber", {
-                      number: shot.storyboard_number,
-                    })
-                  }}</span>
-                  <span class="shot-title">{{
-                    shot.title || $t("storyboard.untitled")
-                  }}</span>
-                </div>
-                <div class="shot-actions">
-                  <span class="shot-duration">{{ shot.duration }}s</span>
-                  <el-button
-                    link
-                    type="danger"
-                    :icon="Delete"
-                    @click.stop="handleDeleteStoryboard(shot)"
-                    class="delete-btn"
-                  />
-                </div>
+            <!-- 缩略图 -->
+            <div class="card-thumbnail">
+              <img
+                v-if="getStoryboardThumbnail(shot)"
+                :src="getStoryboardThumbnail(shot)"
+                alt=""
+                class="thumbnail-img"
+              />
+              <div v-else class="thumbnail-placeholder">
+                <el-icon :size="18" color="#aaa"><Picture /></el-icon>
               </div>
-              <div class="shot-action" v-if="shot.action">
-                {{ shot.action }}
+              <div class="shot-number-badge">#{{ shot.storyboard_number }}</div>
+            </div>
+            <!-- 信息区 -->
+            <div class="card-info">
+              <div class="card-title">{{ shot.title || $t('storyboard.untitled') }}</div>
+              <div class="card-meta">
+                <span class="card-duration">{{ shot.duration }}s</span>
+                <span
+                  class="status-dot"
+                  :class="(shot as any).background?.image_url ? 'dot-image' : 'dot-empty'"
+                >图</span>
               </div>
             </div>
+            <!-- 删除按钮 -->
+            <el-button
+              link type="danger" :icon="Delete" size="small"
+              class="card-delete-btn"
+              @click.stop="handleDeleteStoryboard(shot)"
+            />
           </div>
         </div>
       </div>
 
-      <!-- 中间时间线编辑区域 -->
-      <div class="timeline-area">
-        <VideoTimelineEditor
-          ref="timelineEditorRef"
-          v-if="storyboards.length > 0"
-          :scenes="(storyboards as any[])"
-          :episode-id="episodeId.toString()"
-          :drama-id="dramaId.toString()"
-          :assets="videoAssets"
-          @select-scene="handleTimelineSelect"
-          @asset-deleted="loadVideoAssets"
-          @merge-completed="handleMergeCompleted"
-        />
-        <el-empty
-          v-else
-          :description="$t('storyboard.noStoryboard')"
-          class="empty-timeline"
-        />
+      <!-- ===== 中间：预览区 + 时间线 ===== -->
+      <div class="center-area-v2">
+        <!-- 上：大图/视频预览 -->
+        <div class="preview-area-v2">
+          <template v-if="currentStoryboard">
+            <video
+              v-if="currentPreviewVideo"
+              :src="currentPreviewVideo"
+              class="preview-media"
+              controls
+              preload="metadata"
+            />
+            <img
+              v-else-if="currentPreviewUrl"
+              :src="currentPreviewUrl"
+              class="preview-media"
+              alt="当前分镜预览"
+            />
+            <div v-else class="preview-placeholder">
+              <el-icon :size="48" color="#444"><Picture /></el-icon>
+              <p>暂无预览图，请先生成图片</p>
+            </div>
+            <div class="preview-info-overlay">
+              <span class="preview-shot-num">#{{ currentStoryboard.storyboard_number }}</span>
+              <span class="preview-shot-title">{{ currentStoryboard.title || $t('storyboard.untitled') }}</span>
+              <span class="preview-shot-duration">{{ currentStoryboard.duration }}s</span>
+            </div>
+          </template>
+          <div v-else class="preview-placeholder">
+            <el-icon :size="48" color="#444"><Picture /></el-icon>
+            <p>请从左侧选择分镜</p>
+          </div>
+        </div>
+
+        <!-- 下：时间线 -->
+        <div class="timeline-area-v2">
+          <VideoTimelineEditor
+            ref="timelineEditorRef"
+            v-if="storyboards.length > 0"
+            :scenes="(storyboards as any[])"
+            :episode-id="episodeId.toString()"
+            :drama-id="dramaId.toString()"
+            :assets="videoAssets"
+            @select-scene="handleTimelineSelect"
+            @asset-deleted="loadVideoAssets"
+            @merge-completed="handleMergeCompleted"
+          />
+          <el-empty v-else :description="$t('storyboard.noStoryboard')" class="empty-timeline" />
+        </div>
       </div>
 
-      <!-- 右侧编辑面板 -->
-      <div class="edit-panel">
-        <el-tabs v-model="activeTab" class="edit-tabs">
-          <!-- 镜头属性标签 -->
-          <el-tab-pane
-            :label="$t('storyboard.shotProperties')"
-            name="shot"
-            v-if="currentStoryboard"
-          >
-            <div v-if="currentStoryboard" class="shot-editor-new">
-              <!-- 场景(Scene) -->
-              <div class="scene-section">
-                <div class="section-label">
-                  {{ $t("storyboard.scene") }} (Scene)
-                  <el-button
-                    size="small"
-                    text
-                    @click="showSceneSelector = true"
-                    >{{ $t("storyboard.selectScene") }}</el-button
-                  >
+      <!-- ===== 右侧：折叠Accordion ===== -->
+      <div class="edit-panel-v2" v-if="currentStoryboard">
+
+        <!-- ── Accordion: 镜头设置 ── -->
+        <div class="accordion-section" :class="{ expanded: isSectionExpanded('shot-settings') }">
+          <div class="accordion-header" @click="toggleSection('shot-settings')">
+            <span class="accordion-title">镜头设置</span>
+            <span class="accordion-arrow">{{ isSectionExpanded('shot-settings') ? '▲' : '▼' }}</span>
+          </div>
+          <div class="accordion-body" v-show="isSectionExpanded('shot-settings')">
+            <!-- 场景 -->
+            <div class="field-group">
+              <div class="field-label">
+                {{ $t('storyboard.scene') }}
+                <el-button size="small" text @click="showSceneSelector = true">{{ $t('storyboard.selectScene') }}</el-button>
+              </div>
+              <div class="scene-preview-v2" v-if="hasImage(currentStoryboard.background)" @click="showSceneImage">
+                <img :src="getImageUrl(currentStoryboard.background)" alt="场景" />
+                <div class="scene-info-overlay">
+                  {{ currentStoryboard.background?.location }} · {{ currentStoryboard.background?.time }}
                 </div>
-                <div
-                  class="scene-preview"
-                  v-if="hasImage(currentStoryboard.background)"
-                  @click="showSceneImage"
-                >
-                  <img
-                    :src="getImageUrl(currentStoryboard.background)"
-                    alt="场景"
-                    style="cursor: pointer"
-                  />
-                  <div class="scene-info">
-                    <div>
-                      {{ currentStoryboard.background?.location }} ·
-                      {{ currentStoryboard.background?.time }}
-                    </div>
-                    <div class="scene-id">
-                      {{ $t("editor.sceneId") }}:
-                      {{ currentStoryboard.scene_id || "N/A" }}
-                    </div>
+              </div>
+              <div class="scene-preview-empty-v2" v-else>
+                <el-icon :size="28" color="#ccc"><Picture /></el-icon>
+                <span>{{ currentStoryboard.background ? $t('editor.sceneGenerating') : $t('editor.noBackground') }}</span>
+              </div>
+            </div>
+
+            <!-- 登场角色 -->
+            <div class="field-group">
+              <div class="field-label">
+                {{ $t('editor.cast') }}
+                <el-button size="small" text :icon="Plus" @click="showCharacterSelector = true">{{ $t('editor.addCharacter') }}</el-button>
+              </div>
+              <div class="cast-row">
+                <div v-for="char in currentStoryboardCharacters" :key="char.id" class="cast-chip">
+                  <div class="cast-chip-avatar" @click="showCharacterImage(char)">
+                    <img v-if="hasImage(char)" :src="getImageUrl(char)" :alt="char.name" />
+                    <span v-else>{{ char.name?.[0] || '?' }}</span>
                   </div>
+                  <span class="cast-chip-name">{{ char.name }}</span>
+                  <el-icon class="cast-chip-remove" @click.stop="toggleCharacterInShot(char.id)"><Close /></el-icon>
                 </div>
-                <div class="scene-preview-empty" v-else>
-                  <el-icon :size="48" color="#666">
-                    <Picture />
-                  </el-icon>
-                  <div>
-                    {{
-                      currentStoryboard.background
-                        ? $t("editor.sceneGenerating")
-                        : $t("editor.noBackground")
-                    }}
+                <div v-if="!currentStoryboardCharacters.length" class="cast-empty-hint">{{ $t('editor.noCharacters') }}</div>
+              </div>
+            </div>
+
+            <!-- 道具 -->
+            <div class="field-group">
+              <div class="field-label">
+                {{ $t('editor.props') }}
+                <el-button size="small" text :icon="Plus" @click="showPropSelector = true">{{ $t('editor.addProp') }}</el-button>
+              </div>
+              <div class="cast-row">
+                <div v-for="prop in currentStoryboardProps" :key="prop.id" class="cast-chip">
+                  <div class="cast-chip-avatar">
+                    <img v-if="hasImage(prop)" :src="getImageUrl(prop)" :alt="prop.name" />
+                    <el-icon v-else><Box /></el-icon>
                   </div>
+                  <span class="cast-chip-name">{{ prop.name }}</span>
+                  <el-icon class="cast-chip-remove" @click.stop="togglePropInShot(prop.id)"><Close /></el-icon>
                 </div>
+                <div v-if="!currentStoryboardProps?.length" class="cast-empty-hint">{{ $t('editor.noProps') }}</div>
               </div>
+            </div>
 
-              <!-- 登场角色(Cast) -->
-              <div class="cast-section">
-                <div class="section-label">
-                  {{ $t("editor.cast") }} (Cast)
-                  <el-button
-                    size="small"
-                    text
-                    :icon="Plus"
-                    @click="showCharacterSelector = true"
-                    >{{ $t("editor.addCharacter") }}</el-button
-                  >
+            <!-- 视效设置 -->
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.visualSettings') }}</div>
+              <div class="settings-col-v2">
+                <div class="setting-row">
+                  <label>{{ $t('editor.shotType') }}</label>
+                  <el-select v-model="currentStoryboard.shot_type" clearable size="small" @change="saveStoryboardField('shot_type')">
+                    <el-option label="大远景" value="大远景" /><el-option label="远景" value="远景" />
+                    <el-option label="全景" value="全景" /><el-option label="中全景" value="中全景" />
+                    <el-option label="中景" value="中景" /><el-option label="中近景" value="中近景" />
+                    <el-option label="近景" value="近景" /><el-option label="特写" value="特写" />
+                    <el-option label="大特写" value="大特写" />
+                  </el-select>
                 </div>
-                <div class="cast-list">
-                  <div
-                    v-for="char in currentStoryboardCharacters"
-                    :key="char.id"
-                    class="cast-item active"
-                  >
-                    <div class="cast-avatar" @click="showCharacterImage(char)">
-                      <img
-                        v-if="hasImage(char)"
-                        :src="getImageUrl(char)"
-                        :alt="char.name"
-                      />
-                      <span v-else>{{ char.name?.[0] || "?" }}</span>
-                    </div>
-                    <div class="cast-name">{{ char.name }}</div>
-                    <div
-                      class="cast-remove"
-                      @click.stop="toggleCharacterInShot(char.id)"
-                      :title="$t('editor.removeCharacter')"
-                    >
-                      <el-icon :size="14">
-                        <Close />
-                      </el-icon>
-                    </div>
-                  </div>
-                  <div
-                    v-if="
-                      !currentStoryboard?.characters ||
-                      currentStoryboard.characters.length === 0
-                    "
-                    class="cast-empty"
-                  >
-                    {{ $t("editor.noCharacters") }}
-                  </div>
+                <div class="setting-row">
+                  <label>{{ $t('editor.movement') }}</label>
+                  <el-select v-model="currentStoryboard.movement" clearable size="small" @change="saveStoryboardField('movement')">
+                    <el-option label="固定镜头" value="固定镜头" /><el-option label="推镜" value="推镜" />
+                    <el-option label="拉镜" value="拉镜" /><el-option label="摇镜" value="摇镜" />
+                    <el-option label="移镜" value="移镜" /><el-option label="跟镜" value="跟镜" />
+                    <el-option label="升降镜头" value="升降镜头" /><el-option label="环绕" value="环绕" />
+                    <el-option label="甩镜" value="甩镜" /><el-option label="变焦" value="变焦" />
+                    <el-option label="手持晃动" value="手持晃动" /><el-option label="航拍" value="航拍" />
+                  </el-select>
                 </div>
-              </div>
-
-              <!-- 道具(Props) -->
-              <div class="cast-section">
-                <div class="section-label">
-                  {{ $t("editor.props") }} (Props)
-                  <el-button
-                    size="small"
-                    text
-                    :icon="Plus"
-                    @click="showPropSelector = true"
-                    >{{ $t("editor.addProp") }}</el-button
-                  >
-                </div>
-                <div class="cast-list">
-                  <div
-                    v-for="prop in currentStoryboardProps"
-                    :key="prop.id"
-                    class="cast-item active"
-                  >
-                    <div class="cast-avatar">
-                      <img
-                        v-if="hasImage(prop)"
-                        :src="getImageUrl(prop)"
-                        :alt="prop.name"
-                      />
-                      <el-icon v-else>
-                        <Box />
-                      </el-icon>
-                    </div>
-                    <div class="cast-name">{{ prop.name }}</div>
-                    <div
-                      class="cast-remove"
-                      @click.stop="togglePropInShot(prop.id)"
-                      title="移除道具"
-                    >
-                      <el-icon :size="14">
-                        <Close />
-                      </el-icon>
-                    </div>
-                  </div>
-                  <div
-                    v-if="
-                      !currentStoryboardProps ||
-                      currentStoryboardProps.length === 0
-                    "
-                    class="cast-empty"
-                  >
-                    {{ $t("editor.noProps") }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- 视效设置 -->
-              <div class="settings-section">
-                <div class="section-label">
-                  {{ $t("editor.visualSettings") }}
-                </div>
-                <div class="settings-grid">
-                  <div class="setting-item">
-                    <label>{{ $t("editor.shotType") }}</label>
-                    <el-select
-                      v-model="currentStoryboard.shot_type"
-                      clearable
-                      :placeholder="$t('editor.shotTypePlaceholder')"
-                      @change="saveStoryboardField('shot_type')"
-                    >
-                      <el-option label="大远景" value="大远景" />
-                      <el-option label="远景" value="远景" />
-                      <el-option label="全景" value="全景" />
-                      <el-option label="中全景" value="中全景" />
-                      <el-option label="中景" value="中景" />
-                      <el-option label="中近景" value="中近景" />
-                      <el-option label="近景" value="近景" />
-                      <el-option label="特写" value="特写" />
-                      <el-option label="大特写" value="大特写" />
-                    </el-select>
-                  </div>
-
-                  <div class="setting-item">
-                    <label>{{ $t("editor.movement") }}</label>
-                    <el-select
-                      v-model="currentStoryboard.movement"
-                      clearable
-                      :placeholder="$t('editor.movementPlaceholder')"
-                      @change="saveStoryboardField('movement')"
-                    >
-                      <el-option label="固定镜头" value="固定镜头" />
-                      <el-option label="推镜" value="推镜" />
-                      <el-option label="拉镜" value="拉镜" />
-                      <el-option label="摇镜" value="摇镜" />
-                      <el-option label="移镜" value="移镜" />
-                      <el-option label="跟镜" value="跟镜" />
-                      <el-option label="升降镜头" value="升降镜头" />
-                      <el-option label="环绕" value="环绕" />
-                      <el-option label="甩镜" value="甩镜" />
-                      <el-option label="变焦" value="变焦" />
-                      <el-option label="手持晃动" value="手持晃动" />
-                      <el-option label="稳定器运动" value="稳定器运动" />
-                      <el-option label="轨道推拉" value="轨道推拉" />
-                      <el-option label="航拍" value="航拍" />
-                    </el-select>
-                  </div>
-
-                  <div class="setting-item">
-                    <label>{{ $t("editor.angle") }}</label>
-                    <el-select
-                      v-model="currentStoryboard.angle"
-                      clearable
-                      :placeholder="$t('editor.anglePlaceholder')"
-                      @change="saveStoryboardField('angle')"
-                    >
-                      <el-option label="平视" value="平视" />
-                      <el-option label="俯视" value="俯视" />
-                      <el-option label="仰视" value="仰视" />
-                      <el-option
-                        label="大俯视（鸟瞰）"
-                        value="大俯视（鸟瞰）"
-                      />
-                      <el-option label="大仰视" value="大仰视" />
-                      <el-option label="正侧面" value="正侧面" />
-                      <el-option label="斜侧面" value="斜侧面" />
-                      <el-option label="背面" value="背面" />
-                      <el-option
-                        label="倾斜（荷兰角）"
-                        value="倾斜（荷兰角）"
-                      />
-                      <el-option label="主观视角" value="主观视角" />
-                      <el-option label="过肩" value="过肩" />
-                    </el-select>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 叙事内容 -->
-              <div class="narrative-section">
-                <div class="section-label">
-                  {{ $t("editor.action") }} (Action)
-                </div>
-                <el-input
-                  v-model="currentStoryboard.action"
-                  type="textarea"
-                  :rows="3"
-                  :placeholder="$t('editor.actionPlaceholder')"
-                  @blur="saveStoryboardField('action')"
-                />
-              </div>
-
-              <div class="narrative-section">
-                <div class="section-label">
-                  {{ $t("editor.result") }} (Result)
-                </div>
-                <el-input
-                  v-model="currentStoryboard.result"
-                  type="textarea"
-                  :rows="2"
-                  :placeholder="$t('editor.resultPlaceholder')"
-                  @blur="saveStoryboardField('result')"
-                />
-              </div>
-
-              <div class="dialogue-section">
-                <div class="section-label">
-                  {{ $t("editor.dialogue") }} (Dialogue)
-                </div>
-                <el-input
-                  v-model="currentStoryboard.dialogue"
-                  type="textarea"
-                  :rows="3"
-                  :placeholder="$t('editor.dialoguePlaceholder')"
-                  @blur="saveStoryboardField('dialogue')"
-                />
-              </div>
-
-              <div class="narrative-section">
-                <div class="section-label">
-                  {{ $t("editor.description") }} (Description)
-                </div>
-                <el-input
-                  v-model="currentStoryboard.description"
-                  type="textarea"
-                  :rows="3"
-                  :placeholder="$t('editor.descriptionPlaceholder')"
-                  @blur="saveStoryboardField('description')"
-                />
-              </div>
-
-              <!-- 音效设置 -->
-              <div class="settings-section">
-                <div class="section-label">{{ $t("editor.soundEffects") }}</div>
-                <div class="audio-controls">
-                  <el-input
-                    v-model="currentStoryboard.sound_effect"
-                    :placeholder="$t('editor.soundEffectsPlaceholder')"
-                    size="small"
-                    type="textarea"
-                    :rows="2"
-                    @blur="saveStoryboardField('sound_effect')"
-                  />
-                </div>
-              </div>
-
-              <!-- 配乐设置 -->
-              <div class="settings-section">
-                <div class="section-label">{{ $t("editor.bgmPrompt") }}</div>
-                <div class="audio-controls">
-                  <el-input
-                    v-model="currentStoryboard.bgm_prompt"
-                    :placeholder="$t('editor.bgmPromptPlaceholder')"
-                    size="small"
-                    type="textarea"
-                    :rows="2"
-                    @blur="saveStoryboardField('bgm_prompt')"
-                  />
-                </div>
-              </div>
-
-              <!-- 氛围设置 -->
-              <div class="settings-section">
-                <div class="section-label">{{ $t("editor.atmosphere") }}</div>
-                <div class="audio-controls">
-                  <el-input
-                    v-model="currentStoryboard.atmosphere"
-                    :placeholder="$t('editor.atmospherePlaceholder')"
-                    size="small"
-                    type="textarea"
-                    :rows="2"
-                    @blur="saveStoryboardField('atmosphere')"
-                  />
+                <div class="setting-row">
+                  <label>{{ $t('editor.angle') }}</label>
+                  <el-select v-model="currentStoryboard.angle" clearable size="small" @change="saveStoryboardField('angle')">
+                    <el-option label="平视" value="平视" /><el-option label="俯视" value="俯视" />
+                    <el-option label="仰视" value="仰视" /><el-option label="大俯视（鸟瞰）" value="大俯视（鸟瞰）" />
+                    <el-option label="大仰视" value="大仰视" /><el-option label="正侧面" value="正侧面" />
+                    <el-option label="斜侧面" value="斜侧面" /><el-option label="背面" value="背面" />
+                    <el-option label="倾斜（荷兰角）" value="倾斜（荷兰角）" /><el-option label="主观视角" value="主观视角" />
+                    <el-option label="过肩" value="过肩" />
+                  </el-select>
                 </div>
               </div>
             </div>
-            <el-empty v-else :description="$t('editor.noShotSelected')" />
-          </el-tab-pane>
+          </div>
+        </div>
 
-          <!-- 图片生成标签 -->
-          <el-tab-pane :label="$t('editor.shotImage')" name="image">
-            <div class="tab-content" v-if="currentStoryboard">
-              <div class="image-generation-section">
-                <!-- 帧类型选择 -->
-                <div class="frame-type-selector">
-                  <div class="section-label">
-                    {{ $t("editor.selectFrameType") }}
-                  </div>
-                  <el-radio-group v-model="selectedFrameType" size="small">
-                    <el-radio-button label="first">{{
-                      $t("editor.firstFrame")
-                    }}</el-radio-button>
-                    <el-radio-button label="last">{{
-                      $t("editor.lastFrame")
-                    }}</el-radio-button>
-                    <!-- <el-radio-button label="panel">{{
-                      $t("editor.panelFrame")
-                    }}</el-radio-button> -->
-                    <el-radio-button label="action">{{
-                      $t("editor.actionSequence")
-                    }}</el-radio-button>
-                    <el-radio-button label="key">{{
-                      $t("editor.keyFrame")
-                    }}</el-radio-button>
-                  </el-radio-group>
-                  <el-input-number
-                    v-if="selectedFrameType === 'panel'"
-                    v-model="panelCount"
-                    :min="2"
-                    :max="6"
-                    size="small"
-                    class="panel-count-input"
-                    style="margin-left: 10px; margin-top: 12px"
+        <!-- ── Accordion: 叙事内容 ── -->
+        <div class="accordion-section" :class="{ expanded: isSectionExpanded('narrative') }">
+          <div class="accordion-header" @click="toggleSection('narrative')">
+            <span class="accordion-title">叙事内容</span>
+            <span class="accordion-arrow">{{ isSectionExpanded('narrative') ? '▲' : '▼' }}</span>
+          </div>
+          <div class="accordion-body" v-show="isSectionExpanded('narrative')">
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.action') }}</div>
+              <el-input v-model="currentStoryboard.action" type="textarea" :rows="3" :placeholder="$t('editor.actionPlaceholder')" @blur="saveStoryboardField('action')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.result') }}</div>
+              <el-input v-model="currentStoryboard.result" type="textarea" :rows="2" :placeholder="$t('editor.resultPlaceholder')" @blur="saveStoryboardField('result')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.dialogue') }}</div>
+              <el-input v-model="currentStoryboard.dialogue" type="textarea" :rows="3" :placeholder="$t('editor.dialoguePlaceholder')" @blur="saveStoryboardField('dialogue')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.description') }}</div>
+              <el-input v-model="currentStoryboard.description" type="textarea" :rows="3" :placeholder="$t('editor.descriptionPlaceholder')" @blur="saveStoryboardField('description')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.soundEffects') }}</div>
+              <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="saveStoryboardField('sound_effect')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.bgmPrompt') }}</div>
+              <el-input v-model="currentStoryboard.bgm_prompt" type="textarea" :rows="2" :placeholder="$t('editor.bgmPromptPlaceholder')" @blur="saveStoryboardField('bgm_prompt')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.atmosphere') }}</div>
+              <el-input v-model="currentStoryboard.atmosphere" type="textarea" :rows="2" :placeholder="$t('editor.atmospherePlaceholder')" @blur="saveStoryboardField('atmosphere')" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Accordion: 图片生成 ── -->
+        <div class="accordion-section" :class="{ expanded: isSectionExpanded('image-gen') }">
+          <div class="accordion-header" @click="toggleSection('image-gen')">
+            <span class="accordion-title">图片生成</span>
+            <span class="accordion-arrow">{{ isSectionExpanded('image-gen') ? '▲' : '▼' }}</span>
+          </div>
+          <div class="accordion-body" v-show="isSectionExpanded('image-gen')">
+            <div class="field-group">
+              <div class="field-label">
+                {{ $t('editor.selectFrameType') }}
+              </div>
+              <el-radio-group v-model="selectedFrameType" size="small">
+                <el-radio-button value="first">{{ $t('editor.firstFrame') }}</el-radio-button>
+                <el-radio-button value="last">{{ $t('editor.lastFrame') }}</el-radio-button>
+                <el-radio-button value="action">{{ $t('editor.actionSequence') }}</el-radio-button>
+                <el-radio-button value="key">{{ $t('editor.keyFrame') }}</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div class="field-group">
+              <div class="field-label">
+                {{ $t('editor.prompt') }}
+                <el-button
+                  size="small" type="primary"
+                  :disabled="isGeneratingPrompt(currentStoryboard?.id, selectedFrameType)"
+                  :loading="isGeneratingPrompt(currentStoryboard?.id, selectedFrameType)"
+                  @click="extractFramePrompt"
+                  style="margin-left: 8px"
+                >{{ $t('editor.extractPrompt') }}</el-button>
+              </div>
+              <el-input v-model="currentFramePrompt" type="textarea" :rows="5" :placeholder="$t('editor.promptPlaceholder')" />
+            </div>
+            <div class="gen-controls-v2">
+              <el-button
+                type="success" :icon="MagicStick" :loading="generatingImage"
+                :disabled="!currentFramePrompt"
+                @click="generateFrameImage"
+              >{{ generatingImage ? $t('editor.generating') : $t('editor.generateImage') }}</el-button>
+              <el-button :icon="Upload" @click="uploadImage">{{ $t('editor.uploadImage') }}</el-button>
+            </div>
+            <!-- 生成结果 -->
+            <div v-if="generatedImages.length > 0 || selectedFrameType === 'action'" class="field-group" style="margin-top:4px">
+              <div class="field-label">{{ $t('editor.generationResult') }} ({{ generatedImages.length }})</div>
+              <div class="result-grid">
+                <div v-if="selectedFrameType === 'action'" class="result-item grid-entry" @click="showGridEditor = true">
+                  <el-icon :size="24" color="#ccc"><Plus /></el-icon>
+                </div>
+                <div v-for="img in generatedImages" :key="img.id" class="result-item">
+                  <el-image
+                    v-if="hasImage(img)"
+                    :src="getImageUrl(img)"
+                    fit="cover"
+                    :preview-src-list="generatedImages.filter(i => hasImage(i)).map(i => getImageUrl(i))"
+                    preview-teleported
                   />
-                  <span
-                    v-if="selectedFrameType === 'panel'"
-                    class="panel-count-label"
-                    >{{ $t("editor.panelCount") }}</span
-                  >
-                </div>
-
-                <!-- 提示词区域 -->
-                <div class="prompt-section">
-                  <div class="section-label">
-                    {{ $t("editor.prompt") }}
-                    <el-button
-                      size="small"
-                      type="primary"
-                      :disabled="
-                        isGeneratingPrompt(
-                          currentStoryboard?.id,
-                          selectedFrameType,
-                        )
-                      "
-                      :loading="
-                        isGeneratingPrompt(
-                          currentStoryboard?.id,
-                          selectedFrameType,
-                        )
-                      "
-                      @click="extractFramePrompt"
-                      style="margin-left: 10px"
-                    >
-                      {{ $t("editor.extractPrompt") }}
-                    </el-button>
+                  <div v-else class="result-placeholder">
+                    <el-icon :size="20"><Picture /></el-icon>
+                    <p>{{ getStatusText(img.status) }}</p>
                   </div>
-                  <el-input
-                    v-model="currentFramePrompt"
-                    type="textarea"
-                    :rows="8"
-                    :placeholder="$t('editor.promptPlaceholder')"
-                  />
-                </div>
-
-                <!-- 生成控制 -->
-                <div class="generation-controls">
-                  <el-button
-                    type="success"
-                    :icon="MagicStick"
-                    :loading="generatingImage"
-                    :disabled="!currentFramePrompt"
-                    @click="generateFrameImage"
-                  >
-                    {{
-                      generatingImage
-                        ? $t("editor.generating")
-                        : $t("editor.generateImage")
-                    }}
-                  </el-button>
-                  <el-button :icon="Upload" @click="uploadImage">{{
-                    $t("editor.uploadImage")
-                  }}</el-button>
-                </div>
-
-                <!-- 生成结果 -->
-                <div
-                  class="generation-result"
-                  v-if="
-                    generatedImages.length > 0 || selectedFrameType === 'action'
-                  "
-                >
-                  <div class="section-label">
-                    {{ $t("editor.generationResult") }} ({{
-                      generatedImages.length
-                    }})
-                  </div>
-                  <div class="image-grid">
-                    <!-- 动作序列入口按钮 -->
-                    <div
-                      v-if="selectedFrameType === 'action'"
-                      class="image-item grid-entry-button"
-                      @click="showGridEditor = true"
-                    >
-                      <div class="grid-entry-placeholder">
-                        <el-icon :size="28" style="color: #ccc">
-                          <Plus />
-                        </el-icon>
-                      </div>
-                      <!-- <div class="image-info">
-                        <span class="frame-type-tag">{{
-                          $t("editor.createGridImage")
-                          }}</span>
-                      </div> -->
+                  <div class="result-actions" v-if="hasImage(img)">
+                    <div v-if="img.frame_type === 'action'" class="result-action-btn" @click.stop="openCropDialog(img)">
+                      <el-icon :size="13" color="white"><Crop /></el-icon>
                     </div>
-                    <div
-                      v-for="img in generatedImages"
-                      :key="img.id"
-                      class="image-item-wrapper"
-                    >
-                      <div
-                        class="image-item"
-                        :class="{
-                          'action-image-item': img.frame_type === 'action',
-                        }"
-                      >
-                        <el-image
-                          v-if="hasImage(img)"
-                          :src="getImageUrl(img)"
-                          :preview-src-list="
-                            generatedImages
-                              .filter((i) => hasImage(i))
-                              .map((i) => getImageUrl(i)!)
-                          "
-                          :initial-index="
-                            generatedImages
-                              .filter((i) => i.image_url)
-                              .findIndex((i) => i.id === img.id)
-                          "
-                          fit="cover"
-                          preview-teleported
-                        />
-                        <div v-else class="image-placeholder">
-                          <el-icon :size="32">
-                            <Picture />
-                          </el-icon>
-                          <p>{{ getStatusText(img.status) }}</p>
-                        </div>
-                        <div class="image-actions" v-if="hasImage(img)">
-                          <!-- 动作序列图片裁剪图标 -->
-                          <div
-                            v-if="img.frame_type === 'action' && hasImage(img)"
-                            class="crop-icon-overlay"
-                            @click.stop="openCropDialog(img)"
-                          >
-                            <el-icon :size="18" color="var(--text-primary)">
-                              <Crop />
-                            </el-icon>
-                          </div>
-                          <div v-else></div>
-                          <!-- 删除按钮 -->
-                          <div
-                            v-if="hasImage(img)"
-                            class="delete-icon-overlay"
-                            @click.stop="handleDeleteImage(img)"
-                          >
-                            <el-icon :size="18" color="red">
-                              <DeleteFilled />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <!-- <div class="image-status">
-                                                <el-tag :type="getStatusType(img.status)" size="small">{{
-                                                    getStatusText(img.status)
-                                                }}</el-tag>
-                                            </div> -->
+                    <div class="result-action-btn" @click.stop="handleDeleteImage(img)">
+                      <el-icon :size="13" color="#f56c6c"><DeleteFilled /></el-icon>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <el-empty v-else description="未选择镜头" />
-          </el-tab-pane>
+          </div>
+        </div>
 
-          <!-- 视频生成标签 -->
-          <el-tab-pane :label="$t('video.videoGeneration')" name="video">
-            <div class="tab-content" v-if="currentStoryboard">
-              <div class="video-generation-section">
-                <!-- 生成提示词展示 -->
-                <div class="video-prompt-box">
-                  {{ currentStoryboard.video_prompt || "暂无提示词" }}
-                </div>
-
-                <!-- 视频参数设置 -->
-                <div class="video-params-section">
-                  <div class="param-row">
-                    <span class="param-label">{{ $t("video.model") }}</span>
-                    <el-select
-                      v-model="selectedVideoModel"
-                      :placeholder="$t('video.selectVideoModel')"
-                      size="default"
-                      style="flex: 1"
-                    >
-                      <el-option
-                        v-for="model in videoModelCapabilities"
-                        :key="model.id"
-                        :label="model.name"
-                        :value="model.id"
-                      >
-                        <div
-                          style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                          "
-                        >
-                          <span>{{ model.name }}</span>
-                          <div class="model-tags">
-                            <el-tag
-                              v-if="model.supportMultipleImages"
-                              size="small"
-                              type="success"
-                              style="margin-left: 4px"
-                              >多图</el-tag
-                            >
-                            <el-tag
-                              v-if="model.supportFirstLastFrame"
-                              size="small"
-                              type="primary"
-                              style="margin-left: 4px"
-                              >首尾帧</el-tag
-                            >
-                            <el-tag
-                              size="small"
-                              type="info"
-                              style="margin-left: 4px"
-                              >最多{{ model.maxImages }}张</el-tag
-                            >
-                          </div>
-                        </div>
-                      </el-option>
-                    </el-select>
-                  </div>
-
-                  <!-- 参考图模式选择 -->
-                  <div
-                    v-if="
-                      selectedVideoModel && availableReferenceModes.length > 0
-                    "
-                    class="param-row"
-                  >
-                    <span class="param-label">参考图</span>
-                    <el-select
-                      v-model="selectedReferenceMode"
-                      placeholder="请选择参考图模式"
-                      size="default"
-                      style="flex: 1"
-                    >
-                      <el-option
-                        v-for="mode in availableReferenceModes"
-                        :key="mode.value"
-                        :label="mode.label"
-                        :value="mode.value"
-                      >
-                        <div
-                          style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                          "
-                        >
-                          <span>{{ mode.label }}</span>
-                          <span
-                            v-if="mode.description"
-                            class="mode-description"
-                            >{{ mode.description }}</span
-                          >
-                        </div>
-                      </el-option>
-                    </el-select>
-                  </div>
-
-                  <div class="param-row">
-                    <span class="param-label">{{
-                      $t("professionalEditor.duration")
-                    }}</span>
-                    <div style="flex: 1; display: flex; align-items: center">
-                      <el-slider
-                        v-model="videoDuration"
-                        :min="4"
-                        :max="10"
-                        :step="1"
-                        show-stops
-                        style="flex: 1"
-                      />
-                      <span style="margin-left: 10px; min-width: 40px"
-                        >{{ videoDuration
-                        }}{{ $t("professionalEditor.seconds") }}</span
-                      >
+        <!-- ── Accordion: 视频生成 ── -->
+        <div class="accordion-section" :class="{ expanded: isSectionExpanded('video-gen') }">
+          <div class="accordion-header" @click="toggleSection('video-gen')">
+            <span class="accordion-title">视频生成</span>
+            <span class="accordion-arrow">{{ isSectionExpanded('video-gen') ? '▲' : '▼' }}</span>
+          </div>
+          <div class="accordion-body" v-show="isSectionExpanded('video-gen')">
+            <div class="field-group">
+              <div class="field-label">视频提示词</div>
+              <div class="video-prompt-display">{{ currentStoryboard.video_prompt || '暂无提示词' }}</div>
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('video.model') }}</div>
+              <el-select v-model="selectedVideoModel" :placeholder="$t('video.selectVideoModel')" size="small" style="width:100%">
+                <el-option v-for="model in videoModelCapabilities" :key="model.id" :label="model.name" :value="model.id">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span>{{ model.name }}</span>
+                    <div style="display:flex;gap:4px">
+                      <el-tag v-if="model.supportMultipleImages" size="small" type="success">多图</el-tag>
+                      <el-tag v-if="model.supportFirstLastFrame" size="small" type="primary">首尾帧</el-tag>
                     </div>
                   </div>
-                </div>
-
-                <!-- 选择参考图片 -->
-                <div
-                  v-if="
-                    selectedReferenceMode && selectedReferenceMode !== 'none'
-                  "
-                  class="reference-images-section"
-                  style="margin-top: 0"
-                >
-                  <div
-                    class="frame-type-buttons"
-                    style="text-align: center; margin-bottom: 8px"
-                  >
-                    <el-radio-group
-                      v-model="selectedVideoFrameType"
-                      size="default"
-                    >
-                      <el-radio-button label="first">首帧</el-radio-button>
-                      <el-radio-button label="last">尾帧</el-radio-button>
-                      <!-- <el-radio-button label="panel">分镜板</el-radio-button> -->
-                      <el-radio-button label="action">动作序列</el-radio-button>
-                      <el-radio-button label="key">关键帧</el-radio-button>
-                    </el-radio-group>
-                  </div>
-
-                  <div class="frame-type-content">
-                    <!-- 首帧 -->
-                    <div
-                      v-show="selectedVideoFrameType === 'first'"
-                      class="image-scroll-container"
-                      style="
-                        max-height: 280px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                      "
-                    >
-                      <!-- 上一镜头尾帧推荐（紧凑版） -->
-                      <div
-                        v-if="previousStoryboardLastFrames.length > 0"
-                        class="previous-frame-section"
-                      >
-                        <div
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 6px;
-                            margin-bottom: 6px;
-                          "
-                        >
-                          <el-tag size="small" type="primary">
-                            上一镜头 #{{
-                              previousStoryboard?.storyboard_number
-                            }}
-                            尾帧
-                          </el-tag>
-                          <span class="hint-text">点击添加为首帧参考</span>
-                        </div>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap">
-                          <div
-                            v-for="img in previousStoryboardLastFrames"
-                            :key="'prev-' + img.id"
-                            class="reference-item"
-                            :class="{
-                              selected: selectedImagesForVideo.includes(img.id),
-                            }"
-                            style="
-                              position: relative;
-                              border: 2px solid #1890ff;
-                              border-radius: 4px;
-                              overflow: hidden;
-                              cursor: pointer;
-                            "
-                            @click="selectPreviousLastFrame(img)"
-                          >
-                            <el-image
-                              :src="getImageUrl(img)"
-                              fit="cover"
-                              style="
-                                width: 60px;
-                                height: 40px;
-                                display: block;
-                                pointer-events: none;
-                              "
-                            />
-                            <div
-                              v-if="selectedImagesForVideo.includes(img.id)"
-                              style="
-                                position: absolute;
-                                top: 0;
-                                right: 0;
-                                background: #52c41a;
-                                color: #fff;
-                                font-size: 10px;
-                                padding: 1px 4px;
-                              "
-                            >
-                              ✓
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- 当前镜头首帧列表 -->
-                      <div
-                        class="reference-grid"
-                        style="
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 12px;
-                          max-width: 600px;
-                        "
-                      >
-                        <div
-                          v-for="img in videoReferenceImages.filter(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'first',
-                          )"
-                          :key="img.id"
-                          class="reference-item"
-                          :class="{
-                            selected: selectedImagesForVideo.includes(img.id),
-                          }"
-                          style="position: relative"
-                          @click="handleImageSelect(img.id)"
-                        >
-                          <el-image
-                            :src="getImageUrl(img)"
-                            fit="cover"
-                            style="
-                              max-width: 120px;
-                              width: 100%;
-                              display: block;
-                              pointer-events: none;
-                            "
-                          />
-                          <div
-                            class="preview-icon"
-                            @click.stop="previewImage(getImageUrl(img))"
-                            style="
-                              position: absolute;
-                              top: 4px;
-                              right: 4px;
-                              width: 24px;
-                              height: 24px;
-                              background: rgba(0, 0, 0, 0.6);
-                              border-radius: 4px;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              cursor: pointer;
-                              z-index: 10;
-                            "
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <ZoomIn />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <el-empty
-                        v-if="
-                          !videoReferenceImages.some(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'first',
-                          ) && previousStoryboardLastFrames.length === 0
-                        "
-                        description="暂无首帧图片"
-                        size="small"
-                      />
-                    </div>
-
-                    <!-- 关键帧 -->
-                    <div
-                      v-show="selectedVideoFrameType === 'key'"
-                      class="image-scroll-container"
-                      style="
-                        max-height: 280px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                      "
-                    >
-                      <div
-                        class="reference-grid"
-                        style="
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 12px;
-                          max-width: 600px;
-                        "
-                      >
-                        <div
-                          v-for="img in videoReferenceImages.filter(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'key',
-                          )"
-                          :key="img.id"
-                          class="reference-item"
-                          :class="{
-                            selected: selectedImagesForVideo.includes(img.id),
-                          }"
-                          style="position: relative"
-                          @click="handleImageSelect(img.id)"
-                        >
-                          <el-image
-                            :src="getImageUrl(img)"
-                            fit="cover"
-                            style="
-                              max-width: 120px;
-                              width: 100%;
-                              display: block;
-                              pointer-events: none;
-                            "
-                          />
-                          <div
-                            class="preview-icon"
-                            @click.stop="previewImage(getImageUrl(img))"
-                            style="
-                              position: absolute;
-                              top: 4px;
-                              right: 4px;
-                              width: 24px;
-                              height: 24px;
-                              background: rgba(0, 0, 0, 0.6);
-                              border-radius: 4px;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              cursor: pointer;
-                              z-index: 10;
-                            "
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <ZoomIn />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <el-empty
-                        v-if="
-                          !videoReferenceImages.some(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'key',
-                          )
-                        "
-                        description="暂无关键帧图片"
-                        size="small"
-                      />
-                    </div>
-
-                    <!-- 尾帧 -->
-                    <div
-                      v-show="selectedVideoFrameType === 'last'"
-                      class="image-scroll-container"
-                      style="
-                        max-height: 280px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                      "
-                    >
-                      <div
-                        class="reference-grid"
-                        style="
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 12px;
-                          max-width: 600px;
-                        "
-                      >
-                        <div
-                          v-for="img in videoReferenceImages.filter(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'last',
-                          )"
-                          :key="img.id"
-                          class="reference-item"
-                          :class="{
-                            selected: selectedImagesForVideo.includes(img.id),
-                          }"
-                          style="position: relative"
-                          @click="handleImageSelect(img.id)"
-                        >
-                          <el-image
-                            :src="getImageUrl(img)"
-                            fit="cover"
-                            style="
-                              max-width: 120px;
-                              width: 100%;
-                              display: block;
-                              pointer-events: none;
-                            "
-                          />
-                          <div
-                            class="preview-icon"
-                            @click.stop="previewImage(getImageUrl(img))"
-                            style="
-                              position: absolute;
-                              top: 4px;
-                              right: 4px;
-                              width: 24px;
-                              height: 24px;
-                              background: rgba(0, 0, 0, 0.6);
-                              border-radius: 4px;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              cursor: pointer;
-                              z-index: 10;
-                            "
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <ZoomIn />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <el-empty
-                        v-if="
-                          !videoReferenceImages.some(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'last',
-                          )
-                        "
-                        description="暂无尾帧图片"
-                        size="small"
-                      />
-                    </div>
-
-                    <!-- 分镜板 -->
-                    <div
-                      v-show="selectedVideoFrameType === 'panel'"
-                      class="image-scroll-container"
-                      style="
-                        max-height: 280px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                      "
-                    >
-                      <div
-                        class="reference-grid"
-                        style="
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 12px;
-                          max-width: 600px;
-                        "
-                      >
-                        <div
-                          v-for="img in videoReferenceImages.filter(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'panel',
-                          )"
-                          :key="img.id"
-                          class="reference-item"
-                          :class="{
-                            selected: selectedImagesForVideo.includes(img.id),
-                          }"
-                          style="position: relative"
-                          @click="handleImageSelect(img.id)"
-                        >
-                          <el-image
-                            :src="getImageUrl(img)"
-                            fit="cover"
-                            style="
-                              max-width: 120px;
-                              width: 100%;
-                              display: block;
-                              pointer-events: none;
-                            "
-                          />
-                          <div
-                            class="preview-icon"
-                            @click.stop="previewImage(getImageUrl(img))"
-                            style="
-                              position: absolute;
-                              top: 4px;
-                              right: 4px;
-                              width: 24px;
-                              height: 24px;
-                              background: rgba(0, 0, 0, 0.6);
-                              border-radius: 4px;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              cursor: pointer;
-                              z-index: 10;
-                            "
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <ZoomIn />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <el-empty
-                        v-if="
-                          !videoReferenceImages.some(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'panel',
-                          )
-                        "
-                        description="暂无分镜板图片"
-                        size="small"
-                      />
-                    </div>
-
-                    <!-- 动作序列 -->
-                    <div
-                      v-show="selectedVideoFrameType === 'action'"
-                      class="image-scroll-container"
-                      style="
-                        max-height: 280px;
-                        overflow-y: auto;
-                        overflow-x: hidden;
-                      "
-                    >
-                      <div
-                        class="reference-grid"
-                        style="
-                          display: grid;
-                          grid-template-columns: repeat(4, 1fr);
-                          gap: 12px;
-                          max-width: 600px;
-                        "
-                      >
-                        <div
-                          v-for="img in videoReferenceImages.filter(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'action',
-                          )"
-                          :key="img.id"
-                          class="reference-item"
-                          :class="{
-                            selected: selectedImagesForVideo.includes(img.id),
-                          }"
-                          style="position: relative"
-                          @click="handleImageSelect(img.id)"
-                        >
-                          <el-image
-                            :src="getImageUrl(img)"
-                            fit="cover"
-                            style="
-                              max-width: 120px;
-                              width: 100%;
-                              display: block;
-                              pointer-events: none;
-                            "
-                          />
-                          <div
-                            class="preview-icon"
-                            @click.stop="previewImage(getImageUrl(img))"
-                            style="
-                              position: absolute;
-                              top: 4px;
-                              right: 4px;
-                              width: 24px;
-                              height: 24px;
-                              background: rgba(0, 0, 0, 0.6);
-                              border-radius: 4px;
-                              display: flex;
-                              align-items: center;
-                              justify-content: center;
-                              cursor: pointer;
-                              z-index: 10;
-                            "
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <ZoomIn />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                      <el-empty
-                        v-if="
-                          !videoReferenceImages.some(
-                            (i) =>
-                              i.status === 'completed' &&
-                              i.image_url &&
-                              i.frame_type === 'action',
-                          )
-                        "
-                        description="暂无动作序列图片"
-                        size="small"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 参考图片设置 -->
-                <div
-                  v-if="
-                    selectedReferenceMode && selectedReferenceMode !== 'none'
-                  "
-                  class="reference-config-section"
-                  style="margin-top: 24px"
-                >
-                  <!-- 图片框配置区 -->
-                  <div
-                    class="image-slots-container"
-                    style="margin-top: 16px; margin-bottom: 24px"
-                  >
-                    <!-- 单图模式 -->
-                    <div
-                      v-if="selectedReferenceMode === 'single'"
-                      style="text-align: center"
-                    >
-                      <div class="reference-mode-title">单图参考</div>
-                      <div style="display: inline-block">
-                        <div
-                          class="image-slot"
-                          @click="
-                            selectedImagesForVideo.length > 0 &&
-                            removeSelectedImage(selectedImagesForVideo[0])
-                          "
-                        >
-                          <img
-                            v-if="selectedImageObjects[0]"
-                            :src="getImageUrl(selectedImageObjects[0])"
-                            alt=""
-                            style="width: 100%; height: 100%; object-fit: cover"
-                          />
-                          <div v-else class="image-slot-placeholder">
-                            <el-icon :size="32" color="#c0c4cc">
-                              <Plus />
-                            </el-icon>
-                            <div class="slot-hint">点击上方选择图片</div>
-                          </div>
-                          <div
-                            v-if="selectedImageObjects[0]"
-                            class="image-slot-remove"
-                          >
-                            <el-icon :size="16" color="#fff">
-                              <Close />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 首尾帧模式 -->
-                    <div
-                      v-else-if="selectedReferenceMode === 'first_last'"
-                      style="text-align: center"
-                    >
-                      <div class="reference-mode-title">首尾帧</div>
-                      <div
-                        style="
-                          display: flex;
-                          gap: 20px;
-                          justify-content: center;
-                          align-items: center;
-                        "
-                      >
-                        <div>
-                          <div class="frame-label">首帧</div>
-                          <div
-                            class="image-slot"
-                            @click="
-                              firstFrameSlotImage &&
-                              removeSelectedImage(firstFrameSlotImage.id)
-                            "
-                          >
-                            <img
-                              v-if="firstFrameSlotImage"
-                              :src="firstFrameSlotImage.image_url"
-                              alt=""
-                              style="
-                                width: 100%;
-                                height: 100%;
-                                object-fit: cover;
-                              "
-                            />
-                            <div v-else class="image-slot-placeholder">
-                              <el-icon :size="32" color="#c0c4cc">
-                                <Plus />
-                              </el-icon>
-                              <div class="slot-hint">选择首帧</div>
-                            </div>
-                            <div
-                              v-if="firstFrameSlotImage"
-                              class="image-slot-remove"
-                            >
-                              <el-icon :size="16" color="#fff">
-                                <Close />
-                              </el-icon>
-                            </div>
-                          </div>
-                        </div>
-                        <el-icon :size="24" color="#909399">
-                          <Right />
-                        </el-icon>
-                        <div>
-                          <div class="frame-label">尾帧</div>
-                          <div
-                            class="image-slot"
-                            @click="
-                              lastFrameSlotImage &&
-                              removeSelectedImage(lastFrameSlotImage.id)
-                            "
-                          >
-                            <img
-                              v-if="lastFrameSlotImage"
-                              :src="lastFrameSlotImage.image_url"
-                              alt=""
-                              style="
-                                width: 100%;
-                                height: 100%;
-                                object-fit: cover;
-                              "
-                            />
-                            <div v-else class="image-slot-placeholder">
-                              <el-icon :size="32" color="#c0c4cc">
-                                <Plus />
-                              </el-icon>
-                              <div class="slot-hint">选择尾帧</div>
-                            </div>
-                            <div
-                              v-if="lastFrameSlotImage"
-                              class="image-slot-remove"
-                            >
-                              <el-icon :size="16" color="#fff">
-                                <Close />
-                              </el-icon>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 多图模式 -->
-                    <div
-                      v-else-if="selectedReferenceMode === 'multiple'"
-                      style="text-align: center"
-                    >
-                      <div
-                        style="
-                          margin-bottom: 12px;
-                          font-size: 13px;
-                          color: #606266;
-                          font-weight: 500;
-                        "
-                      >
-                        多图参考 ({{ selectedImagesForVideo.length }}/{{
-                          currentModelCapability?.maxImages || 6
-                        }})
-                      </div>
-                      <div
-                        style="
-                          display: flex;
-                          gap: 12px;
-                          justify-content: center;
-                          flex-wrap: wrap;
-                        "
-                      >
-                        <div
-                          v-for="index in currentModelCapability?.maxImages ||
-                          6"
-                          :key="index"
-                          class="image-slot image-slot-small"
-                          style="
-                            position: relative;
-                            width: 80px;
-                            height: 52px;
-                            border: 2px dashed #dcdfe6;
-                            border-radius: 8px;
-                            overflow: hidden;
-                            cursor: pointer;
-                            background: #fff;
-                          "
-                          @click="
-                            selectedImageObjects[index - 1] &&
-                            removeSelectedImage(
-                              selectedImageObjects[index - 1].id,
-                            )
-                          "
-                        >
-                          <img
-                            v-if="selectedImageObjects[index - 1]"
-                            :src="selectedImageObjects[index - 1].image_url"
-                            alt=""
-                            style="width: 100%; height: 100%; object-fit: cover"
-                          />
-                          <div v-else class="image-slot-placeholder">
-                            <el-icon :size="20" color="#c0c4cc">
-                              <Plus />
-                            </el-icon>
-                            <div
-                              style="
-                                margin-top: 4px;
-                                font-size: 10px;
-                                color: #909399;
-                              "
-                            >
-                              {{ index }}
-                            </div>
-                          </div>
-                          <div
-                            v-if="selectedImageObjects[index - 1]"
-                            class="image-slot-remove"
-                          >
-                            <el-icon :size="14" color="#fff">
-                              <Close />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 生成控制 -->
-                <div
-                  class="generation-controls"
-                  style="margin-top: 32px; text-align: center"
-                >
-                  <el-button
-                    type="primary"
-                    :icon="VideoCamera"
-                    :loading="generatingVideo"
-                    :disabled="
-                      !selectedVideoModel ||
-                      (selectedReferenceMode !== 'none' &&
-                        selectedImagesForVideo.length === 0)
-                    "
-                    @click="generateVideo"
-                  >
-                    {{ generatingVideo ? "生成中..." : "生成视频" }}
-                  </el-button>
-                </div>
-
-                <!-- 生成的视频列表 -->
-                <div
-                  class="generation-result"
-                  v-if="generatedVideos.length > 0"
-                  style="margin-top: 24px"
-                >
-                  <div
-                    class="section-label"
-                    style="
-                      font-size: 13px;
-                      font-weight: 600;
-                      margin-bottom: 12px;
-                      display: flex;
-                      align-items: center;
-                      gap: 6px;
-                    "
-                  >
-                    <span></span>
-                    生成结果 ({{ generatedVideos.length }})
-                  </div>
-                  <div class="image-grid">
-                    <div
-                      v-for="video in generatedVideos"
-                      :key="video.id"
-                      class="image-item-wrapper"
-                    >
-                      <div class="image-item video-item">
-                        <div
-                          v-if="video.video_url"
-                          class="video-thumbnail"
-                          @click="playVideo(video)"
-                        >
-                          <video :src="getVideoUrl(video)" preload="metadata" />
-                          <div class="play-overlay">
-                            <el-icon :size="40" color="#fff">
-                              <VideoPlay />
-                            </el-icon>
-                          </div>
-                        </div>
-                        <div v-else class="image-placeholder">
-                          <el-icon :size="32">
-                            <VideoCamera />
-                          </el-icon>
-                          <p>{{ getStatusText(video.status) }}</p>
-                        </div>
-                        <!-- 视频操作按钮 -->
-                        <div class="video-actions">
-                          <div
-                            v-if="video.status === 'completed'"
-                            class="add-to-assets-button"
-                            @click.stop="addVideoToAssets(video)"
-                          >
-                            <el-icon
-                              :size="18"
-                              color="var(--text-primary)"
-                              v-if="!addingToAssets.has(video.id)"
-                            >
-                              <FolderAdd />
-                            </el-icon>
-                            <el-icon
-                              :size="18"
-                              color="var(--text-primary)"
-                              v-else
-                              class="is-loading"
-                            >
-                              <Loading />
-                            </el-icon>
-                          </div>
-                          <div v-else></div>
-                          <!-- 删除按钮 -->
-                          <div
-                            class="delete-video-button"
-                            @click.stop="handleDeleteVideo(video)"
-                          >
-                            <el-icon :size="18" color="red">
-                              <DeleteFilled />
-                            </el-icon>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                </el-option>
+              </el-select>
+            </div>
+            <div class="field-group" v-if="selectedVideoModel && availableReferenceModes.length > 0">
+              <div class="field-label">参考图模式</div>
+              <el-select v-model="selectedReferenceMode" size="small" style="width:100%">
+                <el-option v-for="mode in availableReferenceModes" :key="mode.value" :label="mode.label" :value="mode.value" />
+              </el-select>
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('professionalEditor.duration') }}</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <el-slider v-model="videoDuration" :min="4" :max="10" :step="1" show-stops style="flex:1" />
+                <span style="min-width:32px;font-size:12px;color:#606266">{{ videoDuration }}{{ $t('professionalEditor.seconds') }}</span>
               </div>
             </div>
-            <el-empty v-else description="未选择镜头" />
-          </el-tab-pane>
-
-          <!-- 音效与配乐标签 -->
-          <el-tab-pane :label="$t('video.soundAndMusicTab')" name="audio">
-            <div class="tab-content">
-              <el-empty :description="$t('video.soundMusicInDev')" />
-            </div>
-          </el-tab-pane>
-
-          <!-- 视频合成列表标签 -->
-          <el-tab-pane :label="$t('video.videoMerge')" name="merges">
-            <div class="tab-content">
-              <div class="merges-list" v-loading="loadingMerges">
+            <!-- 参考图选择 -->
+            <div class="field-group" v-if="selectedReferenceMode && selectedReferenceMode !== 'none'">
+              <div class="field-label">选择参考图</div>
+              <el-radio-group v-model="selectedVideoFrameType" size="small">
+                <el-radio-button value="first">首帧</el-radio-button>
+                <el-radio-button value="last">尾帧</el-radio-button>
+                <el-radio-button value="action">动作序列</el-radio-button>
+                <el-radio-button value="key">关键帧</el-radio-button>
+              </el-radio-group>
+              <div class="ref-image-grid">
+                <div
+                  v-for="img in videoReferenceImages.filter(i => i.status === 'completed' && i.image_url && i.frame_type === selectedVideoFrameType)"
+                  :key="img.id"
+                  class="ref-image-item"
+                  :class="{ selected: selectedImagesForVideo.includes(img.id) }"
+                  @click="handleImageSelect(img.id)"
+                >
+                  <el-image :src="getImageUrl(img)" fit="cover" style="width:100%;height:100%;pointer-events:none" />
+                  <div class="ref-selected-mark" v-if="selectedImagesForVideo.includes(img.id)">✓</div>
+                </div>
                 <el-empty
-                  v-if="videoMerges.length === 0"
-                  :description="$t('video.noMergeRecords')"
-                  :image-size="120"
-                >
-                  <template #description>
-                    <div
-                      style="color: #909399; font-size: 14px; margin-top: 12px"
-                    >
-                      <p style="margin: 0">{{ $t("video.noMergeYet") }}</p>
-                      <p style="margin: 8px 0 0 0; font-size: 12px">
-                        {{ $t("video.mergeInstructions") }}
-                      </p>
-                    </div>
-                  </template>
-                </el-empty>
-                <div v-else class="merge-items">
-                  <div
-                    v-for="merge in videoMerges"
-                    :key="merge.id"
-                    class="merge-item"
-                    :class="'merge-status-' + merge.status"
-                  >
-                    <!-- 状态指示条 -->
-                    <div class="status-indicator"></div>
-
-                    <!-- 主要内容区域 -->
-                    <div class="merge-content">
-                      <!-- 标题和状态 -->
-                      <div class="merge-header">
-                        <div class="title-section">
-                          <el-icon :size="20" class="title-icon">
-                            <VideoCamera v-if="merge.status === 'completed'" />
-                            <Loading
-                              v-else-if="merge.status === 'processing'"
-                              class="rotating"
-                            />
-                            <WarningFilled
-                              v-else-if="merge.status === 'failed'"
-                            />
-                            <Clock v-else />
-                          </el-icon>
-                          <h3 class="merge-title">{{ merge.title }}</h3>
-                        </div>
-                        <el-tag
-                          :type="
-                            merge.status === 'completed'
-                              ? 'success'
-                              : merge.status === 'failed'
-                                ? 'danger'
-                                : 'warning'
-                          "
-                          effect="dark"
-                          size="large"
-                          round
-                        >
-                          {{
-                            merge.status === "pending"
-                              ? "等待中"
-                              : merge.status === "processing"
-                                ? "合成中"
-                                : merge.status === "completed"
-                                  ? "已完成"
-                                  : "失败"
-                          }}
-                        </el-tag>
-                      </div>
-
-                      <!-- 详细信息网格 -->
-                      <div class="merge-details">
-                        <div class="detail-item">
-                          <div class="detail-icon">
-                            <el-icon :size="16">
-                              <Timer />
-                            </el-icon>
-                          </div>
-                          <div class="detail-content">
-                            <div class="detail-label">
-                              {{ $t("professionalEditor.videoDuration") }}
-                            </div>
-                            <div class="detail-value">
-                              {{
-                                merge.duration
-                                  ? `${merge.duration}
-                              ${$t("professionalEditor.seconds")}`
-                                  : "-"
-                              }}
-                            </div>
-                          </div>
-                        </div>
-                        <div class="detail-item">
-                          <div class="detail-icon">
-                            <el-icon :size="16">
-                              <Calendar />
-                            </el-icon>
-                          </div>
-                          <div class="detail-content">
-                            <div class="detail-label">创建时间</div>
-                            <div class="detail-value">
-                              {{ formatDateTime(merge.created_at) }}
-                            </div>
-                          </div>
-                        </div>
-                        <div class="detail-item" v-if="merge.completed_at">
-                          <div class="detail-icon">
-                            <el-icon :size="16">
-                              <Check />
-                            </el-icon>
-                          </div>
-                          <div class="detail-content">
-                            <div class="detail-label">完成时间</div>
-                            <div class="detail-value">
-                              {{ formatDateTime(merge.completed_at) }}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- 错误提示 -->
-                      <div
-                        class="merge-error"
-                        v-if="merge.status === 'failed' && merge.error_msg"
-                      >
-                        <el-alert type="error" :closable="false" show-icon>
-                          <template #title>
-                            <div style="font-size: 13px; line-height: 1.5">
-                              {{ merge.error_msg }}
-                            </div>
-                          </template>
-                        </el-alert>
-                      </div>
-
-                      <!-- 操作按钮 -->
-                      <div class="merge-actions">
-                        <template
-                          v-if="
-                            merge.status === 'completed' && merge.merged_url
-                          "
-                        >
-                          <el-button
-                            type="primary"
-                            :icon="VideoCamera"
-                            @click="
-                              downloadVideo(merge.merged_url, merge.title)
-                            "
-                            round
-                          >
-                            下载视频
-                          </el-button>
-                          <el-button
-                            :icon="View"
-                            @click="previewMergedVideo(merge.merged_url)"
-                            round
-                          >
-                            在线预览
-                          </el-button>
-                        </template>
-                        <el-button
-                          type="danger"
-                          :icon="Delete"
-                          @click="deleteMerge(merge.id)"
-                          round
-                        >
-                          删除
-                        </el-button>
-                      </div>
-                    </div>
+                  v-if="!videoReferenceImages.some(i => i.status==='completed' && i.image_url && i.frame_type===selectedVideoFrameType)"
+                  description="暂无图片" :image-size="40"
+                />
+              </div>
+              <!-- 首尾帧模式预览框 -->
+              <div v-if="selectedReferenceMode === 'first_last'" class="frame-slots-row">
+                <div class="frame-slot">
+                  <div class="frame-slot-label">首帧</div>
+                  <div class="image-slot-mini" @click="firstFrameSlotImage && removeSelectedImage(firstFrameSlotImage.id)">
+                    <img v-if="firstFrameSlotImage" :src="firstFrameSlotImage.image_url" />
+                    <el-icon v-else><Plus /></el-icon>
+                  </div>
+                </div>
+                <span style="color:#c0c4cc;font-size:18px">→</span>
+                <div class="frame-slot">
+                  <div class="frame-slot-label">尾帧</div>
+                  <div class="image-slot-mini" @click="lastFrameSlotImage && removeSelectedImage(lastFrameSlotImage.id)">
+                    <img v-if="lastFrameSlotImage" :src="lastFrameSlotImage.image_url" />
+                    <el-icon v-else><Plus /></el-icon>
                   </div>
                 </div>
               </div>
             </div>
-          </el-tab-pane>
-        </el-tabs>
+            <!-- 生成按钮 -->
+            <div class="gen-controls-v2">
+              <el-button
+                type="primary" :icon="VideoCamera" :loading="generatingVideo"
+                :disabled="!selectedVideoModel || (selectedReferenceMode !== 'none' && selectedImagesForVideo.length === 0)"
+                @click="generateVideo"
+              >{{ generatingVideo ? '生成中...' : '生成视频' }}</el-button>
+            </div>
+            <!-- 视频结果 -->
+            <div class="result-grid" v-if="generatedVideos.length > 0" style="margin-top:8px">
+              <div v-for="video in generatedVideos" :key="video.id" class="result-item video-result-item">
+                <div v-if="video.video_url" class="video-thumb-v2" @click="playVideo(video)">
+                  <video :src="getVideoUrl(video)" preload="metadata" />
+                  <div class="play-overlay-v2"><el-icon :size="28" color="#fff"><VideoPlay /></el-icon></div>
+                </div>
+                <div v-else class="result-placeholder">
+                  <el-icon :size="20"><VideoCamera /></el-icon>
+                  <p>{{ getStatusText(video.status) }}</p>
+                </div>
+                <div class="result-actions" v-if="video.video_url">
+                  <div class="result-action-btn" @click.stop="addVideoToAssets(video)">
+                    <el-icon :size="13" color="white"><FolderAdd /></el-icon>
+                  </div>
+                  <div class="result-action-btn" @click.stop="handleDeleteVideo(video)">
+                    <el-icon :size="13" color="#f56c6c"><DeleteFilled /></el-icon>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Accordion: 视频合成 ── -->
+        <div class="accordion-section" :class="{ expanded: isSectionExpanded('merge') }">
+          <div class="accordion-header" @click="toggleSection('merge')">
+            <span class="accordion-title">视频合成</span>
+            <span class="accordion-arrow">{{ isSectionExpanded('merge') ? '▲' : '▼' }}</span>
+          </div>
+          <div class="accordion-body" v-show="isSectionExpanded('merge')">
+            <div v-loading="loadingMerges">
+              <el-empty v-if="videoMerges.length === 0" description="暂无合成记录" :image-size="60" />
+              <div v-else class="merge-list-v2">
+                <div v-for="merge in videoMerges" :key="merge.id" class="merge-item-v2" :class="'merge-' + merge.status">
+                  <div class="merge-item-header">
+                    <span class="merge-item-title">{{ merge.title }}</span>
+                    <el-tag
+                      :type="merge.status === 'completed' ? 'success' : merge.status === 'failed' ? 'danger' : 'warning'"
+                      size="small"
+                    >{{ merge.status === 'pending' ? '等待中' : merge.status === 'processing' ? '合成中' : merge.status === 'completed' ? '已完成' : '失败' }}</el-tag>
+                  </div>
+                  <div class="merge-item-actions">
+                    <el-button v-if="merge.status === 'completed' && merge.merged_url" type="primary" size="small" @click="downloadVideo(merge.merged_url, merge.title)">下载</el-button>
+                    <el-button v-if="merge.status === 'completed' && merge.merged_url" size="small" @click="previewMergedVideo(merge.merged_url)">预览</el-button>
+                    <el-button type="danger" size="small" @click="deleteMerge(merge.id)">删除</el-button>
+                  </div>
+                  <div v-if="merge.status === 'failed' && merge.error_msg" class="merge-error-v2">{{ merge.error_msg }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
+      <!-- 右侧：未选中分镜时的空状态 -->
+      <div class="edit-panel-v2 edit-panel-empty" v-else>
+        <el-empty description="请从左侧选择分镜" />
+      </div>
+
     </div>
 
-    <!-- 角色选择器对话框 -->
-    <el-dialog
-      v-model="showCharacterImagePreview"
-      :title="previewCharacter?.name"
-      width="600px"
-    >
-      <div class="character-image-preview" v-if="previewCharacter">
-        <img
-          v-if="previewCharacter.local_path"
-          :src="getImageUrl(previewCharacter)"
-          :alt="previewCharacter.name"
-        />
+    <!-- ===== 所有对话框（保持原始实现） ===== -->
+
+    <!-- 角色图片预览 -->
+    <el-dialog v-model="showCharacterImagePreview" :title="previewCharacter?.name" width="600px">
+      <div class="character-image-preview-v2" v-if="previewCharacter">
+        <img v-if="previewCharacter.local_path" :src="getImageUrl(previewCharacter)" :alt="previewCharacter.name" />
         <el-empty v-else description="暂无图片" />
       </div>
-      <!-- ... -->
     </el-dialog>
 
-    <!-- 场景大图预览对话框 -->
+    <!-- 场景大图预览 -->
     <el-dialog
       v-model="showSceneImagePreview"
-      :title="
-        currentStoryboard?.background
-          ? `${currentStoryboard.background.location} · ${currentStoryboard.background.time}`
-          : '场景预览'
-      "
+      :title="currentStoryboard?.background ? `${currentStoryboard.background.location} · ${currentStoryboard.background.time}` : '场景预览'"
       width="800px"
     >
-      <div
-        class="scene-image-preview"
-        v-if="currentStoryboard?.background?.image_url"
-      >
+      <div class="scene-image-preview-v2" v-if="currentStoryboard?.background?.image_url">
         <img :src="currentStoryboard.background.image_url" alt="场景" />
       </div>
     </el-dialog>
 
     <!-- 角色选择对话框 -->
-    <el-dialog
-      v-model="showCharacterSelector"
-      title="添加角色到镜头"
-      width="800px"
-    >
+    <el-dialog v-model="showCharacterSelector" title="添加角色到镜头" width="800px">
       <div class="character-selector-grid">
         <div
           v-for="char in availableCharacters"
@@ -1811,21 +514,15 @@
           @click="toggleCharacterInShot(char.id)"
         >
           <div class="character-avatar-large">
-            <img
-              v-if="char.local_path"
-              :src="getImageUrl(char)"
-              :alt="char.name"
-            />
-            <span v-else>{{ char.name?.[0] || "?" }}</span>
+            <img v-if="char.local_path" :src="getImageUrl(char)" :alt="char.name" />
+            <span v-else>{{ char.name?.[0] || '?' }}</span>
           </div>
           <div class="character-info">
             <div class="character-name">{{ char.name }}</div>
-            <div class="character-role">{{ char.role || "角色" }}</div>
+            <div class="character-role">{{ char.role || '角色' }}</div>
           </div>
           <div class="character-check" v-if="isCharacterInCurrentShot(char.id)">
-            <el-icon color="#409eff" :size="24">
-              <Check />
-            </el-icon>
+            <el-icon color="#409eff" :size="24"><Check /></el-icon>
           </div>
         </div>
         <div v-if="availableCharacters.length === 0" class="empty-characters">
@@ -1838,11 +535,7 @@
     </el-dialog>
 
     <!-- 道具选择对话框 -->
-    <el-dialog
-      v-model="showPropSelector"
-      :title="$t('editor.addPropToShot')"
-      width="800px"
-    >
+    <el-dialog v-model="showPropSelector" :title="$t('editor.addPropToShot')" width="800px">
       <div class="character-selector-grid">
         <div
           v-for="prop in availableProps"
@@ -1852,25 +545,15 @@
           @click="togglePropInShot(prop.id)"
         >
           <div class="character-avatar-large">
-            <img
-              v-if="prop.local_path"
-              :src="getImageUrl(prop)"
-              :alt="prop.name"
-            />
-            <el-icon v-else :size="32">
-              <Box />
-            </el-icon>
+            <img v-if="prop.local_path" :src="getImageUrl(prop)" :alt="prop.name" />
+            <el-icon v-else :size="32"><Box /></el-icon>
           </div>
           <div class="character-info">
             <div class="character-name">{{ prop.name }}</div>
-            <div class="character-role">
-              {{ prop.type || $t("editor.props") }}
-            </div>
+            <div class="character-role">{{ prop.type || $t('editor.props') }}</div>
           </div>
           <div class="character-check" v-if="isPropInCurrentShot(prop.id)">
-            <el-icon color="#409eff" :size="24">
-              <Check />
-            </el-icon>
+            <el-icon color="#409eff" :size="24"><Check /></el-icon>
           </div>
         </div>
         <div v-if="availableProps.length === 0" class="empty-characters">
@@ -1878,9 +561,7 @@
         </div>
       </div>
       <template #footer>
-        <el-button @click="showPropSelector = false">{{
-          $t("common.close")
-        }}</el-button>
+        <el-button @click="showPropSelector = false">{{ $t('common.close') }}</el-button>
       </template>
     </el-dialog>
 
@@ -1895,14 +576,8 @@
           @click="selectScene(scene.id)"
         >
           <div class="scene-image">
-            <img
-              v-if="hasImage(scene)"
-              :src="getImageUrl(scene)"
-              :alt="scene.location"
-            />
-            <el-icon v-else :size="48" color="#ccc">
-              <Picture />
-            </el-icon>
+            <img v-if="hasImage(scene)" :src="getImageUrl(scene)" :alt="scene.location" />
+            <el-icon v-else :size="48" color="#ccc"><Picture /></el-icon>
           </div>
           <div class="scene-info">
             <div class="scene-location">{{ scene.location }}</div>
@@ -1916,77 +591,31 @@
     </el-dialog>
 
     <!-- 视频预览对话框 -->
-    <el-dialog
-      v-model="showVideoPreview"
-      title="视频预览"
-      width="800px"
-      :close-on-click-modal="true"
-      destroy-on-close
-    >
+    <el-dialog v-model="showVideoPreview" title="视频预览" width="800px" destroy-on-close>
       <div class="video-preview-container" v-if="previewVideo">
         <video
           v-if="previewVideo.video_url"
           :src="getVideoUrl(previewVideo)"
-          controls
-          autoplay
-          style="
-            width: 100%;
-            max-height: 70vh;
-            display: block;
-            background: #000;
-            border-radius: 8px;
-          "
+          controls autoplay
+          style="width:100%;max-height:70vh;display:block;background:#000;border-radius:8px"
         />
-        <div v-else style="text-align: center; padding: 40px">
-          <el-icon :size="48" color="#ccc">
-            <VideoCamera />
-          </el-icon>
-          <p style="margin-top: 16px; color: #909399">视频生成中...</p>
+        <div v-else style="text-align:center;padding:40px">
+          <el-icon :size="48" color="#ccc"><VideoCamera /></el-icon>
+          <p style="margin-top:16px;color:#909399">视频生成中...</p>
         </div>
-        <div class="video-meta">
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <div>
-              <el-tag :type="getStatusType(previewVideo.status)" size="small">{{
-                getStatusText(previewVideo.status)
-              }}</el-tag>
-              <span
-                v-if="previewVideo.duration"
-                style="margin-left: 12px; color: #606266; font-size: 14px"
-                >{{ $t("professionalEditor.duration") }}:
-                {{ previewVideo.duration
-                }}{{ $t("professionalEditor.seconds") }}</span
-              >
-            </div>
-            <el-button
-              v-if="previewVideo.video_url"
-              size="small"
-              @click="openInNewTab(previewVideo.video_url)"
-            >
-              {{ $t("professionalEditor.downloadVideo") }}
-            </el-button>
-          </div>
-          <div
-            v-if="previewVideo.prompt"
-            style="
-              margin-top: 12px;
-              font-size: 12px;
-              color: #606266;
-              line-height: 1.6;
-            "
-          >
-            <strong>提示词：</strong>{{ previewVideo.prompt }}
-          </div>
+        <div class="video-meta" style="margin-top:12px">
+          <el-tag :type="getStatusType(previewVideo.status)" size="small">{{ getStatusText(previewVideo.status) }}</el-tag>
+          <span v-if="previewVideo.duration" style="margin-left:12px;color:#606266;font-size:14px">
+            {{ $t('professionalEditor.duration') }}: {{ previewVideo.duration }}{{ $t('professionalEditor.seconds') }}
+          </span>
         </div>
       </div>
     </el-dialog>
 
-    <!-- 宫格图片编辑器组件 -->
+    <!-- 大图预览 -->
+    <el-image-viewer v-if="previewImageUrl" :url-list="[previewImageUrl]" @close="previewImageUrl = ''" teleported />
+
+    <!-- 宫格图片编辑器 -->
     <GridImageEditor
       v-model="showGridEditor"
       :storyboard-id="Number(currentStoryboard?.id) || 0"
@@ -2001,8 +630,10 @@
       :image-url="cropImageUrl"
       @save="handleCropSave"
     />
+
   </div>
 </template>
+
 
 <script setup lang="ts">
 import {
@@ -4165,2219 +2796,513 @@ onBeforeUnmount(() => {
   stopVideoPolling();
   stopMergePolling();
 });
+
+// ===== 新增: Accordion 展开状态 =====
+const expandedSections = ref<string[]>(['shot-settings', 'image-gen'])
+
+const toggleSection = (key: string) => {
+  const idx = expandedSections.value.indexOf(key)
+  if (idx === -1) {
+    expandedSections.value.push(key)
+  } else {
+    expandedSections.value.splice(idx, 1)
+  }
+}
+
+const isSectionExpanded = (key: string) => expandedSections.value.includes(key)
+
+// ===== 新增: 当前分镜预览图/视频URL =====
+const currentPreviewUrl = computed((): string | null => {
+  if (!currentStoryboard.value) return null
+  // 次选: 已生成的首帧图片
+  const firstFrameImg = generatedImages.value.find((i: any) => i.frame_type === 'first' && i.image_url)
+  if (firstFrameImg?.image_url) return firstFrameImg.image_url
+  // 末选: 背景场景图
+  if ((currentStoryboard.value as any).background?.image_url) {
+    return (currentStoryboard.value as any).background.image_url
+  }
+  return null
+})
+
+const currentPreviewVideo = computed((): string | null => {
+  const latestVideo = generatedVideos.value.find((v: any) => v.video_url)
+  return latestVideo?.video_url || null
+})
+
+
 </script>
 
 <style scoped lang="scss">
-// 镜头列表项样式
-.storyboard-item {
-  padding: 8px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
-  border: 1px solid var(--border-primary);
-  margin-bottom: 8px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  background: var(--bg-card);
+/* ===== Professional Editor V2 ===== */
 
-  &:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--border-secondary);
-  }
-
-  &.active {
-    background: var(--accent);
-    border-color: var(--accent);
-
-    .shot-number,
-    .shot-title {
-      color: var(--text-inverse) !important;
-    }
-
-    .shot-duration {
-      background: rgba(255, 255, 255, 0.2);
-      color: var(--text-inverse);
-    }
-  }
-
-  .shot-thumbnail {
-    width: 80px;
-    height: 50px;
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-  }
-
-  .shot-content {
-    flex: 1;
-    min-width: 0;
-
-    .shot-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-
-      .shot-number {
-        font-size: 11px;
-        color: var(--text-secondary);
-        font-weight: 500;
-      }
-
-      .shot-duration {
-        font-size: 11px;
-        color: var(--text-secondary);
-        background: var(--bg-secondary);
-        padding: 2px 6px;
-        border-radius: 3px;
-      }
-    }
-
-    .shot-title {
-      font-size: 13px;
-      color: var(--text-primary);
-      font-weight: 500;
-      line-height: 1.3;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-}
-
-// 视频合成列表样式
-.merges-list {
-  padding: 16px;
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-  background: var(--bg-secondary);
-
-  .merge-items {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .merge-item {
-    position: relative;
-    background: var(--bg-card);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid var(--border-primary);
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-      border-color: var(--accent);
-    }
-
-    .status-indicator {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      transition: all 0.3s;
-    }
-
-    &.merge-status-completed .status-indicator {
-      background: linear-gradient(to bottom, #67c23a, #85ce61);
-    }
-
-    &.merge-status-processing .status-indicator {
-      background: linear-gradient(to bottom, #e6a23c, #f0c78a);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    &.merge-status-failed .status-indicator {
-      background: linear-gradient(to bottom, #f56c6c, #f89898);
-    }
-
-    &.merge-status-pending .status-indicator {
-      background: linear-gradient(to bottom, #909399, #b1b3b8);
-    }
-
-    .merge-content {
-      padding: 20px 24px;
-      padding-left: 28px;
-    }
-
-    .merge-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border-primary);
-
-      .title-section {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex: 1;
-
-        .title-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 38px;
-          height: 38px;
-          border-radius: 10px;
-          background: var(--bg-secondary);
-          color: var(--text-secondary);
-          transition: all 0.3s;
-        }
-
-        .merge-title {
-          margin: 0;
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--text-secondary);
-          line-height: 1.4;
-        }
-      }
-
-      :deep(.el-tag) {
-        font-weight: 500;
-        padding: 4px 12px;
-        font-size: 12px;
-      }
-    }
-
-    &.merge-status-completed .title-icon {
-      background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
-      color: #fff;
-    }
-
-    &.merge-status-processing .title-icon {
-      background: linear-gradient(135deg, #e6a23c 0%, #f0c78a 100%);
-      color: #fff;
-    }
-
-    &.merge-status-failed .title-icon {
-      background: linear-gradient(135deg, #f56c6c 0%, #f89898 100%);
-      color: #fff;
-    }
-
-    .merge-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-
-      .detail-item {
-        display: flex;
-        gap: 10px;
-        padding: 12px 14px;
-        background: var(--bg-secondary);
-        border-radius: 8px;
-        border: 1px solid var(--border-primary);
-        transition: all 0.3s;
-
-        &:hover {
-          border-color: var(--accent);
-          transform: translateY(-1px);
-        }
-
-        .detail-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 6px;
-          background: var(--bg-card);
-          color: var(--accent);
-          flex-shrink: 0;
-        }
-
-        .detail-content {
-          flex: 1;
-          min-width: 0;
-
-          .detail-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-bottom: 3px;
-            font-weight: 500;
-          }
-
-          .detail-value {
-            font-size: 13px;
-            color: var(--text-primary);
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-        }
-      }
-    }
-
-    .merge-error {
-      margin-bottom: 12px;
-
-      :deep(.el-alert) {
-        border-radius: 8px;
-        border: none;
-        padding: 8px 12px;
-        font-size: 12px;
-      }
-    }
-
-    .merge-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-
-      :deep(.el-button) {
-        flex: 1;
-        max-width: 160px;
-        font-weight: 500;
-        padding: 8px 15px;
-        font-size: 13px;
-      }
-    }
-  }
-}
-
-// 旋转动画
-@keyframes rotating {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.rotating {
-  animation: rotating 2s linear infinite;
-}
-
-// 脉冲动画
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.6;
-  }
-}
-
-// 白色主题样式
-.shot-editor-new {
-  padding: 16px;
-  height: 100%;
-  overflow-y: auto;
-  // background: #fff;
-
-  .section-label {
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 8px;
-  }
-
-  // 场景预览
-  .scene-section {
-    margin-bottom: 20px;
-  }
-
-  .scene-preview {
-    width: 100%;
-    height: 80px;
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-    background: #f5f5f5;
-    border: 1px solid var(--border-primary);
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .scene-info {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 6px 8px;
-      background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-      font-size: 11px;
-      color: #fff;
-
-      .scene-id {
-        font-size: 10px;
-        color: #e0e0e0;
-        margin-top: 2px;
-      }
-    }
-  }
-
-  .scene-preview-empty {
-    width: 100%;
-    height: 80px;
-    border-radius: 6px;
-    border: 1px dashed #d0d0d0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: #fafafa;
-
-    .el-icon {
-      font-size: 32px !important;
-      color: #c0c0c0;
-    }
-
-    div {
-      font-size: 11px;
-      color: #999;
-    }
-  }
-
-  // 角色列表
-  .cast-section {
-    margin-bottom: 20px;
-  }
-
-  .cast-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
-
-    .cast-item {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      cursor: pointer;
-      transition: all 0.2s;
-
-      &:hover {
-        .cast-avatar {
-          border-color: #409eff;
-        }
-
-        .cast-remove {
-          opacity: 1;
-          visibility: visible;
-        }
-      }
-
-      &.active {
-        .cast-avatar {
-          border-color: #409eff;
-          background: #409eff;
-        }
-      }
-
-      .cast-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 2px solid #e0e0e0;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f5f5f5;
-        font-size: 14px;
-        font-weight: 500;
-        color: #666;
-        transition: all 0.2s;
-
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      }
-
-      .cast-name {
-        font-size: 10px;
-        color: #666;
-        max-width: 36px;
-        text-align: center;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .cast-remove {
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #f56c6c;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        z-index: 10;
-        opacity: 0;
-        visibility: hidden;
-        font-size: 12px;
-
-        &:hover {
-          background: #f23030;
-          transform: scale(1.1);
-        }
-      }
-    }
-
-    .cast-empty {
-      width: 100%;
-      text-align: center;
-      padding: 15px;
-      color: var(--text-muted);
-      font-size: 11px;
-    }
-  }
-
-  // 视效设置
-  .settings-section {
-    margin-bottom: 16px;
-
-    .settings-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-
-      .setting-item {
-        label {
-          display: block;
-          font-size: 11px;
-          color: var(--text-secondary);
-          margin-bottom: 6px;
-        }
-      }
-    }
-
-    .audio-controls {
-      margin-top: 8px;
-    }
-  }
-
-  // 叙事内容
-  .narrative-section {
-    margin-bottom: 14px;
-  }
-
-  .dialogue-section {
-    margin-bottom: 14px;
-  }
-}
-
-// 场景选择对话框样式
-.scene-selector-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  max-height: 500px;
-  overflow-y: auto;
-  padding: 10px;
-
-  .scene-card {
-    border: 2px solid var(--border-primary);
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-
-    &.selected {
-      border-color: var(--accent);
-      background: var(--accent-light);
-    }
-
-    .scene-image {
-      width: 100%;
-      height: 150px;
-      background: var(--bg-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-    }
-
-    .scene-info {
-      padding: 12px;
-      background: var(--bg-card);
-
-      .scene-location {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 4px;
-      }
-
-      .scene-time {
-        font-size: 12px;
-        color: var(--text-muted);
-      }
-    }
-  }
-
-  .empty-scenes {
-    grid-column: 1 / -1;
-    padding: 40px 0;
-  }
-}
-
-// 更新section-label样式以支持按钮
-.section-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-// 角色选择对话框样式
-.character-selector-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  max-height: 500px;
-  overflow-y: auto;
-  padding: 12px;
-
-  .character-card {
-    position: relative;
-    border: 2px solid var(--border-primary);
-    border-radius: 8px;
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-
-    &:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-
-    &.selected {
-      border-color: var(--accent);
-      background: var(--accent-light);
-    }
-
-    .character-avatar-large {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg-secondary);
-      font-size: 32px;
-      font-weight: 600;
-      color: var(--accent);
-
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-    }
-
-    .character-info {
-      text-align: center;
-
-      .character-name {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: 4px;
-      }
-
-      .character-role {
-        font-size: 12px;
-        color: var(--text-muted);
-      }
-    }
-
-    .character-check {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-    }
-  }
-
-  .empty-characters {
-    grid-column: 1 / -1;
-    padding: 40px 0;
-  }
-}
-
-// 角色大图预览样式
-.character-image-preview {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-
-  img {
-    max-width: 100%;
-    max-height: 500px;
-    border-radius: 8px;
-    object-fit: contain;
-  }
-}
-
-// 场景大图预览样式
-.scene-image-preview {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 450px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-
-  img {
-    max-width: 100%;
-    max-height: 600px;
-    border-radius: 8px;
-    object-fit: contain;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-}
-
-// 设置部分样式
-.settings-section {
-  margin-bottom: 20px;
-
-  .section-label {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-  }
-
-  .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-
-    .setting-item {
-      label {
-        display: block;
-        font-size: 11px;
-        color: var(--text-secondary);
-        margin-bottom: 6px;
-      }
-    }
-  }
-
-  .audio-controls {
-    :deep(.el-textarea__inner) {
-      background: var(--bg-card);
-      border-color: var(--border-primary);
-      color: var(--text-primary);
-
-      &::placeholder {
-        color: var(--text-muted);
-      }
-    }
-
-    :deep(.el-select) {
-      width: 100%;
-    }
-
-    :deep(.el-slider__runway) {
-      background: #e4e7ed;
-    }
-
-    :deep(.el-slider__bar) {
-      background: #409eff;
-    }
-
-    :deep(.el-slider__button) {
-      border-color: #409eff;
-    }
-  }
-}
-
-.professional-editor {
-  height: 100vh;
+.professional-editor-v2 {
   display: flex;
   flex-direction: column;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-
-  .editor-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 20px;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-primary);
-
-    .toolbar-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-
-      .back-btn {
-        color: var(--text-secondary);
-
-        &:hover {
-          color: var(--accent);
-        }
-      }
-
-      .episode-title {
-        font-size: 14px;
-        color: var(--text-primary);
-      }
-    }
-
-    .toolbar-right {
-      display: flex;
-      gap: 8px;
-    }
-  }
-
-  .editor-main {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-    height: calc(100vh - 60px);
-
-    .storyboard-panel {
-      width: 280px;
-      background: var(--bg-card);
-      border-right: 1px solid var(--border-primary);
-      display: flex;
-      flex-direction: column;
-
-      .panel-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 16px;
-        border-bottom: 1px solid var(--border-primary);
-
-        h3 {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 500;
-        }
-      }
-
-      .storyboard-list {
-        flex: 1;
-        overflow-y: auto;
-        padding: 8px;
-
-        .storyboard-item {
-          display: flex;
-          flex-direction: column;
-          padding: 12px;
-          margin-bottom: 8px;
-          background: var(--bg-secondary);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.2s;
-
-          &:hover {
-            background: var(--bg-card-hover);
-          }
-
-          &.active {
-            background: var(--accent-light);
-            border-left: 3px solid var(--accent);
-
-            .shot-content {
-              .shot-number,
-              .shot-title {
-                color: var(--accent) !important;
-              }
-
-              .shot-action {
-                color: var(--text-primary) !important;
-              }
-
-              .shot-duration {
-                background: var(--accent-light);
-                color: var(--accent);
-              }
-            }
-          }
-
-          .shot-content {
-            width: 100%;
-
-            .shot-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 6px;
-              gap: 8px;
-
-              .shot-title-row {
-                display: flex;
-                align-items: baseline;
-                gap: 8px;
-                flex: 1;
-                min-width: 0;
-
-                .shot-number {
-                  font-size: 12px;
-                  font-weight: 600;
-                  color: var(--text-secondary);
-                  flex-shrink: 0;
-                }
-
-                .shot-title {
-                  font-size: 13px;
-                  font-weight: 500;
-                  color: var(--text-primary);
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  white-space: nowrap;
-                }
-              }
-
-              .shot-duration {
-                font-size: 11px;
-                color: var(--text-muted);
-                background: var(--bg-card-hover);
-                padding: 2px 8px;
-                border-radius: 4px;
-                flex-shrink: 0;
-              }
-            }
-
-            .shot-action {
-              font-size: 11px;
-              color: var(--text-secondary);
-              line-height: 1.5;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              display: -webkit-box;
-              -webkit-line-clamp: 2;
-              -webkit-box-orient: vertical;
-            }
-          }
-        }
-      }
-    }
-
-    .timeline-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-secondary);
-      overflow: hidden;
-
-      .empty-timeline {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-    }
-
-    .edit-panel {
-      width: 520px;
-      background: var(--bg-card);
-      border-left: 1px solid var(--border-primary);
-      overflow: hidden;
-      flex-shrink: 0;
-
-      .edit-tabs {
-        height: 100%;
-
-        :deep(.el-tabs__header) {
-          margin: 0;
-          background: var(--bg-secondary);
-          padding: 0 16px;
-          border-bottom: 1px solid var(--border-primary);
-        }
-
-        :deep(.el-tabs__content) {
-          height: calc(100% - 55px);
-          overflow-y: auto;
-        }
-
-        .tab-content {
-          padding: 16px;
-        }
-
-        .scene-editor,
-        .shot-editor {
-          .el-form-item {
-            margin-bottom: 16px;
-          }
-        }
-      }
-    }
-  }
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-primary, #f5f7fa);
 }
 
-// 通用参数行样式
-.param-row {
-  margin-bottom: 8px;
+.back-btn { font-size: 14px; }
+.episode-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #303133);
+  margin-left: 12px;
+}
+
+/* ===== 主编辑区 ===== */
+.editor-main-v2 {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ===== 左侧 ===== */
+.storyboard-panel-v2 {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary, #f0f2f5);
+  border-right: 1px solid var(--border-color, #e4e7ed);
+  overflow: hidden;
+}
+
+.panel-header-v2 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #e4e7ed);
+  flex-shrink: 0;
 
-  &:last-child {
-    margin-bottom: 0;
+  .panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary, #303133);
   }
 }
 
-.param-label {
-  min-width: 50px;
-  font-size: 12px;
-  color: var(--text-secondary);
+.storyboard-cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storyboard-card {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  padding: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+
+  &:hover { border-color: #a0cfff; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  &.active { border-color: #409eff; background: #ecf5ff; }
+}
+
+.card-thumbnail {
+  width: 68px;
+  height: 44px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  background: #e0e0e0;
+
+  .thumbnail-img { width: 100%; height: 100%; object-fit: cover; }
+  .thumbnail-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: #e8e8e8;
+  }
+  .shot-number-badge {
+    position: absolute; bottom: 2px; left: 2px;
+    background: rgba(0,0,0,.6); color: #fff;
+    font-size: 9px; padding: 0 3px; border-radius: 2px; line-height: 15px;
+  }
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+
+  .card-title {
+    font-size: 12px; font-weight: 500;
+    color: var(--text-primary, #303133);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .card-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    .card-duration { font-size: 11px; color: #909399; }
+  }
+  .status-dot {
+    font-size: 10px; padding: 1px 4px; border-radius: 3px; font-weight: 500;
+    &.dot-image { background: #ecf5ff; color: #409eff; }
+    &.dot-empty { background: #f4f4f5; color: #c0c4cc; }
+  }
+}
+
+.card-delete-btn {
+  flex-shrink: 0; opacity: 0; transition: opacity 0.15s;
+}
+.storyboard-card:hover .card-delete-btn { opacity: 1; }
+
+/* ===== 中间 ===== */
+.center-area-v2 {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #111;
+}
+
+.preview-area-v2 {
+  flex: 0 0 52%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #2a2a2a;
+
+  .preview-media {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block;
+  }
+  .preview-placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px; color: #555;
+    p { font-size: 13px; margin: 0; }
+  }
+  .preview-info-overlay {
+    position: absolute; bottom: 8px; left: 8px;
+    display: flex; gap: 6px; align-items: center;
+    .preview-shot-num {
+      background: rgba(0,0,0,.7); color: #fff;
+      font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600;
+    }
+    .preview-shot-title { color: rgba(255,255,255,.8); font-size: 12px; }
+    .preview-shot-duration {
+      background: rgba(64,158,255,.8); color: #fff;
+      font-size: 11px; padding: 2px 6px; border-radius: 4px;
+    }
+  }
+}
+
+.timeline-area-v2 {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-primary, #f5f7fa);
+  min-height: 0;
+}
+
+.empty-timeline {
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ===== 右侧 Accordion ===== */
+.edit-panel-v2 {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid var(--border-color, #e4e7ed);
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  &.edit-panel-empty {
+    align-items: center; justify-content: center;
+  }
+}
+
+.accordion-section {
+  border-bottom: 1px solid var(--border-color, #e4e7ed);
   flex-shrink: 0;
 }
 
-// 图片生成界面样式
-.image-generation-section {
-  .frame-type-selector {
-    margin-bottom: 20px;
+.accordion-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; cursor: pointer; user-select: none;
+  background: #fafafa; transition: background 0.15s;
 
-    .section-label {
-      font-size: 13px;
-      color: var(--text-primary);
-      font-weight: 500;
-      margin-bottom: 12px;
-    }
+  &:hover { background: #ecf5ff; }
 
-    :deep(.el-radio-group) {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .panel-count-input {
-      width: 80px;
-    }
+  .accordion-title {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-primary, #303133);
   }
-
-  .prompt-section {
-    margin-bottom: 20px;
-
-    .section-label {
-      font-size: 13px;
-      color: var(--text-primary);
-      font-weight: 500;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-    }
-
-    :deep(.el-textarea__inner) {
-      font-family: "Monaco", "Menlo", "Consolas", monospace;
-      font-size: 12px;
-      line-height: 1.6;
-    }
-  }
-
-  .generation-controls {
-    margin-bottom: 20px;
-    display: flex;
-    gap: 10px;
-  }
-
-  .generation-result {
-    .section-label {
-      font-size: 13px;
-      color: var(--text-primary);
-      font-weight: 600;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      &::before {
-        content: "";
-        width: 3px;
-        height: 14px;
-        background: linear-gradient(
-          to bottom,
-          var(--accent),
-          var(--accent-hover)
-        );
-        border-radius: 2px;
-      }
-    }
-
-    .image-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 10px;
-
-      .image-item-wrapper {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .image-item {
-        position: relative;
-        border-radius: 8px;
-        overflow: hidden;
-        background: var(--bg-card);
-        border: 1px solid var(--border-primary);
-        transition: all 0.2s ease;
-        cursor: pointer;
-        box-shadow: var(--shadow-sm);
-        height: 150px;
-
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-md);
-          // border-color: var(--accent);
-
-          .image-actions {
-            transform: translateY(0);
-            opacity: 0.7;
-          }
-        }
-
-        :deep(.el-image) {
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          background: var(--bg-secondary);
-          display: block;
-          height: 100%;
-        }
-
-        .image-placeholder {
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          background: var(--bg-secondary);
-          color: var(--text-muted);
-          position: relative;
-          overflow: hidden;
-          height: 100%;
-
-          &::before {
-            content: "";
-            position: absolute;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-              45deg,
-              transparent 30%,
-              var(--border-secondary) 50%,
-              transparent 70%
-            );
-            animation: shimmer 2s infinite;
-            top: -50%;
-            left: -50%;
-          }
-
-          .el-icon {
-            position: relative;
-            z-index: 1;
-            font-size: 24px !important;
-          }
-
-          p {
-            margin: 0;
-            font-size: 11px;
-            font-weight: 500;
-            position: relative;
-            z-index: 1;
-          }
-        }
-
-        .image-actions {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background-color: var(--bg-primary);
-          opacity: 0;
-          padding: 0 8px;
-          height: 32px;
-          transform: translateY(100%);
-          transition:
-            transform 0.3s ease,
-            opacity 0.2s ease;
-
-          .crop-icon-overlay,
-          .delete-icon-overlay {
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-
-            &:hover {
-              cursor: pointer;
-              background: var(--bg-secondary);
-              transform: scale(1.1);
-            }
-          }
-        }
-      }
-
-      .image-status {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding: 2px 0;
-
-        :deep(.el-tag) {
-          font-size: 10px;
-          height: 20px;
-          padding: 0 6px;
-        }
-      }
-    }
-
-    @keyframes shimmer {
-      0% {
-        transform: translateX(-100%) translateY(-100%) rotate(45deg);
-      }
-
-      100% {
-        transform: translateX(100%) translateY(100%) rotate(45deg);
-      }
-    }
-  }
-
-  .panel-count-label {
-    margin-left: 5px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .model-tags {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .mode-description {
-    font-size: 12px;
-    color: var(--text-muted);
+  .accordion-arrow {
+    font-size: 11px; color: #c0c4cc;
+    transition: transform 0.2s;
   }
 }
 
-// 视频生成样式
-.video-generation-section {
-  .section-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-left: 8px;
-    border-left: 3px solid var(--accent);
+.accordion-body {
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* ===== 通用字段 ===== */
+.field-group {
+  display: flex; flex-direction: column; gap: 5px;
+}
+
+.field-label {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary, #606266);
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* 场景预览 */
+.scene-preview-v2 {
+  position: relative; border-radius: 5px;
+  overflow: hidden; cursor: pointer; height: 72px;
+  img { width: 100%; height: 100%; object-fit: cover; }
+  .scene-info-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.6); color: #fff;
+    font-size: 11px; padding: 3px 7px;
   }
+}
+.scene-preview-empty-v2 {
+  height: 52px; border: 1px dashed #dcdfe6; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; color: #c0c4cc; font-size: 12px;
+}
 
-  // 视频生成结果样式
-  .generation-result {
-    margin-top: 24px;
+/* Cast chip */
+.cast-row {
+  display: flex; flex-wrap: wrap; gap: 5px; min-height: 28px;
+}
+.cast-chip {
+  display: flex; align-items: center; gap: 3px;
+  background: #f4f4f5; border-radius: 16px;
+  padding: 2px 7px 2px 2px; font-size: 12px;
 
-    .section-label {
-      font-size: 13px;
-      color: #303133;
-      font-weight: 600;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      // &::before {
-      //   content: '';
-      //   width: 3px;
-      //   height: 14px;
-      //   background: linear-gradient(to bottom, #409eff, #66b1ff);
-      //   border-radius: 2px;
-      // }
-    }
-
-    .image-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 10px;
-
-      .image-item {
-        position: relative;
-        border-radius: 8px;
-        overflow: hidden;
-        background: #fff;
-        border: 1px solid #e8e8e8;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        height: 150px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-
-          .video-actions {
-            transform: translateY(0);
-            opacity: 0.7;
-          }
-        }
-
-        .image-placeholder {
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf0 100%);
-          color: #909399;
-          position: relative;
-          overflow: hidden;
-          height: 100%;
-
-          &::before {
-            content: "";
-            position: absolute;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-              45deg,
-              transparent 30%,
-              var(--border-secondary) 50%,
-              transparent 70%
-            );
-            animation: shimmer 2s infinite;
-            top: -50%;
-            left: -50%;
-          }
-
-          .el-icon {
-            position: relative;
-            z-index: 1;
-            font-size: 24px !important;
-          }
-
-          p {
-            margin: 0;
-            font-size: 11px;
-            font-weight: 500;
-            position: relative;
-            z-index: 1;
-          }
-        }
-
-        .image-info {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          padding: 6px 8px;
-          background: linear-gradient(
-            to top,
-            rgba(0, 0, 0, 0.75),
-            rgba(0, 0, 0, 0.2) 70%,
-            transparent
-          );
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 4px;
-
-          :deep(.el-tag) {
-            backdrop-filter: blur(8px);
-            font-size: 10px;
-            height: 20px;
-            padding: 0 6px;
-          }
-
-          .frame-type-tag {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 500;
-            background: rgba(255, 255, 255, 0.25);
-            color: white;
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-          }
-        }
-
-        // 视频缩略图特殊样式
-        &.video-item .video-thumbnail {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          cursor: pointer;
-
-          video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            pointer-events: none;
-          }
-
-          .play-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-
-            .el-icon {
-              filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
-            }
-          }
-
-          &:hover .play-overlay {
-            opacity: 1;
-          }
-        }
-
-        .video-actions {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background-color: var(--bg-primary);
-          opacity: 0;
-          padding: 0 8px;
-          height: 32px;
-          transform: translateY(100%);
-          transition:
-            transform 0.3s ease,
-            opacity 0.2s ease;
-
-          .add-to-assets-button,
-          .delete-video-button {
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-
-            &:hover {
-              background: var(--bg-secondary);
-              transform: scale(1.1);
-            }
-
-            .is-loading {
-              animation: rotate 1s linear infinite;
-            }
-          }
-        }
-      }
-    }
+  .cast-chip-avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    overflow: hidden; background: #ddd;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    img { width: 100%; height: 100%; object-fit: cover; }
+    span { font-size: 10px; font-weight: 600; }
   }
-
-  .reference-mode-title {
-    margin-bottom: 12px;
-    font-size: 13px;
-    color: var(--text-primary);
-    font-weight: 500;
+  .cast-chip-name { font-size: 12px; color: #303133; }
+  .cast-chip-remove {
+    font-size: 11px; color: #c0c4cc; cursor: pointer;
+    &:hover { color: #f56c6c; }
   }
+}
+.cast-empty-hint { font-size: 12px; color: #c0c4cc; line-height: 28px; }
 
-  .frame-label {
-    margin-bottom: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .slot-hint {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .image-slot {
-    position: relative;
-    width: 140px;
-    height: 90px;
-    border: 2px dashed var(--border-primary);
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    background: var(--bg-card);
-    // display: flex;
-    // align-items: center;
-    // justify-content: center;
-
-    &:hover {
-      border-color: var(--accent);
-    }
-  }
-
-  .video-params-section {
-    margin-bottom: 16px;
-    padding: 12px 16px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-primary);
-  }
-
-  .image-slots-container {
-    padding: 12px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px dashed var(--border-primary);
-  }
-
-  .image-slot {
-    position: relative;
-    width: 140px;
-    height: 90px;
-    border: 2px dashed var(--border-primary);
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.3s;
-    background: var(--bg-card);
-
-    &:hover {
-      border-color: var(--accent);
-      box-shadow: var(--shadow-md);
-    }
-
-    &.image-slot-small {
-      width: 80px;
-      height: 52px;
-    }
-  }
-
-  .image-slot-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-  }
-
-  .image-slot-remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 24px;
-    height: 24px;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      background: rgba(255, 73, 73, 0.9);
-      transform: scale(1.1);
-    }
-  }
-
-  .reference-images-section {
-    margin-top: 12px;
-
-    .frame-type-buttons {
-      margin-bottom: 12px;
-      text-align: center;
-
-      :deep(.el-radio-group) {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 0;
-      }
-
-      :deep(.el-radio-button) {
-        overflow: hidden;
-
-        &:first-child .el-radio-button__inner {
-          border-radius: 6px 0 0 6px;
-        }
-
-        &:last-child .el-radio-button__inner {
-          border-radius: 0 6px 6px 0;
-        }
-      }
-
-      :deep(.el-radio-button__inner) {
-        padding: 6px 12px;
-        font-size: 12px;
-        font-weight: 500;
-        border-color: var(--border-primary);
-        transition: all 0.2s;
-
-        &:hover {
-          // color: var(--accent);
-          border-color: var(--accent);
-        }
-      }
-
-      :deep(.el-radio-button.is-active .el-radio-button__inner) {
-        background: var(--accent);
-        border-color: var(--accent);
-        box-shadow: 0 2px 6px rgba(14, 165, 233, 0.25);
-      }
-    }
-
-    .frame-type-content {
-      padding: 4px 10px;
-      background: var(--bg-card);
-      border-radius: 8px;
-      border: 1px solid var(--border-primary);
-      min-height: 160px;
-    }
-
-    .image-scroll-container {
-      max-height: 220px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding-right: 4px;
-
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #c1c1c1;
-        border-radius: 3px;
-
-        &:hover {
-          background: #a8a8a8;
-        }
-      }
-    }
-
-    .previous-frame-section {
-      margin-bottom: 12px;
-      padding: 8px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-primary);
-      border-radius: 6px;
-
-      .hint-text {
-        color: var(--text-muted);
-        font-size: 11px;
-      }
-    }
-
-    .reference-grid {
-      display: grid !important;
-      grid-template-columns: repeat(4, 1fr) !important;
-      gap: 8px !important;
-
-      .reference-item {
-        // padding-top: 4px;
-        margin-top: 6px;
-        position: relative;
-        border-radius: 6px;
-        overflow: hidden;
-        cursor: pointer;
-        border: 2px solid transparent;
-        transition: all 0.2s ease;
-        width: 100% !important;
-        max-width: 120px !important;
-        background: var(--bg-card);
-
-        &:hover {
-          transform: translateY(-4px) scale(1.02);
-          box-shadow: var(--shadow-lg);
-          border-color: var(--accent);
-        }
-
-        &.selected {
-          border-color: var(--accent);
-          box-shadow: var(--shadow-glow);
-        }
-
-        img {
-          width: 100%;
-          max-width: 180px;
-          aspect-ratio: 16 / 9;
-          object-fit: cover;
-          display: block;
-          transition: transform 0.3s;
-        }
-
-        &:hover img {
-          transform: scale(1.05);
-        }
-
-        .reference-label {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          padding: 4px 8px;
-          background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-          color: white;
-          font-size: 10px;
-          text-align: center;
-        }
-      }
-    }
-  }
-
-  .generation-controls {
-    margin-top: 40px;
-    padding-top: 0;
-    text-align: center;
-
-    :deep(.el-button) {
-      padding: 12px 32px;
-      font-size: 14px;
-      font-weight: 500;
-      border-radius: 8px;
-      transition: all 0.3s;
-
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-      }
-    }
-  }
-
-  @keyframes shimmer {
-    0% {
-      transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-
-    100% {
-      transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
+/* 视效设置 */
+.settings-col-v2 {
+  display: flex; flex-direction: column; gap: 5px;
+  .setting-row {
+    display: flex; align-items: center; gap: 6px;
+    label { font-size: 12px; color: #606266; width: 52px; flex-shrink: 0; }
+    .el-select { flex: 1; }
   }
 }
 
-// 视频合成列表样式
-.merges-list {
-  min-height: 300px;
-
-  .merge-items {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .merge-item {
-    position: relative;
-    background: var(--bg-card);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid var(--border-primary);
-    box-shadow: var(--shadow-sm);
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-      border-color: var(--accent-light);
-    }
-
-    // 状态指示条
-    .status-indicator {
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      transition: all 0.3s ease;
-    }
-
-    &.merge-status-pending .status-indicator {
-      background: linear-gradient(to bottom, #909399, #b1b3b8);
-    }
-
-    &.merge-status-processing .status-indicator {
-      background: linear-gradient(to bottom, #e6a23c, #f0c78a);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    &.merge-status-completed .status-indicator {
-      background: linear-gradient(to bottom, #67c23a, #95d475);
-    }
-
-    &.merge-status-failed .status-indicator {
-      background: linear-gradient(to bottom, #f56c6c, #f89898);
-    }
-
-    .merge-content {
-      padding: 20px 20px 20px 24px;
-    }
-
-    .merge-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      gap: 12px;
-
-      .title-section {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex: 1;
-        min-width: 0;
-
-        .title-icon {
-          color: #409eff;
-          flex-shrink: 0;
-
-          &.rotating {
-            animation: rotate 1.5s linear infinite;
-          }
-        }
-
-        .merge-title {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--text-secondary);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-      }
-
-      :deep(.el-tag) {
-        flex-shrink: 0;
-        font-weight: 500;
-        letter-spacing: 0.3px;
-      }
-    }
-
-    .merge-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 16px;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: var(--bg-secondary);
-      border-radius: 8px;
-      border: 1px solid var(--border-primary);
-
-      .detail-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-
-        .detail-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          background: var(--bg-card);
-          border-radius: 8px;
-          color: var(--accent);
-          flex-shrink: 0;
-          box-shadow: var(--shadow-xs);
-        }
-
-        .detail-content {
-          flex: 1;
-          min-width: 0;
-
-          .detail-label {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            font-weight: 500;
-          }
-
-          .detail-value {
-            font-size: 14px;
-            color: var(--text-primary);
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-        }
-      }
-    }
-
-    .merge-error {
-      margin-bottom: 16px;
-
-      :deep(.el-alert) {
-        border-radius: 8px;
-        border-left: 4px solid #f56c6c;
-      }
-    }
-
-    .merge-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      padding-top: 16px;
-      border-top: 1px solid var(--border-primary);
-
-      :deep(.el-button) {
-        font-weight: 500;
-        transition: all 0.3s ease;
-
-        &:hover {
-          transform: translateY(-1px);
-        }
-
-        &.el-button--primary {
-          box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
-
-          &:hover {
-            box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-          }
-        }
-      }
-    }
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-
-    50% {
-      opacity: 0.6;
-    }
-  }
-
-  @keyframes rotate {
-    from {
-      transform: rotate(0deg);
-    }
-
-    to {
-      transform: rotate(360deg);
-    }
-  }
+/* 生成控制 */
+.gen-controls-v2 {
+  display: flex; gap: 7px; flex-wrap: wrap;
 }
 
-.video-meta {
-  margin-top: 16px;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
-}
-</style>
-<style>
-.video-prompt-box {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  border: 1px solid var(--border-primary);
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-secondary);
-  word-break: break-word;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-/* 动作序列图片裁剪图标样式 */
-.action-image-item {
-  position: relative;
-}
-
-/* .crop-icon-overlay {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 28px;
-  height: 28px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.3s ease;
-  z-index: 10;
-} */
-
-.action-image-item:hover .crop-icon-overlay {
-  opacity: 1;
-}
-
-.crop-icon-overlay:hover {
-  /* background: var(--accent); */
-  transform: scale(1.1);
-}
-
-/* 删除按钮样式 */
-/* .delete-icon-overlay {
-  position: absolute;
-  bottom: 4px;
-  left: 4px;
-  width: 28px;
-  height: 28px;
-  background: rgba(220, 38, 38, 0.9);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.3s ease;
-  z-index: 10;
-} */
-
-.image-item:hover .delete-icon-overlay {
-  opacity: 1;
-}
-
-.delete-icon-overlay:hover {
-  /* background: rgba(220, 38, 38, 1); */
-  transform: scale(1.1);
-}
-
-/* 宫格图片入口按钮样式 */
-.grid-entry-button {
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none !important;
-  min-height: 88px;
-}
-
-.grid-entry-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
-}
-
-.grid-entry-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  border: 2px dashed var(--border-primary);
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  transition: all 0.3s ease;
-}
-
-.grid-entry-button:hover .grid-entry-placeholder {
-  border-color: var(--accent);
-  background: var(--bg-card);
-}
-
-/* 宫格图片编辑器样式 */
-.creation-mode-selector,
-.grid-type-selector {
-  margin-bottom: 16px;
-}
-
-.grid-editor {
-  margin-bottom: 20px;
-}
-
-.grid-container {
+/* 结果网格 */
+.result-grid {
   display: grid;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-primary);
-}
-
-.grid-container.grid-4 {
   grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
 }
 
-.grid-container.grid-6 {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.grid-container.grid-9 {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.grid-cell {
+.result-item {
   position: relative;
-  aspect-ratio: 1;
-  border: 2px dashed var(--border-primary);
-  border-radius: 8px;
+  aspect-ratio: 16/9;
+  border-radius: 5px;
   overflow: hidden;
+  background: #f0f0f0;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: var(--bg-card);
+
+  .el-image { width: 100%; height: 100%; }
+
+  &.grid-entry {
+    border: 2px dashed #dcdfe6;
+    display: flex; align-items: center; justify-content: center;
+    &:hover { border-color: #409eff; }
+  }
+
+  .result-placeholder {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px; color: #909399; font-size: 11px;
+    p { margin: 0; }
+  }
+
+  .result-actions {
+    position: absolute; top: 3px; right: 3px;
+    display: flex; gap: 3px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  &:hover .result-actions { opacity: 1; }
+
+  .result-action-btn {
+    width: 22px; height: 22px;
+    background: rgba(0,0,0,.65); border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    &:hover { background: rgba(0,0,0,.85); }
+  }
 }
 
-.grid-cell:hover {
-  border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+.video-result-item {
+  .video-thumb-v2 {
+    width: 100%; height: 100%; position: relative;
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .play-overlay-v2 {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.3); opacity: 0; transition: opacity 0.15s;
+    }
+    &:hover .play-overlay-v2 { opacity: 1; }
+  }
 }
 
-.grid-cell img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* 视频生成：参考图 */
+.ref-image-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 5px; margin-top: 5px;
+  max-height: 180px; overflow-y: auto;
+}
+.ref-image-item {
+  position: relative; aspect-ratio: 16/9;
+  border-radius: 3px; overflow: hidden;
+  border: 2px solid transparent; cursor: pointer;
+  background: #f0f0f0;
+  &.selected { border-color: #409eff; }
+  .ref-selected-mark {
+    position: absolute; top: 2px; right: 2px;
+    background: #52c41a; color: #fff;
+    font-size: 9px; padding: 0 3px; border-radius: 2px;
+  }
 }
 
-.grid-cell-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
+.frame-slots-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+}
+.frame-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  .frame-slot-label { font-size: 11px; color: #909399; }
+}
+.image-slot-mini {
+  width: 60px; height: 38px;
+  border: 2px dashed #dcdfe6; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; cursor: pointer;
+  background: #fafafa;
+  img { width: 100%; height: 100%; object-fit: cover; }
 }
 
-.grid-cell-placeholder p {
-  margin-top: 8px;
-  font-size: 12px;
+.video-prompt-display {
+  font-size: 12px; color: #606266;
+  background: #fafafa; border: 1px solid #e4e7ed;
+  border-radius: 5px; padding: 7px 9px;
+  line-height: 1.6; max-height: 80px; overflow-y: auto;
 }
 
-.grid-cell-actions {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+/* 视频合成 */
+.merge-list-v2 { display: flex; flex-direction: column; gap: 7px; }
+.merge-item-v2 {
+  border: 1px solid #e4e7ed; border-radius: 5px;
+  padding: 9px; background: #fafafa;
+  &.merge-completed { border-color: #b3e19d; background: #f0f9eb; }
+  &.merge-processing { border-color: #fcd891; background: #fdf6ec; }
+  &.merge-failed { border-color: #fbc4c4; background: #fef0f0; }
+
+  .merge-item-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 7px;
+    .merge-item-title { font-size: 13px; font-weight: 500; color: #303133; }
+  }
+  .merge-item-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+  .merge-error-v2 { margin-top: 5px; font-size: 11px; color: #f56c6c; }
 }
 
-.grid-cell:hover .grid-cell-actions {
-  opacity: 1;
-}
-
-.grid-cell-actions .el-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.grid-cell-actions .el-icon:hover {
-  background: rgba(0, 0, 0, 0.8);
-  transform: scale(1.1);
-}
-
-.grid-controls {
-  display: flex;
-  gap: 12px;
-}
-
-/* 图片选择器样式 */
-.image-selector-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-  max-height: 500px;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.image-selector-item {
-  position: relative;
-  cursor: pointer;
-  border-radius: 8px;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-}
-
-.image-selector-item:hover {
-  border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
-  transform: translateY(-2px);
-}
-
-.image-selector-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  font-size: 12px;
+/* ===== 对话框复用原样式 ===== */
+.character-image-preview-v2,
+.scene-image-preview-v2 {
   text-align: center;
+  img { max-width: 100%; max-height: 500px; }
 }
 
-.grid-preview-container {
-  text-align: center;
+.character-selector-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; max-height: 420px; overflow-y: auto; padding: 4px;
 }
+.character-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 10px; border: 2px solid transparent;
+  border-radius: 8px; cursor: pointer;
+  transition: border-color 0.15s;
+  &.selected { border-color: #409eff; background: #ecf5ff; }
+  &:hover { border-color: #a0cfff; }
 
-.grid-preview-container img {
-  max-width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  .character-avatar-large {
+    width: 64px; height: 64px; border-radius: 50%;
+    overflow: hidden; background: #f0f0f0;
+    display: flex; align-items: center; justify-content: center;
+    img { width: 100%; height: 100%; object-fit: cover; }
+    span { font-size: 22px; font-weight: 600; }
+  }
+  .character-info {
+    text-align: center;
+    .character-name { font-size: 13px; font-weight: 500; }
+    .character-role { font-size: 11px; color: #909399; }
+  }
+  .character-check { margin-top: 4px; }
 }
+.empty-characters { grid-column: 1/-1; }
+
+.scene-selector-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; max-height: 420px; overflow-y: auto; padding: 4px;
+}
+.scene-card {
+  display: flex; flex-direction: column;
+  border: 2px solid transparent; border-radius: 8px;
+  overflow: hidden; cursor: pointer; transition: border-color 0.15s;
+  &.selected { border-color: #409eff; }
+  &:hover { border-color: #a0cfff; }
+
+  .scene-image {
+    height: 80px; background: #f0f0f0;
+    display: flex; align-items: center; justify-content: center;
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+  .scene-info {
+    padding: 6px 8px;
+    .scene-location { font-size: 13px; font-weight: 500; }
+    .scene-time { font-size: 11px; color: #909399; }
+  }
+}
+.empty-scenes { grid-column: 1/-1; }
+
+.video-preview-container { padding: 4px 0; }
+.video-meta { margin-top: 10px; }
+</style>
+
+<style>
+.el-image-viewer__wrapper { z-index: 9999; }
 </style>
