@@ -125,7 +125,8 @@ const getStatusText = (storyboard: Storyboard) => {
   cursor: pointer;
   border-radius: 8px;
   overflow: hidden;
-  border: 2px solid transparent;
+  border: 2px solid var(--border-primary, #e5e7eb);
+  background: var(--bg-elevated, #ffffff);
   transition: all 150ms;
 
   &:hover .regen-btn { opacity: 1; }
@@ -142,7 +143,7 @@ const getStatusText = (storyboard: Storyboard) => {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: var(--bg-secondary, #f5f7fa);
+  background: var(--bg-primary, #f5f7fa);
   overflow: hidden;
 
   img { width: 100%; height: 100%; object-fit: cover; }
@@ -208,7 +209,7 @@ const getStatusText = (storyboard: Storyboard) => {
   align-items: center;
   gap: 5px;
   padding: 5px 8px;
-  background: var(--bg-card, #fff);
+  background: var(--bg-elevated, #fff);
 }
 
 .card-num { font-size: 11px; color: var(--text-muted, #909399); flex-shrink: 0; }
