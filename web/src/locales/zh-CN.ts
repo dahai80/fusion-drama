@@ -623,6 +623,7 @@ export default {
     composition: '合成',
     // 预览区
     noPreview: '暂无预览图，请先生成图片',
+    noScriptContent: '暂无剧本内容',
     selectStoryboard: '请从左侧选择分镜',
     currentPreviewAlt: '当前分镜预览',
     // SceneEditorPanel section titles
@@ -637,6 +638,8 @@ export default {
     statusDone: '已生成',
     // GenerationTab
     imageGeneration: '图片生成',
+    videoGeneration: '视频生成结果',
+    noVideoGenerated: '暂无生成视频',
     videoGeneration: '视频生成',
     videoPrompt: '视频提示词',
     noPrompt: '暂无提示词',

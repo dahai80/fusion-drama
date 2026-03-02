@@ -224,6 +224,40 @@
           </div>
         </PanelSection>
 
+        <!-- 视频生成结果区 -->
+        <PanelSection :title="$t('professionalEditor.videoGeneration')" icon="🎬" :default-open="true">
+          <div v-if="videoGen.generatedVideos.value?.length > 0" class="video-result-list">
+            <div
+              v-for="video in videoGen.generatedVideos.value"
+              :key="video.id"
+              class="video-result-item"
+              :class="'video-' + video.status"
+            >
+              <div class="video-thumb-wrap" @click="video.video_url && videoGen.playVideo(video)">
+                <video v-if="video.video_url" :src="getVideoUrl(video)" preload="metadata" class="video-thumb-media" />
+                <div v-else class="video-thumb-placeholder">
+                  <el-icon :size="16"><VideoCamera /></el-icon>
+                </div>
+                <div class="video-thumb-overlay" v-if="video.video_url">
+                  <el-icon color="white" :size="16"><VideoPlay /></el-icon>
+                </div>
+              </div>
+              <div class="video-result-info">
+                <el-tag
+                  :type="video.status === 'completed' ? 'success' : video.status === 'failed' ? 'danger' : 'warning'"
+                  size="small"
+                >{{ imageGen.getStatusText(video.status) }}</el-tag>
+                <span class="video-duration" v-if="video.duration">{{ video.duration }}s</span>
+                <span class="video-error" v-if="video.status === 'failed' && video.error_msg">{{ video.error_msg }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="video-empty-hint">
+            <el-icon :size="20" color="#c0c4cc"><VideoCamera /></el-icon>
+            <p>{{ $t('professionalEditor.noVideoGenerated') }}</p>
+          </div>
+        </PanelSection>
+
       </div><!-- end panel-scroll -->
 
       <!-- ===== 固定底部：视频生成控制 ===== -->
@@ -486,6 +520,88 @@ const copyPrompt = () => {
     color: var(--text-muted, #909399);
     white-space: nowrap;
   }
+}
+
+/* 视频生成结果列表 */
+.video-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.video-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 6px;
+  background: var(--bg-primary, #f9fafb);
+  border: 1px solid var(--border-primary, #e5e7eb);
+
+  &.video-completed { border-color: #b3e19d; background: rgba(21,128,61,0.06); }
+  &.video-failed { border-color: #fbc4c4; background: rgba(239,68,68,0.06); }
+  &.video-processing, &.video-pending { border-color: #fcd891; background: rgba(245,158,11,0.06); }
+}
+
+.video-thumb-wrap {
+  width: 60px;
+  height: 34px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover .video-thumb-overlay { opacity: 1; }
+}
+
+.video-thumb-media {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+
+.video-thumb-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: #555;
+}
+
+.video-thumb-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 150ms;
+}
+
+.video-result-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.video-duration {
+  font-size: 11px;
+  color: var(--text-muted, #9ca3af);
+}
+
+.video-error {
+  font-size: 10px;
+  color: #f56c6c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0;
+  color: var(--text-muted, #9ca3af);
+  p { font-size: 12px; margin: 0; }
 }
 
 /* 图片生成 */

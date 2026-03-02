@@ -719,6 +719,8 @@ export default {
     statusGenerating: 'Generating',
     statusDone: 'Generated',
     imageGeneration: 'Image Generation',
+    videoGeneration: 'Video Generation Results',
+    noVideoGenerated: 'No videos generated yet',
     videoGeneration: 'Video Generation',
     videoPrompt: 'Video Prompt',
     noPrompt: 'No prompt yet',
