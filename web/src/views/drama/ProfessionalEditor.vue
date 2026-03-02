@@ -9,6 +9,15 @@
         </el-button>
         <span class="episode-title">{{ editor.drama.value?.title }} - {{ $t('editor.episode', { number: editor.episodeNumber }) }}</span>
       </template>
+      <template #right>
+        <span class="gen-progress" v-if="editor.storyboards.value.length > 0">
+          {{ generatedCount }}/{{ editor.storyboards.value.length }} 已生成
+        </span>
+        <button class="composition-btn" @click="goToComposition">
+          合成工作台
+          <el-icon><ArrowRight /></el-icon>
+        </button>
+      </template>
     </AppHeader>
 
     <!-- ===== 主编辑区：三栏 + 底部时间线 ===== -->
@@ -173,7 +182,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { ArrowLeft, VideoCamera } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { ArrowLeft, ArrowRight, VideoCamera } from '@element-plus/icons-vue'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import GridImageEditor from '@/components/editor/GridImageEditor.vue'
 import { AppHeader, ImageCropDialog } from '@/components/common'
@@ -215,6 +225,16 @@ const videoGen = useVideoGenerationPro(
 )
 
 const merge = useVideoMerge(editor.episodeId)
+
+const router = useRouter()
+
+const generatedCount = computed(() =>
+  editor.storyboards.value.filter((s: any) => s.videos && s.videos.length > 0).length
+)
+
+const goToComposition = () => {
+  router.push(`/dramas/${editor.dramaId}/episode/${editor.episodeNumber}/composition`)
+}
 
 // 本地 UI 状态
 const activeTab = ref('properties')
@@ -347,6 +367,31 @@ onBeforeUnmount(() => {
   color: var(--text-primary, #303133);
 }
 
+
+.gen-progress {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.composition-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms;
+  white-space: nowrap;
+}
+.composition-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
 /* 弹窗预览样式 */
 .image-preview-content {
   text-align: center;
