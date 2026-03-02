@@ -708,6 +708,7 @@ export default {
     composition: 'Composition',
     noPreview: 'No preview, generate an image first',
     selectStoryboard: 'Select a storyboard from the left',
+    noScriptContent: 'No script content',
     currentPreviewAlt: 'Current storyboard preview',
     // SceneEditorPanel section titles
     sectionSceneElements: 'Scene Elements',
@@ -719,7 +720,6 @@ export default {
     statusGenerating: 'Generating',
     statusDone: 'Generated',
     imageGeneration: 'Image Generation',
-    videoGeneration: 'Video Generation Results',
     noVideoGenerated: 'No videos generated yet',
     videoGeneration: 'Video Generation',
     videoPrompt: 'Video Prompt',

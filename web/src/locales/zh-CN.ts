@@ -638,7 +638,6 @@ export default {
     statusDone: '已生成',
     // GenerationTab
     imageGeneration: '图片生成',
-    videoGeneration: '视频生成结果',
     noVideoGenerated: '暂无生成视频',
     videoGeneration: '视频生成',
     videoPrompt: '视频提示词',
