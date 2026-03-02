@@ -43,45 +43,28 @@
           :current-preview-video="currentPreviewVideo"
         />
 
-        <!-- 右栏：Tab 面板 -->
-        <div class="property-panel" v-if="editor.currentStoryboard.value">
-          <el-tabs v-model="activeTab" class="panel-tabs">
-            <el-tab-pane :label="$t('professionalEditor.properties')" name="properties">
-              <PropertiesTab
-                :current-storyboard="editor.currentStoryboard.value"
-                :current-storyboard-characters="editor.currentStoryboardCharacters.value"
-                :current-storyboard-props="editor.currentStoryboardProps.value"
-                @save-field="editor.saveStoryboardField"
-                @show-scene-selector="editor.showSceneSelector.value = true"
-                @show-character-selector="editor.showCharacterSelector.value = true"
-                @show-prop-selector="editor.showPropSelector.value = true"
-                @show-character-image="editor.showCharacterImage"
-                @show-scene-image="editor.showSceneImage"
-                @toggle-character="editor.toggleCharacterInShot"
-                @toggle-prop="editor.togglePropInShot"
-              />
-            </el-tab-pane>
-            <el-tab-pane :label="$t('professionalEditor.generation')" name="generation">
-              <GenerationTab
-                :current-storyboard="editor.currentStoryboard.value"
-                :image-gen="imageGen"
-                :video-gen="videoGen"
-                @generate-image="handleGenerateImage"
-              />
-            </el-tab-pane>
-            <el-tab-pane :label="$t('professionalEditor.composition')" name="composition">
-              <CompositionTab
-                :video-merges="merge.videoMerges.value"
-                :loading-merges="merge.loadingMerges.value"
-                @download="merge.downloadVideo"
-                @preview="merge.previewMergedVideo"
-                @delete="merge.deleteMerge"
-              />
-            </el-tab-pane>
-          </el-tabs>
-        </div>
-        <div class="property-panel property-panel-empty" v-else>
-          <el-empty :description="$t('professionalEditor.selectStoryboard')" />
+        <!-- 右栏：场景编辑面板 -->
+        <div class="property-panel">
+          <SceneEditorPanel
+            :current-storyboard="editor.currentStoryboard.value"
+            :current-storyboard-characters="editor.currentStoryboardCharacters.value"
+            :current-storyboard-props="editor.currentStoryboardProps.value"
+            :storyboard-index="currentStoryboardIndex"
+            :total-storyboards="editor.storyboards.value.length"
+            :image-gen="imageGen"
+            :video-gen="videoGen"
+            @prev-scene="selectPrevStoryboard"
+            @next-scene="selectNextStoryboard"
+            @save-field="editor.saveStoryboardField"
+            @show-scene-selector="editor.showSceneSelector.value = true"
+            @show-character-selector="editor.showCharacterSelector.value = true"
+            @show-prop-selector="editor.showPropSelector.value = true"
+            @show-character-image="editor.showCharacterImage"
+            @show-scene-image="editor.showSceneImage"
+            @toggle-character="editor.toggleCharacterInShot"
+            @toggle-prop="editor.togglePropInShot"
+            @generate-image="handleGenerateImage"
+          />
         </div>
       </div>
 
@@ -181,9 +164,7 @@ import { getImageUrl, getVideoUrl } from '@/utils/image'
 // 子组件
 import StoryboardList from './professional/StoryboardList.vue'
 import PreviewPane from './professional/PreviewPane.vue'
-import PropertiesTab from './professional/PropertiesTab.vue'
-import GenerationTab from './professional/GenerationTab.vue'
-import CompositionTab from './professional/CompositionTab.vue'
+import SceneEditorPanel from './professional/SceneEditorPanel.vue'
 import SceneSelector from './professional/dialogs/SceneSelector.vue'
 import CharacterSelector from './professional/dialogs/CharacterSelector.vue'
 import PropSelector from './professional/dialogs/PropSelector.vue'
@@ -225,8 +206,28 @@ const goToComposition = () => {
   router.push(`/dramas/${editor.dramaId}/episode/${editor.episodeNumber}/composition`)
 }
 
-// 本地 UI 状态
-const activeTab = ref('properties')
+
+// 当前分镜索引
+const currentStoryboardIndex = computed(() => {
+  if (!editor.currentStoryboardId.value) return 0
+  return editor.storyboards.value.findIndex(
+    (s: any) => String(s.id) === String(editor.currentStoryboardId.value)
+  )
+})
+
+const selectPrevStoryboard = () => {
+  const idx = currentStoryboardIndex.value
+  if (idx > 0) {
+    editor.selectStoryboard(String(editor.storyboards.value[idx - 1].id))
+  }
+}
+
+const selectNextStoryboard = () => {
+  const idx = currentStoryboardIndex.value
+  if (idx < editor.storyboards.value.length - 1) {
+    editor.selectStoryboard(String(editor.storyboards.value[idx + 1].id))
+  }
+}
 
 // 预览 computed
 const currentPreviewUrl = computed((): string | null => {
@@ -257,7 +258,6 @@ const handleTimelineSelect = (sceneId: number) => {
 
 const handleMergeCompleted = async (mergeId: number) => {
   await merge.handleMergeCompleted()
-  activeTab.value = 'composition'
 }
 
 const handleRegenerateFromList = async (storyboard: any) => {
@@ -308,33 +308,11 @@ onBeforeUnmount(() => {
 .property-panel {
   width: 380px;
   min-width: 320px;
-  border-left: 1px solid var(--el-border-color-lighter);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  &.property-panel-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
 }
 
-.panel-tabs {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-
-  :deep(.el-tabs__header) {
-    margin: 0;
-    padding: 0 12px;
-    flex-shrink: 0;
-  }
-  :deep(.el-tabs__content) {
-    flex: 1;
-    overflow-y: auto;
-  }
-}
 
 
 /* 顶栏 */
