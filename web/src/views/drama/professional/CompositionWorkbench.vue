@@ -70,6 +70,7 @@ import { useVideoMerge } from '@/composables/useVideoMerge'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
 import CompositionTab from './CompositionTab.vue'
 import type { Drama, Episode } from '@/types/drama'
+import type { Asset } from '@/types/asset'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,7 +85,8 @@ const loading = ref(false)
 const drama = ref<Drama | null>(null)
 const episode = ref<Episode | null>(null)
 const scenes = ref<any[]>([])
-const videoAssets = ref<any[]>([])
+const videoAssets = ref<Asset[]>([])
+// episodeId 初始为 0（falsy），useVideoMerge 内部以 !episodeId.value 作为空值守卫
 const episodeId = ref<string | number>(0)
 
 // 合成操作
@@ -135,8 +137,9 @@ const loadData = async () => {
     episode.value = ep
     episodeId.value = ep.id
 
+    // getStoryboards 直接返回 Storyboard[]（见 api/drama.ts 类型声明）
     const storyboardsRes = await dramaAPI.getStoryboards(ep.id.toString())
-    scenes.value = (storyboardsRes as any)?.storyboards || []
+    scenes.value = storyboardsRes || []
 
     await Promise.all([loadVideoMerges(), loadVideoAssets()])
   } catch (error: any) {
