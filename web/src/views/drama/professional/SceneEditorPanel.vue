@@ -26,8 +26,8 @@
       <!-- ===== 可滚动区域 ===== -->
       <div class="panel-scroll">
 
-        <!-- Section 1: 场景要素 -->
-        <PanelSection :title="$t('professionalEditor.sectionSceneElements')" icon="🎬" :default-open="true">
+        <!-- ===== 图片生成 ===== -->
+        <PanelSection :title="$t('professionalEditor.imageGeneration')" icon="🖼️" :default-open="true">
           <!-- 场景 -->
           <div class="field-group">
             <div class="field-label">
@@ -81,10 +81,63 @@
               <div v-if="!currentStoryboardProps?.length" class="cast-empty-hint">{{ $t('editor.noProps') }}</div>
             </div>
           </div>
+          <!-- 分割线 -->
+          <div class="section-divider" />
+          <!-- 帧类型 -->
+          <div class="field-group">
+            <div class="field-label">{{ $t('editor.selectFrameType') }}</div>
+            <el-radio-group v-model="imageGen.selectedFrameType.value" size="small">
+              <el-radio-button value="first">{{ $t('editor.firstFrame') }}</el-radio-button>
+              <el-radio-button value="last">{{ $t('editor.lastFrame') }}</el-radio-button>
+              <el-radio-button value="action">{{ $t('editor.actionSequence') }}</el-radio-button>
+              <el-radio-button value="key">{{ $t('editor.keyFrame') }}</el-radio-button>
+            </el-radio-group>
+          </div>
+          <!-- 提示词 -->
+          <div class="field-group">
+            <div class="field-label">
+              {{ $t('editor.prompt') }}
+              <el-button
+                size="small" type="primary"
+                :disabled="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
+                :loading="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
+                @click="imageGen.extractFramePrompt()"
+                style="margin-left: 8px"
+              >{{ $t('editor.extractPrompt') }}</el-button>
+            </div>
+            <el-input v-model="imageGen.currentFramePrompt.value" type="textarea" :rows="4" :placeholder="$t('editor.promptPlaceholder')" />
+          </div>
+          <div class="gen-controls-row">
+            <el-button
+              type="success" :icon="MagicStick" :loading="imageGen.generatingImage.value"
+              :disabled="!imageGen.currentFramePrompt.value"
+              @click="$emit('generate-image')"
+            >{{ imageGen.generatingImage.value ? $t('editor.generating') : $t('editor.generateImage') }}</el-button>
+            <el-button :icon="Upload" @click="imageGen.uploadImage()">{{ $t('editor.uploadImage') }}</el-button>
+          </div>
+          <div v-if="imageGen.generatedImages.value.length > 0" class="field-group" style="margin-top:6px">
+            <div class="field-label">{{ $t('editor.generationResult') }} ({{ imageGen.generatedImages.value.length }})</div>
+            <div class="result-grid">
+              <div v-for="img in imageGen.generatedImages.value" :key="img.id" class="result-item">
+                <el-image
+                  v-if="hasImage(img)"
+                  :src="getImageUrl(img)"
+                  fit="cover"
+                  :preview-src-list="imageGen.generatedImages.value.filter((i: any) => hasImage(i)).map((i: any) => getImageUrl(i))"
+                  preview-teleported
+                />
+                <div v-else class="result-placeholder">
+                  <el-icon :size="16"><Picture /></el-icon>
+                  <p>{{ imageGen.getStatusText(img.status) }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </PanelSection>
 
-        <!-- Section 2: 镜头设置 -->
-        <PanelSection :title="$t('professionalEditor.sectionShotSettings')" icon="🎥" :default-open="true">
+        <!-- ===== 视频生成 ===== -->
+        <PanelSection :title="$t('professionalEditor.videoGeneration')" icon="🎬" :default-open="true">
+          <!-- 镜头设置 -->
           <div class="shot-row">
             <div class="shot-item">
               <label>{{ $t('editor.shotType') }}</label>
@@ -134,11 +187,8 @@
               </el-select>
             </div>
           </div>
-        </PanelSection>
-
-        <!-- Section 3: 内容描述 -->
-        <PanelSection :title="$t('professionalEditor.sectionContent')" icon="📝" :default-open="true">
-          <div class="field-group">
+          <!-- 内容描述 -->
+          <div class="field-group" style="margin-top:8px">
             <div class="field-label">{{ $t('editor.action') }}</div>
             <el-input v-model="currentStoryboard.action" type="textarea" :rows="3" :placeholder="$t('editor.actionPlaceholder')" @blur="$emit('save-field', 'action')" />
           </div>
@@ -154,78 +204,27 @@
             <div class="field-label">{{ $t('editor.description') }}</div>
             <el-input v-model="currentStoryboard.description" type="textarea" :rows="3" :placeholder="$t('editor.descriptionPlaceholder')" @blur="$emit('save-field', 'description')" />
           </div>
-        </PanelSection>
-
-        <!-- Section 4: 音频氛围（默认折叠） -->
-        <PanelSection :title="$t('professionalEditor.sectionAudio')" icon="🔊" :default-open="false">
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.soundEffects') }}</div>
-            <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="$emit('save-field', 'sound_effect')" />
-          </div>
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.bgmPrompt') }}</div>
-            <el-input v-model="currentStoryboard.bgm_prompt" type="textarea" :rows="2" :placeholder="$t('editor.bgmPromptPlaceholder')" @blur="$emit('save-field', 'bgm_prompt')" />
-          </div>
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.atmosphere') }}</div>
-            <el-input v-model="currentStoryboard.atmosphere" type="textarea" :rows="2" :placeholder="$t('editor.atmospherePlaceholder')" @blur="$emit('save-field', 'atmosphere')" />
-          </div>
-        </PanelSection>
-
-        <!-- 图片生成区（移植自 GenerationTab 的图片部分） -->
-        <PanelSection :title="$t('professionalEditor.imageGeneration')" icon="🖼️" :default-open="false">
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.selectFrameType') }}</div>
-            <el-radio-group v-model="imageGen.selectedFrameType.value" size="small">
-              <el-radio-button value="first">{{ $t('editor.firstFrame') }}</el-radio-button>
-              <el-radio-button value="last">{{ $t('editor.lastFrame') }}</el-radio-button>
-              <el-radio-button value="action">{{ $t('editor.actionSequence') }}</el-radio-button>
-              <el-radio-button value="key">{{ $t('editor.keyFrame') }}</el-radio-button>
-            </el-radio-group>
-          </div>
-          <div class="field-group">
-            <div class="field-label">
-              {{ $t('editor.prompt') }}
-              <el-button
-                size="small" type="primary"
-                :disabled="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
-                :loading="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
-                @click="imageGen.extractFramePrompt()"
-                style="margin-left: 8px"
-              >{{ $t('editor.extractPrompt') }}</el-button>
+          <!-- 音频氛围 toggle -->
+          <button class="audio-toggle-btn" type="button" @click="showAudio = !showAudio">
+            🔊 {{ $t('professionalEditor.audioAtmosphere') }}
+            <el-icon :class="{ 'audio-arrow-open': showAudio }"><ArrowDown /></el-icon>
+          </button>
+          <div v-show="showAudio" class="audio-fields">
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.soundEffects') }}</div>
+              <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="$emit('save-field', 'sound_effect')" />
             </div>
-            <el-input v-model="imageGen.currentFramePrompt.value" type="textarea" :rows="4" :placeholder="$t('editor.promptPlaceholder')" />
-          </div>
-          <div class="gen-controls-row">
-            <el-button
-              type="success" :icon="MagicStick" :loading="imageGen.generatingImage.value"
-              :disabled="!imageGen.currentFramePrompt.value"
-              @click="$emit('generate-image')"
-            >{{ imageGen.generatingImage.value ? $t('editor.generating') : $t('editor.generateImage') }}</el-button>
-            <el-button :icon="Upload" @click="imageGen.uploadImage()">{{ $t('editor.uploadImage') }}</el-button>
-          </div>
-          <div v-if="imageGen.generatedImages.value.length > 0" class="field-group" style="margin-top:6px">
-            <div class="field-label">{{ $t('editor.generationResult') }} ({{ imageGen.generatedImages.value.length }})</div>
-            <div class="result-grid">
-              <div v-for="img in imageGen.generatedImages.value" :key="img.id" class="result-item">
-                <el-image
-                  v-if="hasImage(img)"
-                  :src="getImageUrl(img)"
-                  fit="cover"
-                  :preview-src-list="imageGen.generatedImages.value.filter((i: any) => hasImage(i)).map((i: any) => getImageUrl(i))"
-                  preview-teleported
-                />
-                <div v-else class="result-placeholder">
-                  <el-icon :size="16"><Picture /></el-icon>
-                  <p>{{ imageGen.getStatusText(img.status) }}</p>
-                </div>
-              </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.bgmPrompt') }}</div>
+              <el-input v-model="currentStoryboard.bgm_prompt" type="textarea" :rows="2" :placeholder="$t('editor.bgmPromptPlaceholder')" @blur="$emit('save-field', 'bgm_prompt')" />
+            </div>
+            <div class="field-group">
+              <div class="field-label">{{ $t('editor.atmosphere') }}</div>
+              <el-input v-model="currentStoryboard.atmosphere" type="textarea" :rows="2" :placeholder="$t('editor.atmospherePlaceholder')" @blur="$emit('save-field', 'atmosphere')" />
             </div>
           </div>
-        </PanelSection>
-
-        <!-- 视频生成区（控制 + 结果列表） -->
-        <PanelSection :title="$t('professionalEditor.videoGeneration')" icon="🎬" :default-open="true">
+          <!-- 分割线 -->
+          <div class="section-divider" />
           <!-- 视频提示词预览 -->
           <div class="prompt-preview" v-if="currentStoryboard.video_prompt">
             <span class="prompt-text">{{ currentStoryboard.video_prompt }}</span>
@@ -498,6 +497,44 @@ const copyPrompt = () => {
     color: var(--text-muted, #909399);
     white-space: nowrap;
   }
+}
+
+/* 两个 section 之间的视觉分割线 */
+.section-divider {
+  height: 1px;
+  background: var(--border-primary, #e4e7ed);
+  margin: 10px 0;
+}
+
+/* 音频氛围折叠 toggle 按钮 */
+.audio-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #606266);
+  text-align: left;
+  margin: 4px 0;
+
+  .el-icon {
+    margin-left: auto;
+    transition: transform 150ms;
+  }
+  &:hover { color: var(--accent, #e8a243); }
+}
+
+.audio-arrow-open {
+  transform: rotate(180deg);
+}
+
+.audio-fields {
+  padding-top: 4px;
 }
 
 /* 视频生成结果列表 */
