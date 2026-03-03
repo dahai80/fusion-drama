@@ -627,10 +627,7 @@ export default {
     selectStoryboard: '请从左侧选择分镜',
     currentPreviewAlt: '当前分镜预览',
     // SceneEditorPanel section titles
-    sectionSceneElements: '场景要素',
-    sectionShotSettings: '镜头设置',
-    sectionContent: '内容描述',
-    sectionAudio: '音频氛围',
+    audioAtmosphere: '音频氛围',
     // StoryboardList
     imageStatus: '图',
     statusNone: '未生成',

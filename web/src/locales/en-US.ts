@@ -711,10 +711,7 @@ export default {
     noScriptContent: 'No script content',
     currentPreviewAlt: 'Current storyboard preview',
     // SceneEditorPanel section titles
-    sectionSceneElements: 'Scene Elements',
-    sectionShotSettings: 'Shot Settings',
-    sectionContent: 'Content',
-    sectionAudio: 'Audio & Atmosphere',
+    audioAtmosphere: 'Audio & Atmosphere',
     imageStatus: 'Img',
     statusNone: 'Not Generated',
     statusGenerating: 'Generating',

@@ -304,11 +304,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, ArrowRight, Plus, Picture, Close, Box, Edit,
+  ArrowLeft, ArrowRight, ArrowDown, Plus, Picture, Close, Box, Edit,
   CopyDocument, VideoCamera, Loading, MagicStick, Upload, VideoPlay
 } from '@element-plus/icons-vue'
 import PanelSection from './PanelSection.vue'
@@ -340,6 +340,8 @@ const emit = defineEmits<{
   'generate-image': []
   'go-to-composition': []
 }>()
+
+const showAudio = ref(false)
 
 const isFirst = computed(() => props.storyboardIndex <= 0)
 const isLast = computed(() => props.storyboardIndex >= props.totalStoryboards - 1)
