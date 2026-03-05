@@ -8,31 +8,26 @@
       <div
         v-for="shot in storyboards"
         :key="shot.id"
-        class="storyboard-card"
+        class="film-card"
         :class="{ active: currentStoryboardId === shot.id }"
         @click="$emit('select', shot.id)"
+        :title="shot.title || $t('storyboard.untitled')"
       >
-        <!-- 缩略图区域 16:9 大图 -->
-        <div class="card-thumb">
+        <!-- 缩略图 -->
+        <div class="film-thumb">
           <img v-if="getStoryboardThumbnail(shot)" :src="getStoryboardThumbnail(shot) ?? undefined" alt="" />
-          <div v-else class="thumb-placeholder">
-            <el-icon :size="20"><Picture /></el-icon>
-          </div>
-          <!-- 生成状态指示器 -->
-          <div class="gen-status">
-            <span class="status-dot" :class="getStatusClass(shot)"></span>
-            <span class="status-label">{{ getStatusText(shot) }}</span>
+          <div v-else class="film-thumb-placeholder">
+            <span class="film-num-big">#{{ shot.storyboard_number || shot.id }}</span>
           </div>
           <!-- hover 重新生成按钮 -->
-          <button class="regen-btn" @click.stop="$emit('regenerate', shot)" title="重新生成">
+          <button class="film-regen-btn" @click.stop="$emit('regenerate', shot)" title="重新生成">
             <el-icon><Refresh /></el-icon>
           </button>
         </div>
-        <!-- 底部信息条 -->
-        <div class="card-info">
-          <span class="card-num">#{{ shot.storyboard_number || shot.id }}</span>
-          <span class="card-name">{{ shot.title || $t('storyboard.untitled') }}</span>
-          <span class="card-duration" v-if="shot.duration">{{ shot.duration }}s</span>
+        <!-- 右侧元信息 -->
+        <div class="film-meta">
+          <span class="film-seq">#{{ shot.storyboard_number || shot.id }}</span>
+          <span class="film-dot" :class="getStatusClass(shot)"></span>
         </div>
       </div>
     </div>
@@ -85,113 +80,110 @@ const getStatusText = (storyboard: Storyboard) => {
 </script>
 
 <style scoped lang="scss">
+/* 面板容器 */
 .storyboard-panel-v2 {
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary, #f0f2f5);
-  border-right: 1px solid var(--border-color, #e4e7ed);
+  background: var(--glass-bg-canvas);
+  border-right: 1px solid var(--glass-stroke-base);
   overflow: hidden;
-  width: 220px;
+  width: 120px;
   flex-shrink: 0;
 }
 
+/* 顶部 header */
 .panel-header-v2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border-color, #e4e7ed);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--glass-stroke-base);
   flex-shrink: 0;
+  gap: 4px;
 
   .panel-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary, #303133);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--glass-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
   }
 }
 
+/* 滚动列表 */
 .storyboard-cards {
   flex: 1;
   overflow-y: auto;
-  padding: 6px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-thumb { background: var(--glass-stroke-base); border-radius: 2px; }
 }
 
-// 卡片
-.storyboard-card {
-  position: relative;
+/* 胶片卡片 */
+.film-card {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
   cursor: pointer;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid var(--border-primary, #e5e7eb);
-  background: var(--bg-elevated, #ffffff);
+  transition: all 120ms;
   flex-shrink: 0;
-  transition: all 150ms;
+  height: 52px;
+  position: relative;
 
-  &:hover .regen-btn { opacity: 1; }
-  &:hover { border-color: #a0cfff; }
+  &:hover {
+    background: var(--glass-ghost-hover-bg);
+    border-color: var(--glass-stroke-base);
+    border-left-color: var(--glass-stroke-base);
+    .film-regen-btn { opacity: 1; }
+  }
 
   &.active {
-    border-color: var(--accent, #e8a243);
-    border-left-width: 4px;
+    background: var(--glass-tone-warning-bg);
+    border-left-color: var(--accent, #e8a243);
+    border-color: var(--glass-stroke-base);
   }
 }
 
-// 缩略图
-.card-thumb {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: var(--bg-primary, #f5f7fa);
+/* 缩略图 */
+.film-thumb {
+  width: 62px;
+  height: 38px;
+  border-radius: 4px;
   overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+  position: relative;
 
-  img { width: 100%; height: 100%; object-fit: cover; }
+  img { width: 100%; height: 100%; object-fit: cover; display: block; }
 }
 
-.thumb-placeholder {
+.film-thumb-placeholder {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted, #c0c4cc);
+  background: var(--glass-tone-neutral-bg);
 }
 
-// 生成状态标签
-.gen-status {
-  position: absolute;
-  bottom: 4px; left: 4px;
-  display: flex; align-items: center; gap: 3px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(0,0,0,0.55);
+.film-num-big {
   font-size: 10px;
-  color: #fff;
-  pointer-events: none;
+  font-weight: 700;
+  color: var(--glass-text-tertiary);
 }
 
-.status-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-
-  &.status-none { background: #6b7280; }
-  &.status-generating {
-    background: var(--accent, #e8a243);
-    animation: pulse-dot 1s ease-in-out infinite;
-  }
-  &.status-done { background: #22c55e; }
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.7); }
-}
-
-// hover 重新生成按钮
-.regen-btn {
+/* hover 重新生成按钮 */
+.film-regen-btn {
   position: absolute;
-  top: 4px; right: 4px;
-  width: 24px; height: 24px;
+  inset: 0;
+  width: 100%; height: 100%;
   border: none;
   border-radius: 4px;
   background: rgba(0,0,0,0.55);
@@ -200,20 +192,43 @@ const getStatusText = (storyboard: Storyboard) => {
   display: flex; align-items: center; justify-content: center;
   opacity: 0;
   transition: opacity 150ms;
+  font-size: 12px;
 
   &:hover { background: rgba(0,0,0,0.75); }
 }
 
-// 底部信息条
-.card-info {
+/* 右侧元信息 */
+.film-meta {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 5px 8px;
-  background: var(--bg-elevated, #fff);
+  gap: 4px;
+  flex: 1;
 }
 
-.card-num { font-size: 11px; color: var(--text-muted, #909399); flex-shrink: 0; }
-.card-name { font-size: 12px; color: var(--text-primary, #303133); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.card-duration { font-size: 11px; color: var(--text-muted, #909399); flex-shrink: 0; }
+.film-seq {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--glass-text-tertiary);
+  white-space: nowrap;
+}
+
+/* 状态点 */
+.film-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.status-none { background: var(--glass-stroke-strong); }
+  &.status-generating {
+    background: var(--accent, #e8a243);
+    animation: pulse-dot 1s ease-in-out infinite;
+  }
+  &.status-done { background: var(--glass-tone-success-fg); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
 </style>
