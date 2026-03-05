@@ -10,9 +10,12 @@
         <span class="episode-title">{{ editor.drama.value?.title }} - {{ $t('editor.episode', { number: editor.episodeNumber }) }}</span>
       </template>
       <template #right>
-        <span class="gen-progress" v-if="editor.storyboards.value.length > 0">
-          {{ $t('editor.generatedProgress', { count: generatedCount, total: editor.storyboards.value.length }) }}
-        </span>
+        <div class="gen-progress" v-if="editor.storyboards.value.length > 0">
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
+          </div>
+          <span class="progress-label">{{ generatedCount }}/{{ editor.storyboards.value.length }}</span>
+        </div>
         <button class="composition-btn" @click="goToComposition">
           {{ $t('editor.compositionWorkbench') }}
           <el-icon><ArrowRight /></el-icon>
@@ -199,6 +202,12 @@ const generatedCount = computed(() =>
   editor.storyboards.value.filter((s: any) => s.videos && s.videos.length > 0).length
 )
 
+const progressPct = computed(() =>
+  editor.storyboards.value.length > 0
+    ? Math.round((generatedCount.value / editor.storyboards.value.length) * 100)
+    : 0
+)
+
 const goToComposition = () => {
   router.push(`/dramas/${editor.dramaId}/episode/${editor.episodeNumber}/composition`)
 }
@@ -293,8 +302,8 @@ onBeforeUnmount(() => {
 
 /* 右栏属性面板 */
 .property-panel {
-  width: 380px;
-  min-width: 320px;
+  width: 680px;
+  min-width: 560px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -316,28 +325,50 @@ onBeforeUnmount(() => {
 
 
 .gen-progress {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.progress-track {
+  width: 80px;
+  height: 4px;
+  background: var(--glass-stroke-base);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent, #e8a243), var(--glass-accent-to, #f0c060));
+  border-radius: 2px;
+  transition: width 400ms ease;
+}
+
+.progress-label {
+  font-size: 12px;
+  color: var(--glass-text-tertiary);
+  white-space: nowrap;
+  font-weight: 600;
+  min-width: 32px;
+}
+
 .composition-btn {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: 6px;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 13px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--glass-radius-xs);
+  background: linear-gradient(135deg, var(--accent, #e8a243) 0%, var(--glass-accent-to, #f0c060) 100%);
+  color: var(--glass-text-on-accent, #1a1614);
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 150ms;
   white-space: nowrap;
-}
-.composition-btn:hover {
-  background: var(--bg-card-hover);
-  color: var(--text-primary);
-  border-color: var(--accent);
+
+  &:hover { filter: brightness(1.08); box-shadow: 0 2px 8px var(--glass-accent-shadow-soft); }
 }
 /* 弹窗预览样式 */
 .image-preview-content {
