@@ -84,64 +84,71 @@
   --space-12: 3rem;
 }
 
-/* Dark mode theme / 深色模式主题 */
+/* Dark mode theme / 深色模式主题 — 琥珀暖夜 */
 .dark {
-  --bg-primary: #111827;
-  --bg-secondary: #1f2937;
-  --bg-card: #1f2937;
-  --bg-card-hover: #374151;
-  --bg-elevated: #374151;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-primary: #121214;
+  --bg-secondary: #1c1c20;
+  --bg-card: #1c1c20;
+  --bg-card-hover: #26262b;
+  --bg-elevated: #2a2a2f;
+  --bg-overlay: rgba(0, 0, 0, 0.72);
 
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  --text-inverse: #111827;
+  --text-primary: #f0ece4;
+  --text-secondary: #a8a299;
+  --text-muted: #6e695f;
+  --text-inverse: #121214;
 
-  --border-primary: #374151;
-  --border-secondary: #4b5563;
-  --border-focus: #60a5fa;
+  --border-primary: #2a2a2f;
+  --border-secondary: #3a3a40;
+  --border-focus: #e8a243;
 
-  --accent: #60a5fa;
-  --accent-hover: #3b82f6;
-  --accent-light: rgba(59, 130, 246, 0.15);
-  --accent-dark: #2563eb;
+  --accent: #e8a243;
+  --accent-hover: #d4922e;
+  --accent-light: rgba(232, 162, 67, 0.14);
+  --accent-dark: #c07a20;
 
-  --success: #34d399;
-  --success-light: rgba(52, 211, 153, 0.12);
+  --success: #5ee6b0;
+  --success-light: rgba(52, 211, 153, 0.14);
   --warning: #fbbf24;
-  --warning-light: rgba(251, 191, 36, 0.12);
-  --error: #f87171;
-  --error-light: rgba(248, 113, 113, 0.12);
-  --info: #60a5fa;
-  --info-light: rgba(96, 165, 250, 0.12);
+  --warning-light: rgba(251, 191, 36, 0.14);
+  --error: #fb8a8a;
+  --error-light: rgba(248, 113, 113, 0.14);
+  --info: #7db8fc;
+  --info-light: rgba(96, 165, 250, 0.14);
 
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.6), 0 2px 4px -2px rgb(0 0 0 / 0.5);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.6);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.8), 0 8px 10px -6px rgb(0 0 0 / 0.7);
-  --shadow-glow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-  --shadow-card: 0 2px 4px 0 rgb(0 0 0 / 0.3);
-  --shadow-card-hover: 0 8px 20px -4px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(96, 165, 250, 0.15);
+  --shadow-glow: 0 0 0 3px rgba(232, 162, 67, 0.2);
+  --shadow-card: 0 2px 4px 0 rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 8px 20px -4px rgb(0 0 0 / 0.5), 0 0 0 1px rgba(232, 162, 67, 0.12);
 
-  /* Element Plus dark overrides */
-  --el-bg-color-page: #111827;
-  --el-bg-color: #1f2937;
-  --el-bg-color-overlay: #1f2937;
-  --el-fill-color: #374151;
-  --el-fill-color-light: #374151;
-  --el-fill-color-lighter: #1f2937;
-  --el-fill-color-extra-light: #1f2937;
-  --el-fill-color-dark: #4b5563;
-  --el-fill-color-darker: #6b7280;
-  --el-fill-color-blank: #1f2937;
-  --el-border-color: #4b5563;
-  --el-border-color-light: #374151;
-  --el-border-color-lighter: #4b5563;
-  --el-text-color-primary: #f9fafb;
-  --el-text-color-regular: #f9fafb;
-  --el-descriptions-table-border: #4b5563;
+  /* Element Plus dark overrides — 琥珀暖夜 */
+  --el-bg-color-page: #121214;
+  --el-bg-color: #1c1c20;
+  --el-bg-color-overlay: #1c1c20;
+  --el-fill-color: #26262b;
+  --el-fill-color-light: #26262b;
+  --el-fill-color-lighter: #1c1c20;
+  --el-fill-color-extra-light: #1c1c20;
+  --el-fill-color-dark: #3a3a40;
+  --el-fill-color-darker: #6e695f;
+  --el-fill-color-blank: #1c1c20;
+  --el-border-color: #3a3a40;
+  --el-border-color-light: #2a2a2f;
+  --el-border-color-lighter: #3a3a40;
+  --el-text-color-primary: #f0ece4;
+  --el-text-color-regular: #f0ece4;
+  --el-descriptions-table-border: #3a3a40;
+  --el-color-primary: #e8a243;
+  --el-color-primary-light-3: #f0c060;
+  --el-color-primary-light-5: rgba(232, 162, 67, 0.5);
+  --el-color-primary-light-7: rgba(232, 162, 67, 0.3);
+  --el-color-primary-light-8: rgba(232, 162, 67, 0.2);
+  --el-color-primary-light-9: rgba(232, 162, 67, 0.1);
+  --el-color-primary-dark-2: #c07a20;
 }
 
 /* ========================================
@@ -261,13 +268,21 @@ body {
   color: var(--glass-text-secondary);
 }
 
+.dark .el-button--primary {
+  color: var(--glass-text-on-accent);
+}
+
+.dark .el-button--primary:hover {
+  color: var(--glass-text-on-accent);
+}
+
 .dark .el-button.is-text {
   color: var(--glass-text-tertiary);
 }
 
 .dark .el-button.is-text:hover {
   color: var(--glass-accent-from);
-  background: var(--glass-tone-info-bg);
+  background: var(--accent-light);
 }
 
 .dark .el-button.is-circle {
