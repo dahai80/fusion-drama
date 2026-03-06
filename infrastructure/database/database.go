@@ -119,7 +119,9 @@ func SeedProviders(db *gorm.DB) error {
 		{Name: "openrouter-text", DisplayName: "OpenRouter", ServiceType: "text", Provider: "openrouter", DefaultURL: "https://openrouter.ai/api/v1", Description: "OpenRouter 聚合服务", IsActive: true,
 			PresetModels: models.ModelField{"google/gemini-3.1-pro-preview", "google/gemini-3-pro-preview", "google/gemini-3-flash-preview", "anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4"}},
 		{Name: "minimax-text", DisplayName: "MiniMax 海螺", ServiceType: "text", Provider: "minimax", DefaultURL: "https://api.minimaxi.com/v1", Description: "MiniMax 大语言模型", IsActive: true,
-			PresetModels: models.ModelField{"MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2", "MiniMax-M1", "MiniMax-MCP"}},
+			PresetModels: models.ModelField{"MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-M2.1", "MiniMax-M2.1-highspeed", "MiniMax-M2"}},
+		{Name: "qwen-text", DisplayName: "阿里百炼", ServiceType: "text", Provider: "qwen", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Description: "通义千问大语言模型", IsActive: true,
+			PresetModels: models.ModelField{"qwen-max", "qwen-plus", "qwen-turbo", "qwen-long", "qwen-max-longcontext"}},
 
 		// --- 图片 ---
 		{Name: "chatfire-image", DisplayName: "Chatfire", ServiceType: "image", Provider: "chatfire", DefaultURL: "https://api.chatfire.site/v1", Description: "Chatfire 聚合服务 - 图片生成", IsActive: true,
@@ -130,9 +132,8 @@ func SeedProviders(db *gorm.DB) error {
 			PresetModels: models.ModelField{"gemini-3-pro-image-preview", "gemini-3.1-flash-image-preview", "gemini-2.5-flash-image", "imagen-4.0-generate-001", "imagen-4.0-ultra-generate-001", "imagen-4.0-fast-generate-001", "gemini-3-pro-image-preview-batch"}},
 		{Name: "openai-image", DisplayName: "OpenAI", ServiceType: "image", Provider: "openai", DefaultURL: "https://api.openai.com/v1", Description: "OpenAI DALL-E 系列", IsActive: true,
 			PresetModels: models.ModelField{"dall-e-3", "dall-e-2"}},
-		{Name: "fal-image", DisplayName: "FAL", ServiceType: "image", Provider: "fal", DefaultURL: "https://queue.fal.run", Description: "FAL 图片生成", IsActive: true,
-			PresetModels: models.ModelField{"banana", "banana-2"}},
-
+		{Name: "qwen-image", DisplayName: "阿里百炼", ServiceType: "image", Provider: "qwen", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Description: "通义万相图片生成", IsActive: true,
+			PresetModels: models.ModelField{"wanx-v1", "wanx-v1-t2i"}},
 		// --- 视频 ---
 		{Name: "chatfire-video", DisplayName: "Chatfire", ServiceType: "video", Provider: "chatfire", DefaultURL: "https://api.chatfire.site/v1", Description: "Chatfire 聚合服务 - 视频生成", IsActive: true,
 			PresetModels: models.ModelField{"doubao-seedance-1-5-pro-251215", "doubao-seedance-2-0-260128", "doubao-seedance-1-0-pro-fast-251015", "doubao-seedance-1-0-pro-250528", "doubao-seedance-1-0-lite-i2v-250428", "doubao-seedance-1-0-lite-t2v-250428", "sora-2", "sora-2-pro", "veo-3.0-generate-001", "veo-3.0-fast-generate-001"}},
@@ -144,22 +145,17 @@ func SeedProviders(db *gorm.DB) error {
 			PresetModels: models.ModelField{"MiniMax-Hailuo-2.3", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-02", "t2v-01", "t2v-01-director"}},
 		{Name: "openai-video", DisplayName: "OpenAI", ServiceType: "video", Provider: "openai", DefaultURL: "https://api.openai.com/v1", Description: "OpenAI Sora 视频生成", IsActive: true,
 			PresetModels: models.ModelField{"sora-2", "sora-2-pro"}},
+		{Name: "qwen-video", DisplayName: "阿里百炼", ServiceType: "video", Provider: "qwen", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Description: "通义视频生成", IsActive: true,
+			PresetModels: models.ModelField{"wanx-video-01"}},
 		{Name: "vidu-video", DisplayName: "生数科技 Vidu", ServiceType: "video", Provider: "vidu", DefaultURL: "https://api.vidu.com/v1", Description: "Vidu 视频生成", IsActive: true,
 			PresetModels: models.ModelField{"viduq3-pro", "viduq2-pro-fast", "viduq2-pro", "viduq2-turbo", "viduq1", "viduq1-classic", "vidu2.0"}},
-		{Name: "fal-video", DisplayName: "FAL", ServiceType: "video", Provider: "fal", DefaultURL: "https://queue.fal.run", Description: "FAL 视频生成 (Kling/Wan/Veo/Sora)", IsActive: true,
-			PresetModels: models.ModelField{"fal-wan25", "fal-veo31", "fal-sora2", "fal-ai/kling-video/v2.5-turbo/pro/image-to-video", "fal-ai/kling-video/v3/standard/image-to-video", "fal-ai/kling-video/v3/pro/image-to-video"}},
-
 		// --- 音频 ---
 		{Name: "minimax-audio", DisplayName: "MiniMax 海螺", ServiceType: "audio", Provider: "minimax", DefaultURL: "https://api.minimaxi.com/v1", Description: "MiniMax 海螺语音合成", IsActive: true,
 			PresetModels: models.ModelField{"speech-03-hd", "speech-02-hd", "speech-02-turbo"}},
-		{Name: "fal-audio", DisplayName: "FAL", ServiceType: "audio", Provider: "fal", DefaultURL: "https://queue.fal.run", Description: "FAL TTS 语音合成", IsActive: true,
-			PresetModels: models.ModelField{"fal-ai/index-tts-2/text-to-speech"}},
 		{Name: "qwen-audio", DisplayName: "阿里百炼", ServiceType: "audio", Provider: "qwen", DefaultURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Description: "阿里百炼 TTS", IsActive: true,
 			PresetModels: models.ModelField{"cosyvoice-v2"}},
 
 		// --- 口型同步 ---
-		{Name: "fal-lipsync", DisplayName: "FAL", ServiceType: "lipsync", Provider: "fal", DefaultURL: "https://queue.fal.run", Description: "FAL Kling 口型同步", IsActive: true,
-			PresetModels: models.ModelField{"fal-ai/kling-video/lipsync/audio-to-video"}},
 		{Name: "vidu-lipsync", DisplayName: "生数科技 Vidu", ServiceType: "lipsync", Provider: "vidu", DefaultURL: "https://api.vidu.com/v1", Description: "Vidu 口型同步", IsActive: true,
 			PresetModels: models.ModelField{"vidu-lipsync"}},
 	}

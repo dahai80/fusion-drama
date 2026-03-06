@@ -19,7 +19,6 @@ export const PROVIDER_GROUPS: ProviderGroup[] = [
   { key: 'minimax', name: 'MiniMax 海螺', ids: ['minimax'] },
   { key: 'vidu', name: '生数科技 Vidu', ids: ['vidu'] },
   { key: 'openrouter', name: 'OpenRouter', ids: ['openrouter'] },
-  { key: 'fal', name: 'FAL', ids: ['fal'] },
   { key: 'qwen', name: '阿里百炼', ids: ['qwen'] },
 ]
 
