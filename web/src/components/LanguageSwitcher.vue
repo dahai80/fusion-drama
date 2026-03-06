@@ -1,9 +1,9 @@
 <template>
   <el-dropdown @command="handleCommand">
-    <span class="language-switcher">
+    <button class="lang-trigger" :class="{ 'icon-only': collapsed }">
       <el-icon><Switch /></el-icon>
-      <span class="lang-text">{{ currentLangText }}</span>
-    </span>
+      <span v-if="!collapsed" class="lang-text">{{ currentLangText }}</span>
+    </button>
     <template #dropdown>
       <el-dropdown-menu>
         <el-dropdown-item command="zh-CN" :disabled="currentLang === 'zh-CN'">
@@ -19,6 +19,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+
+defineProps<{ collapsed?: boolean }>()
 import { useI18n } from 'vue-i18n'
 import { setLanguage } from '@/locales'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -108,22 +110,40 @@ After switching to Chinese, all prompts, character descriptions, scene descripti
 </script>
 
 <style scoped>
-.language-switcher {
+.lang-trigger {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 150ms;
+  white-space: nowrap;
+  font-size: 13px;
 }
 
-.language-switcher:hover {
-  background-color: var(--bg-card-hover);
+.lang-trigger.icon-only {
+  width: 36px;
+  padding: 0;
+}
+
+.lang-trigger:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--border-secondary);
+}
+
+.lang-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .lang-text {
-  font-size: 14px;
-  color: var(--text-secondary);
+  color: inherit;
 }
 </style>

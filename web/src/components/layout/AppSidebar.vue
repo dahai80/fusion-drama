@@ -16,8 +16,10 @@
 
     <!-- Bottom area -->
     <div class="sidebar-bottom">
-      <ThemeToggle />
-      <LanguageSwitcher />
+      <div class="sb-controls">
+        <ThemeToggle />
+        <LanguageSwitcher :collapsed="collapsed" />
+      </div>
       <button class="collapse-btn" @click="toggleCollapse" :title="collapsed ? $t('sidebar.expand') : $t('sidebar.collapse')">
         <el-icon :size="18">
           <DArrowRight v-if="collapsed" />
@@ -84,7 +86,7 @@ const toggleCollapse = () => {
 }
 
 .brand-text {
-  background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--glass-accent-to, #06b6d4) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -101,21 +103,38 @@ const toggleCollapse = () => {
 
 .sidebar-bottom {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   gap: 4px;
   padding: 8px;
   border-top: 1px solid var(--border-primary);
+}
+
+.app-sidebar.collapsed .sidebar-bottom {
+  flex-direction: column;
+  justify-content: center;
+}
+
+.sb-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-sidebar.collapsed .sb-controls {
+  flex-direction: column;
+  gap: 4px;
 }
 
 .collapse-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  flex-shrink: 0;
+  width: 36px;
   height: 36px;
-  border: none;
-  background: none;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
   border-radius: var(--radius-md);
@@ -125,5 +144,6 @@ const toggleCollapse = () => {
 .collapse-btn:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
+  border-color: var(--border-secondary);
 }
 </style>

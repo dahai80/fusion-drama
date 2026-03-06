@@ -1928,7 +1928,7 @@ onMounted(() => {
 }
 
 .content-container {
-  height: calc(100% - 134px);
+  height: calc(100% - 60px);
   overflow-y: auto;
 }
 
@@ -2022,14 +2022,14 @@ onMounted(() => {
 .custom-steps {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 
   .step-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 20px;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 16px;
     background: var(--glass-bg-muted);
     transition: all 0.3s;
 
@@ -2057,8 +2057,8 @@ onMounted(() => {
     }
 
     .step-circle {
-      width: 28px;
-      height: 28px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -2066,11 +2066,12 @@ onMounted(() => {
       background: var(--glass-stroke-strong);
       color: var(--glass-text-secondary);
       font-weight: 600;
+      font-size: 12px;
       transition: all 0.3s;
     }
 
     .step-text {
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 500;
       white-space: nowrap;
     }
@@ -2078,6 +2079,7 @@ onMounted(() => {
 
   .step-arrow {
     color: var(--glass-text-tertiary);
+    font-size: 12px;
   }
 }
 
