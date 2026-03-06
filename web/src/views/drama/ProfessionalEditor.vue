@@ -44,6 +44,10 @@
           :current-storyboard="editor.currentStoryboard.value"
           :current-preview-url="currentPreviewUrl"
           :current-preview-video="currentPreviewVideo"
+          :generated-images="imageGen.generatedImages.value"
+          :generated-videos="videoGen.generatedVideos.value"
+          :on-play-video="videoGen.playVideo"
+          style="width: 400px; flex-shrink: 0; flex-grow: 0;"
         />
 
         <!-- 右栏：场景编辑面板 -->
@@ -302,7 +306,7 @@ onBeforeUnmount(() => {
 
 /* 右栏属性面板 */
 .property-panel {
-  width: 680px;
+  flex: 1;
   min-width: 560px;
   display: flex;
   flex-direction: column;

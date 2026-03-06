@@ -18,285 +18,288 @@
 
     <!-- ===== 无选中分镜时的占位 ===== -->
     <div v-if="!currentStoryboard" class="panel-empty">
-      <el-icon :size="40" color="#c0c4cc"><Edit /></el-icon>
+      <el-icon :size="40"><Edit /></el-icon>
       <p>{{ $t('professionalEditor.selectStoryboard') }}</p>
     </div>
 
     <template v-else>
-      <!-- ===== 可滚动区域 ===== -->
-      <div class="panel-scroll">
+      <!-- ===== 双列区域：图片生成 | 视频生成 ===== -->
+      <div class="panel-columns">
 
-        <!-- ===== 图片生成 ===== -->
-        <PanelSection :title="$t('professionalEditor.imageGeneration')" icon="🖼️" :default-open="true">
-          <!-- 场景 -->
-          <div class="field-group">
-            <div class="field-label">
-              {{ $t('storyboard.scene') }}
-              <el-button size="small" text @click="$emit('show-scene-selector')">{{ $t('storyboard.selectScene') }}</el-button>
-            </div>
-            <div class="scene-preview-v2" v-if="hasImage(currentStoryboard.background)" @click="$emit('show-scene-image')">
-              <img :src="getImageUrl(currentStoryboard.background)" :alt="$t('storyboard.scene')" />
-              <div class="scene-info-overlay">
-                {{ currentStoryboard.background?.location }} · {{ currentStoryboard.background?.time }}
-              </div>
-            </div>
-            <div class="scene-preview-empty-v2" v-else>
-              <el-icon :size="24" color="#ccc"><Picture /></el-icon>
-              <span>{{ currentStoryboard.background ? $t('editor.sceneGenerating') : $t('editor.noBackground') }}</span>
-            </div>
-          </div>
-          <!-- 角色 -->
-          <div class="field-group">
-            <div class="field-label">
-              {{ $t('editor.cast') }}
-              <el-button size="small" text :icon="Plus" @click="$emit('show-character-selector')">{{ $t('editor.addCharacter') }}</el-button>
-            </div>
-            <div class="cast-row">
-              <div v-for="char in currentStoryboardCharacters" :key="char.id" class="cast-chip">
-                <div class="cast-chip-avatar" @click="$emit('show-character-image', char)">
-                  <img v-if="hasImage(char)" :src="getImageUrl(char)" :alt="char.name" />
-                  <span v-else>{{ char.name?.[0] || '?' }}</span>
-                </div>
-                <span class="cast-chip-name">{{ char.name }}</span>
-                <el-icon class="cast-chip-remove" @click.stop="$emit('toggle-character', char.id)"><Close /></el-icon>
-              </div>
-              <div v-if="!currentStoryboardCharacters.length" class="cast-empty-hint">{{ $t('editor.noCharacters') }}</div>
-            </div>
-          </div>
-          <!-- 道具 -->
-          <div class="field-group">
-            <div class="field-label">
-              {{ $t('editor.props') }}
-              <el-button size="small" text :icon="Plus" @click="$emit('show-prop-selector')">{{ $t('editor.addProp') }}</el-button>
-            </div>
-            <div class="cast-row">
-              <div v-for="prop in currentStoryboardProps" :key="prop.id" class="cast-chip">
-                <div class="cast-chip-avatar">
-                  <img v-if="hasImage(prop)" :src="getImageUrl(prop)" :alt="prop.name" />
-                  <el-icon v-else><Box /></el-icon>
-                </div>
-                <span class="cast-chip-name">{{ prop.name }}</span>
-                <el-icon class="cast-chip-remove" @click.stop="$emit('toggle-prop', prop.id)"><Close /></el-icon>
-              </div>
-              <div v-if="!currentStoryboardProps?.length" class="cast-empty-hint">{{ $t('editor.noProps') }}</div>
-            </div>
-          </div>
-          <!-- 分割线 -->
-          <div class="section-divider" />
-          <!-- 帧类型 -->
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.selectFrameType') }}</div>
-            <el-radio-group v-model="imageGen.selectedFrameType.value" size="small">
-              <el-radio-button value="first">{{ $t('editor.firstFrame') }}</el-radio-button>
-              <el-radio-button value="last">{{ $t('editor.lastFrame') }}</el-radio-button>
-              <el-radio-button value="action">{{ $t('editor.actionSequence') }}</el-radio-button>
-              <el-radio-button value="key">{{ $t('editor.keyFrame') }}</el-radio-button>
-            </el-radio-group>
-          </div>
-          <!-- 提示词 -->
-          <div class="field-group">
-            <div class="field-label">
-              {{ $t('editor.prompt') }}
-              <el-button
-                size="small" type="primary"
-                :disabled="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
-                :loading="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
-                @click="imageGen.extractFramePrompt()"
-                style="margin-left: 8px"
-              >{{ $t('editor.extractPrompt') }}</el-button>
-            </div>
-            <el-input v-model="imageGen.currentFramePrompt.value" type="textarea" :rows="4" :placeholder="$t('editor.promptPlaceholder')" />
-          </div>
-          <div class="gen-controls-row">
-            <el-button
-              type="success" :icon="MagicStick" :loading="imageGen.generatingImage.value"
-              :disabled="!imageGen.currentFramePrompt.value"
-              @click="$emit('generate-image')"
-            >{{ imageGen.generatingImage.value ? $t('editor.generating') : $t('editor.generateImage') }}</el-button>
-            <el-button :icon="Upload" @click="imageGen.uploadImage()">{{ $t('editor.uploadImage') }}</el-button>
-          </div>
-          <div v-if="imageGen.generatedImages.value.length > 0" class="field-group" style="margin-top:6px">
-            <div class="field-label">{{ $t('editor.generationResult') }} ({{ imageGen.generatedImages.value.length }})</div>
-            <div class="result-grid">
-              <div v-for="img in imageGen.generatedImages.value" :key="img.id" class="result-item">
-                <el-image
-                  v-if="hasImage(img)"
-                  :src="getImageUrl(img)"
-                  fit="cover"
-                  :preview-src-list="imageGen.generatedImages.value.filter((i: any) => hasImage(i)).map((i: any) => getImageUrl(i))"
-                  preview-teleported
-                />
-                <div v-else class="result-placeholder">
-                  <el-icon :size="16"><Picture /></el-icon>
-                  <p>{{ imageGen.getStatusText(img.status) }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </PanelSection>
+        <!-- ===== 左列：图片生成 ===== -->
+        <div class="column-image">
+          <div class="column-header column-header--image">{{ $t('professionalEditor.imageGeneration') }}</div>
+          <div class="column-scroll">
 
-        <!-- ===== 视频生成 ===== -->
-        <PanelSection :title="$t('professionalEditor.videoGeneration')" icon="🎬" :default-open="true">
-          <!-- 镜头设置 -->
-          <div class="shot-row">
-            <div class="shot-item">
-              <label>{{ $t('editor.shotType') }}</label>
-              <el-select v-model="currentStoryboard.shot_type" clearable size="small" @change="$emit('save-field', 'shot_type')">
-                <el-option :label="$t('professionalEditor.shot.extremeLong')" value="大远景" />
-                <el-option :label="$t('professionalEditor.shot.long')" value="远景" />
-                <el-option :label="$t('professionalEditor.shot.full')" value="全景" />
-                <el-option :label="$t('professionalEditor.shot.mediumFull')" value="中全景" />
-                <el-option :label="$t('professionalEditor.shot.medium')" value="中景" />
-                <el-option :label="$t('professionalEditor.shot.mediumClose')" value="中近景" />
-                <el-option :label="$t('professionalEditor.shot.close')" value="近景" />
-                <el-option :label="$t('professionalEditor.shot.closeUp')" value="特写" />
-                <el-option :label="$t('professionalEditor.shot.extremeCloseUp')" value="大特写" />
-              </el-select>
-            </div>
-            <div class="shot-item">
-              <label>{{ $t('editor.movement') }}</label>
-              <el-select v-model="currentStoryboard.movement" clearable size="small" @change="$emit('save-field', 'movement')">
-                <el-option :label="$t('professionalEditor.movement.fixed')" value="固定镜头" />
-                <el-option :label="$t('professionalEditor.movement.push')" value="推镜" />
-                <el-option :label="$t('professionalEditor.movement.pull')" value="拉镜" />
-                <el-option :label="$t('professionalEditor.movement.pan')" value="摇镜" />
-                <el-option :label="$t('professionalEditor.movement.dolly')" value="移镜" />
-                <el-option :label="$t('professionalEditor.movement.tracking')" value="跟镜" />
-                <el-option :label="$t('professionalEditor.movement.crane')" value="升降镜头" />
-                <el-option :label="$t('professionalEditor.movement.orbit')" value="环绕" />
-                <el-option :label="$t('professionalEditor.movement.whip')" value="甩镜" />
-                <el-option :label="$t('professionalEditor.movement.zoom')" value="变焦" />
-                <el-option :label="$t('professionalEditor.movement.handheld')" value="手持晃动" />
-                <el-option :label="$t('professionalEditor.movement.aerial')" value="航拍" />
-              </el-select>
-            </div>
-            <div class="shot-item">
-              <label>{{ $t('editor.angle') }}</label>
-              <el-select v-model="currentStoryboard.angle" clearable size="small" @change="$emit('save-field', 'angle')">
-                <el-option :label="$t('professionalEditor.angle.eye')" value="平视" />
-                <el-option :label="$t('professionalEditor.angle.high')" value="俯视" />
-                <el-option :label="$t('professionalEditor.angle.low')" value="仰视" />
-                <el-option :label="$t('professionalEditor.angle.birdEye')" value="大俯视（鸟瞰）" />
-                <el-option :label="$t('professionalEditor.angle.extremeLow')" value="大仰视" />
-                <el-option :label="$t('professionalEditor.angle.side')" value="正侧面" />
-                <el-option :label="$t('professionalEditor.angle.oblique')" value="斜侧面" />
-                <el-option :label="$t('professionalEditor.angle.back')" value="背面" />
-                <el-option :label="$t('professionalEditor.angle.dutch')" value="倾斜（荷兰角）" />
-                <el-option :label="$t('professionalEditor.angle.pov')" value="主观视角" />
-                <el-option :label="$t('professionalEditor.angle.overShoulder')" value="过肩" />
-              </el-select>
-            </div>
-          </div>
-          <!-- 内容描述 -->
-          <div class="field-group" style="margin-top:8px">
-            <div class="field-label">{{ $t('editor.action') }}</div>
-            <el-input v-model="currentStoryboard.action" type="textarea" :rows="3" :placeholder="$t('editor.actionPlaceholder')" @blur="$emit('save-field', 'action')" />
-          </div>
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.dialogue') }}</div>
-            <el-input v-model="currentStoryboard.dialogue" type="textarea" :rows="2" :placeholder="$t('editor.dialoguePlaceholder')" @blur="$emit('save-field', 'dialogue')" />
-          </div>
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.result') }}</div>
-            <el-input v-model="currentStoryboard.result" type="textarea" :rows="2" :placeholder="$t('editor.resultPlaceholder')" @blur="$emit('save-field', 'result')" />
-          </div>
-          <div class="field-group">
-            <div class="field-label">{{ $t('editor.description') }}</div>
-            <el-input v-model="currentStoryboard.description" type="textarea" :rows="3" :placeholder="$t('editor.descriptionPlaceholder')" @blur="$emit('save-field', 'description')" />
-          </div>
-          <!-- 音频氛围 toggle -->
-          <button class="audio-toggle-btn" type="button" @click="showAudio = !showAudio">
-            🔊 {{ $t('professionalEditor.audioAtmosphere') }}
-            <el-icon :class="{ 'audio-arrow-open': showAudio }"><ArrowDown /></el-icon>
-          </button>
-          <div v-show="showAudio" class="audio-fields">
-            <div class="field-group">
-              <div class="field-label">{{ $t('editor.soundEffects') }}</div>
-              <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="$emit('save-field', 'sound_effect')" />
-            </div>
-            <div class="field-group">
-              <div class="field-label">{{ $t('editor.bgmPrompt') }}</div>
-              <el-input v-model="currentStoryboard.bgm_prompt" type="textarea" :rows="2" :placeholder="$t('editor.bgmPromptPlaceholder')" @blur="$emit('save-field', 'bgm_prompt')" />
-            </div>
-            <div class="field-group">
-              <div class="field-label">{{ $t('editor.atmosphere') }}</div>
-              <el-input v-model="currentStoryboard.atmosphere" type="textarea" :rows="2" :placeholder="$t('editor.atmospherePlaceholder')" @blur="$emit('save-field', 'atmosphere')" />
-            </div>
-          </div>
-          <!-- 分割线 -->
-          <div class="section-divider" />
-          <!-- 视频提示词预览 -->
-          <div class="prompt-preview" v-if="currentStoryboard.video_prompt">
-            <span class="prompt-text">{{ currentStoryboard.video_prompt }}</span>
-            <button class="copy-btn" type="button" @click="copyPrompt" :title="$t('common.copy')">
-              <el-icon><CopyDocument /></el-icon>
-            </button>
-          </div>
-          <!-- 模型选择 -->
-          <el-select
-            v-model="videoGen.selectedVideoModel.value"
-            :placeholder="$t('video.selectVideoModel')"
-            size="small"
-            style="width:100%;margin-top:6px"
-          >
-            <el-option
-              v-for="model in videoGen.videoModelCapabilities.value"
-              :key="model.id"
-              :label="model.name"
-              :value="model.id"
-            />
-          </el-select>
-          <!-- 生成按钮 -->
-          <button
-            class="gen-btn"
-            type="button"
-            @click="videoGen.generateVideo()"
-            :disabled="!videoGen.selectedVideoModel.value || videoGen.generatingVideo.value"
-            :class="{ loading: videoGen.generatingVideo.value }"
-          >
-            <el-icon v-if="!videoGen.generatingVideo.value"><VideoCamera /></el-icon>
-            <el-icon v-else class="rotating"><Loading /></el-icon>
-            {{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}
-          </button>
-          <!-- 合成工作台入口 -->
-          <button class="composition-link-btn" type="button" @click="$emit('go-to-composition')">
-            {{ $t('editor.compositionWorkbench') }}
-            <el-icon><ArrowRight /></el-icon>
-          </button>
-          <!-- 生成结果列表 -->
-          <div v-if="videoGen.generatedVideos.value?.length > 0" class="video-result-list">
-            <div
-              v-for="video in videoGen.generatedVideos.value"
-              :key="video.id"
-              class="video-result-item"
-              :class="'video-' + video.status"
-            >
-              <div class="video-thumb-wrap" @click="video.video_url && videoGen.playVideo(video)">
-                <video v-if="video.video_url" :src="getVideoUrl(video)" preload="metadata" class="video-thumb-media" />
-                <div v-else class="video-thumb-placeholder">
-                  <el-icon :size="16"><VideoCamera /></el-icon>
+            <!-- ASSETS 素材区 -->
+            <div class="editor-section">
+              <div class="section-header">素材</div>
+              <div class="section-body">
+                <div class="field-group">
+                  <div class="field-label">
+                    {{ $t('storyboard.scene') }}
+                    <el-button size="small" text @click="$emit('show-scene-selector')">{{ $t('storyboard.selectScene') }}</el-button>
+                  </div>
+                  <div class="scene-preview-v2" v-if="hasImage(currentStoryboard.background)" @click="$emit('show-scene-image')">
+                    <img :src="getImageUrl(currentStoryboard.background)" :alt="$t('storyboard.scene')" />
+                    <div class="scene-info-overlay">
+                      {{ currentStoryboard.background?.location }} · {{ currentStoryboard.background?.time }}
+                    </div>
+                  </div>
+                  <div class="scene-preview-empty-v2" v-else>
+                    <el-icon :size="24"><Picture /></el-icon>
+                    <span>{{ currentStoryboard.background ? $t('editor.sceneGenerating') : $t('editor.noBackground') }}</span>
+                  </div>
                 </div>
-                <div class="video-thumb-overlay" v-if="video.video_url">
-                  <el-icon color="white" :size="16"><VideoPlay /></el-icon>
+                <div class="field-group">
+                  <div class="field-label">
+                    {{ $t('editor.cast') }}
+                    <el-button size="small" text :icon="Plus" @click="$emit('show-character-selector')">{{ $t('editor.addCharacter') }}</el-button>
+                  </div>
+                  <div class="cast-row">
+                    <div v-for="char in currentStoryboardCharacters" :key="char.id" class="cast-chip">
+                      <div class="cast-chip-avatar" @click="$emit('show-character-image', char)">
+                        <img v-if="hasImage(char)" :src="getImageUrl(char)" :alt="char.name" />
+                        <span v-else>{{ char.name?.[0] || '?' }}</span>
+                      </div>
+                      <span class="cast-chip-name">{{ char.name }}</span>
+                      <el-icon class="cast-chip-remove" @click.stop="$emit('toggle-character', char.id)"><Close /></el-icon>
+                    </div>
+                    <div v-if="!currentStoryboardCharacters.length" class="cast-empty-hint">{{ $t('editor.noCharacters') }}</div>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div class="field-label">
+                    {{ $t('editor.props') }}
+                    <el-button size="small" text :icon="Plus" @click="$emit('show-prop-selector')">{{ $t('editor.addProp') }}</el-button>
+                  </div>
+                  <div class="cast-row">
+                    <div v-for="prop in currentStoryboardProps" :key="prop.id" class="cast-chip">
+                      <div class="cast-chip-avatar">
+                        <img v-if="hasImage(prop)" :src="getImageUrl(prop)" :alt="prop.name" />
+                        <el-icon v-else><Box /></el-icon>
+                      </div>
+                      <span class="cast-chip-name">{{ prop.name }}</span>
+                      <el-icon class="cast-chip-remove" @click.stop="$emit('toggle-prop', prop.id)"><Close /></el-icon>
+                    </div>
+                    <div v-if="!currentStoryboardProps?.length" class="cast-empty-hint">{{ $t('editor.noProps') }}</div>
+                  </div>
                 </div>
               </div>
-              <div class="video-result-info">
-                <el-tag
-                  :type="video.status === 'completed' ? 'success' : video.status === 'failed' ? 'danger' : 'warning'"
-                  size="small"
-                >{{ imageGen.getStatusText(video.status) }}</el-tag>
-                <span class="video-duration" v-if="video.duration">{{ video.duration }}s</span>
-                <span class="video-error" v-if="video.status === 'failed' && video.error_msg">{{ video.error_msg }}</span>
-              </div>
             </div>
-          </div>
-          <div v-else class="video-empty-hint">
-            <el-icon :size="20" color="#c0c4cc"><VideoCamera /></el-icon>
-            <p>{{ $t('professionalEditor.noVideoGenerated') }}</p>
-          </div>
-        </PanelSection>
 
-      </div><!-- end panel-scroll -->
+            <!-- GENERATE 生成区（accent 色条） -->
+            <div class="editor-section section-accent">
+              <div class="section-header">生成</div>
+              <div class="section-body">
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.selectFrameType') }}</div>
+                  <div class="frame-type-tabs">
+                    <button
+                      v-for="type in frameTypes"
+                      :key="type.value"
+                      type="button"
+                      class="frame-type-tab"
+                      :class="{ 'frame-type-tab--active': imageGen.selectedFrameType.value === type.value }"
+                      @click="imageGen.selectedFrameType.value = type.value"
+                    >{{ type.label }}</button>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <div class="field-label">
+                    {{ $t('editor.prompt') }}
+                    <el-button
+                      size="small" type="primary"
+                      :disabled="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
+                      :loading="imageGen.isGeneratingPrompt(currentStoryboard?.id, imageGen.selectedFrameType.value)"
+                      @click="imageGen.extractFramePrompt()"
+                      style="margin-left: 8px"
+                    >{{ $t('editor.extractPrompt') }}</el-button>
+                  </div>
+                  <el-input v-model="imageGen.currentFramePrompt.value" type="textarea" :rows="4" :placeholder="$t('editor.promptPlaceholder')" />
+                </div>
+                <div class="gen-controls-row">
+                  <button
+                    class="gen-btn"
+                    type="button"
+                    :disabled="!imageGen.currentFramePrompt.value || imageGen.generatingImage.value"
+                    :class="{ loading: imageGen.generatingImage.value }"
+                    @click="$emit('generate-image')"
+                  >
+                    <el-icon v-if="!imageGen.generatingImage.value"><MagicStick /></el-icon>
+                    <el-icon v-else class="rotating"><Loading /></el-icon>
+                    {{ imageGen.generatingImage.value ? $t('editor.generating') : $t('editor.generateImage') }}
+                  </button>
+                  <button
+                    class="upload-btn"
+                    type="button"
+                    @click="imageGen.uploadImage()"
+                    :title="$t('editor.uploadImage')"
+                  >
+                    <el-icon><Upload /></el-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+
+        <!-- ===== 右列：视频生成 ===== -->
+        <div class="column-video">
+          <div class="column-header column-header--video">{{ $t('professionalEditor.videoGeneration') }}</div>
+          <div class="column-scroll">
+
+            <!-- CAMERA 镜头区 -->
+            <div class="editor-section">
+              <div class="section-header">镜头</div>
+              <div class="section-body">
+                <div class="shot-row">
+                  <div class="shot-item">
+                    <label>{{ $t('editor.shotType') }}</label>
+                    <el-select v-model="currentStoryboard.shot_type" clearable size="small" @change="$emit('save-field', 'shot_type')">
+                      <el-option :label="$t('professionalEditor.shot.extremeLong')" value="大远景" />
+                      <el-option :label="$t('professionalEditor.shot.long')" value="远景" />
+                      <el-option :label="$t('professionalEditor.shot.full')" value="全景" />
+                      <el-option :label="$t('professionalEditor.shot.mediumFull')" value="中全景" />
+                      <el-option :label="$t('professionalEditor.shot.medium')" value="中景" />
+                      <el-option :label="$t('professionalEditor.shot.mediumClose')" value="中近景" />
+                      <el-option :label="$t('professionalEditor.shot.close')" value="近景" />
+                      <el-option :label="$t('professionalEditor.shot.closeUp')" value="特写" />
+                      <el-option :label="$t('professionalEditor.shot.extremeCloseUp')" value="大特写" />
+                    </el-select>
+                  </div>
+                  <div class="shot-item">
+                    <label>{{ $t('editor.movement') }}</label>
+                    <el-select v-model="currentStoryboard.movement" clearable size="small" @change="$emit('save-field', 'movement')">
+                      <el-option :label="$t('professionalEditor.movement.fixed')" value="固定镜头" />
+                      <el-option :label="$t('professionalEditor.movement.push')" value="推镜" />
+                      <el-option :label="$t('professionalEditor.movement.pull')" value="拉镜" />
+                      <el-option :label="$t('professionalEditor.movement.pan')" value="摇镜" />
+                      <el-option :label="$t('professionalEditor.movement.dolly')" value="移镜" />
+                      <el-option :label="$t('professionalEditor.movement.tracking')" value="跟镜" />
+                      <el-option :label="$t('professionalEditor.movement.crane')" value="升降镜头" />
+                      <el-option :label="$t('professionalEditor.movement.orbit')" value="环绕" />
+                      <el-option :label="$t('professionalEditor.movement.whip')" value="甩镜" />
+                      <el-option :label="$t('professionalEditor.movement.zoom')" value="变焦" />
+                      <el-option :label="$t('professionalEditor.movement.handheld')" value="手持晃动" />
+                      <el-option :label="$t('professionalEditor.movement.aerial')" value="航拍" />
+                    </el-select>
+                  </div>
+                  <div class="shot-item">
+                    <label>{{ $t('editor.angle') }}</label>
+                    <el-select v-model="currentStoryboard.angle" clearable size="small" @change="$emit('save-field', 'angle')">
+                      <el-option :label="$t('professionalEditor.angle.eye')" value="平视" />
+                      <el-option :label="$t('professionalEditor.angle.high')" value="俯视" />
+                      <el-option :label="$t('professionalEditor.angle.low')" value="仰视" />
+                      <el-option :label="$t('professionalEditor.angle.birdEye')" value="大俯视（鸟瞰）" />
+                      <el-option :label="$t('professionalEditor.angle.extremeLow')" value="大仰视" />
+                      <el-option :label="$t('professionalEditor.angle.side')" value="正侧面" />
+                      <el-option :label="$t('professionalEditor.angle.oblique')" value="斜侧面" />
+                      <el-option :label="$t('professionalEditor.angle.back')" value="背面" />
+                      <el-option :label="$t('professionalEditor.angle.dutch')" value="倾斜（荷兰角）" />
+                      <el-option :label="$t('professionalEditor.angle.pov')" value="主观视角" />
+                      <el-option :label="$t('professionalEditor.angle.overShoulder')" value="过肩" />
+                    </el-select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- NARRATIVE 叙事区（accent 色条） -->
+            <div class="editor-section section-accent">
+              <div class="section-header">叙事</div>
+              <div class="section-body">
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.action') }}</div>
+                  <el-input v-model="currentStoryboard.action" type="textarea" :rows="2" :placeholder="$t('editor.actionPlaceholder')" @blur="$emit('save-field', 'action')" />
+                </div>
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.dialogue') }}</div>
+                  <el-input v-model="currentStoryboard.dialogue" type="textarea" :rows="2" :placeholder="$t('editor.dialoguePlaceholder')" @blur="$emit('save-field', 'dialogue')" />
+                </div>
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.result') }}</div>
+                  <el-input v-model="currentStoryboard.result" type="textarea" :rows="1" :placeholder="$t('editor.resultPlaceholder')" @blur="$emit('save-field', 'result')" />
+                </div>
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.description') }}</div>
+                  <el-input v-model="currentStoryboard.description" type="textarea" :rows="2" :placeholder="$t('editor.descriptionPlaceholder')" @blur="$emit('save-field', 'description')" />
+                </div>
+              </div>
+            </div>
+
+            <!-- AUDIO 音频区 -->
+            <div class="editor-section">
+              <button class="audio-toggle-btn" type="button" @click="showAudio = !showAudio">
+                🔊 {{ $t('professionalEditor.audioAtmosphere') }}
+                <el-icon :class="{ 'audio-arrow-open': showAudio }"><ArrowDown /></el-icon>
+              </button>
+              <div v-show="showAudio" class="section-body">
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.soundEffects') }}</div>
+                  <el-input v-model="currentStoryboard.sound_effect" type="textarea" :rows="2" :placeholder="$t('editor.soundEffectsPlaceholder')" @blur="$emit('save-field', 'sound_effect')" />
+                </div>
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.bgmPrompt') }}</div>
+                  <el-input v-model="currentStoryboard.bgm_prompt" type="textarea" :rows="2" :placeholder="$t('editor.bgmPromptPlaceholder')" @blur="$emit('save-field', 'bgm_prompt')" />
+                </div>
+                <div class="field-group">
+                  <div class="field-label">{{ $t('editor.atmosphere') }}</div>
+                  <el-input v-model="currentStoryboard.atmosphere" type="textarea" :rows="2" :placeholder="$t('editor.atmospherePlaceholder')" @blur="$emit('save-field', 'atmosphere')" />
+                </div>
+              </div>
+            </div>
+
+            <!-- GENERATE 生成控制区 -->
+            <div class="editor-section">
+              <div class="section-header">生成</div>
+              <div class="section-body">
+                <div class="prompt-preview" v-if="currentStoryboard.video_prompt">
+                  <span class="prompt-text">{{ currentStoryboard.video_prompt }}</span>
+                  <button class="copy-btn" type="button" @click="copyPrompt" :title="$t('common.copy')">
+                    <el-icon><CopyDocument /></el-icon>
+                  </button>
+                </div>
+                <div class="gen-action-row">
+                  <el-select
+                    v-model="videoGen.selectedVideoModel.value"
+                    :placeholder="$t('video.selectVideoModel')"
+                    size="small"
+                    style="flex:1"
+                  >
+                    <el-option
+                      v-for="model in videoGen.videoModelCapabilities.value"
+                      :key="model.id"
+                      :label="model.name"
+                      :value="model.id"
+                    />
+                  </el-select>
+                  <button
+                    class="gen-btn"
+                    type="button"
+                    @click="videoGen.generateVideo()"
+                    :disabled="!videoGen.selectedVideoModel.value || videoGen.generatingVideo.value"
+                    :class="{ loading: videoGen.generatingVideo.value }"
+                  >
+                    <el-icon v-if="!videoGen.generatingVideo.value"><VideoCamera /></el-icon>
+                    <el-icon v-else class="rotating"><Loading /></el-icon>
+                    {{ videoGen.generatingVideo.value ? $t('professionalEditor.generatingVideo') : $t('professionalEditor.generateVideo') }}
+                  </button>
+                </div>
+                <button class="composition-link-btn" type="button" @click="$emit('go-to-composition')">
+                  {{ $t('editor.compositionWorkbench') }}
+                  <el-icon><ArrowRight /></el-icon>
+                </button>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+
+      </div><!-- end panel-columns -->
 
     </template>
   </div>
@@ -308,9 +311,8 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
   ArrowLeft, ArrowRight, ArrowDown, Plus, Picture, Close, Box, Edit,
-  CopyDocument, VideoCamera, Loading, MagicStick, Upload, VideoPlay
+  CopyDocument, VideoCamera, Loading, MagicStick, Upload
 } from '@element-plus/icons-vue'
-import PanelSection from './PanelSection.vue'
 import { getImageUrl, hasImage, getVideoUrl } from '@/utils/image'
 
 const { t } = useI18n()
@@ -342,6 +344,13 @@ const emit = defineEmits<{
 
 const showAudio = ref(false)
 
+const frameTypes = computed(() => [
+  { value: 'first', label: t('editor.firstFrame') },
+  { value: 'last', label: t('editor.lastFrame') },
+  { value: 'action', label: t('editor.actionSequence') },
+  { value: 'key', label: t('editor.keyFrame') },
+])
+
 const isFirst = computed(() => props.storyboardIndex <= 0)
 const isLast = computed(() => props.storyboardIndex >= props.totalStoryboards - 1)
 
@@ -354,53 +363,60 @@ const copyPrompt = () => {
 </script>
 
 <style scoped lang="scss">
+/* ========================================
+   Shell — 面板容器
+   ======================================== */
 .scene-editor-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
   background: var(--bg-primary, #fff);
-  border-left: 1px solid var(--border-primary, #e4e7ed);
+  border-left: 1px solid var(--glass-stroke-base);
   overflow: hidden;
 }
 
-/* 分镜导航 */
+/* ========================================
+   Nav — 分镜导航
+   ======================================== */
 .panel-nav {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 7px 10px;
-  border-bottom: 1px solid var(--border-primary, #e4e7ed);
+  border-bottom: 1px solid var(--glass-stroke-base);
   flex-shrink: 0;
   background: var(--bg-card, #fff);
 }
 
 .nav-btn {
   width: 28px; height: 28px;
-  border: 1px solid var(--border-primary, #e4e7ed);
-  border-radius: 6px;
+  border: 1px solid var(--glass-stroke-base);
+  border-radius: var(--glass-radius-xs);
   background: none;
-  color: var(--text-secondary, #606266);
+  color: var(--glass-text-secondary);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: all 120ms;
 
   &:disabled { opacity: 0.35; cursor: not-allowed; }
-  &:not(:disabled):hover { background: var(--bg-card-hover, #f5f7fa); border-color: var(--accent, #e8a243); }
+  &:not(:disabled):hover { background: var(--glass-ghost-hover-bg); border-color: var(--accent, #e8a243); }
 }
 
 .scene-title {
   flex: 1;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary, #303133);
+  color: var(--glass-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
 }
 
-/* 空状态 */
+/* ========================================
+   Empty State — 空状态
+   ======================================== */
 .panel-empty {
   flex: 1;
   display: flex;
@@ -408,42 +424,185 @@ const copyPrompt = () => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: var(--text-muted, #c0c4cc);
+  color: var(--glass-text-tertiary);
   font-size: 13px;
 }
 
-/* 可滚动区域 */
-.panel-scroll {
+/* ========================================
+   Columns — 双列布局
+   ======================================== */
+.panel-columns {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.column-image {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.column-video {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  border-left: 1px solid var(--glass-stroke-base);
+}
+
+.column-header {
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--glass-text-primary);
+  border-bottom: 1px solid var(--glass-stroke-base);
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}
+
+.column-header--image {
+  border-left: 3px solid var(--accent, #e8a243);
+  background: rgba(232, 162, 67, 0.06);
+}
+
+.column-header--video {
+  border-left: 3px solid #4a9eff;
+  background: rgba(74, 158, 255, 0.06);
+}
+
+.column-scroll {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 4px 12px 12px;
 
   &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: var(--border-primary, #e4e7ed); border-radius: 2px; }
+  &::-webkit-scrollbar-thumb { background: var(--glass-stroke-base); border-radius: 2px; }
 }
 
-/* 字段组 */
+/* ========================================
+   Section — Figma 风格分区系统
+   ======================================== */
+.editor-section {
+  padding: 4px 0 6px;
+
+  & + .editor-section {
+    border-top: 1px solid var(--glass-stroke-base);
+  }
+}
+
+/* Section header — UPPERCASE 工具面板标题 */
+.section-header {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  color: var(--glass-text-tertiary);
+  padding: 6px 0 5px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--glass-stroke-base);
+  }
+}
+
+/* Section body — 内容区域 */
+.section-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accent section — 左侧琥珀色条标记重要区域 */
+.section-accent {
+  border-left: 2px solid var(--accent, #e8a243);
+  padding-left: 10px;
+  margin-left: -1px;
+}
+
+/* ========================================
+   Field — 字段组
+   ======================================== */
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 3px;
+  margin-bottom: 6px;
 
   &:last-child { margin-bottom: 0; }
 }
 
+/* 视频列紧凑间距 */
+.column-video .field-group {
+  gap: 2px;
+  margin-bottom: 5px;
+}
+
 .field-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary, #606266);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--glass-text-tertiary);
   display: flex;
   align-items: center;
   gap: 4px;
+  letter-spacing: 0.3px;
 }
 
-/* 场景预览 */
+/* ========================================
+   Deep inset controls — 深色内嵌 Element Plus 覆盖
+   ======================================== */
+.column-scroll :deep(.el-textarea__inner) {
+  background: var(--glass-bg-canvas) !important;
+  border: 1px solid var(--glass-stroke-base) !important;
+  color: var(--glass-text-primary);
+  font-size: 12px;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+
+  &:focus {
+    border-color: var(--glass-stroke-focus) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--glass-focus-ring);
+  }
+}
+
+.column-scroll :deep(.el-input__wrapper) {
+  background: var(--glass-bg-canvas) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid var(--glass-stroke-base);
+  border-radius: 6px;
+
+  &.is-focus {
+    border-color: var(--glass-stroke-focus);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--glass-focus-ring) !important;
+  }
+}
+
+.column-scroll :deep(.el-input__inner) {
+  color: var(--glass-text-primary);
+  font-size: 12px;
+}
+
+.column-scroll :deep(.el-select__placeholder) {
+  color: var(--glass-text-tertiary);
+}
+
+/* ========================================
+   Scene Preview — 场景预览
+   ======================================== */
 .scene-preview-v2 {
-  position: relative; border-radius: 5px;
+  position: relative; border-radius: var(--glass-radius-xs);
   overflow: hidden; cursor: pointer; height: 66px;
   img { width: 100%; height: 100%; object-fit: cover; }
   .scene-info-overlay {
@@ -453,39 +612,43 @@ const copyPrompt = () => {
   }
 }
 .scene-preview-empty-v2 {
-  height: 46px; border: 1px dashed #dcdfe6; border-radius: 5px;
+  height: 46px; border: 1px dashed var(--glass-stroke-base); border-radius: var(--glass-radius-xs);
   display: flex; align-items: center; justify-content: center;
-  gap: 5px; color: #c0c4cc; font-size: 11px;
+  gap: 5px; color: var(--glass-text-tertiary); font-size: 11px;
 }
 
-/* Cast chip */
+/* ========================================
+   Cast Chips — 角色/道具标签
+   ======================================== */
 .cast-row {
   display: flex; flex-wrap: wrap; gap: 4px; min-height: 26px;
 }
 .cast-chip {
   display: flex; align-items: center; gap: 2px;
-  background: #f4f4f5; border-radius: 14px;
+  background: var(--glass-tone-neutral-bg); border-radius: 14px;
   padding: 2px 6px 2px 2px; font-size: 11px;
 }
 .cast-chip-avatar {
   width: 20px; height: 20px; border-radius: 50%;
-  overflow: hidden; background: #ddd;
+  overflow: hidden; background: var(--glass-stroke-base);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0;
   img { width: 100%; height: 100%; object-fit: cover; }
   span { font-size: 9px; font-weight: 600; }
 }
-.cast-chip-name { font-size: 11px; color: #303133; }
+.cast-chip-name { font-size: 11px; color: var(--glass-text-primary); }
 .cast-chip-remove {
-  font-size: 10px; color: #c0c4cc; cursor: pointer;
-  &:hover { color: #f56c6c; }
+  font-size: 10px; color: var(--glass-text-tertiary); cursor: pointer;
+  &:hover { color: var(--glass-tone-danger-fg); }
 }
-.cast-empty-hint { font-size: 11px; color: #c0c4cc; line-height: 26px; }
+.cast-empty-hint { font-size: 11px; color: var(--glass-text-tertiary); line-height: 26px; }
 
-/* 镜头设置三列 */
+/* ========================================
+   Shot Row — 镜头设置 2列 grid
+   ======================================== */
 .shot-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 5px;
 }
 .shot-item {
@@ -494,33 +657,29 @@ const copyPrompt = () => {
   gap: 3px;
   label {
     font-size: 10px;
-    color: var(--text-muted, #909399);
+    font-weight: 600;
+    color: var(--glass-text-tertiary);
     white-space: nowrap;
+    letter-spacing: 0.3px;
   }
 }
 
-/* 两个 section 之间的视觉分割线 */
-.section-divider {
-  height: 1px;
-  background: var(--border-primary, #e4e7ed);
-  margin: 10px 0;
-}
-
-/* 音频氛围折叠 toggle 按钮 */
+/* ========================================
+   Audio Toggle — 音频氛围折叠
+   ======================================== */
 .audio-toggle-btn {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 0;
+  padding: 6px 0;
   border: none;
   background: none;
   cursor: pointer;
   font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary, #606266);
+  font-weight: 600;
+  color: var(--glass-text-secondary);
   text-align: left;
-  margin: 4px 0;
 
   .el-icon {
     margin-left: auto;
@@ -533,129 +692,53 @@ const copyPrompt = () => {
   transform: rotate(180deg);
 }
 
-.audio-fields {
-  padding-top: 4px;
-}
-
-/* 视频生成结果列表 */
-.video-result-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.video-result-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px;
-  border-radius: 6px;
-  background: var(--bg-primary, #f9fafb);
-  border: 1px solid var(--border-primary, #e5e7eb);
-
-  &.video-completed { border-color: #b3e19d; background: rgba(21,128,61,0.06); }
-  &.video-failed { border-color: #fbc4c4; background: rgba(239,68,68,0.06); }
-  &.video-processing, &.video-pending { border-color: #fcd891; background: rgba(245,158,11,0.06); }
-}
-
-.video-thumb-wrap {
-  width: 60px;
-  height: 34px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #000;
-  position: relative;
-  cursor: pointer;
-  flex-shrink: 0;
-
-  &:hover .video-thumb-overlay { opacity: 1; }
-}
-
-.video-thumb-media {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
-}
-
-.video-thumb-placeholder {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  color: #555;
-}
-
-.video-thumb-overlay {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity 150ms;
-}
-
-.video-result-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.video-duration {
-  font-size: 11px;
-  color: var(--text-muted, #9ca3af);
-}
-
-.video-error {
-  font-size: 10px;
-  color: #f56c6c;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.video-empty-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 0;
-  color: var(--text-muted, #9ca3af);
-  p { font-size: 12px; margin: 0; }
-}
-
-/* 图片生成 */
+/* ========================================
+   Image Gen Controls — 图片生成按钮行
+   ======================================== */
 .gen-controls-row {
-  display: flex; gap: 6px; flex-wrap: wrap;
-}
-.result-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-top: 4px;
-}
-.result-item {
-  aspect-ratio: 1;
-  border-radius: 5px;
-  overflow: hidden;
-  background: #f5f7fa;
-  position: relative;
-  .el-image { width: 100%; height: 100%; }
-}
-.result-placeholder {
-  width: 100%; height: 100%;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 3px; color: #c0c4cc;
-  p { font-size: 10px; margin: 0; }
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
+.upload-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 1px solid var(--glass-stroke-base);
+  border-radius: var(--glass-radius-xs);
+  background: none;
+  color: var(--glass-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms;
+
+  &:hover {
+    border-color: var(--accent, #e8a243);
+    color: var(--accent, #e8a243);
+    background: var(--glass-ghost-hover-bg);
+  }
+}
+
+/* ========================================
+   Prompt Preview — 视频提示词预览
+   ======================================== */
 .prompt-preview {
   display: flex;
   align-items: flex-start;
   gap: 5px;
   padding: 5px 7px;
-  background: var(--bg-secondary, #f5f7fa);
-  border-radius: 5px;
+  background: var(--glass-bg-canvas);
+  border: 1px solid var(--glass-stroke-base);
+  border-radius: 6px;
   font-size: 11px;
-  color: var(--text-muted, #909399);
+  color: var(--glass-text-tertiary);
   max-height: 44px;
   overflow: hidden;
+  margin-bottom: 6px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 .prompt-text {
   flex: 1;
@@ -669,41 +752,95 @@ const copyPrompt = () => {
   border: none;
   background: none;
   cursor: pointer;
-  color: var(--text-muted, #909399);
+  color: var(--glass-text-tertiary);
   padding: 0;
   &:hover { color: var(--accent, #e8a243); }
 }
 
+/* ========================================
+   Gen Action Row — 模型选择 + 生成按钮同行
+   ======================================== */
+.gen-action-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
 .gen-btn {
-  width: 100%;
-  height: 38px;
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  border: none; border-radius: 7px;
+  width: auto;
+  height: 32px;
+  padding: 0 14px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  border: none; border-radius: var(--glass-radius-xs);
   background: linear-gradient(135deg, var(--accent, #e8a243) 0%, var(--glass-accent-to, #f0c060) 100%);
   color: var(--glass-text-on-accent, #1a1614);
-  font-size: 13px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   cursor: pointer; transition: all 150ms;
+  white-space: nowrap;
+  flex-shrink: 0;
 
-  &:hover:not(:disabled) { filter: brightness(1.08); }
+  &:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 2px 8px var(--glass-accent-shadow-soft); }
   &:disabled { opacity: 0.55; cursor: not-allowed; }
   &.loading {
-    background: var(--bg-secondary, #f5f7fa);
-    color: var(--text-secondary, #606266);
+    background: var(--glass-bg-canvas);
+    color: var(--glass-text-secondary);
+    border: 1px solid var(--glass-stroke-base);
   }
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .rotating { animation: spin 1s linear infinite; }
 
+/* ========================================
+   Frame Type Tabs — 帧类型 segmented control
+   ======================================== */
+.frame-type-tabs {
+  display: flex;
+  background: var(--glass-bg-canvas);
+  border: 1px solid var(--glass-stroke-base);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 1px;
+}
+
+.frame-type-tab {
+  flex: 1;
+  height: 24px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--glass-text-tertiary);
+  cursor: pointer;
+  transition: all 120ms;
+  white-space: nowrap;
+  padding: 0 4px;
+
+  &:hover:not(.frame-type-tab--active) {
+    color: var(--glass-text-secondary);
+    background: var(--glass-ghost-hover-bg);
+  }
+
+  &.frame-type-tab--active {
+    background: var(--accent, #e8a243);
+    color: var(--glass-text-on-accent, #1a1614);
+    font-weight: 700;
+  }
+}
+
+/* 合成入口 — ghost 风格 */
 .composition-link-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   padding: 4px 8px;
-  border: 1px solid var(--border-primary, #e4e7ed);
-  border-radius: 5px;
+  border: none;
+  border-radius: var(--glass-radius-xs);
   background: none;
-  color: var(--text-secondary, #606266);
+  color: var(--glass-text-tertiary);
   font-size: 11px;
   cursor: pointer;
   white-space: nowrap;
@@ -711,8 +848,8 @@ const copyPrompt = () => {
   transition: all 120ms;
 
   &:hover {
-    border-color: var(--accent, #e8a243);
     color: var(--accent, #e8a243);
+    background: var(--glass-ghost-hover-bg);
   }
 }
 </style>
