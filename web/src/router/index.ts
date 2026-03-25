@@ -47,42 +47,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/drama/DramaCreate.vue')
   },
 
-  // Drama management (nested under DramaLayout)
+  // Drama detail (single page)
   {
     path: '/drama/:id',
-    component: () => import('../views/drama/DramaLayout.vue'),
-    children: [
-      {
-        path: '',
-        name: 'DramaOverview',
-        component: () => import('../views/drama/management/OverviewTab.vue')
-      },
-      {
-        path: 'episodes',
-        name: 'DramaEpisodes',
-        component: () => import('../views/drama/management/EpisodesTab.vue')
-      },
-      {
-        path: 'characters',
-        name: 'DramaCharacters',
-        component: () => import('../views/drama/management/CharactersTab.vue')
-      },
-      {
-        path: 'scenes',
-        name: 'DramaScenes',
-        component: () => import('../views/drama/management/ScenesTab.vue')
-      },
-      {
-        path: 'props',
-        name: 'DramaProps',
-        component: () => import('../views/drama/management/PropsTab.vue')
-      },
-      {
-        path: 'settings',
-        name: 'DramaSettingsPage',
-        component: () => import('../views/drama/management/SettingsTab.vue')
-      }
-    ]
+    name: 'DramaDetail',
+    component: () => import('../views/drama/DramaDetail.vue')
   },
 
   // Episode workbench (fullscreen, outside DramaLayout)
