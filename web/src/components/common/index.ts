@@ -19,8 +19,6 @@ export { default as ProjectCard } from './ProjectCard.vue'
 export { default as ThemeToggle } from './ThemeToggle.vue'
 export { default as ActionButton } from './ActionButton.vue'
 export { default as ImagePreview } from "./ImagePreview.vue";
-export { default as ImageCropDialog } from "./ImageCropDialog.vue";
-
 // Dialog Components / 弹窗组件
 export { default as CreateDramaDialog } from './CreateDramaDialog.vue'
 export { default as AIConfigDialog } from './AIConfigDialog.vue'

@@ -3,7 +3,7 @@
     <!-- 顶栏 -->
     <div class="workbench-header">
       <button class="back-btn" @click="goBack">
-        <el-icon><ArrowLeft /></el-icon>
+        <ArrowLeft class="w-4 h-4" />
         <span>{{ t('editor.backToEditor') }}</span>
       </button>
       <span class="workbench-title">{{ t('editor.compositionWorkbench') }}</span>
@@ -14,7 +14,7 @@
     </div>
 
     <!-- 主体区域 -->
-    <div class="workbench-body" v-loading="loading">
+    <div class="workbench-body">
       <!-- 时间线编辑器主区域 -->
       <div class="timeline-area">
         <VideoTimelineEditor
@@ -27,7 +27,7 @@
           @asset-deleted="loadVideoAssets"
         />
         <div v-else-if="loading" class="loading-placeholder">
-          <el-icon class="loading-icon" :size="32"><Loading /></el-icon>
+          <Loader2 class="w-8 h-8 animate-spin" />
           <span>{{ t('common.loading') }}</span>
         </div>
       </div>
@@ -36,13 +36,15 @@
       <div class="composition-sidebar">
         <div class="sidebar-header">
           <span class="sidebar-title">{{ t('editor.compositionHistory') }}</span>
-          <el-button
-            size="small"
-            :icon="Refresh"
-            circle
+          <Button
+            size="icon"
+            variant="ghost"
+            class="h-7 w-7"
             @click="loadVideoMerges"
-            :loading="loadingMerges"
-          />
+            :disabled="loadingMerges"
+          >
+            <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': loadingMerges }" />
+          </Button>
         </div>
         <div class="sidebar-content">
           <CompositionTab
@@ -63,7 +65,8 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { ArrowLeft, Refresh, Loading } from '@element-plus/icons-vue'
+import { ArrowLeft, RefreshCw, Loader2 } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
 import { dramaAPI } from '@/api/drama'
 import { assetAPI } from '@/api/asset'
 import { useVideoMerge } from '@/composables/useVideoMerge'
@@ -155,11 +158,11 @@ const handleMergeCompleted = async (_mergeId: number) => {
   await loadVideoAssets()
 }
 
-// 返回专业编辑器
+// 返回工作台
 const goBack = () => {
   router.replace({
-    name: 'ProfessionalEditor',
-    params: { dramaId, episodeNumber },
+    name: 'EpisodeWorkbench',
+    params: { id: dramaId, episodeNumber },
   })
 }
 
@@ -249,15 +252,6 @@ onBeforeUnmount(() => {
   gap: 12px;
   color: var(--text-secondary);
   font-size: 14px;
-}
-
-.loading-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 /* 右侧侧栏 */

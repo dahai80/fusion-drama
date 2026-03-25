@@ -19,7 +19,7 @@ const route = useRoute()
 const uiStore = useUIStore()
 const isDark = computed(() => uiStore.isDark)
 
-// Fullscreen pages (EpisodeWorkflow, ProfessionalEditor) use their own layout
+// Fullscreen pages (EpisodeWorkbench, CompositionWorkbench) use their own layout
 const layout = computed(() => {
   return route.meta.fullscreen ? 'div' : AppLayout
 })

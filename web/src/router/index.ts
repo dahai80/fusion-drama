@@ -109,38 +109,6 @@ const routes: RouteRecordRaw[] = [
   { path: '/dramas/:dramaId/episode/:episodeNumber/professional', redirect: to => `/drama/${to.params.dramaId}/episode/${to.params.episodeNumber}/workbench` },
   { path: '/dramas/:dramaId/episode/:episodeNumber/composition', redirect: to => `/drama/${to.params.dramaId}/episode/${to.params.episodeNumber}/compose` },
 
-  // Keep old routes temporarily (will be removed in Phase 6)
-  {
-    path: '/dramas/:id/characters',
-    name: 'CharacterExtraction',
-    component: () => import('../views/workflow/CharacterExtraction.vue')
-  },
-  {
-    path: '/dramas/:id/images/characters',
-    name: 'CharacterImages',
-    component: () => import('../views/workflow/CharacterImages.vue')
-  },
-  {
-    path: '/episodes/:id/edit',
-    name: 'ScriptEdit',
-    component: () => import('../views/script/ScriptEdit.vue')
-  },
-  {
-    path: '/episodes/:id/storyboard',
-    name: 'StoryboardEdit',
-    component: () => import('../views/storyboard/StoryboardEdit.vue')
-  },
-  {
-    path: '/episodes/:id/generate',
-    name: 'Generation',
-    component: () => import('../views/generation/ImageGeneration.vue')
-  },
-  {
-    path: '/timeline/:id',
-    name: 'TimelineEditor',
-    component: () => import('../views/editor/TimelineEditor.vue')
-  },
-
   // 404
   {
     path: '/:pathMatch(.*)*',

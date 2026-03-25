@@ -3,24 +3,28 @@
     <!-- 顶部工具栏 -->
     <div class="editor-toolbar">
       <div class="toolbar-left">
-        <el-button-group>
-          <el-button :icon="VideoPlay" @click="playTimeline" :disabled="timelineClips.length === 0">{{
-            $t('common.play')
-          }}</el-button>
-          <el-button :icon="VideoPause" @click="pauseTimeline">{{ $t('common.pause') }}</el-button>
-        </el-button-group>
+        <div class="btn-group">
+          <Button size="sm" variant="outline" @click="playTimeline" :disabled="timelineClips.length === 0">
+            <Play class="w-3.5 h-3.5 mr-1" />
+            {{ $t('common.play') }}
+          </Button>
+          <Button size="sm" variant="outline" @click="pauseTimeline">
+            <Pause class="w-3.5 h-3.5 mr-1" />
+            {{ $t('common.pause') }}
+          </Button>
+        </div>
         <span class="time-display">{{ formatTime(currentTime) }} / {{ formatTime(totalDuration) }}</span>
       </div>
       <div class="toolbar-right">
-        <el-button
-          type="primary"
-          :icon="VideoCamera"
+        <Button
+          size="sm"
           @click="submitTimelineForMerge"
-          :disabled="timelineClips.length === 0"
-          :loading="serverMerging"
+          :disabled="timelineClips.length === 0 || serverMerging"
         >
+          <Loader2 v-if="serverMerging" class="w-3.5 h-3.5 mr-1 animate-spin" />
+          <Film v-else class="w-3.5 h-3.5 mr-1" />
           {{ $t('video.merge') }}
-        </el-button>
+        </Button>
       </div>
     </div>
 
@@ -59,14 +63,24 @@
           ></div>
           <!-- 播放/暂停图标覆盖层 -->
           <div class="video-play-overlay" :class="{ hidden: isPlaying }" v-if="currentPreviewUrl">
-            <el-icon :size="64"><VideoPlay /></el-icon>
+            <Play class="w-16 h-16 text-white drop-shadow-lg" />
           </div>
           <div class="preview-overlay" v-if="!currentPreviewUrl">
-            <el-empty :description="$t('video.dragToTimeline')" />
+            <div class="empty-preview">
+              <Film class="w-12 h-12 text-muted-foreground" />
+              <p class="text-sm text-muted-foreground mt-2">{{ $t('video.dragToTimeline') }}</p>
+            </div>
           </div>
         </div>
         <div class="preview-controls">
-          <el-slider v-model="currentTime" :max="totalDuration" :step="0.1" @change="seekToTime" />
+          <input
+            type="range"
+            class="timeline-slider"
+            :value="currentTime"
+            :max="totalDuration"
+            step="0.1"
+            @input="seekToTime(Number(($event.target as HTMLInputElement).value))"
+          />
         </div>
       </div>
 
@@ -77,15 +91,14 @@
             <h4>{{ $t('video.mediaLibrary') }}</h4>
             <span>{{ $t('video.videoCount', { count: availableStoryboards.length }) }}</span>
           </div>
-          <el-button
-            type="primary"
-            size="small"
-            :icon="FolderAdd"
+          <Button
+            size="sm"
             @click="addAllScenesInOrder"
             :disabled="availableStoryboards.length === 0"
           >
+            <FolderPlus class="w-3.5 h-3.5 mr-1" />
             {{ $t('common.addAll') }}
-          </el-button>
+          </Button>
         </div>
         <div class="media-grid">
           <div
@@ -98,18 +111,17 @@
             <div class="media-thumbnail" @click="previewScene(scene)">
               <video :src="scene.video_url" />
               <div class="media-duration">{{ scene.duration > 0 ? scene.duration.toFixed(1) : '?' }}s</div>
-              <el-button
+              <button
                 class="delete-btn"
-                type="danger"
-                size="small"
-                :icon="Delete"
-                circle
                 @click.stop="deleteAsset(scene)"
-              />
+              >
+                <Trash2 class="w-3 h-3" />
+              </button>
               <div class="media-overlay">
-                <el-button type="primary" size="small" :icon="Plus" @click.stop="addClipToTimeline(scene)">
+                <Button size="sm" @click.stop="addClipToTimeline(scene)">
+                  <Plus class="w-3.5 h-3.5 mr-1" />
                   {{ $t('common.addToTimeline') }}
-                </el-button>
+                </Button>
               </div>
             </div>
             <div class="media-info">
@@ -124,11 +136,11 @@
     <div class="timeline-panel">
       <div class="timeline-header">
         <div class="zoom-controls">
-          <el-button-group size="small">
-            <el-button @click="zoomOut">-</el-button>
-            <el-button @click="zoomReset">{{ $t('common.reset') }}</el-button>
-            <el-button @click="zoomIn">+</el-button>
-          </el-button-group>
+          <div class="btn-group">
+            <Button size="sm" variant="outline" @click="zoomOut">-</Button>
+            <Button size="sm" variant="outline" @click="zoomReset">{{ $t('common.reset') }}</Button>
+            <Button size="sm" variant="outline" @click="zoomIn">+</Button>
+          </div>
           <span class="zoom-level">{{ Math.round(zoom * 100) }}%</span>
         </div>
       </div>
@@ -165,15 +177,14 @@
         >
           <div class="track-label">
             <span>{{ $t('video.videoTrack') }}</span>
-            <el-button
-              type="text"
-              size="small"
+            <button
+              class="track-action-btn"
               @click.stop="clearAllClips"
               :disabled="timelineClips.length === 0"
               :title="$t('video.clearTrack')"
             >
-              <el-icon><Delete /></el-icon>
-            </el-button>
+              <Trash2 class="w-3.5 h-3.5" />
+            </button>
           </div>
           <div class="track-clips">
             <!-- 视频片段 -->
@@ -198,7 +209,7 @@
               <div class="clip-resize-left" @mousedown.stop="startResizeClip($event, clip, 'left')"></div>
               <div class="clip-resize-right" @mousedown.stop="startResizeClip($event, clip, 'right')"></div>
               <div class="clip-remove" @click.stop="removeClip(clip)">
-                <el-icon><Close /></el-icon>
+                <X class="w-3 h-3 text-white" />
               </div>
             </div>
 
@@ -210,7 +221,7 @@
               :style="getTransitionStyle(clip)"
               @click.stop="openTransitionDialog(timelineClips[index])"
             >
-              <el-icon><connection /></el-icon>
+              <Link2 class="w-3.5 h-3.5 text-white" />
               <span class="transition-label">{{ getTransitionLabel(timelineClips[index]) }}</span>
             </div>
           </div>
@@ -225,15 +236,14 @@
         >
           <div class="track-label">
             <span>{{ $t('video.audioTrack') }}</span>
-            <el-button
-              type="text"
-              size="small"
+            <button
+              class="track-action-btn"
               @click.stop="extractAllAudio"
               :disabled="timelineClips.length === 0"
               :title="$t('video.extractAudio')"
             >
-              <el-icon><Headset /></el-icon>
-            </el-button>
+              <Headphones class="w-3.5 h-3.5" />
+            </button>
           </div>
           <div class="track-clips">
             <!-- 音频片段 -->
@@ -248,7 +258,7 @@
             >
               <div class="clip-content">
                 <div class="audio-waveform">
-                  <el-icon><Microphone /></el-icon>
+                  <Mic class="w-6 h-6 text-white/80" />
                 </div>
                 <div class="clip-info">
                   <div class="clip-title">{{ $t('video.audio') }} {{ audio.order + 1 }}</div>
@@ -258,7 +268,7 @@
               <div class="clip-resize-left" @mousedown.stop="startResizeAudioClip($event, audio, 'left')"></div>
               <div class="clip-resize-right" @mousedown.stop="startResizeAudioClip($event, audio, 'right')"></div>
               <div class="clip-remove" @click.stop="removeAudioClip(audio)">
-                <el-icon><Close /></el-icon>
+                <X class="w-3 h-3 text-white" />
               </div>
             </div>
           </div>
@@ -267,111 +277,129 @@
     </div>
 
     <!-- 转场设置对话框 -->
-    <el-dialog v-model="transitionDialogVisible" title="设置转场效果" width="500px">
-      <el-form label-width="100px">
-        <el-form-item :label="$t('video.transitionType')">
-          <el-select v-model="editingTransition.type" :placeholder="$t('video.selectTransition')">
-            <el-option label="无转场" value="none" />
-            <!-- 淡入淡出类 -->
-            <el-option label="淡入淡出" value="fade" />
-            <el-option label="黑场过渡" value="fadeblack" />
-            <el-option label="白场过渡" value="fadewhite" />
-            <el-option label="灰场过渡" value="fadegrays" />
-            <!-- 滑动类 -->
-            <el-option label="左滑" value="slideleft" />
-            <el-option label="右滑" value="slideright" />
-            <el-option label="上滑" value="slideup" />
-            <el-option label="下滑" value="slidedown" />
-            <!-- 擦除类 -->
-            <el-option label="左擦除" value="wipeleft" />
-            <el-option label="右擦除" value="wiperight" />
-            <el-option label="上擦除" value="wipeup" />
-            <el-option label="下擦除" value="wipedown" />
-            <!-- 圆形类 -->
-            <el-option label="圆形展开" value="circleopen" />
-            <el-option label="圆形收缩" value="circleclose" />
-            <!-- 其他特效 -->
-            <el-option label="溶解" value="dissolve" />
-            <el-option label="距离" value="distance" />
-            <el-option label="水平打开" value="horzopen" />
-            <el-option label="水平关闭" value="horzclose" />
-            <el-option label="垂直打开" value="vertopen" />
-            <el-option label="垂直关闭" value="vertclose" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('video.transitionDuration')" v-if="editingTransition.type !== 'none'">
-          <el-slider
-            v-model="editingTransition.duration"
-            :min="0.3"
-            :max="3"
-            :step="0.1"
-            show-input
-            :format-tooltip="(val: number) => val.toFixed(1) + 's'"
-          />
-        </el-form-item>
-        <el-alert
-          v-if="editingTransition.type !== 'none'"
-          title="注意：添加转场效果需要重新编码视频，处理时间会更长"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
-      </el-form>
-      <template #footer>
-        <el-button @click="transitionDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="applyTransition">确定</el-button>
-      </template>
-    </el-dialog>
+    <Dialog :open="transitionDialogVisible" @update:open="transitionDialogVisible = $event">
+      <DialogContent class="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>设置转场效果</DialogTitle>
+        </DialogHeader>
+        <div class="space-y-4">
+          <div class="form-row">
+            <label class="form-label">{{ $t('video.transitionType') }}</label>
+            <select
+              v-model="editingTransition.type"
+              class="form-select"
+            >
+              <option value="none">无转场</option>
+              <optgroup label="淡入淡出类">
+                <option value="fade">淡入淡出</option>
+                <option value="fadeblack">黑场过渡</option>
+                <option value="fadewhite">白场过渡</option>
+                <option value="fadegrays">灰场过渡</option>
+              </optgroup>
+              <optgroup label="滑动类">
+                <option value="slideleft">左滑</option>
+                <option value="slideright">右滑</option>
+                <option value="slideup">上滑</option>
+                <option value="slidedown">下滑</option>
+              </optgroup>
+              <optgroup label="擦除类">
+                <option value="wipeleft">左擦除</option>
+                <option value="wiperight">右擦除</option>
+                <option value="wipeup">上擦除</option>
+                <option value="wipedown">下擦除</option>
+              </optgroup>
+              <optgroup label="圆形类">
+                <option value="circleopen">圆形展开</option>
+                <option value="circleclose">圆形收缩</option>
+              </optgroup>
+              <optgroup label="其他特效">
+                <option value="dissolve">溶解</option>
+                <option value="distance">距离</option>
+                <option value="horzopen">水平打开</option>
+                <option value="horzclose">水平关闭</option>
+                <option value="vertopen">垂直打开</option>
+                <option value="vertclose">垂直关闭</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-row" v-if="editingTransition.type !== 'none'">
+            <label class="form-label">{{ $t('video.transitionDuration') }}</label>
+            <div class="flex items-center gap-3">
+              <input
+                type="range"
+                class="timeline-slider flex-1"
+                v-model.number="editingTransition.duration"
+                min="0.3"
+                max="3"
+                step="0.1"
+              />
+              <span class="text-sm text-muted-foreground w-12 text-right">{{ editingTransition.duration.toFixed(1) }}s</span>
+            </div>
+          </div>
+          <div
+            v-if="editingTransition.type !== 'none'"
+            class="alert-warning"
+          >
+            <AlertTriangle class="w-4 h-4 shrink-0" />
+            <span>注意：添加转场效果需要重新编码视频，处理时间会更长</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="transitionDialogVisible = false">取消</Button>
+          <Button @click="applyTransition">确定</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- 合并进度对话框 -->
-    <el-dialog
-      v-model="mergeDialogVisible"
-      title="视频合并中"
-      width="500px"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :show-close="!merging"
-    >
-      <div class="merge-progress-container">
-        <div class="progress-info">
-          <div class="progress-phase">
-            <el-tag :type="getPhaseType(mergeProgressDetail.phase)">
-              {{ getPhaseText(mergeProgressDetail.phase) }}
-            </el-tag>
+    <Dialog :open="mergeDialogVisible" @update:open="val => { if (!merging) mergeDialogVisible = val }">
+      <DialogContent class="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>视频合并中</DialogTitle>
+        </DialogHeader>
+        <div class="merge-progress-container">
+          <div class="progress-info">
+            <div class="progress-phase">
+              <Badge :variant="mergeProgressDetail.phase === 'completed' ? 'default' : 'secondary'">
+                {{ getPhaseText(mergeProgressDetail.phase) }}
+              </Badge>
+            </div>
+            <div class="progress-message">{{ mergeProgressDetail.message }}</div>
           </div>
-          <div class="progress-message">{{ mergeProgressDetail.message }}</div>
+
+          <div class="progress-bar-container">
+            <div
+              class="progress-bar-fill"
+              :class="{ 'completed': mergeProgressDetail.phase === 'completed' }"
+              :style="{ width: mergeProgressDetail.progress + '%' }"
+            ></div>
+          </div>
+
+          <div class="progress-tips">
+            <p v-if="mergeProgressDetail.phase === 'loading'">
+              <Loader2 class="w-4 h-4 animate-spin" />
+              正在加载FFmpeg引擎（首次需要下载约30MB）...
+            </p>
+            <p v-else-if="mergeProgressDetail.phase === 'processing'">
+              <Download class="w-4 h-4" />
+              正在处理视频文件，请稍候...
+            </p>
+            <p v-else-if="mergeProgressDetail.phase === 'encoding'">
+              <Film class="w-4 h-4" />
+              正在编码合并视频，可能需要几分钟...
+            </p>
+            <p v-else-if="mergeProgressDetail.phase === 'completed'">
+              <Check class="w-4 h-4" />
+              合并完成！视频已自动下载。
+            </p>
+          </div>
         </div>
 
-        <el-progress
-          :percentage="mergeProgressDetail.progress"
-          :status="mergeProgressDetail.phase === 'completed' ? 'success' : undefined"
-          :stroke-width="20"
-        />
-
-        <div class="progress-tips">
-          <p v-if="mergeProgressDetail.phase === 'loading'">
-            <el-icon><Loading /></el-icon>
-            正在加载FFmpeg引擎（首次需要下载约30MB）...
-          </p>
-          <p v-else-if="mergeProgressDetail.phase === 'processing'">
-            <el-icon><Download /></el-icon>
-            正在处理视频文件，请稍候...
-          </p>
-          <p v-else-if="mergeProgressDetail.phase === 'encoding'">
-            <el-icon><VideoCamera /></el-icon>
-            正在编码合并视频，可能需要几分钟...
-          </p>
-          <p v-else-if="mergeProgressDetail.phase === 'completed'">
-            <el-icon><Check /></el-icon>
-            合并完成！视频已自动下载。
-          </p>
-        </div>
-      </div>
-
-      <template #footer v-if="!merging">
-        <el-button @click="mergeDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+        <DialogFooter v-if="!merging">
+          <Button variant="outline" @click="mergeDialogVisible = false">关闭</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -379,27 +407,24 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { toast } from 'vue-sonner'
 import {
-  VideoPlay,
-  VideoPause,
+  Play,
+  Pause,
   Plus,
-  FolderAdd,
-  ArrowLeft,
-  ArrowRight,
-  Scissor,
-  Connection,
-  Setting,
-  ZoomIn,
-  ZoomOut,
-  Refresh,
+  FolderPlus,
   Download,
-  Delete,
-  Close,
-  VideoCamera,
+  Trash2,
+  X,
+  Film,
   Check,
-  Loading,
-  Headset,
-  Microphone,
-} from '@element-plus/icons-vue'
+  Loader2,
+  Headphones,
+  Mic,
+  Link2,
+  AlertTriangle,
+} from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { videoMerger, type MergeProgress, type VideoClip } from '@/utils/videoMerger'
 import { trimAndMergeVideos } from '@/utils/ffmpeg'
 import { getVideoUrl } from '@/utils/image'
@@ -2004,7 +2029,7 @@ defineExpose({
           transition: opacity 0.3s ease;
           z-index: 5;
 
-          .el-icon {
+          svg {
             color: white;
             filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
           }
@@ -2268,7 +2293,7 @@ defineExpose({
           transition: all 0.3s;
 
           &:hover {
-            border-color: var(--el-color-primary);
+            border-color: var(--accent);
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
           }
@@ -2635,8 +2660,7 @@ defineExpose({
               box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
             }
 
-            .el-icon {
-              font-size: 14px;
+            svg {
               color: white;
             }
 
@@ -2670,7 +2694,7 @@ defineExpose({
           justify-content: space-between;
           padding-right: 8px;
 
-          .el-button {
+          .track-action-btn {
             color: var(--text-muted);
 
             &:hover {
@@ -2702,13 +2726,145 @@ defineExpose({
             justify-content: center;
             flex-shrink: 0;
 
-            .el-icon {
-              font-size: 24px;
+            svg {
               color: rgba(255, 255, 255, 0.8);
             }
           }
         }
       }
+    }
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 0;
+
+    :deep(button) {
+      border-radius: 0;
+
+      &:first-child {
+        border-radius: 6px 0 0 6px;
+      }
+
+      &:last-child {
+        border-radius: 0 6px 6px 0;
+      }
+    }
+  }
+
+  .track-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--bg-card-hover);
+    }
+  }
+
+  .empty-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .timeline-slider {
+    width: 100%;
+    height: 6px;
+    appearance: none;
+    background: var(--border-secondary);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    &::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .form-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+
+    &:focus {
+      border-color: var(--accent);
+    }
+
+    optgroup {
+      font-weight: 600;
+    }
+  }
+
+  .alert-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .progress-bar-container {
+    width: 100%;
+    height: 20px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+
+    &.completed {
+      background: #22c55e;
     }
   }
 
@@ -2743,8 +2899,9 @@ defineExpose({
         font-size: 13px;
         color: var(--text-secondary);
 
-        .el-icon {
-          font-size: 16px;
+        svg {
+          width: 16px;
+          height: 16px;
         }
       }
     }

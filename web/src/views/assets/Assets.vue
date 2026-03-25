@@ -4,7 +4,7 @@
       <h1 class="page-title">{{ $t('sidebar.assets') }}</h1>
     </div>
     <div class="page-content">
-      <el-empty :description="$t('common.comingSoon')" />
+      <p class="text-muted-foreground">{{ $t('common.comingSoon') }}</p>
     </div>
   </div>
 </template>

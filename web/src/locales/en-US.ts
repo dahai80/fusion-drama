@@ -9,30 +9,12 @@ export default {
     dramas: 'Drama Projects'
   },
   sidebar: {
-    projects: 'Projects',
+    projects: 'Project Content',
     characterLibrary: 'Character Library',
     assets: 'Assets',
     settings: 'Settings',
     collapse: 'Collapse sidebar',
     expand: 'Expand sidebar'
-  },
-  dashboard: {
-    title: '🎬 Drama Generator',
-    welcome: 'Welcome to AI Drama Generation Platform',
-    subtitle: 'One-stop drama creation tool from script to video',
-    stats: {
-      projects: 'Drama Projects',
-      images: 'Generated Images',
-      videos: 'Generated Videos',
-      tasks: 'Processing Tasks'
-    },
-    quickStart: 'Quick Start',
-    actions: {
-      newProject: 'Create New Project',
-      newProjectDesc: 'Start a brand new drama project',
-      myProjects: 'My Projects',
-      myProjectsDesc: 'View and manage existing projects'
-    }
   },
   common: {
     create: 'Create',
@@ -159,6 +141,32 @@ export default {
       testSuccess: 'Connection test successful!',
       testFailed: 'Connection test failed'
     }
+  },
+  agentConfig: {
+    title: 'Agent Config',
+    subtitle: 'Configure LLM models and parameters for each AI Agent',
+    aiConfigLink: 'AI Service Config',
+    model: 'Model',
+    selectModel: 'Select model',
+    modelPlaceholder: 'Enter model name',
+    temperature: 'Temperature',
+    maxTokens: 'Max Tokens',
+    maxIterations: 'Max Iterations'
+  },
+  agentDebug: {
+    title: 'Agent Debug',
+    subtitle: 'Test Agent chat, edit Prompts and Skills',
+    prompt: 'System Prompt',
+    skills: 'Skills',
+    tools: 'Tools',
+    resetDefault: 'Reset Default',
+    save: 'Save',
+    noSkills: 'No skills for this agent',
+    noTools: 'No tools for this agent',
+    chatTest: 'Chat Test',
+    clear: 'Clear',
+    send: 'Send',
+    inputPlaceholder: 'Type a message to test the agent...'
   },
   drama: {
     title: 'My Drama Projects',
@@ -854,6 +862,7 @@ export default {
     compositionWorkbench: 'Composition Workbench',
     backToEditor: 'Back to Editor',
     compositionHistory: 'Composition History',
+    noCompositions: 'No compositions yet',
     settings: 'Settings',
     basicInfo: 'Basic Info',
     sceneProduction: 'Scene Production',

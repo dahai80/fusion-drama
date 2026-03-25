@@ -9,30 +9,12 @@ export default {
     dramas: '短剧项目'
   },
   sidebar: {
-    projects: '项目列表',
+    projects: '项目内容',
     characterLibrary: '角色库',
     assets: '素材库',
     settings: '设置',
     collapse: '收起侧边栏',
     expand: '展开侧边栏'
-  },
-  dashboard: {
-    title: '🎬 Drama Generator',
-    welcome: '欢迎使用 AI 短剧生成平台',
-    subtitle: '从剧本到视频，一站式短剧创作工具',
-    stats: {
-      projects: '短剧项目',
-      images: '生成图片',
-      videos: '生成视频',
-      tasks: '处理中任务'
-    },
-    quickStart: '快速开始',
-    actions: {
-      newProject: '创建新项目',
-      newProjectDesc: '开始一个全新的短剧项目',
-      myProjects: '我的项目',
-      myProjectsDesc: '查看和管理已有项目'
-    }
   },
   common: {
     create: '创建',
@@ -156,6 +138,32 @@ export default {
       testSuccess: '连接测试成功！',
       testFailed: '连接测试失败'
     }
+  },
+  agentConfig: {
+    title: 'Agent 配置',
+    subtitle: '配置各 AI Agent 使用的模型和参数',
+    aiConfigLink: 'AI 服务配置',
+    model: '模型',
+    selectModel: '选择模型',
+    modelPlaceholder: '输入模型名称',
+    temperature: '温度',
+    maxTokens: '最大Token',
+    maxIterations: '最大迭代'
+  },
+  agentDebug: {
+    title: 'Agent 调试',
+    subtitle: '测试 Agent 对话、编辑 Prompt 和 Skills',
+    prompt: 'System Prompt',
+    skills: 'Skills',
+    tools: 'Tools',
+    resetDefault: '恢复默认',
+    save: '保存',
+    noSkills: '该 Agent 没有 Skills',
+    noTools: '该 Agent 没有 Tools',
+    chatTest: '对话测试',
+    clear: '清空',
+    send: '发送',
+    inputPlaceholder: '输入消息测试 Agent...'
   },
   drama: {
     title: '短剧管理',
@@ -776,6 +784,7 @@ export default {
     compositionWorkbench: '合成工作台',
     backToEditor: '返回编辑器',
     compositionHistory: '合成记录',
+    noCompositions: '暂无合成记录',
     settings: '设置',
     basicInfo: '基础信息',
     sceneProduction: '场景制作',
