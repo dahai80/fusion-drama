@@ -67,3 +67,4 @@ build.sh
 /web/package-lock.json
 .DS_Store
 **/__tests__/
+.superpowers/

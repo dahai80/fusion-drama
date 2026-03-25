@@ -19,11 +19,11 @@ type DramaHandler struct {
 	log               *logger.Logger
 }
 
-func NewDramaHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService) *DramaHandler {
+func NewDramaHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger) *DramaHandler {
 	return &DramaHandler{
 		db:                db,
 		dramaService:      services.NewDramaService(db, cfg, log),
-		videoMergeService: services.NewVideoMergeService(db, transferService, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log),
+		videoMergeService: services.NewVideoMergeService(db, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log),
 		log:               log,
 	}
 }

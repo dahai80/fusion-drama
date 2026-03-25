@@ -21,9 +21,9 @@ type ImageGenerationHandler struct {
 	db           *gorm.DB
 }
 
-func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage) *ImageGenerationHandler {
+func NewImageGenerationHandler(db *gorm.DB, cfg *config.Config, log *logger.Logger, localStorage *storage.LocalStorage) *ImageGenerationHandler {
 	return &ImageGenerationHandler{
-		imageService: services.NewImageGenerationService(db, cfg, transferService, localStorage, log),
+		imageService: services.NewImageGenerationService(db, cfg, localStorage, log),
 		taskService:  services.NewTaskService(db, log),
 		log:          log,
 		config:       cfg,

@@ -7,17 +7,17 @@
           <ArrowLeft :size="16" />
           返回
         </Button>
-        <span class="wb-title">{{ resource.drama.value?.title }} - 第{{ episodeNumber }}集</span>
+        <span class="wb-title">{{ resource.drama?.title }} - 第{{ episodeNumber }}集</span>
       </div>
       <div class="wb-topbar-right">
         <!-- Progress -->
-        <div v-if="grid.progress.value.total > 0" class="wb-progress">
+        <div v-if="grid.progress.total > 0" class="wb-progress">
           <div class="progress-track">
             <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
           </div>
-          <span class="progress-label">{{ grid.progress.value.withImage }}/{{ grid.progress.value.total }}</span>
+          <span class="progress-label">{{ grid.progress.withImage }}/{{ grid.progress.total }}</span>
         </div>
-        <Button variant="outline" size="sm" disabled>
+        <Button variant="outline" size="sm" @click="agentOpen = true">
           <Wand2 :size="14" />
           Agent
         </Button>
@@ -43,14 +43,14 @@
 
       <div class="wb-main">
         <!-- Stage: script only -->
-        <div v-if="resource.pipelineStage.value === 'script'" class="wb-empty">
+        <div v-if="resource.pipelineStage === 'script'" class="wb-empty">
           <Clapperboard :size="48" :stroke-width="1" />
           <p>镜头工作区</p>
           <p class="wb-empty-hint">完成剧本 → 提取角色场景 → 拆解分镜后，镜头将在此展示</p>
         </div>
 
         <!-- Stage: extracted, waiting for storyboard -->
-        <div v-else-if="resource.pipelineStage.value === 'extracted'" class="wb-empty">
+        <div v-else-if="resource.pipelineStage === 'extracted'" class="wb-empty">
           <Clapperboard :size="48" :stroke-width="1" />
           <p>角色和场景已就绪，可以拆解分镜了</p>
           <Button @click="handleBreakdown">
@@ -61,9 +61,9 @@
 
         <!-- Stage: storyboards - grid mode -->
         <StoryboardGrid
-          v-else-if="grid.viewMode.value === 'grid'"
-          :storyboards="resource.storyboards.value"
-          :progress="grid.progress.value"
+          v-else-if="grid.viewMode === 'grid'"
+          :storyboards="resource.storyboards"
+          :progress="grid.progress"
           @select="grid.selectStoryboard"
           @add="handleAddStoryboard"
           @batch-generate-images="handleBatchImages"
@@ -73,12 +73,12 @@
         <!-- Stage: storyboards - edit mode -->
         <StoryboardEditor
           v-else
-          :storyboards="resource.storyboards.value"
-          :current-storyboard="grid.currentStoryboard.value"
-          :current-id="grid.selectedStoryboardId.value"
-          :characters="resource.characters.value"
-          :scenes="resource.scenes.value"
-          :images="imageGen.generatedImages.value"
+          :storyboards="resource.storyboards"
+          :current-storyboard="grid.currentStoryboard"
+          :current-id="grid.selectedStoryboardId"
+          :characters="resource.characters"
+          :scenes="resource.scenes"
+          :images="imageGen.generatedImages"
           :video-url="currentVideoUrl"
           @select="grid.selectStoryboard"
           @back="grid.backToGrid"
@@ -89,11 +89,19 @@
         />
       </div>
     </div>
+
+    <!-- Agent drawer -->
+    <AgentDrawer
+      v-model:open="agentOpen"
+      :drama-id="dramaId"
+      :episode-id="episodeNumber"
+      @apply="handleAgentApply"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Wand2, Clapperboard } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -101,17 +109,28 @@ import ResourcePanel from './workbench/ResourcePanel.vue'
 import StoryboardGrid from './workbench/StoryboardGrid.vue'
 import StoryboardEditor from './workbench/StoryboardEditor.vue'
 import { useEpisodeWorkbench } from '@/composables/useEpisodeWorkbench'
+import AgentDrawer from '@/components/agent/AgentDrawer.vue'
+import type { AgentType } from '@/types/agent'
 
 const router = useRouter()
-const { dramaId, episodeNumber, resource, grid, imageGen, videoGen } = useEpisodeWorkbench()
+const wb = useEpisodeWorkbench()
+const { dramaId, episodeNumber } = wb
+// Wrap in reactive so nested refs auto-unwrap in template
+const resource = reactive(wb.resource)
+const grid = reactive(wb.grid)
+const imageGen = reactive(wb.imageGen)
+const videoGen = reactive(wb.videoGen)
+
+const agentOpen = ref(false)
 
 const progressPct = computed(() => {
-  const p = grid.progress.value
+  const p = grid.progress
   return p.total > 0 ? Math.round((p.withImage / p.total) * 100) : 0
 })
 
 const currentVideoUrl = computed(() => {
-  const v = videoGen.generatedVideos.value?.find((v: any) => v.video_url)
+  const videos = videoGen.generatedVideos
+  const v = Array.isArray(videos) ? videos.find((v: any) => v.video_url) : null
   return v?.video_url || null
 })
 
@@ -133,6 +152,9 @@ const handleGenerateCharacterImage = (_id: number) => { /* TODO: generate charac
 const handleBatchGenerateCharacters = () => { /* TODO: batch generate characters */ }
 const handleGenerateSceneImage = (_id: number) => { /* TODO: generate scene image */ }
 const handleBatchGenerateScenes = () => { /* TODO: batch generate scenes */ }
+const handleAgentApply = (_data: { type: AgentType; content: string }) => {
+  /* TODO: map agent results to workbench actions based on _data.type */
+}
 </script>
 
 <style scoped>

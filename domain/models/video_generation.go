@@ -65,15 +65,6 @@ const (
 	VideoStatusFailed     VideoStatus = "failed"
 )
 
-type VideoProvider string
-
-const (
-	VideoProviderRunway VideoProvider = "runway"
-	VideoProviderPika   VideoProvider = "pika"
-	VideoProviderDoubao VideoProvider = "doubao"
-	VideoProviderOpenAI VideoProvider = "openai"
-)
-
 func (VideoGeneration) TableName() string {
 	return "video_generations"
 }

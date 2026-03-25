@@ -15,9 +15,9 @@ type VideoMergeHandler struct {
 	log          *logger.Logger
 }
 
-func NewVideoMergeHandler(db *gorm.DB, transferService *services2.ResourceTransferService, storagePath, baseURL string, log *logger.Logger) *VideoMergeHandler {
+func NewVideoMergeHandler(db *gorm.DB, storagePath, baseURL string, log *logger.Logger) *VideoMergeHandler {
 	return &VideoMergeHandler{
-		mergeService: services2.NewVideoMergeService(db, transferService, storagePath, baseURL, log),
+		mergeService: services2.NewVideoMergeService(db, storagePath, baseURL, log),
 		log:          log,
 	}
 }

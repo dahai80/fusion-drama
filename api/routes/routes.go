@@ -31,18 +31,17 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 
 	aiService := services2.NewAIService(db, log)
 	localStoragePtr := localStorage.(*storage2.LocalStorage)
-	transferService := services2.NewResourceTransferService(db, log)
 	promptI18n := services2.NewPromptI18n(cfg)
-	dramaHandler := handlers2.NewDramaHandler(db, cfg, log, nil)
+	dramaHandler := handlers2.NewDramaHandler(db, cfg, log)
 	aiConfigHandler := handlers2.NewAIConfigHandler(db, cfg, log)
 	scriptGenHandler := handlers2.NewScriptGenerationHandler(db, cfg, log)
-	imageGenService := services2.NewImageGenerationService(db, cfg, transferService, localStoragePtr, log)
-	imageGenHandler := handlers2.NewImageGenerationHandler(db, cfg, log, transferService, localStoragePtr)
-	videoGenHandler := handlers2.NewVideoGenerationHandler(db, transferService, localStoragePtr, aiService, log, promptI18n)
-	videoMergeHandler := handlers2.NewVideoMergeHandler(db, nil, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log)
+	imageGenService := services2.NewImageGenerationService(db, cfg, localStoragePtr, log)
+	imageGenHandler := handlers2.NewImageGenerationHandler(db, cfg, log, localStoragePtr)
+	videoGenHandler := handlers2.NewVideoGenerationHandler(db, localStoragePtr, aiService, log, promptI18n)
+	videoMergeHandler := handlers2.NewVideoMergeHandler(db, cfg.Storage.LocalPath, cfg.Storage.BaseURL, log)
 	assetHandler := handlers2.NewAssetHandler(db, cfg, log)
 	characterLibraryService := services2.NewCharacterLibraryService(db, log, cfg)
-	characterLibraryHandler := handlers2.NewCharacterLibraryHandler(db, cfg, log, transferService, localStoragePtr)
+	characterLibraryHandler := handlers2.NewCharacterLibraryHandler(db, cfg, log, localStoragePtr)
 	uploadHandler, err := handlers2.NewUploadHandler(cfg, log, characterLibraryService)
 	if err != nil {
 		log.Fatalw("Failed to create upload handler", "error", err)
@@ -55,6 +54,17 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	audioExtractionHandler := handlers2.NewAudioExtractionHandler(log, cfg.Storage.LocalPath)
 	settingsHandler := handlers2.NewSettingsHandler(cfg, log)
 	propHandler := handlers2.NewPropHandler(db, cfg, log, aiService, imageGenService)
+
+	// Agent 服务
+	dramaService := services2.NewDramaService(db, cfg, log)
+	storyboardService := services2.NewStoryboardService(db, cfg, log)
+	taskService := services2.NewTaskService(db, log)
+	propService := services2.NewPropService(db, aiService, taskService, imageGenService, log, cfg)
+	agentConfigService := services2.NewAgentConfigService(db, log)
+	agentConfigService.EnsureDefaults()
+	agentConfigHandler := handlers2.NewAgentConfigHandler(agentConfigService, log)
+	agentService := services2.NewAgentService(db, cfg, log, dramaService, characterLibraryService, propService, storyboardService, imageGenService, framePromptService)
+	agentHandler := handlers2.NewAgentHandler(agentService, log)
 
 	api := r.Group("/api/v1")
 	{
@@ -227,6 +237,24 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		{
 			settings.GET("/language", settingsHandler.GetLanguage)
 			settings.PUT("/language", settingsHandler.UpdateLanguage)
+		}
+
+		// Agent 配置路由
+		agentConfigs := api.Group("/agent-configs")
+		{
+			agentConfigs.GET("", agentConfigHandler.ListConfigs)
+			agentConfigs.POST("", agentConfigHandler.CreateConfig)
+			agentConfigs.GET("/:id", agentConfigHandler.GetConfig)
+			agentConfigs.PUT("/:id", agentConfigHandler.UpdateConfig)
+			agentConfigs.DELETE("/:id", agentConfigHandler.DeleteConfig)
+		}
+
+		// Agent 路由
+		agentGroup := api.Group("/agent")
+		{
+			agentGroup.POST("/:type/chat", agentHandler.StreamChat)
+			agentGroup.GET("/:type/debug", agentHandler.GetDebugInfo)
+			agentGroup.PUT("/:type/skills/:name", agentHandler.UpdateSkill)
 		}
 	}
 

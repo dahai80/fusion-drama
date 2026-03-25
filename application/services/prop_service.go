@@ -129,6 +129,15 @@ func (s *PropService) extractPropsForEpisode(episode models.Episode, drama model
 	return createdProps, nil
 }
 
+// ExtractPropsDirect 同步提取道具（供 Agent 调用）
+func (s *PropService) ExtractPropsDirect(episodeID uint) ([]models.Prop, error) {
+	var episode models.Episode
+	if err := s.db.Preload("Drama").First(&episode, episodeID).Error; err != nil {
+		return nil, fmt.Errorf("episode not found: %w", err)
+	}
+	return s.extractPropsForEpisode(episode, episode.Drama)
+}
+
 func (s *PropService) processPropExtraction(taskID string, episode models.Episode) {
 	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在分析剧本...")
 

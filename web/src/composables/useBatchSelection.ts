@@ -4,16 +4,18 @@ export function useBatchSelection<T extends { id: number | string }>(items: Ref<
   const selectedIds = ref<Set<number | string>>(new Set())
   const isBatchMode = ref(false)
 
+  const safeItems = computed(() => Array.isArray(items.value) ? items.value : [])
+
   const isAllSelected = computed(() =>
-    items.value.length > 0 && selectedIds.value.size === items.value.length
+    safeItems.value.length > 0 && selectedIds.value.size === safeItems.value.length
   )
 
   const isIndeterminate = computed(() =>
-    selectedIds.value.size > 0 && selectedIds.value.size < items.value.length
+    selectedIds.value.size > 0 && selectedIds.value.size < safeItems.value.length
   )
 
   const selectedItems = computed(() =>
-    items.value.filter(item => selectedIds.value.has(item.id))
+    safeItems.value.filter(item => selectedIds.value.has(item.id))
   )
 
   const selectedCount = computed(() => selectedIds.value.size)
@@ -32,7 +34,7 @@ export function useBatchSelection<T extends { id: number | string }>(items: Ref<
     if (isAllSelected.value) {
       selectedIds.value = new Set()
     } else {
-      selectedIds.value = new Set(items.value.map(item => item.id))
+      selectedIds.value = new Set(safeItems.value.map(item => item.id))
     }
   }
 

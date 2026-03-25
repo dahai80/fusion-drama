@@ -9,7 +9,8 @@ export function useFilteredList<T>(options: {
   const filterValue = ref('')
 
   const filteredItems = computed(() => {
-    let result = options.items.value
+    const raw = options.items.value
+    let result = Array.isArray(raw) ? raw : []
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase()
       result = result.filter(item =>

@@ -17,24 +17,22 @@ import (
 )
 
 type VideoMergeService struct {
-	db              *gorm.DB
-	aiService       *AIService
-	transferService *ResourceTransferService
-	ffmpeg          *ffmpeg.FFmpeg
-	storagePath     string
-	baseURL         string
-	log             *logger.Logger
+	db          *gorm.DB
+	aiService   *AIService
+	ffmpeg      *ffmpeg.FFmpeg
+	storagePath string
+	baseURL     string
+	log         *logger.Logger
 }
 
-func NewVideoMergeService(db *gorm.DB, transferService *ResourceTransferService, storagePath, baseURL string, log *logger.Logger) *VideoMergeService {
+func NewVideoMergeService(db *gorm.DB, storagePath, baseURL string, log *logger.Logger) *VideoMergeService {
 	return &VideoMergeService{
-		db:              db,
-		aiService:       NewAIService(db, log),
-		transferService: transferService,
-		ffmpeg:          ffmpeg.NewFFmpeg(log),
-		storagePath:     storagePath,
-		baseURL:         baseURL,
-		log:             log,
+		db:          db,
+		aiService:   NewAIService(db, log),
+		ffmpeg:      ffmpeg.NewFFmpeg(log),
+		storagePath: storagePath,
+		baseURL:     baseURL,
+		log:         log,
 	}
 }
 

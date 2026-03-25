@@ -21,14 +21,13 @@ import (
 )
 
 type ImageGenerationService struct {
-	db              *gorm.DB
-	aiService       *AIService
-	transferService *ResourceTransferService
-	localStorage    *storage.LocalStorage
-	log             *logger.Logger
-	config          *config.Config
-	promptI18n      *PromptI18n
-	taskService     *TaskService
+	db           *gorm.DB
+	aiService    *AIService
+	localStorage *storage.LocalStorage
+	log          *logger.Logger
+	config       *config.Config
+	promptI18n   *PromptI18n
+	taskService  *TaskService
 }
 
 // truncateImageURL 截断图片 URL，避免 base64 格式的 URL 占满日志
@@ -49,16 +48,15 @@ func truncateImageURL(url string) string {
 	return url
 }
 
-func NewImageGenerationService(db *gorm.DB, cfg *config.Config, transferService *ResourceTransferService, localStorage *storage.LocalStorage, log *logger.Logger) *ImageGenerationService {
+func NewImageGenerationService(db *gorm.DB, cfg *config.Config, localStorage *storage.LocalStorage, log *logger.Logger) *ImageGenerationService {
 	return &ImageGenerationService{
-		db:              db,
-		aiService:       NewAIService(db, log),
-		transferService: transferService,
-		localStorage:    localStorage,
-		config:          cfg,
-		promptI18n:      NewPromptI18n(cfg),
-		log:             log,
-		taskService:     NewTaskService(db, log),
+		db:           db,
+		aiService:    NewAIService(db, log),
+		localStorage: localStorage,
+		config:       cfg,
+		promptI18n:   NewPromptI18n(cfg),
+		log:          log,
+		taskService:  NewTaskService(db, log),
 	}
 }
 
@@ -739,6 +737,18 @@ type BackgroundInfo struct {
 	StoryboardNumbers []int  `json:"storyboard_numbers"`
 	SceneIDs          []uint `json:"scene_ids"`
 	StoryboardCount   int    `json:"scene_count"`
+}
+
+// ExtractScenesDirect 同步提取场景（供 Agent 调用）
+func (s *ImageGenerationService) ExtractScenesDirect(episodeID uint, style string) ([]BackgroundInfo, error) {
+	var episode models.Episode
+	if err := s.db.Preload("Storyboards").First(&episode, episodeID).Error; err != nil {
+		return nil, fmt.Errorf("episode not found: %w", err)
+	}
+	if episode.ScriptContent == nil || *episode.ScriptContent == "" {
+		return nil, fmt.Errorf("episode has no script content")
+	}
+	return s.extractBackgroundsFromScript(*episode.ScriptContent, episode.DramaID, "", style)
 }
 
 func (s *ImageGenerationService) BatchGenerateImagesForEpisode(episodeID string) ([]*models.ImageGeneration, error) {

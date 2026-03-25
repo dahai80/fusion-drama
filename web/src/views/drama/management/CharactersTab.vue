@@ -253,9 +253,10 @@ onUnmounted(() => {
 })
 
 const charactersList = computed(() => dramaStore.characters)
-const sortedEpisodes = computed(() =>
-  [...dramaStore.episodes].sort((a, b) => a.episode_number - b.episode_number)
-)
+const sortedEpisodes = computed(() => {
+  const eps = dramaStore.episodes
+  return Array.isArray(eps) ? [...eps].sort((a, b) => a.episode_number - b.episode_number) : []
+})
 
 const hasCharacterImage = (character: { local_path?: string; image_url?: string }) => !!(character.local_path || character.image_url)
 
@@ -386,8 +387,9 @@ const saveCharacter = async () => {
       })
       toast.success(t('message.characterUpdateSuccess'))
     } else {
+      const chars = Array.isArray(dramaStore.characters) ? dramaStore.characters : []
       const allCharacters = [
-        ...dramaStore.characters.map((c) => ({
+        ...chars.map((c) => ({
           name: c.name,
           role: c.role,
           appearance: c.appearance,

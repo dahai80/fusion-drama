@@ -58,7 +58,7 @@
     </div>
 
     <!-- Expanded Resource Panel -->
-    <div v-if="expandedResource" class="dd-resource-panel">
+    <div v-if="expandedResource && dramaStore.isLoaded" class="dd-resource-panel">
       <CharactersTab v-if="expandedResource === 'characters'" />
       <ScenesTab v-if="expandedResource === 'scenes'" />
       <PropsTab v-if="expandedResource === 'props'" />
@@ -66,7 +66,8 @@
 
     <!-- Episodes Grid (main content) -->
     <div class="dd-episodes">
-      <EpisodesTab />
+      <div v-if="dramaStore.loading" class="dd-loading">加载中...</div>
+      <EpisodesTab v-else-if="dramaStore.isLoaded" />
     </div>
   </div>
 </template>

@@ -587,6 +587,15 @@ func (s *CharacterLibraryService) extractCharactersForEpisode(episode models.Epi
 	return savedCharacters, nil
 }
 
+// ExtractCharactersDirect 同步提取角色（供 Agent 调用）
+func (s *CharacterLibraryService) ExtractCharactersDirect(episodeID uint) ([]models.Character, error) {
+	var episode models.Episode
+	if err := s.db.Preload("Drama").First(&episode, episodeID).Error; err != nil {
+		return nil, fmt.Errorf("episode not found: %w", err)
+	}
+	return s.extractCharactersForEpisode(episode, episode.Drama)
+}
+
 func (s *CharacterLibraryService) processCharacterExtraction(taskID string, episode models.Episode) {
 	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在分析剧本...")
 

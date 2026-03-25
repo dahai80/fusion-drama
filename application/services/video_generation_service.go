@@ -17,24 +17,22 @@ import (
 )
 
 type VideoGenerationService struct {
-	db              *gorm.DB
-	transferService *ResourceTransferService
-	log             *logger.Logger
-	localStorage    *storage.LocalStorage
-	aiService       *AIService
-	ffmpeg          *ffmpeg.FFmpeg
-	promptI18n      *PromptI18n
+	db           *gorm.DB
+	log          *logger.Logger
+	localStorage *storage.LocalStorage
+	aiService    *AIService
+	ffmpeg       *ffmpeg.FFmpeg
+	promptI18n   *PromptI18n
 }
 
-func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferService, localStorage *storage.LocalStorage, aiService *AIService, log *logger.Logger, promptI18n *PromptI18n) *VideoGenerationService {
+func NewVideoGenerationService(db *gorm.DB, localStorage *storage.LocalStorage, aiService *AIService, log *logger.Logger, promptI18n *PromptI18n) *VideoGenerationService {
 	service := &VideoGenerationService{
-		db:              db,
-		localStorage:    localStorage,
-		transferService: transferService,
-		aiService:       aiService,
-		log:             log,
-		ffmpeg:          ffmpeg.NewFFmpeg(log),
-		promptI18n:      promptI18n,
+		db:           db,
+		localStorage: localStorage,
+		aiService:    aiService,
+		log:          log,
+		ffmpeg:       ffmpeg.NewFFmpeg(log),
+		promptI18n:   promptI18n,
 	}
 
 	go service.RecoverPendingTasks()

@@ -117,9 +117,10 @@ const showUploadNovel = ref(false)
 
 const episodes = computed(() => dramaStore.episodes)
 
-const sortedEpisodes = computed(() =>
-  [...episodes.value].sort((a, b) => a.episode_number - b.episode_number)
-)
+const sortedEpisodes = computed(() => {
+  const list = episodes.value
+  return Array.isArray(list) ? [...list].sort((a, b) => a.episode_number - b.episode_number) : []
+})
 
 const createEpisode = () => {
   const nextEpisodeNumber = episodes.value.length + 1
@@ -146,7 +147,7 @@ const deleteEpisode = async (episode: Episode) => {
   if (!window.confirm(t('message.episodeDeleteConfirm', { number: episode.episode_number }))) return
 
   try {
-    const existingEpisodes = dramaStore.episodes
+    const existingEpisodes = Array.isArray(dramaStore.episodes) ? dramaStore.episodes : []
     const updatedEpisodes = existingEpisodes
       .filter((ep) => ep.episode_number !== episode.episode_number)
       .map((ep) => ({

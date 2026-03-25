@@ -342,6 +342,114 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
 	return task.ID, nil
 }
 
+// GenerateStoryboardDirect 同步生成分镜（供 Agent 调用）
+func (s *StoryboardService) GenerateStoryboardDirect(episodeID string) ([]Storyboard, error) {
+	// 复用 GenerateStoryboard 的 prompt 构建逻辑
+	var episode struct {
+		ID            string
+		ScriptContent *string
+		Description   *string
+		DramaID       string
+	}
+	err := s.db.Table("episodes").
+		Select("episodes.id, episodes.script_content, episodes.description, episodes.drama_id").
+		Joins("INNER JOIN dramas ON dramas.id = episodes.drama_id").
+		Where("episodes.id = ?", episodeID).
+		First(&episode).Error
+	if err != nil {
+		return nil, fmt.Errorf("剧集不存在")
+	}
+
+	var scriptContent string
+	if episode.ScriptContent != nil && *episode.ScriptContent != "" {
+		scriptContent = *episode.ScriptContent
+	} else if episode.Description != nil && *episode.Description != "" {
+		scriptContent = *episode.Description
+	} else {
+		return nil, fmt.Errorf("剧本内容为空")
+	}
+
+	var characters []models.Character
+	s.db.Where("drama_id = ?", episode.DramaID).Order("name ASC").Find(&characters)
+	characterList := "无角色"
+	if len(characters) > 0 {
+		var charInfoList []string
+		for _, char := range characters {
+			charInfoList = append(charInfoList, fmt.Sprintf(`{"id": %d, "name": "%s"}`, char.ID, char.Name))
+		}
+		characterList = fmt.Sprintf("[%s]", strings.Join(charInfoList, ", "))
+	}
+
+	var scenes []models.Scene
+	s.db.Where("drama_id = ?", episode.DramaID).Order("location ASC, time ASC").Find(&scenes)
+	sceneList := "无场景"
+	if len(scenes) > 0 {
+		var sceneInfoList []string
+		for _, bg := range scenes {
+			sceneInfoList = append(sceneInfoList, fmt.Sprintf(`{"id": %d, "location": "%s", "time": "%s"}`, bg.ID, bg.Location, bg.Time))
+		}
+		sceneList = fmt.Sprintf("[%s]", strings.Join(sceneInfoList, ", "))
+	}
+
+	systemPrompt := s.promptI18n.GetStoryboardSystemPrompt()
+	scriptLabel := s.promptI18n.FormatUserPrompt("script_content_label")
+	taskLabel := s.promptI18n.FormatUserPrompt("task_label")
+	taskInstruction := s.promptI18n.FormatUserPrompt("task_instruction")
+	charListLabel := s.promptI18n.FormatUserPrompt("character_list_label")
+	charConstraint := s.promptI18n.FormatUserPrompt("character_constraint")
+	sceneListLabel := s.promptI18n.FormatUserPrompt("scene_list_label")
+	sceneConstraint := s.promptI18n.FormatUserPrompt("scene_constraint")
+
+	prompt := fmt.Sprintf(`%s
+
+%s
+%s
+
+%s%s
+
+%s
+
+%s%s
+
+%s
+
+%s
+%s`,
+		systemPrompt,
+		taskLabel, taskInstruction,
+		charListLabel, characterList,
+		charConstraint,
+		sceneListLabel, sceneList,
+		sceneConstraint,
+		scriptLabel, scriptContent)
+
+	text, err := s.aiService.GenerateText(prompt, "", ai.WithMaxTokens(16000))
+	if err != nil {
+		return nil, fmt.Errorf("生成分镜失败: %w", err)
+	}
+
+	var result GenerateStoryboardResult
+	var storyboards []Storyboard
+	if err := utils.SafeParseAIJSON(text, &storyboards); err == nil {
+		result.Storyboards = storyboards
+	} else if err := utils.SafeParseAIJSON(text, &result); err != nil {
+		return nil, fmt.Errorf("解析分镜结果失败: %w", err)
+	}
+
+	if err := s.saveStoryboards(episodeID, result.Storyboards); err != nil {
+		return nil, fmt.Errorf("保存分镜失败: %w", err)
+	}
+
+	totalDuration := 0
+	for _, sb := range result.Storyboards {
+		totalDuration += sb.Duration
+	}
+	durationMinutes := (totalDuration + 59) / 60
+	s.db.Model(&models.Episode{}).Where("id = ?", episodeID).Update("duration", durationMinutes)
+
+	return result.Storyboards, nil
+}
+
 // processStoryboardGeneration 后台处理故事板生成
 func (s *StoryboardService) processStoryboardGeneration(taskID, episodeID, model, prompt string) {
 	// 更新任务状态为处理中

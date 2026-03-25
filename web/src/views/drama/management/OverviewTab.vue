@@ -95,10 +95,10 @@ const router = useRouter()
 const dramaStore = useDramaStore()
 
 const drama = computed(() => dramaStore.currentDrama)
-const episodesCount = computed(() => dramaStore.episodes.length)
-const charactersCount = computed(() => dramaStore.characters.length)
-const scenesCount = computed(() => dramaStore.scenes.length)
-const propsCount = computed(() => dramaStore.props.length)
+const episodesCount = computed(() => Array.isArray(dramaStore.episodes) ? dramaStore.episodes.length : 0)
+const charactersCount = computed(() => Array.isArray(dramaStore.characters) ? dramaStore.characters.length : 0)
+const scenesCount = computed(() => Array.isArray(dramaStore.scenes) ? dramaStore.scenes.length : 0)
+const propsCount = computed(() => Array.isArray(dramaStore.props) ? dramaStore.props.length : 0)
 
 const createEpisode = () => {
   const nextEpisodeNumber = episodesCount.value + 1

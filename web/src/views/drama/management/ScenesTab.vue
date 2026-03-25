@@ -206,9 +206,10 @@ onUnmounted(() => {
 })
 
 const scenes = computed(() => dramaStore.scenes)
-const sortedEpisodes = computed(() =>
-  [...dramaStore.episodes].sort((a, b) => a.episode_number - b.episode_number)
-)
+const sortedEpisodes = computed(() => {
+  const eps = dramaStore.episodes
+  return Array.isArray(eps) ? [...eps].sort((a, b) => a.episode_number - b.episode_number) : []
+})
 
 const hasSceneImage = (scene: { local_path?: string; image_url?: string }) => !!(scene.local_path || scene.image_url)
 

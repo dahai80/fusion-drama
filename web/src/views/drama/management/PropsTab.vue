@@ -157,9 +157,17 @@ let pollingTimer: ReturnType<typeof setInterval> | null = null
 onUnmounted(() => { if (pollingTimer) clearInterval(pollingTimer) })
 
 const propsList = computed(() => dramaStore.props)
-const sortedEpisodes = computed(() => [...dramaStore.episodes].sort((a, b) => a.episode_number - b.episode_number))
+const sortedEpisodes = computed(() => {
+  const eps = dramaStore.episodes
+  return Array.isArray(eps) ? [...eps].sort((a, b) => a.episode_number - b.episode_number) : []
+})
 const hasImage = (prop: { image_url?: string }) => !!prop.image_url
-const propTypes = computed(() => { const types = new Set(dramaStore.props.map(p => p.type).filter(Boolean)); return Array.from(types) })
+const propTypes = computed(() => {
+  const list = dramaStore.props
+  if (!Array.isArray(list)) return []
+  const types = new Set(list.map(p => p.type).filter(Boolean))
+  return Array.from(types)
+})
 
 const { searchQuery, filterValue, filteredItems } = useFilteredList({ items: propsList, searchFields: ['name', 'description'] as (keyof Prop)[], filterField: 'type' as keyof Prop })
 const { selectedIds, isBatchMode, isAllSelected, isIndeterminate, selectedItems, selectedCount, toggleItem, toggleAll, clearSelection } = useBatchSelection(filteredItems)

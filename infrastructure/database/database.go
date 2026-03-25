@@ -95,6 +95,9 @@ func AutoMigrate(db *gorm.DB) error {
 
 		// 任务管理
 		&models.AsyncTask{},
+
+		// Agent配置
+		&models.AgentConfig{},
 	)
 	if err != nil {
 		return err

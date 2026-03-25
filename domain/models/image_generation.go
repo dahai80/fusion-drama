@@ -58,15 +58,6 @@ const (
 	ImageStatusFailed     ImageGenerationStatus = "failed"
 )
 
-type ImageProvider string
-
-const (
-	ProviderOpenAI          ImageProvider = "openai"
-	ProviderMidjourney      ImageProvider = "midjourney"
-	ProviderStableDiffusion ImageProvider = "stable_diffusion"
-	ProviderDALLE           ImageProvider = "dalle"
-)
-
 // ImageType 图片类型
 type ImageType string
 

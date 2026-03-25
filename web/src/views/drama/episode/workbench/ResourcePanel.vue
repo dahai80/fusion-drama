@@ -22,9 +22,9 @@ defineEmits<{
 <template>
   <aside class="resource-panel">
     <ScriptBlock
-      :script-content="resource.scriptContent.value"
-      :expanded="resource.expandedBlock.value === 'script'"
-      :has-content="resource.hasScript.value"
+      :script-content="resource.scriptContent"
+      :expanded="resource.expandedBlock === 'script'"
+      :has-content="resource.hasScript"
       @toggle="resource.toggleBlock('script')"
       @save="resource.saveScript"
       @extract="$emit('extract')"
@@ -32,17 +32,17 @@ defineEmits<{
       @rewrite="$emit('rewriteScript')"
     />
     <CharacterBlock
-      :characters="resource.characters.value"
-      :expanded="resource.expandedBlock.value === 'characters'"
-      :has-content="resource.hasCharacters.value"
+      :characters="resource.characters"
+      :expanded="resource.expandedBlock === 'characters'"
+      :has-content="resource.hasCharacters"
       @toggle="resource.toggleBlock('characters')"
       @generate-image="$emit('generateCharacterImage', $event)"
       @batch-generate="$emit('batchGenerateCharacters')"
     />
     <SceneBlock
-      :scenes="resource.scenes.value"
-      :expanded="resource.expandedBlock.value === 'scenes'"
-      :has-content="resource.hasScenes.value"
+      :scenes="resource.scenes"
+      :expanded="resource.expandedBlock === 'scenes'"
+      :has-content="resource.hasScenes"
       @toggle="resource.toggleBlock('scenes')"
       @generate-image="$emit('generateSceneImage', $event)"
       @batch-generate="$emit('batchGenerateScenes')"
