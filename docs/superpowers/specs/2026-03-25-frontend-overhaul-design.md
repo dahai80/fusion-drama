@@ -32,7 +32,7 @@ Comprehensive frontend restructuring of Huobao Drama covering three dimensions: 
 | el-dialog | Dialog | |
 | el-drawer | Sheet | Used for Agent panel |
 | el-tabs | Tabs | |
-| el-form / el-form-item | Form (react-hook-form style) | With FormField, FormItem |
+| el-form / el-form-item | Form (vee-validate based) | With FormField, FormItem |
 | el-table | Table | |
 | el-tag | Badge | |
 | el-alert | Alert | |
@@ -100,7 +100,21 @@ All routes are top-level. Drama-related routes (7) and Episode-related routes (4
 
 /drama/:id/episode/:num/workbench    → EpisodeWorkbench (fullscreen)
 /drama/:id/episode/:num/compose      → CompositionWorkbench (fullscreen)
+
+/settings                            → SettingsLayout (nested)
+  ├ (index)                          → AIConfig
+  ├ agent-config                     → AgentConfig
+  └ agent-debug                      → AgentDebug
+
+/:pathMatch(.*)*                     → NotFound
 ```
+
+### URL Redirects
+
+Add redirects for backward compatibility:
+- `/character-library` → `/library`
+- `/dramas/:id` → `/drama/:id`
+- `/dramas/:id/episode/:num` → `/drama/:id/episode/:num/workbench`
 
 ### Key Changes
 
@@ -172,7 +186,8 @@ web/src/
 │   │   │   ├── EpisodesTab.vue
 │   │   │   ├── CharactersTab.vue
 │   │   │   ├── ScenesTab.vue
-│   │   │   └── PropsTab.vue
+│   │   │   ├── PropsTab.vue
+│   │   │   └── SettingsTab.vue
 │   │   ├── episode/
 │   │   │   ├── EpisodeWorkbench.vue  ← NEW: unified progressive workbench
 │   │   │   └── workbench/
@@ -194,6 +209,8 @@ web/src/
 │   │   └── Assets.vue
 │   └── settings/
 │       ├── AIConfig.vue
+│       ├── AgentConfig.vue            ← Existing, kept
+│       ├── AgentDebug.vue             ← Existing, kept
 │       └── components/
 │           └── ProviderCard.vue
 ├── composables/
@@ -208,7 +225,11 @@ web/src/
 │   ├── useBatchSelection.ts         ← Kept
 │   ├── useFilteredList.ts           ← Kept
 │   └── useVideoMerge.ts             ← Kept
-├── stores/                           ← Kept as-is
+├── stores/                           ← Kept, drama store extended for DramaLayout
+│   ├── drama.ts                     ← Extended: load once in DramaLayout, share via store
+│   ├── episode.ts                   ← Kept
+│   ├── aiConfig.ts                  ← Kept
+│   └── ui.ts                        ← Kept
 ├── api/                              ← Kept, add agent API
 │   ├── agent.ts                     ← NEW: agent SSE endpoints
 │   └── ... (existing)
@@ -222,6 +243,16 @@ web/src/
 
 - `views/drama/EpisodeWorkflow.vue` (2499 lines) → replaced by EpisodeWorkbench
 - `views/drama/ProfessionalEditor.vue` → merged into EpisodeWorkbench
+- `views/drama/professional/` (entire directory) → components refactored into workbench/
+  - `PreviewPane.vue` → `workbench/PreviewPane.vue`
+  - `StoryboardList.vue` → `workbench/StoryboardStrip.vue`
+  - `PropertiesTab.vue` → `workbench/PropertiesPanel.vue`
+  - `SceneEditorPanel.vue` → absorbed into PropertiesPanel
+  - `GenerationTab.vue` → absorbed into PropertiesPanel
+  - `PanelSection.vue` → removed
+  - `CompositionTab.vue` → moved to composition/
+  - `CompositionWorkbench.vue` → moved to composition/
+  - `dialogs/` (SceneSelector, CharacterSelector, PropSelector) → kept as shared components under workbench/
 - `views/drama/DramaManagement.vue` (1502 lines) → replaced by DramaLayout + management/ children
 - `views/drama/workflow/ScriptStep.vue` → absorbed into workbench/ScriptBlock.vue
 - `views/drama/workflow/ImageStep.vue` → absorbed into workbench grid operations
@@ -388,17 +419,16 @@ Manages Agent drawer communication:
 
 ### api/agent.ts
 
+New module for SSE streaming only. Agent config CRUD already exists in `api/agentConfig.ts` and is kept as-is.
+
 ```typescript
 export const agentAPI = {
-  // SSE streaming chat — returns EventSource or fetch with ReadableStream
-  streamChat(agentType: string, data: AgentChatRequest): EventSource
-
-  // Agent config CRUD
-  listConfigs(): Promise<AgentConfig[]>
-  getConfig(id: number): Promise<AgentConfig>
-  updateConfig(id: number, data: Partial<AgentConfig>): Promise<AgentConfig>
+  // SSE streaming chat via fetch + ReadableStream (POST endpoint, cannot use EventSource)
+  streamChat(agentType: string, data: AgentChatRequest): Promise<ReadableStream<AgentSSEEvent>>
 }
 ```
+
+Note: The backend endpoint is `POST /api/v1/agent/:type/chat`. Native `EventSource` only supports GET, so this uses `fetch()` with `response.body.getReader()` to read the SSE stream.
 
 ### types/agent.ts
 
@@ -407,7 +437,10 @@ interface AgentChatRequest {
   message: string
   drama_id?: number
   episode_id?: number
-  context?: Record<string, unknown>
+  // Note: backend AgentChatRequest currently only has Message, DramaID, EpisodeID.
+  // Context injection (current storyboard, scene, characters) is built into the
+  // message string client-side, or the backend struct needs to be extended with
+  // a Context field to support structured context passing.
 }
 
 interface AgentSSEEvent {
@@ -421,51 +454,57 @@ interface AgentConfig {
   agent_type: string
   name: string
   description: string
+  system_prompt: string
   model: string
   temperature: number
   max_tokens: number
   max_iterations: number
   is_active: boolean
+  created_at: string
+  updated_at: string
 }
 ```
 
 ## 8. Migration Strategy
 
 ### Phase 1: Foundation
-1. Initialize Shadcn Vue CLI, generate base components into `components/ui/`
-2. Install `lucide-vue-next`
+1. Initialize Shadcn Vue: `npx shadcn-vue@latest init`, generate base components into `components/ui/`
+2. Install `lucide-vue-next`, `class-variance-authority`, `clsx`, `tailwind-merge`
 3. Map Glass tokens to Shadcn CSS variables
-4. Create `components/agent/` shell components
+4. Audit and migrate `components/common/` (shared components used everywhere, must be migrated early)
+5. Create `components/agent/` shell components
 
 ### Phase 2: Route Restructuring
-5. Create `DramaLayout.vue` with left sidebar navigation
-6. Refactor routes to nested structure
-7. Move management tab components under `views/drama/management/`
-8. Remove `DramaManagement.vue`
+6. Create `DramaLayout.vue` with left sidebar navigation
+7. Extend `drama` Pinia store for DramaLayout data sharing pattern
+8. Refactor routes to nested structure (including redirects for old URLs)
+9. Move management tab components under `views/drama/management/`
+10. Remove `DramaManagement.vue`
 
 ### Phase 3: Workbench
-9. Create `EpisodeWorkbench.vue` and workbench sub-components
-10. Build ResourcePanel (ScriptBlock, CharacterBlock, SceneBlock)
-11. Build StoryboardGrid and StoryboardCard
-12. Build StoryboardEditor (edit mode: strip + preview + properties)
-13. Create new composables (useEpisodeWorkbench, useResourcePanel, useStoryboardGrid)
-14. Remove `EpisodeWorkflow.vue` and `ProfessionalEditor.vue`
+11. Create `EpisodeWorkbench.vue` and workbench sub-components
+12. Build ResourcePanel (ScriptBlock, CharacterBlock, SceneBlock)
+13. Build StoryboardGrid and StoryboardCard
+14. Build StoryboardEditor (edit mode: strip + preview + properties)
+15. Refactor components from `views/drama/professional/` into workbench sub-components
+16. Create new composables (useEpisodeWorkbench, useResourcePanel, useStoryboardGrid)
+17. Remove `EpisodeWorkflow.vue`, `ProfessionalEditor.vue`, and `professional/` directory
 
 ### Phase 4: Agent Integration
-15. Build AgentDrawer, AgentChat, AgentTypeSwitcher
-16. Create useAgentChat composable
-17. Create api/agent.ts and types/agent.ts
-18. Wire agent results to workbench actions
+18. Build AgentDrawer, AgentChat, AgentTypeSwitcher
+19. Create useAgentChat composable (fetch + ReadableStream for POST SSE)
+20. Create api/agent.ts (streamChat only; keep existing agentConfig.ts)
+21. Wire agent results to workbench actions
 
 ### Phase 5: Component Migration
-19. Migrate components from Element Plus to Shadcn Vue (view by view)
-20. Replace `@element-plus/icons-vue` with Lucide icons
-21. Remove Element Plus package and all imports
-22. Remove `assets/styles/element/index.scss`
+22. Migrate remaining views from Element Plus to Shadcn Vue (view by view)
+23. Replace `@element-plus/icons-vue` with Lucide icons across all files
+24. Remove Element Plus package and all imports
+25. Remove `assets/styles/element/index.scss`
 
 ### Phase 6: Cleanup
-23. Remove deleted view files and unused composables
-24. Remove empty directories (views/workflow/, views/script/, views/storyboard/, views/generation/, views/editor/)
-25. Update i18n keys for renamed/removed components
-26. Run `pnpm build:check` to verify no TypeScript errors
-27. Run `pnpm lint:fix` to clean up
+26. Remove deleted view files and unused composables
+27. Remove empty directories (views/workflow/, views/script/, views/storyboard/, views/generation/, views/editor/)
+28. Update i18n keys for renamed/removed components
+29. Run `pnpm build:check` to verify no TypeScript errors
+30. Run `pnpm lint:fix` to clean up
