@@ -165,7 +165,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   VideoPlay, VideoCamera, Loading, CircleClose,
   View, Download, Delete
@@ -211,7 +211,7 @@ const loadVideos = async () => {
     videos.value = result.items
     total.value = result.pagination.total
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    toast.error(error.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -246,10 +246,10 @@ const downloadVideo = (video: VideoGeneration) => {
 const deleteVideo = async (id: number) => {
   try {
     await videoAPI.deleteVideo(id)
-    ElMessage.success('删除成功')
+    toast.success('删除成功')
     loadVideos()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    toast.error(error.message || '删除失败')
   }
 }
 

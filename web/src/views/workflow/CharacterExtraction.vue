@@ -89,7 +89,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { Plus } from '@element-plus/icons-vue'
 import { MagicStick } from '@element-plus/icons-vue'
 import { generationAPI } from '@/api/generation'
@@ -130,9 +130,9 @@ const saveCharacters = async () => {
   try {
     // TODO: 调用保存角色API
     await new Promise(resolve => setTimeout(resolve, 1000))
-    ElMessage.success('保存成功')
+    toast.success('保存成功')
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    toast.error(error.message || '保存失败')
   } finally {
     saving.value = false
   }
@@ -146,7 +146,7 @@ const editCharacter = (character: Character) => {
 const saveCharacter = () => {
   // TODO: 保存角色信息
   editDialogVisible.value = false
-  ElMessage.success('保存成功')
+  toast.success('保存成功')
 }
 
 const generateCharacterImage = (character: Character) => {

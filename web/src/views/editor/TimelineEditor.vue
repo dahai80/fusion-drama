@@ -24,7 +24,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import VideoTimelineEditor from '@/components/editor/VideoTimelineEditor.vue'
@@ -42,7 +42,7 @@ const loadScenes = async () => {
     const res = await dramaAPI.getStoryboards(episodeId)
     scenes.value = (res as any).storyboards || []
   } catch (error: any) {
-    ElMessage.error($t('timeline.loadFailed'))
+    toast.error($t('timeline.loadFailed'))
   }
 }
 

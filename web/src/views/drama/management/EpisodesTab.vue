@@ -94,7 +94,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { Plus, Upload, Search, Document as DocumentIcon, Edit, Delete } from '@element-plus/icons-vue'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { useFilteredList } from '@/composables/useFilteredList'
@@ -137,17 +137,9 @@ const enterEpisode = (episode: Episode) => {
 }
 
 const deleteEpisode = async (episode: Episode) => {
-  try {
-    await ElMessageBox.confirm(
-      t('message.episodeDeleteConfirm', { number: episode.episode_number }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('message.episodeDeleteConfirm', { number: episode.episode_number }))) return
 
+  try {
     const existingEpisodes = dramaStore.episodes
     const updatedEpisodes = existingEpisodes
       .filter((ep) => ep.episode_number !== episode.episode_number)
@@ -161,12 +153,10 @@ const deleteEpisode = async (episode: Episode) => {
       }))
 
     await dramaAPI.saveEpisodes(dramaStore.dramaId, updatedEpisodes)
-    ElMessage.success(t('message.episodeDeleteSuccess', { number: episode.episode_number }))
+    toast.success(t('message.episodeDeleteSuccess', { number: episode.episode_number }))
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 

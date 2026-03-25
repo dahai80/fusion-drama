@@ -219,7 +219,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { Document, Plus, Search, User, Edit, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { getImageUrl } from '@/utils/image'
@@ -336,14 +336,14 @@ const handleCharacterAvatarSuccess = (response: any) => {
 const beforeAvatarUpload = (file: any) => {
   const isImage = file.type.startsWith('image/')
   const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isImage) ElMessage.error(t('message.imageOnlyUpload'))
-  if (!isLt10M) ElMessage.error(t('message.imageSizeLimit'))
+  if (!isImage) toast.error(t('message.imageOnlyUpload'))
+  if (!isLt10M) toast.error(t('message.imageSizeLimit'))
   return isImage && isLt10M
 }
 
 const saveCharacter = async () => {
   if (!newCharacter.value.name.trim()) {
-    ElMessage.warning(t('message.enterCharacterName'))
+    toast.warning(t('message.enterCharacterName'))
     return
   }
 
@@ -358,7 +358,7 @@ const saveCharacter = async () => {
         image_url: newCharacter.value.image_url,
         local_path: newCharacter.value.local_path,
       })
-      ElMessage.success(t('message.characterUpdateSuccess'))
+      toast.success(t('message.characterUpdateSuccess'))
     } else {
       const allCharacters = [
         ...dramaStore.characters.map((c) => ({
@@ -373,75 +373,55 @@ const saveCharacter = async () => {
         newCharacter.value,
       ]
       await dramaAPI.saveCharacters(dramaStore.dramaId, allCharacters)
-      ElMessage.success(t('message.characterAddSuccess'))
+      toast.success(t('message.characterAddSuccess'))
     }
 
     addCharacterDialogVisible.value = false
     await reloadDrama()
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'))
+    toast.error(error.message || t('message.operationFailed'))
   }
 }
 
 const deleteCharacter = async (character: Character) => {
   if (!character.id) {
-    ElMessage.error(t('message.characterIdNotExist'))
+    toast.error(t('message.characterIdNotExist'))
     return
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('message.characterDeleteConfirm', { name: character.name }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('message.characterDeleteConfirm', { name: character.name }))) return
 
+  try {
     await characterLibraryAPI.deleteCharacter(character.id)
-    ElMessage.success(t('message.characterDeleted'))
+    toast.success(t('message.characterDeleted'))
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
 const generateCharacterImage = async (character: Character) => {
   try {
     await characterLibraryAPI.generateCharacterImage(character.id)
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
 const batchDeleteCharacters = async () => {
-  try {
-    await ElMessageBox.confirm(
-      t('common.batchDeleteConfirm', { count: selectedCount.value }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('common.batchDeleteConfirm', { count: selectedCount.value }))) return
 
+  try {
     for (const character of selectedItems.value) {
       await characterLibraryAPI.deleteCharacter(character.id)
     }
-    ElMessage.success(t('message.batchDeleteSuccess'))
+    toast.success(t('message.batchDeleteSuccess'))
     clearSelection()
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
@@ -449,11 +429,11 @@ const batchGenerateCharacterImages = async () => {
   try {
     const ids = selectedItems.value.map(c => c.id.toString())
     await characterLibraryAPI.batchGenerateCharacterImages(ids)
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     clearSelection()
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
@@ -529,7 +509,7 @@ const handleExtractCharacters = async () => {
     }, 3000)
   } catch (error: any) {
     extractProgress.value = { active: false, percent: 0, message: '', status: '' }
-    ElMessage.error(error.message || t('message.extractFailed'))
+    toast.error(error.message || t('message.extractFailed'))
   }
 }
 </script>

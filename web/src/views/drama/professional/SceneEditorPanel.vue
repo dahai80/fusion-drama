@@ -308,7 +308,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   ArrowLeft, ArrowRight, ArrowDown, Plus, Picture, Close, Box, Edit,
   CopyDocument, VideoCamera, Loading, MagicStick, Upload
@@ -357,7 +357,7 @@ const isLast = computed(() => props.storyboardIndex >= props.totalStoryboards - 
 const copyPrompt = () => {
   if (props.currentStoryboard?.video_prompt) {
     navigator.clipboard.writeText(props.currentStoryboard.video_prompt)
-    ElMessage.success(t('common.copied'))
+    toast.success(t('common.copied'))
   }
 }
 </script>

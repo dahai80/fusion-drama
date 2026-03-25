@@ -1,5 +1,18 @@
 <template>
   <div class="animate-fade-in">
+    <!-- Settings Tab Nav -->
+    <div class="settings-tabs">
+      <router-link to="/settings/ai-config" class="settings-tab active">
+        {{ $t('aiConfig.title') }}
+      </router-link>
+      <router-link to="/settings/agent-config" class="settings-tab">
+        {{ $t('agentConfig.title') }}
+      </router-link>
+      <router-link to="/settings/agent-debug" class="settings-tab">
+        {{ $t('agentDebug.title') }}
+      </router-link>
+    </div>
+
     <!-- Page Header -->
     <PageHeader
       :title="$t('aiConfig.title')"
@@ -78,7 +91,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { MagicStick } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
 import { PageHeader } from '@/components/common'
@@ -126,7 +139,7 @@ async function loadAll() {
     allConfigs.value = [...text, ...image, ...video, ...audio, ...lipsync]
     allProviders.value = providers
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    toast.error(error.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -149,7 +162,7 @@ const generateConfigName = (provider: string, serviceType: AIServiceType): strin
 
 async function handleQuickSetup() {
   if (!quickSetupApiKey.value.trim()) {
-    ElMessage.warning('请输入 API Key')
+    toast.warning('请输入 API Key')
     return
   }
 
@@ -189,17 +202,17 @@ async function handleQuickSetup() {
     }
 
     if (createdServices.length > 0 && skippedServices.length > 0) {
-      ElMessage.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
+      toast.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
     } else if (createdServices.length > 0) {
-      ElMessage.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
+      toast.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
     } else {
-      ElMessage.info('所有配置已存在，无需重复创建')
+      toast.info('所有配置已存在，无需重复创建')
     }
 
     quickSetupVisible.value = false
     loadAll()
   } catch (error: any) {
-    ElMessage.error(error.message || '配置失败')
+    toast.error(error.message || '配置失败')
   } finally {
     quickSetupLoading.value = false
   }
@@ -211,6 +224,35 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  padding-bottom: 0;
+}
+
+.settings-tab {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+
+.settings-tab:hover {
+  color: var(--el-color-primary);
+}
+
+.settings-tab.active,
+.settings-tab.router-link-exact-active {
+  color: var(--el-color-primary);
+  border-bottom-color: var(--el-color-primary);
+}
+
 .provider-grid {
   display: grid;
   grid-template-columns: 1fr;

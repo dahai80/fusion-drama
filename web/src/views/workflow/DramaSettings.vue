@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { dramaAPI } from '@/api/drama'
 
 const route = useRoute()
@@ -82,31 +82,21 @@ const goBack = () => {
 const saveSettings = async () => {
   try {
     await dramaAPI.update(dramaId, form)
-    ElMessage.success('设置保存成功')
+    toast.success('设置保存成功')
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    toast.error(error.message || '保存失败')
   }
 }
 
 const deleteProject = async () => {
+  if (!window.confirm('确定要删除此项目吗？此操作不可恢复！')) return
+
   try {
-    await ElMessageBox.confirm(
-      '确定要删除此项目吗？此操作不可恢复！',
-      '警告',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    )
-    
     await dramaAPI.delete(dramaId)
-    ElMessage.success('项目已删除')
+    toast.success('项目已删除')
     router.push('/dramas')
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败')
-    }
+    toast.error(error.message || '删除失败')
   }
 }
 
@@ -115,7 +105,7 @@ onMounted(async () => {
     const drama = await dramaAPI.get(dramaId)
     Object.assign(form, drama)
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    toast.error(error.message || '加载失败')
   }
 })
 </script>

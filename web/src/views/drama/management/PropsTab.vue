@@ -222,7 +222,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { Document, Plus, Search, Box, Edit, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { getImageUrl } from '@/utils/image'
@@ -335,14 +335,14 @@ const handlePropImageSuccess = (response: any) => {
 const beforeAvatarUpload = (file: any) => {
   const isImage = file.type.startsWith('image/')
   const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isImage) ElMessage.error(t('message.imageOnlyUpload'))
-  if (!isLt10M) ElMessage.error(t('message.imageSizeLimit'))
+  if (!isImage) toast.error(t('message.imageOnlyUpload'))
+  if (!isLt10M) toast.error(t('message.imageSizeLimit'))
   return isImage && isLt10M
 }
 
 const saveProp = async () => {
   if (!newProp.value.name.trim()) {
-    ElMessage.warning(t('message.enterPropName'))
+    toast.warning(t('message.enterPropName'))
     return
   }
 
@@ -359,79 +359,59 @@ const saveProp = async () => {
 
     if (editingProp.value) {
       await propAPI.update(editingProp.value.id, propData)
-      ElMessage.success(t('message.propUpdateSuccess'))
+      toast.success(t('message.propUpdateSuccess'))
     } else {
       await propAPI.create(propData as any)
-      ElMessage.success(t('message.propAddSuccess'))
+      toast.success(t('message.propAddSuccess'))
     }
 
     addPropDialogVisible.value = false
     await reloadDrama()
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'))
+    toast.error(error.message || t('message.operationFailed'))
   }
 }
 
 const deleteProp = async (prop: Prop) => {
-  try {
-    await ElMessageBox.confirm(
-      t('message.propDeleteConfirm', { name: prop.name }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('message.propDeleteConfirm', { name: prop.name }))) return
 
+  try {
     await propAPI.delete(prop.id)
-    ElMessage.success(t('message.propDeleted'))
+    toast.success(t('message.propDeleted'))
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
 const generatePropImage = async (prop: Prop) => {
   if (!prop.prompt) {
-    ElMessage.warning(t('message.setPropPromptFirst'))
+    toast.warning(t('message.setPropPromptFirst'))
     editProp(prop)
     return
   }
 
   try {
     await propAPI.generateImage(prop.id)
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
 const batchDeleteProps = async () => {
-  try {
-    await ElMessageBox.confirm(
-      t('common.batchDeleteConfirm', { count: selectedCount.value }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('common.batchDeleteConfirm', { count: selectedCount.value }))) return
 
+  try {
     for (const prop of selectedItems.value) {
       await propAPI.delete(prop.id)
     }
-    ElMessage.success(t('message.batchDeleteSuccess'))
+    toast.success(t('message.batchDeleteSuccess'))
     clearSelection()
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
@@ -442,11 +422,11 @@ const batchGeneratePropImages = async () => {
         await propAPI.generateImage(prop.id)
       }
     }
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     clearSelection()
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
@@ -522,7 +502,7 @@ const handleExtractProps = async () => {
     }, 3000)
   } catch (error: any) {
     propsExtractProgress.value = { active: false, percent: 0, message: '', status: '' }
-    ElMessage.error(error.message || t('common.failed'))
+    toast.error(error.message || t('common.failed'))
   }
 }
 </script>

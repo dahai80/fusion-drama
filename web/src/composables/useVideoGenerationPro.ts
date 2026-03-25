@@ -1,6 +1,6 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { dramaAPI } from '@/api/drama'
 import { imageAPI } from '@/api/image'
 import { videoAPI } from '@/api/video'
@@ -301,7 +301,7 @@ export function useVideoGenerationPro(
       )
     } catch (error: any) {
       console.error('加载视频模型配置失败:', error)
-      ElMessage.error($t('professionalEditor.loadVideoModelsFailed'))
+      toast.error($t('professionalEditor.loadVideoModelsFailed'))
     }
   }
 
@@ -352,11 +352,11 @@ export function useVideoGenerationPro(
 
   const handleImageSelect = (imageId: number) => {
     if (!selectedReferenceMode.value) {
-      ElMessage.warning($t('professionalEditor.selectRefModeFirst'))
+      toast.warning($t('professionalEditor.selectRefModeFirst'))
       return
     }
     if (!currentModelCapability.value) {
-      ElMessage.warning($t('professionalEditor.selectVideoModelFirst'))
+      toast.warning($t('professionalEditor.selectVideoModelFirst'))
       return
     }
 
@@ -388,19 +388,19 @@ export function useVideoGenerationPro(
         } else if (frameType === 'last') {
           selectedLastImageForVideo.value = imageId
         } else {
-          ElMessage.warning($t('professionalEditor.firstLastFrameOnly'))
+          toast.warning($t('professionalEditor.firstLastFrameOnly'))
         }
         break
       }
       case 'multiple':
         if (selectedImagesForVideo.value.length >= capability.maxImages) {
-          ElMessage.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
+          toast.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
           return
         }
         selectedImagesForVideo.value.push(imageId)
         break
       default:
-        ElMessage.warning($t('professionalEditor.unknownRefMode'))
+        toast.warning($t('professionalEditor.unknownRefMode'))
     }
   }
 
@@ -419,7 +419,7 @@ export function useVideoGenerationPro(
     const currentIndex = selectedImagesForVideo.value.indexOf(img.id)
     if (currentIndex > -1) {
       selectedImagesForVideo.value.splice(currentIndex, 1)
-      ElMessage.success($t('professionalEditor.cancelledFirstFrame'))
+      toast.success($t('professionalEditor.cancelledFirstFrame'))
       return
     }
 
@@ -436,28 +436,28 @@ export function useVideoGenerationPro(
         capability &&
         selectedImagesForVideo.value.length >= capability.maxImages
       ) {
-        ElMessage.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
+        toast.warning($t('professionalEditor.maxImagesLimit', { max: capability.maxImages }))
         return
       }
       selectedImagesForVideo.value.push(img.id)
     }
-    ElMessage.success($t('professionalEditor.addedAsFirstFrame'))
+    toast.success($t('professionalEditor.addedAsFirstFrame'))
   }
 
   const generateVideo = async () => {
     if (!selectedVideoModel.value) {
-      ElMessage.warning($t('professionalEditor.selectVideoModelFirst'))
+      toast.warning($t('professionalEditor.selectVideoModelFirst'))
       return
     }
     if (!currentStoryboard.value) {
-      ElMessage.warning($t('professionalEditor.selectStoryboardFirst'))
+      toast.warning($t('professionalEditor.selectStoryboardFirst'))
       return
     }
     if (
       selectedReferenceMode.value !== 'none' &&
       selectedImagesForVideo.value.length === 0
     ) {
-      ElMessage.warning($t('professionalEditor.selectRefImages'))
+      toast.warning($t('professionalEditor.selectRefImages'))
       return
     }
 
@@ -474,7 +474,7 @@ export function useVideoGenerationPro(
           (img) => img.id === selectedImagesForVideo.value[0],
         )
       if (!selectedImage || !selectedImage.image_url) {
-        ElMessage.error($t('professionalEditor.selectValidRefImages'))
+        toast.error($t('professionalEditor.selectValidRefImages'))
         return
       }
     }
@@ -551,10 +551,10 @@ export function useVideoGenerationPro(
 
       const result = await videoAPI.generateVideo(requestParams)
       generatedVideos.value.unshift(result)
-      ElMessage.success($t('professionalEditor.videoTaskSubmitted'))
+      toast.success($t('professionalEditor.videoTaskSubmitted'))
       startVideoPolling()
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
     } finally {
       generatingVideo.value = false
     }
@@ -648,7 +648,7 @@ export function useVideoGenerationPro(
 
   const addVideoToAssets = async (video: VideoGeneration) => {
     if (video.status !== 'completed' || !video.video_url) {
-      ElMessage.warning($t('professionalEditor.onlyCompletedVideo'))
+      toast.warning($t('professionalEditor.onlyCompletedVideo'))
       return
     }
 
@@ -672,7 +672,7 @@ export function useVideoGenerationPro(
       }
 
       await assetAPI.importFromVideo(video.id)
-      ElMessage.success($t('professionalEditor.addedToAssets'))
+      toast.success($t('professionalEditor.addedToAssets'))
 
       await loadVideoAssets()
 
@@ -685,7 +685,7 @@ export function useVideoGenerationPro(
         }
       }
     } catch (error: any) {
-      ElMessage.error(error.message || $t('professionalEditor.addToAssetsFailed'))
+      toast.error(error.message || $t('professionalEditor.addToAssetsFailed'))
     } finally {
       addingToAssets.value.delete(video.id)
     }
@@ -694,26 +694,16 @@ export function useVideoGenerationPro(
   const handleDeleteVideo = async (video: VideoGeneration) => {
     if (!currentStoryboard.value) return
 
-    try {
-      await ElMessageBox.confirm(
-        $t('professionalEditor.deleteVideoConfirm'),
-        $t('professionalEditor.deleteVideoTitle'),
-        {
-          confirmButtonText: $t('common.confirm'),
-          cancelButtonText: $t('common.cancel'),
-          type: 'warning',
-        },
-      )
+    if (!window.confirm($t('professionalEditor.deleteVideoConfirm'))) return
 
+    try {
       await videoAPI.deleteVideo(video.id)
-      ElMessage.success($t('message.deleteSuccess'))
+      toast.success($t('message.deleteSuccess'))
 
       await loadStoryboardVideos(Number(currentStoryboard.value.id))
     } catch (error: any) {
-      if (error !== 'cancel') {
-        console.error('删除视频失败:', error)
-        ElMessage.error(error.message || $t('message.deleteFailed'))
-      }
+      console.error('删除视频失败:', error)
+      toast.error(error.message || $t('message.deleteFailed'))
     }
   }
 

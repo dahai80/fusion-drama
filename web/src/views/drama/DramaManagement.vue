@@ -509,7 +509,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { toast } from 'vue-sonner';
 import { Plus, Document, User, Picture, Box } from "@element-plus/icons-vue";
 import { dramaAPI } from "@/api/drama";
 import { characterLibraryAPI } from "@/api/character-library";
@@ -643,7 +643,7 @@ const loadDramaData = async () => {
     drama.value = data;
     loadScenes();
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.loadProjectFailed'));
+    toast.error(error.message || t('message.loadProjectFailed'));
   }
 };
 
@@ -677,17 +677,9 @@ const enterEpisodeWorkflow = (episode: any) => {
 };
 
 const deleteEpisode = async (episode: any) => {
-  try {
-    await ElMessageBox.confirm(
-      t('message.episodeDeleteConfirm', { number: episode.episode_number }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: "warning",
-      },
-    );
+  if (!window.confirm(t('message.episodeDeleteConfirm', { number: episode.episode_number }))) return
 
+  try {
     const existingEpisodes = drama.value?.episodes || [];
     const updatedEpisodes = existingEpisodes
       .filter((ep) => ep.episode_number !== episode.episode_number)
@@ -701,12 +693,10 @@ const deleteEpisode = async (episode: any) => {
       }));
 
     await dramaAPI.saveEpisodes(drama.value!.id, updatedEpisodes);
-    ElMessage.success(t('message.episodeDeleteSuccess', { number: episode.episode_number }));
+    toast.success(t('message.episodeDeleteSuccess', { number: episode.episode_number }));
     await loadDramaData();
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error(error.message || t('message.deleteFailed'));
-    }
+    toast.error(error.message || t('message.deleteFailed'));
   }
 };
 
@@ -743,10 +733,10 @@ const beforeAvatarUpload = (file: any) => {
   const isLt10M = file.size / 1024 / 1024 < 10;
 
   if (!isImage) {
-    ElMessage.error(t('message.imageOnlyUpload'));
+    toast.error(t('message.imageOnlyUpload'));
   }
   if (!isLt10M) {
-    ElMessage.error(t('message.imageSizeLimit'));
+    toast.error(t('message.imageSizeLimit'));
   }
   return isImage && isLt10M;
 };
@@ -754,10 +744,10 @@ const beforeAvatarUpload = (file: any) => {
 const generateCharacterImage = async (character: any) => {
   try {
     await characterLibraryAPI.generateCharacterImage(character.id);
-    ElMessage.success(t('message.imageTaskSubmitted'));
+    toast.success(t('message.imageTaskSubmitted'));
     startPolling(loadDramaData);
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'));
+    toast.error(error.message || t('message.generateFailed'));
   }
 };
 
@@ -833,17 +823,17 @@ const handleExtractCharacters = async () => {
     }, 3000);
   } catch (error: any) {
     extractProgress.value = { active: false, percent: 0, message: '', status: '' };
-    ElMessage.error(error.message || t('message.extractFailed'));
+    toast.error(error.message || t('message.extractFailed'));
   }
 };
 
 const generateSceneImage = async (scene: any) => {
   try {
     await dramaAPI.generateSceneImage({ scene_id: scene.id });
-    ElMessage.success(t('message.imageTaskSubmitted'));
+    toast.success(t('message.imageTaskSubmitted'));
     startPolling(loadScenes);
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'));
+    toast.error(error.message || t('message.generateFailed'));
   }
 };
 
@@ -918,13 +908,13 @@ const handleExtractScenes = async () => {
     }, 3000);
   } catch (error: any) {
     scenesExtractProgress.value = { active: false, percent: 0, message: '', status: '' };
-    ElMessage.error(error.message || t('message.extractFailed'));
+    toast.error(error.message || t('message.extractFailed'));
   }
 };
 
 const saveCharacter = async () => {
   if (!newCharacter.value.name.trim()) {
-    ElMessage.warning(t('message.enterCharacterName'));
+    toast.warning(t('message.enterCharacterName'));
     return;
   }
 
@@ -939,7 +929,7 @@ const saveCharacter = async () => {
         image_url: newCharacter.value.image_url,
         local_path: newCharacter.value.local_path,
       });
-      ElMessage.success(t('message.characterUpdateSuccess'));
+      toast.success(t('message.characterUpdateSuccess'));
     } else {
       const allCharacters = [
         ...(drama.value?.characters || []).map((c) => ({
@@ -955,13 +945,13 @@ const saveCharacter = async () => {
       ];
 
       await dramaAPI.saveCharacters(drama.value!.id, allCharacters);
-      ElMessage.success(t('message.characterAddSuccess'));
+      toast.success(t('message.characterAddSuccess'));
     }
 
     addCharacterDialogVisible.value = false;
     await loadDramaData();
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'));
+    toast.error(error.message || t('message.operationFailed'));
   }
 };
 
@@ -981,29 +971,19 @@ const editCharacter = (character: any) => {
 
 const deleteCharacter = async (character: any) => {
   if (!character.id) {
-    ElMessage.error(t('message.characterIdNotExist'));
+    toast.error(t('message.characterIdNotExist'));
     return;
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('message.characterDeleteConfirm', { name: character.name }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: "warning",
-      },
-    );
+  if (!window.confirm(t('message.characterDeleteConfirm', { name: character.name }))) return
 
+  try {
     await characterLibraryAPI.deleteCharacter(character.id);
-    ElMessage.success(t('message.characterDeleted'));
+    toast.success(t('message.characterDeleted'));
     await loadDramaData();
   } catch (error: any) {
-    if (error !== "cancel") {
-      console.error("删除角色失败:", error);
-      ElMessage.error(error.message || t('message.deleteFailed'));
-    }
+    console.error("删除角色失败:", error);
+    toast.error(error.message || t('message.deleteFailed'));
   }
 };
 
@@ -1020,7 +1000,7 @@ const openAddSceneDialog = () => {
 
 const saveScene = async () => {
   if (!newScene.value.location.trim()) {
-    ElMessage.warning(t('message.enterSceneName'));
+    toast.warning(t('message.enterSceneName'));
     return;
   }
 
@@ -1043,11 +1023,11 @@ const saveScene = async () => {
       });
     }
 
-    ElMessage.success(t(editingScene.value ? 'message.sceneUpdateSuccess' : 'message.sceneAddSuccess'));
+    toast.success(t(editingScene.value ? 'message.sceneUpdateSuccess' : 'message.sceneAddSuccess'));
     addSceneDialogVisible.value = false;
     await loadScenes();
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'));
+    toast.error(error.message || t('message.operationFailed'));
   }
 };
 
@@ -1064,29 +1044,19 @@ const editScene = (scene: any) => {
 
 const deleteScene = async (scene: any) => {
   if (!scene.id) {
-    ElMessage.error(t('message.sceneIdNotExist'));
+    toast.error(t('message.sceneIdNotExist'));
     return;
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('message.sceneDeleteConfirm', { name: scene.name || scene.location }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: "warning",
-      },
-    );
+  if (!window.confirm(t('message.sceneDeleteConfirm', { name: scene.name || scene.location }))) return
 
+  try {
     await dramaAPI.deleteScene(scene.id.toString());
-    ElMessage.success(t('message.sceneDeleted'));
+    toast.success(t('message.sceneDeleted'));
     await loadScenes();
   } catch (error: any) {
-    if (error !== "cancel") {
-      console.error("删除场景失败:", error);
-      ElMessage.error(error.message || t('message.deleteFailed'));
-    }
+    console.error("删除场景失败:", error);
+    toast.error(error.message || t('message.deleteFailed'));
   }
 };
 
@@ -1105,7 +1075,7 @@ const openAddPropDialog = () => {
 
 const saveProp = async () => {
   if (!newProp.value.name.trim()) {
-    ElMessage.warning(t('message.enterPropName'));
+    toast.warning(t('message.enterPropName'));
     return;
   }
 
@@ -1122,16 +1092,16 @@ const saveProp = async () => {
 
     if (editingProp.value) {
       await propAPI.update(editingProp.value.id, propData);
-      ElMessage.success(t('message.propUpdateSuccess'));
+      toast.success(t('message.propUpdateSuccess'));
     } else {
       await propAPI.create(propData as any);
-      ElMessage.success(t('message.propAddSuccess'));
+      toast.success(t('message.propAddSuccess'));
     }
 
     addPropDialogVisible.value = false;
     await loadDramaData();
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'));
+    toast.error(error.message || t('message.operationFailed'));
   }
 };
 
@@ -1149,40 +1119,30 @@ const editProp = (prop: any) => {
 };
 
 const deleteProp = async (prop: any) => {
-  try {
-    await ElMessageBox.confirm(
-      t('message.propDeleteConfirm', { name: prop.name }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: "warning",
-      },
-    );
+  if (!window.confirm(t('message.propDeleteConfirm', { name: prop.name }))) return
 
+  try {
     await propAPI.delete(prop.id);
-    ElMessage.success(t('message.propDeleted'));
+    toast.success(t('message.propDeleted'));
     await loadDramaData();
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error(error.message || t('message.deleteFailed'));
-    }
+    toast.error(error.message || t('message.deleteFailed'));
   }
 };
 
 const generatePropImage = async (prop: any) => {
   if (!prop.prompt) {
-    ElMessage.warning(t('message.setPropPromptFirst'));
+    toast.warning(t('message.setPropPromptFirst'));
     editProp(prop);
     return;
   }
 
   try {
     await propAPI.generateImage(prop.id);
-    ElMessage.success(t('message.imageTaskSubmitted'));
+    toast.success(t('message.imageTaskSubmitted'));
     startPolling(loadDramaData);
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'));
+    toast.error(error.message || t('message.generateFailed'));
   }
 };
 
@@ -1264,7 +1224,7 @@ const handleExtractProps = async () => {
     }, 3000);
   } catch (error: any) {
     propsExtractProgress.value = { active: false, percent: 0, message: '', status: '' };
-    ElMessage.error(error.message || t('common.failed'));
+    toast.error(error.message || t('common.failed'));
   }
 };
 

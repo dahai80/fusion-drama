@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { dramaAPI } from '@/api/drama'
 import { propAPI } from '@/api/prop'
 import type { Drama, Episode, Storyboard } from '@/types/drama'
@@ -92,7 +92,7 @@ export function useProfessionalEditor() {
         (e) => e.episode_number === episodeNumber,
       )
       if (!ep) {
-        ElMessage.error($t('professionalEditor.episodeNotExist'))
+        toast.error($t('professionalEditor.episodeNotExist'))
         router.back()
         return
       }
@@ -111,7 +111,7 @@ export function useProfessionalEditor() {
       availableScenes.value = dramaRes.scenes || []
       props.value = dramaRes.props || []
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.loadFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.loadFailed') + ': ' + (error.message || ''))
     }
   }
 
@@ -149,7 +149,7 @@ export function useProfessionalEditor() {
             : undefined,
       })
 
-      ElMessage.success($t('professionalEditor.addStoryboardSuccess'))
+      toast.success($t('professionalEditor.addStoryboardSuccess'))
       await loadData()
 
       if (storyboards.value.length > 0) {
@@ -157,24 +157,16 @@ export function useProfessionalEditor() {
       }
     } catch (error: any) {
       console.error('添加分镜失败:', error)
-      ElMessage.error(error.message || $t('professionalEditor.addStoryboardFailed'))
+      toast.error(error.message || $t('professionalEditor.addStoryboardFailed'))
     }
   }
 
   const handleDeleteStoryboard = async (storyboard: any) => {
-    try {
-      await ElMessageBox.confirm(
-        $t('professionalEditor.deleteStoryboardConfirm', { number: storyboard.storyboard_number }),
-        $t('professionalEditor.deleteStoryboardTitle'),
-        {
-          confirmButtonText: $t('common.confirm'),
-          cancelButtonText: $t('common.cancel'),
-          type: 'warning',
-        },
-      )
+    if (!window.confirm($t('professionalEditor.deleteStoryboardConfirm', { number: storyboard.storyboard_number }))) return
 
+    try {
       await dramaAPI.deleteStoryboard(storyboard.id)
-      ElMessage.success($t('professionalEditor.deleteStoryboardSuccess'))
+      toast.success($t('professionalEditor.deleteStoryboardSuccess'))
 
       if (currentStoryboardId.value === storyboard.id) {
         currentStoryboardId.value = null
@@ -182,10 +174,8 @@ export function useProfessionalEditor() {
 
       await loadData()
     } catch (error: any) {
-      if (error !== 'cancel') {
-        console.error('删除分镜失败:', error)
-        ElMessage.error(error.message || $t('professionalEditor.deleteStoryboardFailed'))
-      }
+      console.error('删除分镜失败:', error)
+      toast.error(error.message || $t('professionalEditor.deleteStoryboardFailed'))
     }
   }
 
@@ -200,7 +190,7 @@ export function useProfessionalEditor() {
         updateData,
       )
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
     }
   }
 
@@ -234,12 +224,12 @@ export function useProfessionalEditor() {
       })
 
       if (existIndex > -1) {
-        ElMessage.success($t('professionalEditor.characterRemoved', { name: char.name }))
+        toast.success($t('professionalEditor.characterRemoved', { name: char.name }))
       } else {
-        ElMessage.success($t('professionalEditor.characterAdded', { name: char.name }))
+        toast.success($t('professionalEditor.characterAdded', { name: char.name }))
       }
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.saveFailed') + ': ' + (error.message || ''))
       if (existIndex > -1) {
         currentStoryboard.value.characters.push(char)
       } else {
@@ -292,7 +282,7 @@ export function useProfessionalEditor() {
         propIds,
       )
     } catch (error) {
-      ElMessage.error($t('editor.updatePropFailed'))
+      toast.error($t('editor.updatePropFailed'))
     }
   }
 
@@ -311,9 +301,9 @@ export function useProfessionalEditor() {
 
       await loadData()
       showSceneSelector.value = false
-      ElMessage.success($t('professionalEditor.sceneLinked'))
+      toast.success($t('professionalEditor.sceneLinked'))
     } catch (error: any) {
-      ElMessage.error(error.message || $t('professionalEditor.sceneLinkFailed'))
+      toast.error(error.message || $t('professionalEditor.sceneLinkFailed'))
     }
   }
 

@@ -86,7 +86,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { MagicStick } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig, AIServiceProvider, AIServiceType } from '@/types/ai'
@@ -147,7 +147,7 @@ async function loadAll() {
     allProviders.value = providers
     emit('config-updated')
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    toast.error(error.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -170,7 +170,7 @@ const generateConfigName = (provider: string, serviceType: AIServiceType): strin
 
 async function handleQuickSetup() {
   if (!quickSetupApiKey.value.trim()) {
-    ElMessage.warning('请输入 API Key')
+    toast.warning('请输入 API Key')
     return
   }
 
@@ -210,17 +210,17 @@ async function handleQuickSetup() {
     }
 
     if (createdServices.length > 0 && skippedServices.length > 0) {
-      ElMessage.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
+      toast.success(`已创建 ${createdServices.join('、')} 配置，${skippedServices.join('、')} 配置已存在`)
     } else if (createdServices.length > 0) {
-      ElMessage.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
+      toast.success(`一键配置成功！已创建 ${createdServices.join('、')} 服务配置`)
     } else {
-      ElMessage.info('所有配置已存在，无需重复创建')
+      toast.info('所有配置已存在，无需重复创建')
     }
 
     quickSetupVisible.value = false
     loadAll()
   } catch (error: any) {
-    ElMessage.error(error.message || '配置失败')
+    toast.error(error.message || '配置失败')
   } finally {
     quickSetupLoading.value = false
   }

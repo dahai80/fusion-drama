@@ -121,7 +121,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Upload, Close } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { splitNovel, type ChapterResult, type SplitOptions } from '@/utils/novelSplitter'
 import { dramaAPI } from '@/api/drama'
@@ -181,7 +181,7 @@ const handleContentEdit = (val: string) => {
 const handleFileChange = (file: any) => {
   const raw = file.raw as File
   if (!raw.name.endsWith('.txt')) {
-    ElMessage.warning(t('drama.novel.txtOnly'))
+    toast.warning(t('drama.novel.txtOnly'))
     return
   }
   fileName.value = raw.name
@@ -194,7 +194,7 @@ const handleFileChange = (file: any) => {
 
 const handleSplit = () => {
   if (!fileText.value) {
-    ElMessage.warning(t('drama.novel.noFile'))
+    toast.warning(t('drama.novel.noFile'))
     return
   }
   chapters.value = splitNovel(fileText.value, {
@@ -228,11 +228,11 @@ const handleSave = async () => {
       await dramaAPI.saveEpisodes(props.dramaId, episodes)
     }
 
-    ElMessage.success(t('drama.novel.saveSuccess'))
+    toast.success(t('drama.novel.saveSuccess'))
     emit('success')
     handleClose()
   } catch (error: any) {
-    ElMessage.error(error.message || t('common.failed'))
+    toast.error(error.message || t('common.failed'))
   } finally {
     saving.value = false
   }

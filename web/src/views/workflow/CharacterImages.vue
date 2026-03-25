@@ -109,7 +109,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { toast } from 'vue-sonner';
 import { Edit, Picture } from "@element-plus/icons-vue";
 import { dramaAPI } from "@/api/drama";
 import { characterLibraryAPI } from "@/api/character-library";
@@ -186,9 +186,9 @@ const generateImage = async (character: Character) => {
       characters.value[index].image_url = result.image_url;
     }
 
-    ElMessage.success(`${character.name}的形象生成成功`);
+    toast.success(`${character.name}的形象生成成功`);
   } catch (error: any) {
-    ElMessage.error(
+    toast.error(
       error.response?.data?.message || `${character.name}生成失败`,
     );
   } finally {
@@ -201,12 +201,12 @@ const generateImage = async (character: Character) => {
 
 const batchGenerate = async () => {
   if (selectedCharacters.value.length === 0) {
-    ElMessage.warning("请选择要生成的角色");
+    toast.warning("请选择要生成的角色");
     return;
   }
 
   if (selectedCharacters.value.length > 10) {
-    ElMessage.warning("单次最多生成10个角色");
+    toast.warning("单次最多生成10个角色");
     return;
   }
 
@@ -218,14 +218,14 @@ const batchGenerate = async () => {
       selectedCharacters.value.map((id) => String(id)),
     );
 
-    ElMessage.success(
+    toast.success(
       `批量生成任务已提交，正在后台生成 ${selectedCharacters.value.length} 个角色形象`,
     );
 
     // 轮询检查生成状态
     startPolling();
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.message || "批量生成失败");
+    toast.error(error.response?.data?.message || "批量生成失败");
     batchGenerating.value = false;
     generatingIds.value = [];
   }
@@ -251,7 +251,7 @@ const startPolling = () => {
 
         if (allGenerated) {
           stopPolling();
-          ElMessage.success("批量生成完成");
+          toast.success("批量生成完成");
         }
       }
     } catch (error) {
@@ -281,11 +281,11 @@ onMounted(async () => {
     if (drama.characters && drama.characters.length > 0) {
       characters.value = drama.characters;
     } else {
-      ElMessage.warning("未找到角色信息，请先完成剧本生成");
+      toast.warning("未找到角色信息，请先完成剧本生成");
       router.push(`/dramas/${dramaId}`);
     }
   } catch (error: any) {
-    ElMessage.error(error.message || "加载角色失败");
+    toast.error(error.message || "加载角色失败");
     router.push(`/dramas/${dramaId}`);
   }
 });

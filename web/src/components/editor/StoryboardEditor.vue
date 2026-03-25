@@ -412,7 +412,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { debounce } from 'lodash-es'
 import { 
   VideoPlay, 
@@ -601,10 +601,10 @@ const handleShotUpdateImmediate = async () => {
     await dramaAPI.updateStoryboard(currentShot.value.id.toString(), updateData)
 
     emit('update:storyboard', currentShot.value)
-    ElMessage.success('分镜更新成功')
+    toast.success('分镜更新成功')
   } catch (error: any) {
     console.error('更新分镜失败:', error)
-    ElMessage.error(error.message || '更新失败')
+    toast.error(error.message || '更新失败')
   }
 }
 
@@ -640,10 +640,10 @@ const handleShotUpdate = debounce(async () => {
     await dramaAPI.updateStoryboard(currentShot.value.id.toString(), updateData)
     
     emit('update:storyboard', currentShot.value)
-    ElMessage.success('分镜更新成功')
+    toast.success('分镜更新成功')
   } catch (error: any) {
     console.error('更新分镜失败:', error)
-    ElMessage.error(error.message || '更新失败')
+    toast.error(error.message || '更新失败')
   }
 }, 500)
 
@@ -662,35 +662,27 @@ const generating = ref(false)
 
 const handleGenerateBackground = async () => {
   if (!currentShot.value || !currentShot.value.id) {
-    ElMessage.warning('请先选择一个镜头')
+    toast.warning('请先选择一个镜头')
     return
   }
 
   // 检查是否有 background_id
   if (!currentShot.value.background_id) {
-    ElMessage.warning('该镜头未关联背景信息，请先提取背景')
+    toast.warning('该镜头未关联背景信息，请先提取背景')
     return
   }
 
   // 检查是否有背景描述
   if (!backgroundPrompt.value) {
-    ElMessage.warning('背景描述为空，请先填写背景描述')
+    toast.warning('背景描述为空，请先填写背景描述')
     return
   }
 
-  try {
-    await ElMessageBox.confirm(
-      `将使用以下描述生成背景图片：\n\n${backgroundPrompt.value}\n\n是否继续？`,
-      '生成背景',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
+  if (!window.confirm(`将使用以下描述生成背景图片：\n\n${backgroundPrompt.value}\n\n是否继续？`)) return
 
+  try {
     generating.value = true
-    ElMessage.info('正在生成背景图片...')
+    toast.info('正在生成背景图片...')
     
     if (props.dramaId) {
       // 使用 background_id 和 backgrounds 表中的中文 prompt
@@ -705,12 +697,10 @@ const handleGenerateBackground = async () => {
       )
     }
     
-    ElMessage.success('背景图片生成成功')
+    toast.success('背景图片生成成功')
     emit('refresh')
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '生成失败')
-    }
+    toast.error(error.message || '生成失败')
   } finally {
     generating.value = false
   }
@@ -718,12 +708,12 @@ const handleGenerateBackground = async () => {
 
 const handleGenerateVideo = async () => {
   if (!currentShot.value || !currentShot.value.id) {
-    ElMessage.warning('请先选择一个镜头')
+    toast.warning('请先选择一个镜头')
     return
   }
 
   if (!currentShot.value.background_url) {
-    ElMessage.warning('请先生成背景图片')
+    toast.warning('请先生成背景图片')
     return
   }
 
@@ -732,18 +722,10 @@ const handleGenerateVideo = async () => {
       ? `\n角色：${selectedCharacters.value.map(id => getCharacterById(id)?.name).filter(Boolean).join('、')}`
       : ''
     
-    await ElMessageBox.confirm(
-      `将生成视频：\n场景：${currentShot.value.location}\n动作：${currentShot.value.action}${characterInfo}\n\n预计需要1-3分钟，是否继续？`,
-      '视频生成',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'success'
-      }
-    )
+    if (!window.confirm(`将生成视频：\n场景：${currentShot.value.location}\n动作：${currentShot.value.action}${characterInfo}\n\n预计需要1-3分钟，是否继续？`)) return
 
     generating.value = true
-    ElMessage.info('正在生成视频...')
+    toast.info('正在生成视频...')
     
     await videoAPI.generateVideo({
       scene_id: String(currentShot.value.id),
@@ -751,19 +733,17 @@ const handleGenerateVideo = async () => {
       prompt: currentShot.value.action ?? ''
     })
     
-    ElMessage.success('视频生成任务已创建，请稍后查看')
+    toast.success('视频生成任务已创建，请稍后查看')
     emit('refresh')
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '生成失败')
-    }
+    toast.error(error.message || '生成失败')
   } finally {
     generating.value = false
   }
 }
 
 const handleUploadBackground = () => {
-  ElMessage.info('上传功能开发中')
+  toast.info('上传功能开发中')
 }
 
 const getCharacterById = (id: string) => {
@@ -774,12 +754,12 @@ const handleComposeScene = async () => {
   if (!currentShot.value) return
   
   if (!currentShot.value.background_url) {
-    ElMessage.warning('请先生成背景图')
+    toast.warning('请先生成背景图')
     return
   }
   
   if (selectedCharacters.value.length === 0) {
-    ElMessage.warning('请先选择场景角色')
+    toast.warning('请先选择场景角色')
     return
   }
   
@@ -789,28 +769,18 @@ const handleComposeScene = async () => {
       .filter(Boolean)
       .join('、')
     
-    await ElMessageBox.confirm(
-      `将合成以下内容：\n背景：${currentShot.value.location}\n角色：${characterNames}\n\n是否继续？`,
-      '场景合成',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
-    
+    if (!window.confirm(`将合成以下内容：\n背景：${currentShot.value.location}\n角色：${characterNames}\n\n是否继续？`)) return
+
     generating.value = true
-    ElMessage.info('正在合成场景...')
+    toast.info('正在合成场景...')
     
     // TODO: 调用场景合成API
     // await compositionAPI.composeScene(currentShot.value.id, selectedCharacters.value)
     
-    ElMessage.success('场景合成成功')
+    toast.success('场景合成成功')
     emit('refresh')
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '合成失败')
-    }
+    toast.error(error.message || '合成失败')
   } finally {
     generating.value = false
   }
@@ -819,21 +789,9 @@ const handleComposeScene = async () => {
 const handleRegenerateShot = async () => {
   if (!currentShot.value) return
   
-  try {
-    await ElMessageBox.confirm(
-      '重新生成将清空当前镜头的背景和视频，是否继续？',
-      '重新生成',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    ElMessage.info('功能开发中')
-  } catch {
-    // 用户取消
-  }
+  if (!window.confirm('重新生成将清空当前镜头的背景和视频，是否继续？')) return
+
+  toast.info('功能开发中')
 }
 
 // 加载背景数据缓存

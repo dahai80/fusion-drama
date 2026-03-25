@@ -62,7 +62,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { ArrowLeft, Refresh, Loading } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import { assetAPI } from '@/api/asset'
@@ -129,7 +129,7 @@ const loadData = async () => {
       (e: Episode) => e.episode_number === episodeNumber,
     )
     if (!ep) {
-      ElMessage.error(t('professionalEditor.episodeNotExist'))
+      toast.error(t('professionalEditor.episodeNotExist'))
       router.back()
       return
     }
@@ -143,7 +143,7 @@ const loadData = async () => {
 
     await Promise.all([loadVideoMerges(), loadVideoAssets()])
   } catch (error: any) {
-    ElMessage.error(t('professionalEditor.loadFailed') + ': ' + (error.message || ''))
+    toast.error(t('professionalEditor.loadFailed') + ': ' + (error.message || ''))
   } finally {
     loading.value = false
   }

@@ -1,6 +1,6 @@
 <template>
   <router-link :to="to" class="sidebar-item" :class="{ active: isActive }">
-    <el-icon :size="20"><component :is="icon" /></el-icon>
+    <component :is="icon" :size="20" />
     <span v-if="!collapsed" class="sidebar-item-label">{{ label }}</span>
   </router-link>
 </template>

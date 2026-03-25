@@ -107,7 +107,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { ElMessage } from "element-plus";
+import { toast } from 'vue-sonner';
 import { Plus, ZoomIn, Delete, Upload } from "@element-plus/icons-vue";
 import { getImageUrl } from "@/utils/image";
 import { imageAPI } from "@/api/image";
@@ -247,7 +247,7 @@ const getFrameTypeText = (frameType: string) => {
 // 创建宫格图片
 const createGridImage = async () => {
   if (!isGridComplete.value) {
-    ElMessage.warning($t("editor.allCellsRequired"));
+    toast.warning($t("editor.allCellsRequired"));
     return;
   }
 
@@ -334,13 +334,13 @@ const createGridImage = async () => {
         prompt: `${$t("editor.createGridImage")} - ${gridType.value}${$t("editor.gridType")}`,
       });
 
-      ElMessage.success($t("editor.createSuccess"));
+      toast.success($t("editor.createSuccess"));
       emit("success");
       handleClose();
     }
   } catch (error: any) {
     console.error("制作宫格图片失败:", error);
-    ElMessage.error(error.message || $t("editor.createFailed"));
+    toast.error(error.message || $t("editor.createFailed"));
   } finally {
     creating.value = false;
   }

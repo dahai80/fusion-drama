@@ -2,16 +2,16 @@
   <aside class="app-sidebar" :class="{ collapsed }">
     <!-- Brand -->
     <router-link to="/" class="sidebar-brand">
-      <el-icon :size="24"><Film /></el-icon>
+      <Film :size="24" />
       <span v-if="!collapsed" class="brand-text">HuoBao Drama</span>
     </router-link>
 
     <!-- Main nav -->
     <nav class="sidebar-nav">
-      <SidebarItem :icon="FolderOpened" :label="$t('sidebar.projects')" to="/" :collapsed="collapsed" />
+      <SidebarItem :icon="FolderOpen" :label="$t('sidebar.projects')" to="/" :collapsed="collapsed" />
       <SidebarItem :icon="User" :label="$t('sidebar.characterLibrary')" to="/character-library" :collapsed="collapsed" />
-      <SidebarItem :icon="Picture" :label="$t('sidebar.assets')" to="/assets" :collapsed="collapsed" />
-      <SidebarItem :icon="Setting" :label="$t('sidebar.settings')" to="/settings/ai-config" :collapsed="collapsed" />
+      <SidebarItem :icon="ImageIcon" :label="$t('sidebar.assets')" to="/assets" :collapsed="collapsed" />
+      <SidebarItem :icon="Settings" :label="$t('sidebar.settings')" to="/settings/ai-config" :collapsed="collapsed" />
     </nav>
 
     <!-- Bottom area -->
@@ -21,10 +21,8 @@
         <LanguageSwitcher :collapsed="collapsed" />
       </div>
       <button class="collapse-btn" @click="toggleCollapse" :title="collapsed ? $t('sidebar.expand') : $t('sidebar.collapse')">
-        <el-icon :size="18">
-          <DArrowRight v-if="collapsed" />
-          <DArrowLeft v-else />
-        </el-icon>
+        <ChevronsRight v-if="collapsed" :size="18" />
+        <ChevronsLeft v-else :size="18" />
       </button>
     </div>
   </aside>
@@ -32,7 +30,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Film, FolderOpened, User, Picture, Setting, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
+import { Film, FolderOpen, User, Image as ImageIcon, Settings, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
 import SidebarItem from './SidebarItem.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'

@@ -634,7 +634,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { toast } from 'vue-sonner';
 import {
   User,
   Location,
@@ -937,7 +937,7 @@ const showModelConfigDialog = () => {
 // 保存模型配置
 const saveModelConfig = () => {
   if (!selectedTextModel.value || !selectedImageModel.value) {
-    ElMessage.warning($t("workflow.pleaseSelectModels"));
+    toast.warning($t("workflow.pleaseSelectModels"));
     return;
   }
 
@@ -945,7 +945,7 @@ const saveModelConfig = () => {
   localStorage.setItem(`ai_text_model_${dramaId}`, selectedTextModel.value);
   localStorage.setItem(`ai_image_model_${dramaId}`, selectedImageModel.value);
 
-  ElMessage.success($t("workflow.modelConfigSaved"));
+  toast.success($t("workflow.modelConfigSaved"));
   modelConfigDialogVisible.value = false;
 };
 
@@ -988,7 +988,7 @@ const loadDramaData = async () => {
     // 检查是否有生成中的角色或场景，自动启动轮询
     await checkAndStartPolling();
   } catch (error: any) {
-    ElMessage.error(error.message || "加载项目数据失败");
+    toast.error(error.message || "加载项目数据失败");
   }
 };
 
@@ -1021,7 +1021,7 @@ const checkAndStartPolling = async () => {
           generatingCharacterImages.value[char.id] = true;
           pollImageStatus(charImageGen.id, async () => {
             await loadDramaData();
-            ElMessage.success(`${char.name}的图片生成完成！`);
+            toast.success(`${char.name}的图片生成完成！`);
           }).finally(() => {
             generatingCharacterImages.value[char.id] = false;
           });
@@ -1057,7 +1057,7 @@ const checkAndStartPolling = async () => {
           generatingSceneImages.value[scene.id] = true;
           pollImageStatus(sceneImageGen.id, async () => {
             await loadDramaData();
-            ElMessage.success(`${scene.location}的图片生成完成！`);
+            toast.success(`${scene.location}的图片生成完成！`);
           }).finally(() => {
             generatingSceneImages.value[scene.id] = false;
           });
@@ -1102,10 +1102,10 @@ const saveChapterScript = async () => {
     }
 
     await dramaAPI.saveEpisodes(dramaId, updatedEpisodes);
-    ElMessage.success("章节保存成功！");
+    toast.success("章节保存成功！");
     await loadDramaData();
   } catch (error: any) {
-    ElMessage.error(error.message || "保存失败");
+    toast.error(error.message || "保存失败");
   }
 };
 
@@ -1116,26 +1116,15 @@ const editCurrentEpisodeScript = () => {
 const handleExtractCharactersAndBackgrounds = async () => {
   // 如果已经提取过，显示确认对话框
   if (hasExtractedData.value) {
-    try {
-      await ElMessageBox.confirm(
-        $t("workflow.reExtractConfirmMessage"),
-        $t("workflow.reExtractConfirmTitle"),
-        {
-          confirmButtonText: $t("common.confirm"),
-          cancelButtonText: $t("common.cancel"),
-          type: "warning",
-          distinguishCancelAndClose: true,
-        },
-      );
-    } catch {
-      ElMessage.info($t("workflow.extractCancelled"));
+    if (!window.confirm($t("workflow.reExtractConfirmMessage"))) {
+      toast.info($t("workflow.extractCancelled"));
       return;
     }
   }
 
   // 显示即将开始的提示
   if (hasExtractedData.value) {
-    ElMessage.info($t("workflow.startReExtracting"));
+    toast.info($t("workflow.startReExtracting"));
   }
 
   await extractCharactersAndBackgrounds();
@@ -1161,7 +1150,7 @@ const pollImageStatus = async (
         return;
       } else if (imageGen.status === "failed") {
         // 生成失败
-        ElMessage.error(`图片生成失败: ${imageGen.error_msg || "未知错误"}`);
+        toast.error(`图片生成失败: ${imageGen.error_msg || "未知错误"}`);
         return;
       }
       // 如果是pending或processing，继续轮询
@@ -1172,12 +1161,12 @@ const pollImageStatus = async (
   }
 
   // 超时
-  ElMessage.warning("图片生成超时，请稍后刷新页面查看结果");
+  toast.warning("图片生成超时，请稍后刷新页面查看结果");
 };
 
 const extractCharactersAndBackgrounds = async () => {
   if (!currentEpisode.value?.id) {
-    ElMessage.error("章节信息不存在");
+    toast.error("章节信息不存在");
     return;
   }
 
@@ -1201,7 +1190,7 @@ const extractCharactersAndBackgrounds = async () => {
       ), // 传递用户选择的文本模型
     ]);
 
-    ElMessage.success("任务已创建，正在后台处理...");
+    toast.success("任务已创建，正在后台处理...");
 
     // 并行轮询两个任务
     await Promise.all([
@@ -1209,7 +1198,7 @@ const extractCharactersAndBackgrounds = async () => {
       pollExtractTask(backgroundTask.task_id, "background"),
     ]);
 
-    ElMessage.success($t("workflow.charactersAndScenesExtractSuccess"));
+    toast.success($t("workflow.charactersAndScenesExtractSuccess"));
     await loadDramaData();
   } catch (error: any) {
     console.error($t("workflow.charactersAndScenesExtractFailed") + ":", error);
@@ -1222,14 +1211,9 @@ const extractCharactersAndBackgrounds = async () => {
       errorMsg.includes("AI client") ||
       errorMsg.includes("failed to get AI client")
     ) {
-      ElMessage({
-        type: "warning",
-        message: '未配置AI服务，请前往"设置 > AI服务配置"添加文本生成服务',
-        duration: 5000,
-        showClose: true,
-      });
+      toast.warning('未配置AI服务，请前往"设置 > AI服务配置"添加文本生成服务');
     } else {
-      ElMessage.error(errorMsg);
+      toast.error(errorMsg);
     }
   } finally {
     extractingCharactersAndBackgrounds.value = false;
@@ -1303,18 +1287,18 @@ const generateCharacterImage = async (characterId: number) => {
     const imageGenId = (response as any).image_generation?.id;
 
     if (imageGenId) {
-      ElMessage.info("角色图片生成中，请稍候...");
+      toast.info("角色图片生成中，请稍候...");
       // 轮询检查生成状态
       await pollImageStatus(imageGenId, async () => {
         await loadDramaData();
-        ElMessage.success("角色图片生成完成！");
+        toast.success("角色图片生成完成！");
       });
     } else {
-      ElMessage.success("角色图片生成已启动");
+      toast.success("角色图片生成已启动");
       await loadDramaData();
     }
   } catch (error: any) {
-    ElMessage.error(error.message || "生成失败");
+    toast.error(error.message || "生成失败");
   } finally {
     generatingCharacterImages.value[characterId] = false;
   }
@@ -1340,7 +1324,7 @@ const toggleSelectAllScenes = () => {
 
 const batchGenerateCharacterImages = async () => {
   if (selectedCharacterIds.value.length === 0) {
-    ElMessage.warning("请先选择要生成的角色");
+    toast.warning("请先选择要生成的角色");
     return;
   }
 
@@ -1355,10 +1339,10 @@ const batchGenerateCharacterImages = async () => {
       model,
     );
 
-    ElMessage.success($t("workflow.batchTaskSubmitted"));
+    toast.success($t("workflow.batchTaskSubmitted"));
     await loadDramaData();
   } catch (error: any) {
-    ElMessage.error(error.message || $t("workflow.batchGenerateFailed"));
+    toast.error(error.message || $t("workflow.batchGenerateFailed"));
   } finally {
     batchGeneratingCharacters.value = false;
   }
@@ -1377,18 +1361,18 @@ const generateSceneImage = async (sceneId: string) => {
     const imageGenId = response.image_generation?.id;
 
     if (imageGenId) {
-      ElMessage.info($t("workflow.sceneImageGenerating"));
+      toast.info($t("workflow.sceneImageGenerating"));
       // 轮询检查生成状态
       await pollImageStatus(imageGenId, async () => {
         await loadDramaData();
-        ElMessage.success($t("workflow.sceneImageComplete"));
+        toast.success($t("workflow.sceneImageComplete"));
       });
     } else {
-      ElMessage.success($t("workflow.sceneImageStarted"));
+      toast.success($t("workflow.sceneImageStarted"));
       await loadDramaData();
     }
   } catch (error: any) {
-    ElMessage.error(error.message || "生成失败");
+    toast.error(error.message || "生成失败");
   } finally {
     generatingSceneImages.value[sceneId] = false;
   }
@@ -1396,7 +1380,7 @@ const generateSceneImage = async (sceneId: string) => {
 
 const batchGenerateSceneImages = async () => {
   if (selectedSceneIds.value.length === 0) {
-    ElMessage.warning("请先选择要生成的场景");
+    toast.warning("请先选择要生成的场景");
     return;
   }
 
@@ -1411,11 +1395,11 @@ const batchGenerateSceneImages = async () => {
     const failCount = results.filter((r) => r.status === "rejected").length;
 
     if (failCount === 0) {
-      ElMessage.success(
+      toast.success(
         $t("workflow.batchCompleteSuccess", { count: successCount }),
       );
     } else {
-      ElMessage.warning(
+      toast.warning(
         $t("workflow.batchCompletePartial", {
           success: successCount,
           fail: failCount,
@@ -1423,7 +1407,7 @@ const batchGenerateSceneImages = async () => {
       );
     }
   } catch (error: any) {
-    ElMessage.error(error.message || $t("workflow.batchGenerateFailed"));
+    toast.error(error.message || $t("workflow.batchGenerateFailed"));
   } finally {
     batchGeneratingScenes.value = false;
   }
@@ -1435,7 +1419,7 @@ let pollTimer: any = null;
 
 const generateShots = async () => {
   if (!currentEpisode.value?.id) {
-    ElMessage.error("章节信息不存在");
+    toast.error("章节信息不存在");
     return;
   }
 
@@ -1457,7 +1441,7 @@ const generateShots = async () => {
     // 开始轮询任务状态
     await pollTaskStatus(response.task_id);
   } catch (error: any) {
-    ElMessage.error(error.message || "拆分失败");
+    toast.error(error.message || "拆分失败");
     generatingShots.value = false;
   }
 };
@@ -1478,7 +1462,7 @@ const pollTaskStatus = async (taskId: string) => {
         }
         generatingShots.value = false;
 
-        ElMessage.success($t("workflow.splitSuccess"));
+        toast.success($t("workflow.splitSuccess"));
 
         // 跳转到专业编辑器页面
         router.push({
@@ -1495,7 +1479,7 @@ const pollTaskStatus = async (taskId: string) => {
           pollTimer = null;
         }
         generatingShots.value = false;
-        ElMessage.error(task.error || "分镜拆分失败");
+        toast.error(task.error || "分镜拆分失败");
       }
       // 否则继续轮询
     } catch (error: any) {
@@ -1504,7 +1488,7 @@ const pollTaskStatus = async (taskId: string) => {
         pollTimer = null;
       }
       generatingShots.value = false;
-      ElMessage.error("查询任务状态失败: " + error.message);
+      toast.error("查询任务状态失败: " + error.message);
     }
   };
 
@@ -1516,9 +1500,7 @@ const pollTaskStatus = async (taskId: string) => {
 };
 
 const regenerateShots = async () => {
-  await ElMessageBox.confirm($t("workflow.reSplitConfirm"), $t("common.tip"), {
-    type: "warning",
-  });
+  if (!window.confirm($t("workflow.reSplitConfirm"))) return
 
   await generateShots();
 };
@@ -1541,12 +1523,12 @@ const handleUpdateShot = async (updatedShot: any) => {
       updatedShot.id.toString(),
       updatedShot
     );
-    ElMessage.success("更新成功");
+    toast.success("更新成功");
     // 刷新数据
     await loadDramaData();
   } catch (error: any) {
     console.error("更新分镜失败:", error);
-    ElMessage.error("更新失败");
+    toast.error("更新失败");
   }
 };
 
@@ -1554,12 +1536,12 @@ const handleUpdateShot = async (updatedShot: any) => {
 const handleDeleteShot = async (shotId: any, index: number) => {
   try {
     await dramaAPI.deleteStoryboard(shotId.toString());
-    ElMessage.success("删除成功");
+    toast.success("删除成功");
     // 刷新数据
     await loadDramaData();
   } catch (error: any) {
     console.error("删除分镜失败:", error);
-    ElMessage.error("删除失败");
+    toast.error("删除失败");
   }
 };
 
@@ -1582,10 +1564,10 @@ const saveShotEdit = async () => {
       };
     }
 
-    ElMessage.success("镜头修改成功");
+    toast.success("镜头修改成功");
     shotEditDialogVisible.value = false;
   } catch (error: any) {
-    ElMessage.error("保存失败: " + (error.message || "未知错误"));
+    toast.error("保存失败: " + (error.message || "未知错误"));
   } finally {
     savingShot.value = false;
   }
@@ -1614,12 +1596,12 @@ const savePrompt = async () => {
         time: currentEditItem.value.time || "",
       });
 
-      ElMessage.success("保存成功");
+      toast.success("保存成功");
       await loadDramaData();
     }
     promptDialogVisible.value = false;
   } catch (error: any) {
-    ElMessage.error(error.message || "保存失败");
+    toast.error(error.message || "保存失败");
   }
 };
 
@@ -1640,33 +1622,23 @@ const selectFromLibrary = async (characterId: number) => {
     currentUploadTarget.value = characterId;
     libraryDialogVisible.value = true;
   } catch (error: any) {
-    ElMessage.error(error.message || $t("workflow.loadLibraryFailed"));
+    toast.error(error.message || $t("workflow.loadLibraryFailed"));
   }
 };
 
 const addToCharacterLibrary = async (character: any) => {
   if (!character.image_url) {
-    ElMessage.warning($t("workflow.generateImageFirst"));
+    toast.warning($t("workflow.generateImageFirst"));
     return;
   }
 
-  try {
-    await ElMessageBox.confirm(
-      $t("workflow.addToLibraryConfirm", { name: character.name }),
-      $t("workflow.addToLibrary"),
-      {
-        confirmButtonText: $t("common.confirm"),
-        cancelButtonText: $t("common.cancel"),
-        type: "info",
-      },
-    );
+  if (!window.confirm($t("workflow.addToLibraryConfirm", { name: character.name }))) return
 
+  try {
     await characterLibraryAPI.addCharacterToLibrary(character.id.toString());
-    ElMessage.success($t("workflow.addedToLibrary"));
+    toast.success($t("workflow.addedToLibrary"));
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error(error.message || $t("workflow.addFailed"));
-    }
+    toast.error(error.message || $t("workflow.addFailed"));
   }
 };
 
@@ -1677,12 +1649,12 @@ const selectLibraryItem = async (item: any) => {
         currentUploadTarget.value.id.toString(),
         item.id,
       );
-      ElMessage.success("应用角色形象成功！");
+      toast.success("应用角色形象成功！");
       await loadDramaData();
       libraryDialogVisible.value = false;
     }
   } catch (error: any) {
-    ElMessage.error(error.message || "应用失败");
+    toast.error(error.message || "应用失败");
   }
 };
 
@@ -1692,7 +1664,7 @@ const handleUploadSuccess = async (response: any) => {
     const localPath = response.local_path || response.data?.local_path;
 
     if (!imageUrl && !localPath) {
-      ElMessage.error("上传失败：未获取到图片地址");
+      toast.error("上传失败：未获取到图片地址");
       return;
     }
 
@@ -1704,52 +1676,42 @@ const handleUploadSuccess = async (response: any) => {
           local_path: localPath,
         },
       );
-      ElMessage.success("上传成功！");
+      toast.success("上传成功！");
     } else if (currentUploadTarget.value?.type === "scene") {
       // 更新场景图片
       await dramaAPI.updateScene(currentUploadTarget.value.id.toString(), {
         image_url: imageUrl,
         local_path: localPath,
       });
-      ElMessage.success($t("workflow.sceneImageUploadSuccess"));
+      toast.success($t("workflow.sceneImageUploadSuccess"));
     }
 
     await loadDramaData();
     uploadDialogVisible.value = false;
   } catch (error: any) {
-    ElMessage.error(error.message || "上传失败");
+    toast.error(error.message || "上传失败");
   }
 };
 
 const handleUploadError = () => {
-  ElMessage.error("上传失败，请重试");
+  toast.error("上传失败，请重试");
 };
 
 const deleteCharacter = async (characterId: number) => {
-  try {
-    await ElMessageBox.confirm(
-      $t("workflow.deleteCharacterConfirm"),
-      $t("workflow.deleteConfirmTitle"),
-      {
-        type: "warning",
-        confirmButtonText: $t("workflow.confirmButtonText"),
-        cancelButtonText: $t("workflow.cancelButtonText"),
-      },
-    );
+  if (!window.confirm($t("workflow.deleteCharacterConfirm"))) return
 
+  try {
     await characterLibraryAPI.deleteCharacter(characterId);
-    ElMessage.success("角色已删除");
+    toast.success("角色已删除");
     await loadDramaData();
   } catch (error: any) {
-    if (error !== "cancel") {
-      ElMessage.error(error.message || "删除失败");
-    }
+    toast.error(error.message || "删除失败");
   }
 };
 
 const goToProfessionalUI = () => {
   if (!currentEpisode.value?.id) {
-    ElMessage.error("章节信息不存在");
+    toast.error("章节信息不存在");
     return;
   }
 
@@ -1764,7 +1726,7 @@ const goToProfessionalUI = () => {
 
 const goToCompose = () => {
   if (!currentEpisode.value?.id) {
-    ElMessage.error("章节信息不存在");
+    toast.error("章节信息不存在");
     return;
   }
 
@@ -1792,12 +1754,12 @@ const openAddSceneDialog = () => {
 // 保存场景
 const saveScene = async () => {
   if (!newScene.value.location) {
-    ElMessage.warning($t("workflow.pleaseEnterSceneName"));
+    toast.warning($t("workflow.pleaseEnterSceneName"));
     return;
   }
 
   if (!currentEpisode.value?.id) {
-    ElMessage.error($t("workflow.chapterInfoNotExist"));
+    toast.error($t("workflow.chapterInfoNotExist"));
     return;
   }
 
@@ -1813,13 +1775,13 @@ const saveScene = async () => {
       local_path: newScene.value.local_path,
     });
 
-    ElMessage.success($t("workflow.sceneAddSuccess"));
+    toast.success($t("workflow.sceneAddSuccess"));
     addSceneDialogVisible.value = false;
 
     // 重新加载数据以更新场景列表
     await loadDramaData();
   } catch (error: any) {
-    ElMessage.error(error.message || $t("workflow.sceneAddFailed"));
+    toast.error(error.message || $t("workflow.sceneAddFailed"));
   }
 };
 
@@ -1837,9 +1799,9 @@ const handleSceneImageSuccess = (response: any) => {
   }
 
   if (imageUrl || localPath) {
-    ElMessage.success($t("workflow.imageUploadSuccess"));
+    toast.success($t("workflow.imageUploadSuccess"));
   } else {
-    ElMessage.warning($t("workflow.imageUploadSuccessNoUrl"));
+    toast.warning($t("workflow.imageUploadSuccessNoUrl"));
   }
 };
 
@@ -1849,11 +1811,11 @@ const beforeAvatarUpload = (file: File) => {
   const isLt10M = file.size / 1024 / 1024 < 10;
 
   if (!isImage) {
-    ElMessage.error("只能上传图片文件!");
+    toast.error("只能上传图片文件!");
     return false;
   }
   if (!isLt10M) {
-    ElMessage.error("图片大小不能超过 10MB!");
+    toast.error("图片大小不能超过 10MB!");
     return false;
   }
   return true;
@@ -1867,7 +1829,7 @@ const openExtractSceneDialog = () => {
 // 从剧本提取场景
 const handleExtractScenes = async () => {
   if (!currentEpisode.value?.id) {
-    ElMessage.error($t("workflow.chapterInfoNotExist"));
+    toast.error($t("workflow.chapterInfoNotExist"));
     return;
   }
 
@@ -1875,7 +1837,7 @@ const handleExtractScenes = async () => {
     extractingScenes.value = true;
     await dramaAPI.extractBackgrounds(currentEpisode.value.id.toString());
 
-    ElMessage.success($t("workflow.sceneExtractSubmitted"));
+    toast.success($t("workflow.sceneExtractSubmitted"));
     extractScenesDialogVisible.value = false;
 
     // 自动刷新几次
@@ -1890,7 +1852,7 @@ const handleExtractScenes = async () => {
       }
     }, 3000);
   } catch (error: any) {
-    ElMessage.error(error.message || $t("workflow.sceneExtractFailed"));
+    toast.error(error.message || $t("workflow.sceneExtractFailed"));
   } finally {
     extractingScenes.value = false;
   }

@@ -1,6 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { generateFramePrompt, type FrameType } from '@/api/frame'
 import { imageAPI } from '@/api/image'
 import { taskAPI } from '@/api/task'
@@ -197,9 +197,9 @@ export function useFrameImageGeneration(
         framePrompts.value[targetFrameType] = extractedPrompt
       }
 
-      ElMessage.success($t('professionalEditor.promptExtracted', { type: getFrameTypeLabel(targetFrameType) }))
+      toast.success($t('professionalEditor.promptExtracted', { type: getFrameTypeLabel(targetFrameType) }))
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.extractFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.extractFailed') + ': ' + (error.message || ''))
     } finally {
       const stateKey2 = `${storyboardId}_${targetFrameType}`
       if (generatingPromptStates.value[stateKey2]) {
@@ -346,11 +346,11 @@ export function useFrameImageGeneration(
         referenceImages.length > 0
           ? ` (+${referenceImages.length} ref)`
           : ''
-      ElMessage.success($t('professionalEditor.imageTaskSubmitted', { msg: refMsg }))
+      toast.success($t('professionalEditor.imageTaskSubmitted', { msg: refMsg }))
 
       startPolling()
     } catch (error: any) {
-      ElMessage.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
+      toast.error($t('professionalEditor.generateFailed') + ': ' + (error.message || ''))
     } finally {
       generatingImage.value = false
     }
@@ -359,7 +359,7 @@ export function useFrameImageGeneration(
   // 上传图片
   const uploadImage = async () => {
     if (!currentStoryboard.value) {
-      ElMessage.warning($t('professionalEditor.selectShotFirst'))
+      toast.warning($t('professionalEditor.selectShotFirst'))
       return
     }
 
@@ -372,7 +372,7 @@ export function useFrameImageGeneration(
       if (!file) return
 
       if (file.size > 10 * 1024 * 1024) {
-        ElMessage.error($t('professionalEditor.imageSizeLimit'))
+        toast.error($t('professionalEditor.imageSizeLimit'))
         return
       }
 
@@ -406,11 +406,11 @@ export function useFrameImageGeneration(
             selectedFrameType.value,
           )
 
-          ElMessage.success($t('professionalEditor.uploadSuccess'))
+          toast.success($t('professionalEditor.uploadSuccess'))
         }
       } catch (error: any) {
         console.error('上传图片失败:', error)
-        ElMessage.error(error.message || $t('professionalEditor.uploadFailed'))
+        toast.error(error.message || $t('professionalEditor.uploadFailed'))
       }
     }
     input.click()
@@ -420,25 +420,19 @@ export function useFrameImageGeneration(
   const handleDeleteImage = async (img: ImageGeneration) => {
     if (!currentStoryboard.value) return
 
-    try {
-      await ElMessageBox.confirm($t('professionalEditor.deleteImageConfirm'), $t('professionalEditor.deleteConfirmTitle'), {
-        confirmButtonText: $t('common.confirm'),
-        cancelButtonText: $t('common.cancel'),
-        type: 'warning',
-      })
+    if (!window.confirm($t('professionalEditor.deleteImageConfirm'))) return
 
+    try {
       await imageAPI.deleteImage(img.id)
-      ElMessage.success($t('message.deleteSuccess'))
+      toast.success($t('message.deleteSuccess'))
 
       await loadStoryboardImages(
         currentStoryboard.value.id,
         selectedFrameType.value,
       )
     } catch (error: any) {
-      if (error !== 'cancel') {
-        console.error('删除图片失败:', error)
-        ElMessage.error(error.message || $t('message.deleteFailed'))
-      }
+      console.error('删除图片失败:', error)
+      toast.error(error.message || $t('message.deleteFailed'))
     }
   }
 
@@ -512,7 +506,7 @@ export function useFrameImageGeneration(
         })
       }
 
-      ElMessage.success($t('professionalEditor.cropSaveSuccess'))
+      toast.success($t('professionalEditor.cropSaveSuccess'))
 
       if (currentStoryboard.value) {
         await loadStoryboardImages(currentStoryboard.value.id)
@@ -520,7 +514,7 @@ export function useFrameImageGeneration(
       }
     } catch (error) {
       console.error('Failed to save cropped images:', error)
-      ElMessage.error($t('professionalEditor.cropSaveFailed'))
+      toast.error($t('professionalEditor.cropSaveFailed'))
     }
   }
 

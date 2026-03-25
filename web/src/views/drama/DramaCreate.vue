@@ -66,7 +66,8 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { toast } from 'vue-sonner'
+import { type FormInstance, type FormRules } from 'element-plus'
 import { ArrowLeft, Plus } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import type { CreateDramaRequest } from '@/types/drama'
@@ -98,10 +99,10 @@ const handleSubmit = async () => {
       loading.value = true
       try {
         const drama = await dramaAPI.create(form)
-        ElMessage.success(t('common.success'))
+        toast.success(t('common.success'))
         router.push(`/dramas/${drama.id}`)
       } catch (error: any) {
-        ElMessage.error(error.message || t('common.failed'))
+        toast.error(error.message || t('common.failed'))
       } finally {
         loading.value = false
       }

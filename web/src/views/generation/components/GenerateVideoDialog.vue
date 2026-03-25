@@ -134,7 +134,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { toast } from 'vue-sonner'
+import { type FormInstance, type FormRules } from 'element-plus'
 import { videoAPI } from '@/api/video'
 import { imageAPI } from '@/api/image'
 import { dramaAPI } from '@/api/drama'
@@ -263,7 +264,7 @@ const truncateText = (text: string, length: number) => {
 const handleGenerate = async () => {
   if (!formRef.value) {
     console.error('formRef is null')
-    ElMessage.error('表单初始化失败，请刷新页面重试')
+    toast.error('表单初始化失败，请刷新页面重试')
     return
   }
 
@@ -305,18 +306,18 @@ const handleGenerate = async () => {
         await videoAPI.generateVideo(params)
       }
       
-      ElMessage.success('视频生成任务已提交，请稍后查看结果')
+      toast.success('视频生成任务已提交，请稍后查看结果')
       emit('success')
       handleClose()
     } catch (error: any) {
       console.error('Video generation failed:', error)
-      ElMessage.error(error.response?.data?.message || error.message || '生成失败')
+      toast.error(error.response?.data?.message || error.message || '生成失败')
     } finally {
       generating.value = false
     }
   } catch (error: any) {
     console.error('Form validation error:', error)
-    ElMessage.warning('请检查表单填写是否完整')
+    toast.warning('请检查表单填写是否完整')
   }
 }
 

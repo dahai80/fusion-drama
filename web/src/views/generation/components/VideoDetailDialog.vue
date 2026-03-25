@@ -143,7 +143,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   VideoCamera, Loading, CircleClose,
   Download, Refresh

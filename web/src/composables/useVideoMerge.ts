@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { videoMergeAPI, type VideoMerge } from '@/api/videoMerge'
 
 export function useVideoMerge(episodeId: Ref<string | number>) {
@@ -33,7 +33,7 @@ export function useVideoMerge(episodeId: Ref<string | number>) {
       }
     } catch (error: any) {
       console.error('加载视频合成列表失败:', error)
-      ElMessage.error($t('professionalEditor.loadMergesFailed'))
+      toast.error($t('professionalEditor.loadMergesFailed'))
     } finally {
       loadingMerges.value = false
     }
@@ -81,10 +81,7 @@ export function useVideoMerge(episodeId: Ref<string | number>) {
 
   const downloadVideo = async (url: string, title: string) => {
     try {
-      const loadingMsg = ElMessage.info({
-        message: $t('professionalEditor.downloadPreparing'),
-        duration: 0,
-      })
+      const loadingId = toast.info($t('professionalEditor.downloadPreparing'), { duration: Infinity })
 
       const videoUrl = url.startsWith('http') ? url : `/static/${url}`
 
@@ -108,11 +105,11 @@ export function useVideoMerge(episodeId: Ref<string | number>) {
         window.URL.revokeObjectURL(blobUrl)
       }, 100)
 
-      loadingMsg.close()
-      ElMessage.success($t('professionalEditor.downloadStarted'))
+      toast.dismiss(loadingId)
+      toast.success($t('professionalEditor.downloadStarted'))
     } catch (error) {
       console.error('下载视频失败:', error)
-      ElMessage.error($t('professionalEditor.downloadFailed'))
+      toast.error($t('professionalEditor.downloadFailed'))
     }
   }
 
@@ -122,25 +119,15 @@ export function useVideoMerge(episodeId: Ref<string | number>) {
   }
 
   const deleteMerge = async (mergeId: number) => {
-    try {
-      await ElMessageBox.confirm(
-        $t('professionalEditor.deleteMergeConfirm'),
-        $t('professionalEditor.deleteMergeTitle'),
-        {
-          confirmButtonText: $t('common.confirm'),
-          cancelButtonText: $t('common.cancel'),
-          type: 'warning',
-        },
-      )
+    if (!window.confirm($t('professionalEditor.deleteMergeConfirm'))) return
 
+    try {
       await videoMergeAPI.deleteMerge(mergeId)
-      ElMessage.success($t('message.deleteSuccess'))
+      toast.success($t('message.deleteSuccess'))
       await loadVideoMerges()
     } catch (error: any) {
-      if (error !== 'cancel') {
-        console.error('删除失败:', error)
-        ElMessage.error(error.response?.data?.message || $t('message.deleteFailed'))
-      }
+      console.error('删除失败:', error)
+      toast.error(error.response?.data?.message || $t('message.deleteFailed'))
     }
   }
 

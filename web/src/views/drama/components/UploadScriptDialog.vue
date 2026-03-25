@@ -92,7 +92,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { generationAPI } from '@/api/generation'
 import type { ParseScriptResult } from '@/types/generation'
 
@@ -129,7 +129,7 @@ const totalScenes = computed(() => {
 
 const handleParse = async () => {
   if (!form.script_content.trim()) {
-    ElMessage.warning('请输入剧本内容')
+    toast.warning('请输入剧本内容')
     return
   }
 
@@ -141,9 +141,9 @@ const handleParse = async () => {
       script_content: form.script_content,
       auto_split: form.auto_split
     })
-    ElMessage.success('剧本解析成功')
+    toast.success('剧本解析成功')
   } catch (error: any) {
-    ElMessage.error(error.message || '解析失败')
+    toast.error(error.message || '解析失败')
   } finally {
     parsing.value = false
   }
@@ -155,11 +155,11 @@ const handleSave = async () => {
   saving.value = true
   try {
     // TODO: 调用保存接口将解析结果保存到数据库
-    ElMessage.success('保存成功')
+    toast.success('保存成功')
     emit('success')
     handleClose()
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    toast.error(error.message || '保存失败')
   } finally {
     saving.value = false
   }

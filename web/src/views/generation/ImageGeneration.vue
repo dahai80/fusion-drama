@@ -162,7 +162,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   Plus, Picture, PictureFilled, Loading, CircleClose,
   View, Download, Delete
@@ -207,7 +207,7 @@ const loadImages = async () => {
     images.value = result.items
     total.value = result.pagination.total
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    toast.error(error.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -242,10 +242,10 @@ const downloadImage = (image: ImageGeneration) => {
 const deleteImage = async (id: number) => {
   try {
     await imageAPI.deleteImage(id)
-    ElMessage.success('删除成功')
+    toast.success('删除成功')
     loadImages()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    toast.error(error.message || '删除失败')
   }
 }
 

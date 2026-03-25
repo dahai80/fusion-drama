@@ -203,7 +203,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { Document, Plus, Search, Picture, Edit, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { getImageUrl } from '@/utils/image'
@@ -306,14 +306,14 @@ const handleSceneImageSuccess = (response: any) => {
 const beforeAvatarUpload = (file: any) => {
   const isImage = file.type.startsWith('image/')
   const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isImage) ElMessage.error(t('message.imageOnlyUpload'))
-  if (!isLt10M) ElMessage.error(t('message.imageSizeLimit'))
+  if (!isImage) toast.error(t('message.imageOnlyUpload'))
+  if (!isLt10M) toast.error(t('message.imageSizeLimit'))
   return isImage && isLt10M
 }
 
 const saveScene = async () => {
   if (!newScene.value.location.trim()) {
-    ElMessage.warning(t('message.enterSceneName'))
+    toast.warning(t('message.enterSceneName'))
     return
   }
 
@@ -336,73 +336,53 @@ const saveScene = async () => {
       })
     }
 
-    ElMessage.success(t(editingScene.value ? 'message.sceneUpdateSuccess' : 'message.sceneAddSuccess'))
+    toast.success(t(editingScene.value ? 'message.sceneUpdateSuccess' : 'message.sceneAddSuccess'))
     addSceneDialogVisible.value = false
     await reloadDrama()
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.operationFailed'))
+    toast.error(error.message || t('message.operationFailed'))
   }
 }
 
 const deleteScene = async (scene: Scene) => {
   if (!scene.id) {
-    ElMessage.error(t('message.sceneIdNotExist'))
+    toast.error(t('message.sceneIdNotExist'))
     return
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('message.sceneDeleteConfirm', { name: scene.name || scene.location }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('message.sceneDeleteConfirm', { name: scene.name || scene.location }))) return
 
+  try {
     await dramaAPI.deleteScene(scene.id.toString())
-    ElMessage.success(t('message.sceneDeleted'))
+    toast.success(t('message.sceneDeleted'))
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
 const generateSceneImage = async (scene: Scene) => {
   try {
     await dramaAPI.generateSceneImage({ scene_id: scene.id })
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
 const batchDeleteScenes = async () => {
-  try {
-    await ElMessageBox.confirm(
-      t('common.batchDeleteConfirm', { count: selectedCount.value }),
-      t('message.deleteConfirmTitle'),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        type: 'warning',
-      },
-    )
+  if (!window.confirm(t('common.batchDeleteConfirm', { count: selectedCount.value }))) return
 
+  try {
     for (const scene of selectedItems.value) {
       await dramaAPI.deleteScene(scene.id.toString())
     }
-    ElMessage.success(t('message.batchDeleteSuccess'))
+    toast.success(t('message.batchDeleteSuccess'))
     clearSelection()
     await reloadDrama()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || t('message.deleteFailed'))
-    }
+    toast.error(error.message || t('message.deleteFailed'))
   }
 }
 
@@ -411,11 +391,11 @@ const batchGenerateSceneImages = async () => {
     for (const scene of selectedItems.value) {
       await dramaAPI.generateSceneImage({ scene_id: scene.id })
     }
-    ElMessage.success(t('message.imageTaskSubmitted'))
+    toast.success(t('message.imageTaskSubmitted'))
     clearSelection()
     startPolling(reloadDrama)
   } catch (error: any) {
-    ElMessage.error(error.message || t('message.generateFailed'))
+    toast.error(error.message || t('message.generateFailed'))
   }
 }
 
@@ -491,7 +471,7 @@ const handleExtractScenes = async () => {
     }, 3000)
   } catch (error: any) {
     scenesExtractProgress.value = { active: false, percent: 0, message: '', status: '' }
-    ElMessage.error(error.message || t('message.extractFailed'))
+    toast.error(error.message || t('message.extractFailed'))
   }
 }
 </script>

@@ -114,7 +114,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { toast } from 'vue-sonner'
+import { type FormInstance, type FormRules } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { imageAPI } from '@/api/image'
 import { dramaAPI } from '@/api/drama'
@@ -277,11 +278,11 @@ const handleGenerate = async () => {
 
       await imageAPI.generateImage(params)
       
-      ElMessage.success(t('imageDialog.taskSubmitted'))
+      toast.success(t('imageDialog.taskSubmitted'))
       emit('success')
       handleClose()
     } catch (error: any) {
-      ElMessage.error(error.message || t('imageDialog.generateFailed'))
+      toast.error(error.message || t('imageDialog.generateFailed'))
     } finally {
       generating.value = false
     }

@@ -141,7 +141,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig, AIServiceType } from '@/types/ai'
 import type { ProviderGroup } from '@/constants/ai-providers'
@@ -278,7 +278,7 @@ function cancelEdit() {
 async function saveCredential(field: 'api_key' | 'base_url') {
   const value = field === 'api_key' ? editApiKey.value.trim() : editBaseUrl.value.trim()
   if (!value) {
-    ElMessage.warning(field === 'api_key' ? '请输入 API Key' : '请输入 Base URL')
+    toast.warning(field === 'api_key' ? '请输入 API Key' : '请输入 Base URL')
     return
   }
 
@@ -289,11 +289,11 @@ async function saveCredential(field: 'api_key' | 'base_url') {
       aiAPI.update(c.id, { [field]: value })
     )
     await Promise.all(updates)
-    ElMessage.success('保存成功')
+    toast.success('保存成功')
     editingField.value = null
     emit('refresh')
   } catch (error: any) {
-    ElMessage.error(error.message || '保存失败')
+    toast.error(error.message || '保存失败')
   } finally {
     saving.value = false
   }
@@ -320,7 +320,7 @@ async function handleModelToggle(model: ModelItem, active: boolean) {
     }
     emit('refresh')
   } catch (error: any) {
-    ElMessage.error(error.message || '操作失败')
+    toast.error(error.message || '操作失败')
   }
 }
 
@@ -340,12 +340,12 @@ async function confirmAddModel() {
       model: [name],
       priority: 0,
     })
-    ElMessage.success('模型已添加')
+    toast.success('模型已添加')
     addingModel.value = false
     newModelName.value = ''
     emit('refresh')
   } catch (error: any) {
-    ElMessage.error(error.message || '添加失败')
+    toast.error(error.message || '添加失败')
   }
 }
 

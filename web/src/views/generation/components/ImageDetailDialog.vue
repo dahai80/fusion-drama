@@ -131,7 +131,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   PictureFilled, Loading, CircleClose,
   Download, Refresh

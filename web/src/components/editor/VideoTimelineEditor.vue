@@ -377,7 +377,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import {
   VideoPlay,
   VideoPause,
@@ -964,13 +964,13 @@ const addClipToTimeline = async (scene: Scene, insertAtPosition?: number) => {
   selectedClipId.value = newClip.id
 
   const insertInfo = insertAfterIndex !== null ? '（已插入到选中片段后）' : ''
-  ElMessage.success(`已添加到时间线${insertInfo}`)
+  toast.success(`已添加到时间线${insertInfo}`)
 }
 
 // 一键添加全部场景
 const addAllScenesInOrder = async () => {
   if (availableStoryboards.value.length === 0) {
-    ElMessage.warning('没有可用的场景')
+    toast.warning('没有可用的场景')
     return
   }
 
@@ -985,13 +985,13 @@ const addAllScenesInOrder = async () => {
     await addClipToTimeline(scene)
   }
 
-  ElMessage.success(`已批量添加 ${sortedScenes.length} 个场景到时间线`)
+  toast.success(`已批量添加 ${sortedScenes.length} 个场景到时间线`)
 }
 
 // 删除素材
 const deleteAsset = async (scene: any) => {
   if (!scene.isAsset) {
-    ElMessage.warning('只能删除素材库中的视频')
+    toast.warning('只能删除素材库中的视频')
     return
   }
 
@@ -1000,13 +1000,13 @@ const deleteAsset = async (scene: any) => {
     const { assetAPI } = await import('@/api/asset')
     await assetAPI.deleteAsset(scene.asset_id)
 
-    ElMessage.success('删除成功')
+    toast.success('删除成功')
 
     // 通知父组件刷新素材列表
     emit('asset-deleted')
   } catch (error: any) {
     console.error('删除素材失败:', error)
-    ElMessage.error(error.message || '删除失败')
+    toast.error(error.message || '删除失败')
   }
 }
 
@@ -1063,7 +1063,7 @@ const applyTransition = () => {
       type: editingTransition.value.type,
       duration: editingTransition.value.duration,
     }
-    ElMessage.success('转场效果已设置')
+    toast.success('转场效果已设置')
   } else {
     console.error('❌ 未找到目标片段:', editingTransitionClipId.value)
   }
@@ -1098,7 +1098,7 @@ const clearAllClips = () => {
   selectedClipId.value = null
   selectedAudioClipId.value = null
   currentTime.value = 0
-  ElMessage.success('已清空轨道')
+  toast.success('已清空轨道')
 }
 
 const updateClipOrders = () => {
@@ -1110,14 +1110,11 @@ const updateClipOrders = () => {
 // 音频片段管理
 const extractAllAudio = async () => {
   if (timelineClips.value.length === 0) {
-    ElMessage.warning('时间线上没有视频片段')
+    toast.warning('时间线上没有视频片段')
     return
   }
 
-  const loadingMessage = ElMessage.info({
-    message: '正在从视频中提取音频轨道，请稍候...',
-    duration: 0,
-  })
+  const loadingId = toast.info('正在从视频中提取音频轨道，请稍候...', { duration: Infinity })
 
   try {
     // 清空现有音频
@@ -1164,12 +1161,12 @@ const extractAllAudio = async () => {
     })
 
     updateAudioClipOrders()
-    loadingMessage.close()
-    ElMessage.success(`已成功提取 ${audioClips.value.length} 个音频片段`)
+    toast.dismiss(loadingId)
+    toast.success(`已成功提取 ${audioClips.value.length} 个音频片段`)
   } catch (error: any) {
     console.error('提取音频失败:', error)
-    loadingMessage.close()
-    ElMessage.error(error.message || '音频提取失败，请重试')
+    toast.dismiss(loadingId)
+    toast.error(error.message || '音频提取失败，请重试')
     // 清空部分提取的音频
     audioClips.value = []
   }
@@ -1599,7 +1596,7 @@ const seekToTime = (time: number) => {
 // 播放控制
 const playTimeline = () => {
   if (timelineClips.value.length === 0) {
-    ElMessage.warning('时间线中没有视频片段')
+    toast.warning('时间线中没有视频片段')
     return
   }
 
@@ -1750,7 +1747,7 @@ const getPhaseText = (phase: string) => {
 // 导出功能
 const handleExport = async () => {
   if (timelineClips.value.length === 0) {
-    ElMessage.warning('请至少添加一个视频片段')
+    toast.warning('请至少添加一个视频片段')
     return
   }
 
@@ -1759,19 +1756,12 @@ const handleExport = async () => {
     const totalSize = timelineClips.value.length * 20 // 假设每个片段约20MB
     const estimatedTime = Math.ceil(totalSize / 50) // 每50MB约1分钟
 
-    await ElMessageBox.confirm(
+    if (!window.confirm(
       `即将在浏览器中合并 ${timelineClips.value.length} 个视频片段。\n\n` +
         `预计处理时间：${estimatedTime}-${estimatedTime + 1} 分钟\n` +
         `预计内存占用：约 ${Math.round(totalSize * 1.5)}MB\n\n` +
-        `处理期间请勿关闭页面。`,
-      '确认导出',
-      {
-        confirmButtonText: '开始合并',
-        cancelButtonText: '取消',
-        type: 'warning',
-        dangerouslyUseHTMLString: true,
-      },
-    )
+        `处理期间请勿关闭页面。`
+    )) return
 
     mergeDialogVisible.value = true
     merging.value = true
@@ -1803,13 +1793,11 @@ const handleExport = async () => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('视频合并完成，已开始下载！')
+    toast.success('视频合并完成，已开始下载！')
     mergeDialogVisible.value = false
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('视频合并失败:', error)
-      ElMessage.error(error.message || '视频合并失败')
-    }
+    console.error('视频合并失败:', error)
+    toast.error(error.message || '视频合并失败')
   } finally {
     merging.value = false
   }
@@ -1819,25 +1807,17 @@ const handleExport = async () => {
 // 浏览器端FFmpeg合成
 const mergeVideoInBrowser = async () => {
   if (timelineClips.value.length === 0) {
-    ElMessage.warning('时间线上没有视频片段')
+    toast.warning('时间线上没有视频片段')
     return
   }
 
   try {
-    await ElMessageBox.confirm(
-      '将在浏览器中使用FFmpeg合成视频。\n注意：处理时间较长，且会占用浏览器资源，请勿关闭页面。\n适合少量视频场景（1-5个）。\n是否继续？',
-      '浏览器合成视频',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
+    if (!window.confirm('将在浏览器中使用FFmpeg合成视频。\n注意：处理时间较长，且会占用浏览器资源，请勿关闭页面。\n适合少量视频场景（1-5个）。\n是否继续？')) return
 
     merging.value = true
     mergeProgress.value = 0
 
-    ElMessage.info('开始加载FFmpeg引擎...')
+    toast.info('开始加载FFmpeg引擎...')
 
     // 准备剪辑数据
     const clips = timelineClips.value.map((clip) => ({
@@ -1847,7 +1827,7 @@ const mergeVideoInBrowser = async () => {
     }))
 
     // 使用FFmpeg合成
-    ElMessage.info('正在合成视频，请稍候...')
+    toast.info('正在合成视频，请稍候...')
     const mergedBlob = await trimAndMergeVideos(clips, (progress) => {
       mergeProgress.value = Math.round(progress)
     })
@@ -1862,15 +1842,10 @@ const mergeVideoInBrowser = async () => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('视频合成完成并已下载！')
+    toast.success('视频合成完成并已下载！')
     emit('merge-completed', 0)
   } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error({
-        message: `合成失败: ${error.message || '未知错误'}。请检查控制台或尝试服务器合成`,
-        duration: 5000,
-      })
-    }
+    toast.error(`合成失败: ${error.message || '未知错误'}。请检查控制台或尝试服务器合成`)
   } finally {
     merging.value = false
     mergeProgress.value = 0
@@ -1880,21 +1855,12 @@ const mergeVideoInBrowser = async () => {
 // 服务器端合成
 const submitTimelineForMerge = async () => {
   if (timelineClips.value.length === 0) {
-    ElMessage.warning('时间线上没有视频片段')
+    toast.warning('时间线上没有视频片段')
     return
   }
 
   try {
-    await ElMessageBox.confirm(
-      '将根据时间线编排的顺序和转场效果合成最终视频。\n注意：未生成视频的场景将被跳过，只合成已有视频的场景。\n适合大量场景合成。\n是否继续？',
-      '服务器合成视频',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-        dangerouslyUseHTMLString: false,
-      },
-    )
+    if (!window.confirm('将根据时间线编排的顺序和转场效果合成最终视频。\n注意：未生成视频的场景将被跳过，只合成已有视频的场景。\n适合大量场景合成。\n是否继续？')) return
 
     serverMerging.value = true
 
@@ -1920,20 +1886,15 @@ const submitTimelineForMerge = async () => {
 
     // 如果有跳过的场景，显示警告
     if (result.warning) {
-      ElMessage.warning({
-        message: result.warning,
-        duration: 5000,
-      })
+      toast.warning(result.warning)
     } else {
-      ElMessage.success('视频合成任务已提交，正在后台处理...')
+      toast.success('视频合成任务已提交，正在后台处理...')
     }
 
     emit('merge-completed', result.merge_id || 0)
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('提交合成任务失败:', error)
-      ElMessage.error(error.response?.data?.message || '提交失败')
-    }
+    console.error('提交合成任务失败:', error)
+    toast.error(error.response?.data?.message || '提交失败')
   } finally {
     serverMerging.value = false
   }
@@ -1952,7 +1913,7 @@ const updateClipsByStoryboardId = (storyboardId: string | number, newVideoUrl: s
   })
 
   if (updated) {
-    ElMessage.success('时间线中的视频已自动更新')
+    toast.success('时间线中的视频已自动更新')
   }
 }
 

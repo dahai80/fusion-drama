@@ -23,7 +23,7 @@ import { ref, computed } from 'vue'
 defineProps<{ collapsed?: boolean }>()
 import { useI18n } from 'vue-i18n'
 import { setLanguage } from '@/locales'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { toast } from 'vue-sonner'
 import { settingsAPI } from '@/api/settings'
 
 const { locale } = useI18n()
@@ -53,56 +53,38 @@ After switching to Chinese, all prompts, character descriptions, scene descripti
 
 切换为英文后，后端生成的所有提示词、角色描述、场景描述等都将使用英文。是否继续？`
   
-  try {
-    await ElMessageBox.confirm(
-      confirmMessage,
-      '切换语言 / Switch Language',
-      {
-        confirmButtonText: '确定 / Confirm',
-        cancelButtonText: '取消 / Cancel',
-        type: 'warning',
-        dangerouslyUseHTMLString: false
-      }
-    )
+  if (!window.confirm(confirmMessage)) return
 
-    loading.value = true
-    
+  loading.value = true
+  try {
     // 调用后端API更新语言设置
     const res = await settingsAPI.updateLanguage(backendLang)
 
     // 更新前端语言
     setLanguage(lang)
     currentLang.value = lang
-    
+
     // 使用后端返回的双语消息（request拦截器已经返回了data）
-    ElMessage.success({
-      message: res?.message || (backendLang === 'zh' ? '语言已切换为中文' : 'Language switched to English'),
-      duration: 3000
-    })
+    toast.success(res?.message || (backendLang === 'zh' ? '语言已切换为中文' : 'Language switched to English'))
   } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('Failed to switch language:', error)
-      
-      // 安全获取错误消息
-      let errorMessage = '未知错误'
-      if (error?.message) {
-        errorMessage = error.message
-      } else if (error?.response?.data?.error?.message) {
-        errorMessage = error.response.data.error.message
-      } else if (typeof error === 'string') {
-        errorMessage = error
-      }
-      
-      // 双语错误提示
-      const errorMsg = currentBackendLang === 'zh'
-        ? `切换语言失败: ${errorMessage}`
-        : `Failed to switch language: ${errorMessage}`
-      
-      ElMessage.error({
-        message: errorMsg,
-        duration: 5000
-      })
+    console.error('Failed to switch language:', error)
+
+    // 安全获取错误消息
+    let errorMessage = '未知错误'
+    if (error?.message) {
+      errorMessage = error.message
+    } else if (error?.response?.data?.error?.message) {
+      errorMessage = error.response.data.error.message
+    } else if (typeof error === 'string') {
+      errorMessage = error
     }
+
+    // 双语错误提示
+    const errorMsg = currentBackendLang === 'zh'
+      ? `切换语言失败: ${errorMessage}`
+      : `Failed to switch language: ${errorMessage}`
+
+    toast.error(errorMsg)
   } finally {
     loading.value = false
   }

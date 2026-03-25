@@ -201,7 +201,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { ElMessage } from "element-plus";
+import { toast } from 'vue-sonner';
 import {
   Plus,
   Film,
@@ -305,7 +305,7 @@ const loadDramas = async () => {
     }
     total.value = res.pagination?.total || 0;
   } catch (error: any) {
-    ElMessage.error(error.message || "加载失败");
+    toast.error(error.message || "加载失败");
   } finally {
     loading.value = false;
     loadingMore.value = false;
@@ -354,7 +354,7 @@ const editDrama = async (id: string) => {
       style: drama.style || "ghibli",
     };
   } catch (error: any) {
-    ElMessage.error(error.message || "加载失败");
+    toast.error(error.message || "加载失败");
     editDialogVisible.value = false;
   } finally {
     editLoading.value = false;
@@ -364,7 +364,7 @@ const editDrama = async (id: string) => {
 // Save edit changes / 保存编辑更改
 const saveEdit = async () => {
   if (!editForm.value.title) {
-    ElMessage.warning("请输入项目名称");
+    toast.warning("请输入项目名称");
     return;
   }
 
@@ -375,11 +375,11 @@ const saveEdit = async () => {
       description: editForm.value.description,
       style: editForm.value.style,
     });
-    ElMessage.success("保存成功");
+    toast.success("保存成功");
     editDialogVisible.value = false;
     resetAndLoad();
   } catch (error: any) {
-    ElMessage.error(error.message || "保存失败");
+    toast.error(error.message || "保存失败");
   } finally {
     editLoading.value = false;
   }
@@ -389,10 +389,10 @@ const saveEdit = async () => {
 const deleteDrama = async (id: string) => {
   try {
     await dramaAPI.delete(id);
-    ElMessage.success("删除成功");
+    toast.success("删除成功");
     resetAndLoad();
   } catch (error: any) {
-    ElMessage.error(error.message || "删除失败");
+    toast.error(error.message || "删除失败");
   }
 };
 

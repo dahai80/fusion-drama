@@ -82,7 +82,8 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage, type FormInstance, type FormRules } from "element-plus";
+import { toast } from 'vue-sonner'
+import { type FormInstance, type FormRules } from 'element-plus';
 import { Plus } from "@element-plus/icons-vue";
 import { dramaAPI } from "@/api/drama";
 import type { CreateDramaRequest } from "@/types/drama";
@@ -158,13 +159,13 @@ const handleSubmit = async () => {
       loading.value = true;
       try {
         const drama = await dramaAPI.create(form);
-        ElMessage.success("创建成功");
+        toast.success("创建成功");
         visible.value = false;
         emit("created", drama.id);
         // Navigate to drama detail page / 跳转到短剧详情页
         router.push(`/dramas/${drama.id}`);
       } catch (error: any) {
-        ElMessage.error(error.message || "创建失败");
+        toast.error(error.message || "创建失败");
       } finally {
         loading.value = false;
       }
