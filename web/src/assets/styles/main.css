@@ -1797,3 +1797,49 @@ body {
 .font-mono {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
+
+/* Shadcn Vue / Glass token bridge */
+:root {
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent, #3b82f6);
+  --primary-foreground: var(--glass-text-on-accent, #ffffff);
+  --secondary: var(--bg-secondary);
+  --secondary-foreground: var(--text-secondary);
+  --muted: var(--bg-secondary);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--bg-card-hover);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--error, #ef4444);
+  --destructive-foreground: #ffffff;
+  --border: var(--border-primary);
+  --input: var(--border-primary);
+  --ring: var(--border-focus);
+  --radius: var(--radius-md, 0.5rem);
+}
+
+.dark {
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card: var(--bg-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-elevated);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent, #e8a243);
+  --primary-foreground: var(--glass-text-on-accent, #1a1614);
+  --secondary: var(--bg-secondary);
+  --secondary-foreground: var(--text-secondary);
+  --muted: var(--bg-secondary);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--bg-card-hover);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--error, #fb8a8a);
+  --destructive-foreground: #1a1614;
+  --border: var(--border-primary);
+  --input: var(--border-primary);
+  --ring: var(--border-focus);
+}
