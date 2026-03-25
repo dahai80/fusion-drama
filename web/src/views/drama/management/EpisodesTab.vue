@@ -4,12 +4,12 @@
       <template #actions>
         <el-button
           :icon="Upload"
-          @click="$emit('uploadNovel')"
+          @click="showUploadNovel = true"
         >{{ $t('drama.management.uploadNovel') }}</el-button>
         <el-button
           type="primary"
           :icon="Plus"
-          @click="$emit('createEpisode')"
+          @click="createEpisode"
         >{{ $t('drama.management.createEpisode') }}</el-button>
       </template>
       <template #filter>
@@ -38,7 +38,7 @@
         v-for="episode in filteredItems"
         :key="episode.id"
         class="list-row glass-list-row"
-        @click="$emit('enterEpisode', episode)"
+        @click="enterEpisode(episode)"
       >
         <div class="row-thumb row-thumb-icon">
           <el-icon :size="20"><DocumentIcon /></el-icon>
@@ -58,8 +58,8 @@
           </div>
         </div>
         <div class="row-actions" @click.stop>
-          <ActionButton :icon="Edit" :tooltip="$t('drama.management.goToEdit')" variant="primary" @click="$emit('enterEpisode', episode)" />
-          <ActionButton :icon="Delete" :tooltip="$t('common.delete')" variant="danger" @click="$emit('deleteEpisode', episode)" />
+          <ActionButton :icon="Edit" :tooltip="$t('drama.management.goToEdit')" variant="primary" @click="enterEpisode(episode)" />
+          <ActionButton :icon="Delete" :tooltip="$t('common.delete')" variant="danger" @click="deleteEpisode(episode)" />
         </div>
       </div>
     </div>
@@ -70,7 +70,7 @@
       :description="$t('drama.management.emptyTip')"
       :icon="DocumentIcon"
     >
-      <el-button type="primary" :icon="Plus" @click="$emit('createEpisode')">{{ $t('drama.management.createEpisode') }}</el-button>
+      <el-button type="primary" :icon="Plus" @click="createEpisode">{{ $t('drama.management.createEpisode') }}</el-button>
     </EmptyState>
 
     <EmptyState
@@ -79,33 +79,100 @@
       :description="$t('common.noData')"
       :icon="Search"
     />
+
+    <!-- 上传小说对话框 -->
+    <UploadNovelDialog
+      v-model="showUploadNovel"
+      :drama-id="dramaStore.dramaId"
+      :existing-episode-count="episodes.length"
+      @success="reloadDrama"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Search, Document as DocumentIcon, Edit, Delete } from '@element-plus/icons-vue'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { useFilteredList } from '@/composables/useFilteredList'
+import { useDramaStore } from '@/stores/drama'
+import { dramaAPI } from '@/api/drama'
+import UploadNovelDialog from '../components/UploadNovelDialog.vue'
 import type { Episode } from '@/types/drama'
 
 const { t } = useI18n()
+const router = useRouter()
+const dramaStore = useDramaStore()
 
-const props = defineProps<{
-  episodes: Episode[]
-}>()
+const showUploadNovel = ref(false)
 
-defineEmits<{
-  createEpisode: []
-  enterEpisode: [episode: Episode]
-  deleteEpisode: [episode: Episode]
-  uploadNovel: []
-}>()
+const episodes = computed(() => dramaStore.episodes)
 
 const sortedEpisodes = computed(() =>
-  [...props.episodes].sort((a, b) => a.episode_number - b.episode_number)
+  [...episodes.value].sort((a, b) => a.episode_number - b.episode_number)
 )
+
+const createEpisode = () => {
+  const nextEpisodeNumber = episodes.value.length + 1
+  router.push({
+    name: 'EpisodeWorkbench',
+    params: {
+      id: dramaStore.dramaId,
+      episodeNumber: nextEpisodeNumber,
+    },
+  })
+}
+
+const enterEpisode = (episode: Episode) => {
+  router.push({
+    name: 'EpisodeWorkbench',
+    params: {
+      id: dramaStore.dramaId,
+      episodeNumber: episode.episode_number,
+    },
+  })
+}
+
+const deleteEpisode = async (episode: Episode) => {
+  try {
+    await ElMessageBox.confirm(
+      t('message.episodeDeleteConfirm', { number: episode.episode_number }),
+      t('message.deleteConfirmTitle'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      },
+    )
+
+    const existingEpisodes = dramaStore.episodes
+    const updatedEpisodes = existingEpisodes
+      .filter((ep) => ep.episode_number !== episode.episode_number)
+      .map((ep) => ({
+        episode_number: ep.episode_number,
+        title: ep.title,
+        script_content: ep.script_content,
+        description: ep.description,
+        duration: ep.duration,
+        status: ep.status,
+      }))
+
+    await dramaAPI.saveEpisodes(dramaStore.dramaId, updatedEpisodes)
+    ElMessage.success(t('message.episodeDeleteSuccess', { number: episode.episode_number }))
+    await reloadDrama()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || t('message.deleteFailed'))
+    }
+  }
+}
+
+const reloadDrama = async () => {
+  await dramaStore.loadDrama(dramaStore.dramaId)
+}
 
 const getEpisodeStatus = (episode: Episode) => {
   if (episode.shots && episode.shots.length > 0) return 'split'

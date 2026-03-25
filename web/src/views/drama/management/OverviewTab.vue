@@ -50,7 +50,7 @@
       <el-button
         type="primary"
         :icon="Plus"
-        @click="$emit('createEpisode')"
+        @click="createEpisode"
       >
         {{ $t("drama.management.createFirstEpisode") }}
       </el-button>
@@ -92,24 +92,33 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Document, User, Picture, Plus, Box } from '@element-plus/icons-vue'
 import { StatCard, EmptyState } from '@/components/common'
-import type { Drama } from '@/types/drama'
+import { useDramaStore } from '@/stores/drama'
 
 const { t } = useI18n()
+const router = useRouter()
+const dramaStore = useDramaStore()
 
-const props = defineProps<{
-  drama: Drama | null
-  episodesCount: number
-  charactersCount: number
-  scenesCount: number
-  propsCount: number
-}>()
+const drama = computed(() => dramaStore.currentDrama)
+const episodesCount = computed(() => dramaStore.episodes.length)
+const charactersCount = computed(() => dramaStore.characters.length)
+const scenesCount = computed(() => dramaStore.scenes.length)
+const propsCount = computed(() => dramaStore.props.length)
 
-defineEmits<{
-  createEpisode: []
-}>()
+const createEpisode = () => {
+  const nextEpisodeNumber = episodesCount.value + 1
+  router.push({
+    name: 'EpisodeWorkbench',
+    params: {
+      id: dramaStore.dramaId,
+      episodeNumber: nextEpisodeNumber,
+    },
+  })
+}
 
 const getStatusType = (status?: string) => {
   const map: Record<string, any> = {
