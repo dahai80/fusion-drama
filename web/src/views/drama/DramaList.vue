@@ -4,10 +4,10 @@
   <div class="animate-fade-in drama-list-container">
     <PageHeader :title="$t('drama.title')" :subtitle="$t('drama.totalProjects', { count: total })">
       <template #actions>
-        <el-button type="primary" @click="handleCreate" class="header-btn primary">
-          <el-icon><Plus /></el-icon>
+        <Button @click="handleCreate" class="header-btn primary">
+          <Plus :size="16" class="mr-1" />
           <span class="btn-text">{{ $t('drama.createNew') }}</span>
-        </el-button>
+        </Button>
       </template>
       <template #extra>
         <div class="filter-bar">
@@ -20,28 +20,35 @@
               @click="onStatusFilter(opt.value)"
             >{{ opt.label }}</button>
           </div>
-          <el-input
-            v-model="searchKeyword"
-            :placeholder="$t('common.search') + '...'"
-            clearable
-            class="filter-search"
-            @input="onSearchInput"
-            @clear="onSearchInput"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
+          <div class="filter-search">
+            <Search :size="16" class="search-icon" />
+            <Input
+              v-model="searchKeyword"
+              :placeholder="$t('common.search') + '...'"
+              class="search-input"
+              @input="onSearchInput"
+            />
+          </div>
         </div>
       </template>
     </PageHeader>
 
       <!-- Project List / 项目列表 -->
       <div
-        v-loading="loading"
         class="projects-list"
         :class="{ 'is-empty': !loading && dramas.length === 0 }"
       >
+        <!-- Loading state -->
+        <template v-if="loading && dramas.length === 0">
+          <div v-for="i in 3" :key="i" class="drama-row glass-list-row">
+            <Skeleton class="w-2 h-2 rounded-full" />
+            <div class="row-body">
+              <Skeleton class="h-5 w-48" />
+              <Skeleton class="h-4 w-64 mt-2" />
+            </div>
+          </div>
+        </template>
+
         <!-- Empty state / 空状态 -->
         <EmptyState
           v-if="!loading && dramas.length === 0"
@@ -49,12 +56,10 @@
           :description="$t('drama.emptyHint')"
           :icon="Film"
         >
-          <el-button type="primary" @click="handleCreate">
-            <el-icon>
-              <Plus />
-            </el-icon>
+          <Button @click="handleCreate">
+            <Plus :size="16" class="mr-1" />
             {{ $t("drama.createNew") }}
-          </el-button>
+          </Button>
         </EmptyState>
 
         <!-- Project Rows / 项目行列表 -->
@@ -88,98 +93,73 @@
           </div>
           <div class="row-actions" @click.stop>
             <ActionButton
-              :icon="Edit"
+              :icon="Pencil"
               :tooltip="$t('common.edit')"
               @click="editDrama(drama.id)"
             />
-            <el-popconfirm
-              :title="$t('drama.deleteConfirm')"
-              :confirm-button-text="$t('common.confirm')"
-              :cancel-button-text="$t('common.cancel')"
-              @confirm="deleteDrama(drama.id)"
-            >
-              <template #reference>
-                <el-button :icon="Delete" class="action-button danger" link />
-              </template>
-            </el-popconfirm>
+            <button class="action-button danger" @click="confirmDelete(drama)">
+              <Trash2 :size="16" />
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Edit Dialog / 编辑对话框 -->
-      <el-dialog
-        v-model="editDialogVisible"
-        :title="$t('drama.editProject')"
-        width="520px"
-        :close-on-click-modal="false"
-        class="edit-dialog"
-      >
-        <el-form
-          :model="editForm"
-          label-position="top"
-          v-loading="editLoading"
-          class="edit-form"
-        >
-          <el-form-item :label="$t('drama.projectName')" required>
-            <el-input
-              v-model="editForm.title"
-              :placeholder="$t('drama.projectNamePlaceholder')"
-              size="large"
-            />
-          </el-form-item>
-          <el-form-item :label="$t('drama.projectDesc')">
-            <el-input
-              v-model="editForm.description"
-              type="textarea"
-              :rows="4"
-              :placeholder="$t('drama.projectDescPlaceholder')"
-              resize="none"
-            />
-          </el-form-item>
-          <el-form-item :label="$t('drama.style')" required>
-            <el-select
-              v-model="editForm.style"
-              :placeholder="$t('drama.stylePlaceholder')"
-              size="large"
-              style="width: 100%"
-            >
-              <el-option :label="$t('drama.styles.ghibli')" value="ghibli" />
-              <el-option :label="$t('drama.styles.guoman')" value="guoman" />
-              <el-option
-                :label="$t('drama.styles.wasteland')"
-                value="wasteland"
+      <Dialog v-model:open="editDialogVisible">
+        <DialogContent class="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>{{ $t('drama.editProject') }}</DialogTitle>
+          </DialogHeader>
+
+          <form class="edit-form" @submit.prevent="saveEdit">
+            <div class="form-field">
+              <label class="form-label">{{ $t('drama.projectName') }} <span class="required">*</span></label>
+              <Input
+                v-model="editForm.title"
+                :placeholder="$t('drama.projectNamePlaceholder')"
               />
-              <el-option
-                :label="$t('drama.styles.nostalgia')"
-                value="nostalgia"
+            </div>
+            <div class="form-field">
+              <label class="form-label">{{ $t('drama.projectDesc') }}</label>
+              <textarea
+                v-model="editForm.description"
+                class="glass-input-base form-textarea"
+                :rows="4"
+                :placeholder="$t('drama.projectDescPlaceholder')"
               />
-              <el-option :label="$t('drama.styles.pixel')" value="pixel" />
-              <el-option :label="$t('drama.styles.voxel')" value="voxel" />
-              <el-option :label="$t('drama.styles.urban')" value="urban" />
-              <el-option
-                :label="$t('drama.styles.guoman3d')"
-                value="guoman3d"
-              />
-              <el-option :label="$t('drama.styles.chibi3d')" value="chibi3d" />
-            </el-select>
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <div class="dialog-footer">
-            <el-button @click="editDialogVisible = false" size="large">{{
-              $t("common.cancel")
-            }}</el-button>
-            <el-button
-              type="primary"
-              @click="saveEdit"
-              :loading="editLoading"
-              size="large"
-            >
+            </div>
+            <div class="form-field">
+              <label class="form-label">{{ $t('drama.style') }} <span class="required">*</span></label>
+              <Select v-model="editForm.style">
+                <SelectTrigger>
+                  <SelectValue :placeholder="$t('drama.stylePlaceholder')" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ghibli">{{ $t('drama.styles.ghibli') }}</SelectItem>
+                  <SelectItem value="guoman">{{ $t('drama.styles.guoman') }}</SelectItem>
+                  <SelectItem value="wasteland">{{ $t('drama.styles.wasteland') }}</SelectItem>
+                  <SelectItem value="nostalgia">{{ $t('drama.styles.nostalgia') }}</SelectItem>
+                  <SelectItem value="pixel">{{ $t('drama.styles.pixel') }}</SelectItem>
+                  <SelectItem value="voxel">{{ $t('drama.styles.voxel') }}</SelectItem>
+                  <SelectItem value="urban">{{ $t('drama.styles.urban') }}</SelectItem>
+                  <SelectItem value="guoman3d">{{ $t('drama.styles.guoman3d') }}</SelectItem>
+                  <SelectItem value="chibi3d">{{ $t('drama.styles.chibi3d') }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </form>
+
+          <DialogFooter>
+            <Button variant="outline" @click="editDialogVisible = false">
+              {{ $t("common.cancel") }}
+            </Button>
+            <Button @click="saveEdit" :disabled="editLoading">
+              <Loader2 v-if="editLoading" :size="16" class="animate-spin mr-1" />
               {{ $t("common.save") }}
-            </el-button>
-          </div>
-        </template>
-      </el-dialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <!-- Create Drama Dialog / 创建短剧弹窗 -->
       <CreateDramaDialog v-model="createDialogVisible" @created="resetAndLoad" />
@@ -187,7 +167,7 @@
     <!-- Infinite scroll sentinel / 无限滚动哨兵 -->
     <div ref="sentinelRef" class="scroll-sentinel">
       <div v-if="loadingMore" class="loading-more">
-        <el-icon class="is-loading"><Loading /></el-icon>
+        <Loader2 :size="16" class="animate-spin" />
         <span>{{ $t('common.loading') }}</span>
       </div>
       <div v-else-if="noMore && dramas.length > 0" class="no-more">
@@ -205,11 +185,16 @@ import { toast } from 'vue-sonner';
 import {
   Plus,
   Film,
-  Edit,
-  Delete,
-  Loading,
+  Pencil,
+  Trash2,
   Search,
-} from "@element-plus/icons-vue";
+  Loader2,
+} from "lucide-vue-next";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { dramaAPI } from "@/api/drama";
 import type { Drama, DramaListQuery, DramaStatus } from "@/types/drama";
 import {
@@ -386,9 +371,10 @@ const saveEdit = async () => {
 };
 
 // Delete drama / 删除短剧
-const deleteDrama = async (id: string) => {
+const confirmDelete = async (drama: Drama) => {
+  if (!window.confirm(t('drama.deleteConfirm'))) return;
   try {
-    await dramaAPI.delete(id);
+    await dramaAPI.delete(drama.id);
     toast.success("删除成功");
     resetAndLoad();
   } catch (error: any) {
@@ -427,6 +413,9 @@ onBeforeUnmount(() => {
 /* ========================================
    Header Buttons / 头部按钮
    ======================================== */
+.mr-1 {
+  margin-right: 0.25rem;
+}
 
 @media (max-width: 640px) {
   .btn-text {
@@ -568,11 +557,23 @@ onBeforeUnmount(() => {
 }
 
 .row-actions .action-button {
-  width: 28px !important;
-  height: 28px !important;
-  padding: 0 !important;
-  background: var(--glass-bg-muted) !important;
-  border: none !important;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg-muted);
+  border: none;
+  border-radius: var(--glass-radius-sm);
+  cursor: pointer;
+  color: var(--glass-text-tertiary);
+  transition: all 0.2s;
+}
+
+.action-button.danger:hover {
+  color: #ef4444;
+  background: var(--glass-tone-danger-bg);
 }
 
 /* Mobile / 移动端适配 */
@@ -623,88 +624,37 @@ onBeforeUnmount(() => {
 }
 
 /* ========================================
-   Edit Dialog / 编辑对话框 - 玻璃态
+   Edit Form / 编辑表单
    ======================================== */
-:deep(.edit-dialog .el-dialog) {
-  background: var(--glass-bg-surface-modal);
-  backdrop-filter: blur(var(--glass-blur-lg));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
-  border: 1px solid var(--glass-stroke-base);
-  border-radius: var(--glass-radius-xl);
-  box-shadow: var(--glass-shadow-modal);
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-:deep(.edit-dialog .el-dialog__header) {
-  padding: var(--glass-space-5) var(--glass-space-6);
-  border-bottom: 1px solid var(--glass-stroke-soft);
-  margin-right: 0;
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-:deep(.edit-dialog .el-dialog__title) {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--glass-text-primary);
-}
-
-:deep(.edit-dialog .el-dialog__body) {
-  padding: var(--glass-space-6);
-}
-
-:deep(.edit-dialog .el-form-item__label) {
+.form-label {
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--glass-text-primary);
-  margin-bottom: var(--glass-space-2);
 }
 
-:deep(.edit-dialog .el-input__wrapper),
-:deep(.edit-dialog .el-textarea__inner) {
-  background: var(--glass-bg-muted);
-  border: 1px solid var(--glass-stroke-base);
-  border-radius: var(--glass-radius-sm);
-  box-shadow: none;
-}
-
-:deep(.edit-dialog .el-input__wrapper:hover),
-:deep(.edit-dialog .el-textarea__inner:hover) {
-  border-color: var(--glass-stroke-strong);
-}
-
-:deep(.edit-dialog .el-input__wrapper.is-focus),
-:deep(.edit-dialog .el-textarea__inner:focus) {
-  border-color: var(--glass-stroke-focus);
-  box-shadow: var(--glass-focus-ring);
-}
-
-:deep(.edit-dialog .el-select .el-input__wrapper) {
-  background: var(--glass-bg-muted);
-  border: 1px solid var(--glass-stroke-base);
-}
-
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--glass-space-3);
-}
-
-.dialog-footer .el-button {
-  border-radius: var(--glass-radius-sm);
-}
-
-.dialog-footer .el-button--primary {
-  background: linear-gradient(135deg, var(--glass-accent-from) 0%, var(--glass-accent-to) 100%);
-  border: none;
-  box-shadow: var(--glass-accent-shadow-soft);
-}
-
-/* Delete button style */
-.action-button.danger {
-  padding: 0.5rem;
-  color: var(--glass-text-tertiary);
-}
-
-.action-button.danger:hover {
+.required {
   color: #ef4444;
-  background: var(--glass-tone-danger-bg);
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--glass-radius-sm);
+  font-size: 0.875rem;
 }
 
 /* ========================================
@@ -744,6 +694,21 @@ onBeforeUnmount(() => {
 .filter-search {
   width: 220px;
   flex-shrink: 0;
+  position: relative;
+}
+
+.filter-search .search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--glass-text-tertiary);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.filter-search .search-input {
+  padding-left: 32px;
 }
 
 @media (max-width: 640px) {

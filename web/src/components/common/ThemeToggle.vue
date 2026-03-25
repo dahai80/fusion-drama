@@ -7,18 +7,14 @@
     @click="toggleTheme"
   >
     <transition name="icon-fade" mode="out-in">
-      <el-icon v-if="uiStore.isDark" key="moon" :size="18">
-        <Moon />
-      </el-icon>
-      <el-icon v-else key="sun" :size="18">
-        <Sunny />
-      </el-icon>
+      <Moon v-if="uiStore.isDark" key="moon" :size="18" />
+      <Sun v-else key="sun" :size="18" />
     </transition>
   </button>
 </template>
 
 <script setup lang="ts">
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import { Moon, Sun } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useUIStore } from '@/stores/ui'
 

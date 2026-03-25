@@ -3,14 +3,15 @@
     <div class="not-found__content">
       <h1 class="not-found__code">404</h1>
       <p class="not-found__message">{{ $t('common.noData') }}</p>
-      <el-button type="primary" @click="$router.push('/')">
+      <Button @click="$router.push('/')">
         {{ $t('nav.home') }}
-      </el-button>
+      </Button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
 </script>
 
 <style scoped>

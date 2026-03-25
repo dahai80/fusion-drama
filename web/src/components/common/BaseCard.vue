@@ -18,9 +18,7 @@
       <slot name="header">
         <div class="header-content">
           <div v-if="icon" class="header-icon">
-            <el-icon :size="iconSize" :color="iconColor">
-              <component :is="icon" />
-            </el-icon>
+            <component :is="icon" :size="iconSize" :color="iconColor" />
           </div>
           <div class="header-text">
             <h3 class="card-title">{{ title }}</h3>

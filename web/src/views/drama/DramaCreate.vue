@@ -6,59 +6,49 @@
       :subtitle="$t('drama.createDesc')"
     >
       <template #actions>
-        <el-button @click="goBack">
-          <el-icon><ArrowLeft /></el-icon>
+        <Button variant="outline" @click="goBack">
+          <ArrowLeft :size="16" class="mr-1" />
           {{ $t('common.back') }}
-        </el-button>
+        </Button>
       </template>
     </PageHeader>
 
     <!-- Form Card / 表单卡片 -->
     <div class="form-card">
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-position="top"
-        class="create-form"
-        @submit.prevent="handleSubmit"
-      >
-        <el-form-item :label="$t('drama.projectName')" prop="title" required>
-          <el-input
+      <form class="create-form" @submit.prevent="handleSubmit">
+        <div class="form-field">
+          <label class="form-label">{{ $t('drama.projectName') }} <span class="required">*</span></label>
+          <Input
             v-model="form.title"
             :placeholder="$t('drama.projectNamePlaceholder')"
-            size="large"
             maxlength="100"
-            show-word-limit
           />
-        </el-form-item>
+        </div>
 
-        <el-form-item :label="$t('drama.projectDesc')" prop="description">
-          <el-input
+        <div class="form-field">
+          <label class="form-label">{{ $t('drama.projectDesc') }}</label>
+          <textarea
             v-model="form.description"
-            type="textarea"
+            class="glass-input-base form-textarea"
             :rows="5"
             :placeholder="$t('drama.projectDescPlaceholder')"
             maxlength="500"
-            show-word-limit
-            resize="none"
           />
-        </el-form-item>
+        </div>
 
         <div class="form-actions">
-          <el-button size="large" @click="goBack">{{ $t('common.cancel') }}</el-button>
-            <el-button 
-              type="primary" 
-              size="large"
-              :loading="loading"
-              @click="handleSubmit"
-            >
-              <el-icon v-if="!loading"><Plus /></el-icon>
-              {{ $t('drama.create') }}
-            </el-button>
-          </div>
-        </el-form>
-      </div>
+          <Button variant="outline" type="button" @click="goBack">{{ $t('common.cancel') }}</Button>
+          <Button
+            type="submit"
+            :disabled="loading || !form.title.trim()"
+          >
+            <Loader2 v-if="loading" :size="16" class="animate-spin mr-1" />
+            <Plus v-else :size="16" class="mr-1" />
+            {{ $t('drama.create') }}
+          </Button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -67,15 +57,15 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { type FormInstance, type FormRules } from 'element-plus'
-import { ArrowLeft, Plus } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Loader2 } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { dramaAPI } from '@/api/drama'
 import type { CreateDramaRequest } from '@/types/drama'
 import { PageHeader } from '@/components/common'
 
 const { t } = useI18n()
 const router = useRouter()
-const formRef = ref<FormInstance>()
 const loading = ref(false)
 
 const form = reactive<CreateDramaRequest>({
@@ -83,31 +73,23 @@ const form = reactive<CreateDramaRequest>({
   description: ''
 })
 
-const rules: FormRules = {
-  title: [
-    { required: true, message: () => t('drama.validation.titleRequired'), trigger: 'blur' },
-    { min: 1, max: 100, message: () => t('drama.validation.titleLength'), trigger: 'blur' }
-  ]
-}
-
 // Submit form / 提交表单
 const handleSubmit = async () => {
-  if (!formRef.value) return
-  
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const drama = await dramaAPI.create(form)
-        toast.success(t('common.success'))
-        router.push(`/dramas/${drama.id}`)
-      } catch (error: any) {
-        toast.error(error.message || t('common.failed'))
-      } finally {
-        loading.value = false
-      }
-    }
-  })
+  if (!form.title.trim()) {
+    toast.warning(t('drama.validation.titleRequired'))
+    return
+  }
+
+  loading.value = true
+  try {
+    const drama = await dramaAPI.create(form)
+    toast.success(t('common.success'))
+    router.push(`/dramas/${drama.id}`)
+  } catch (error: any) {
+    toast.error(error.message || t('common.failed'))
+  } finally {
+    loading.value = false
+  }
 }
 
 // Go back / 返回上一页
@@ -117,17 +99,11 @@ const goBack = () => {
 </script>
 
 <style scoped>
-/* ========================================
-   Page Layout / 页面布局
-   ======================================== */
 .drama-create {
   max-width: 640px;
   margin: 0 auto;
 }
 
-/* ========================================
-   Form Card / 表单卡片
-   ======================================== */
 .form-card {
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
@@ -136,20 +112,38 @@ const goBack = () => {
   box-shadow: var(--shadow-card);
 }
 
-/* ========================================
-   Form Styles / 表单样式 - 紧凑内边距
-   ======================================== */
 .create-form {
   padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.create-form :deep(.el-form-item) {
-  margin-bottom: var(--space-4);
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-/* ========================================
-   Form Actions / 表单操作区
-   ======================================== */
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -159,7 +153,7 @@ const goBack = () => {
   margin-top: var(--space-2);
 }
 
-.form-actions .el-button {
-  min-width: 100px;
+.mr-1 {
+  margin-right: 0.25rem;
 }
 </style>

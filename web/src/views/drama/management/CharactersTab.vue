@@ -2,62 +2,65 @@
   <div>
     <TabHeader :title="$t('drama.management.characterList')">
       <template #actions>
-        <el-button
+        <Button
           v-if="!isBatchMode"
-          size="small"
+          variant="outline"
+          size="sm"
           @click="isBatchMode = true"
-        >{{ $t('common.batchMode') }}</el-button>
-        <el-button
-          :icon="Document"
-          @click="openExtractCharacterDialog"
-        >{{ $t('prop.extract') }}</el-button>
-        <el-button
-          type="primary"
-          :icon="Plus"
-          @click="openAddCharacterDialog"
-        >{{ $t('character.add') }}</el-button>
+        >{{ $t('common.batchMode') }}</Button>
+        <Button variant="outline" @click="openExtractCharacterDialog">
+          <FileText :size="16" class="mr-1" />
+          {{ $t('prop.extract') }}
+        </Button>
+        <Button @click="openAddCharacterDialog">
+          <Plus :size="16" class="mr-1" />
+          {{ $t('character.add') }}
+        </Button>
       </template>
       <template #filter>
-        <el-input
-          v-model="searchQuery"
-          :placeholder="$t('character.searchPlaceholder')"
-          :prefix-icon="Search"
-          clearable
-          style="width: 220px"
-        />
-        <el-select
-          v-model="filterValue"
-          :placeholder="$t('character.filterRole')"
-          clearable
-          style="width: 150px"
-        >
-          <el-option label="Main" value="main" />
-          <el-option label="Supporting" value="supporting" />
-          <el-option label="Minor" value="minor" />
-        </el-select>
+        <div class="filter-input-wrapper">
+          <Search :size="16" class="filter-icon" />
+          <Input
+            v-model="searchQuery"
+            :placeholder="$t('character.searchPlaceholder')"
+            class="filter-input"
+          />
+        </div>
+        <Select v-model="filterValue">
+          <SelectTrigger class="w-[150px]">
+            <SelectValue :placeholder="$t('character.filterRole')" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="main">Main</SelectItem>
+            <SelectItem value="supporting">Supporting</SelectItem>
+            <SelectItem value="minor">Minor</SelectItem>
+          </SelectContent>
+        </Select>
       </template>
     </TabHeader>
 
     <!-- 批量操作栏 -->
     <div v-if="isBatchMode" class="batch-bar">
-      <el-checkbox
-        :model-value="isAllSelected"
+      <Checkbox
+        :checked="isAllSelected"
         :indeterminate="isIndeterminate"
-        @change="toggleAll"
-      >{{ $t('common.selectAll') }}</el-checkbox>
+        @update:checked="toggleAll"
+      />
+      <span class="batch-bar__label">{{ $t('common.selectAll') }}</span>
       <span class="batch-bar__count">{{ $t('common.selectedCount', { count: selectedCount }) }}</span>
-      <el-button
-        size="small"
-        type="danger"
+      <Button
+        size="sm"
+        variant="destructive"
         :disabled="selectedCount === 0"
         @click="batchDeleteCharacters"
-      >{{ $t('common.batchDelete') }}</el-button>
-      <el-button
-        size="small"
+      >{{ $t('common.batchDelete') }}</Button>
+      <Button
+        size="sm"
+        variant="outline"
         :disabled="selectedCount === 0"
         @click="batchGenerateCharacterImages"
-      >{{ $t('common.batchGenerate') }}</el-button>
-      <el-button size="small" @click="clearSelection">{{ $t('common.cancelBatch') }}</el-button>
+      >{{ $t('common.batchGenerate') }}</Button>
+      <Button size="sm" variant="ghost" @click="clearSelection">{{ $t('common.cancelBatch') }}</Button>
     </div>
 
     <div v-if="filteredItems.length > 0" class="list-container">
@@ -67,15 +70,15 @@
         class="list-row glass-list-row"
         @click="editCharacter(character)"
       >
-        <el-checkbox
+        <Checkbox
           v-if="isBatchMode"
-          :model-value="selectedIds.has(character.id)"
-          @change="toggleItem(character.id)"
+          :checked="selectedIds.has(character.id)"
+          @update:checked="() => toggleItem(character.id)"
           @click.stop
         />
         <div class="row-thumb" :class="{ 'row-thumb-icon': !hasCharacterImage(character) }">
           <img v-if="hasCharacterImage(character)" :src="getImageUrl(character)" :alt="character.name" />
-          <el-icon v-else :size="20"><User /></el-icon>
+          <User v-else :size="20" />
         </div>
         <div class="row-body">
           <div class="row-top">
@@ -87,9 +90,9 @@
           </div>
         </div>
         <div class="row-actions" @click.stop>
-          <ActionButton :icon="Edit" :tooltip="$t('common.edit')" variant="primary" @click="editCharacter(character)" />
-          <ActionButton :icon="PictureFilled" :tooltip="$t('prop.generateImage')" @click="generateCharacterImage(character)" />
-          <ActionButton :icon="Delete" :tooltip="$t('common.delete')" variant="danger" @click="deleteCharacter(character)" />
+          <ActionButton :icon="Pencil" :tooltip="$t('common.edit')" variant="primary" @click="editCharacter(character)" />
+          <ActionButton :icon="ImageIcon" :tooltip="$t('prop.generateImage')" @click="generateCharacterImage(character)" />
+          <ActionButton :icon="Trash2" :tooltip="$t('common.delete')" variant="danger" @click="deleteCharacter(character)" />
         </div>
       </div>
     </div>
@@ -100,119 +103,122 @@
       :description="$t('character.emptyTip')"
       :icon="User"
     >
-      <el-button type="primary" :icon="Plus" @click="openAddCharacterDialog">{{ $t('character.add') }}</el-button>
+      <Button @click="openAddCharacterDialog">
+        <Plus :size="16" class="mr-1" />
+        {{ $t('character.add') }}
+      </Button>
     </EmptyState>
 
     <!-- 添加/编辑角色对话框 -->
-    <el-dialog
-      v-model="addCharacterDialogVisible"
-      :title="editingCharacter ? $t('character.edit') : $t('character.add')"
-      width="600px"
-    >
-      <el-form :model="newCharacter" label-width="100px">
-        <el-form-item :label="$t('character.image')">
-          <el-upload
-            class="avatar-uploader"
-            :action="`/api/v1/upload/image`"
-            :show-file-list="false"
-            :on-success="handleCharacterAvatarSuccess"
-            :before-upload="beforeAvatarUpload"
-          >
-            <img
-              v-if="hasCharacterImage(newCharacter)"
-              :src="getImageUrl(newCharacter)"
-              class="avatar"
-              style="width: 100px; height: 100px; object-fit: cover"
-            />
-            <el-icon
-              v-else
-              class="avatar-uploader-icon"
-              style="border: 1px dashed #d9d9d9; border-radius: 6px; cursor: pointer; position: relative; overflow: hidden; width: 100px; height: 100px; font-size: 28px; color: #8c939d; text-align: center; line-height: 100px;"
-            ><Plus /></el-icon>
-          </el-upload>
-        </el-form-item>
-        <el-form-item :label="$t('character.name')">
-          <el-input v-model="newCharacter.name" :placeholder="$t('character.name')" />
-        </el-form-item>
-        <el-form-item :label="$t('character.role')">
-          <el-select v-model="newCharacter.role" :placeholder="$t('common.pleaseSelect')">
-            <el-option label="Main" value="main" />
-            <el-option label="Supporting" value="supporting" />
-            <el-option label="Minor" value="minor" />
-          </el-select>
-        </el-form-item>
-        <el-form-item :label="$t('character.appearance')">
-          <el-input v-model="newCharacter.appearance" type="textarea" :rows="3" :placeholder="$t('character.appearance')" />
-        </el-form-item>
-        <el-form-item :label="$t('character.personality')">
-          <el-input v-model="newCharacter.personality" type="textarea" :rows="3" :placeholder="$t('character.personality')" />
-        </el-form-item>
-        <el-form-item :label="$t('character.description')">
-          <el-input v-model="newCharacter.description" type="textarea" :rows="3" :placeholder="$t('common.description')" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="addCharacterDialogVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="saveCharacter">{{ $t('common.confirm') }}</el-button>
-      </template>
-    </el-dialog>
+    <Dialog v-model:open="addCharacterDialogVisible">
+      <DialogContent class="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>{{ editingCharacter ? $t('character.edit') : $t('character.add') }}</DialogTitle>
+        </DialogHeader>
+        <div class="dialog-form">
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.image') }}</label>
+            <div class="avatar-upload" @click="triggerFileInput('character')">
+              <img
+                v-if="hasCharacterImage(newCharacter)"
+                :src="getImageUrl(newCharacter)"
+                class="avatar-preview"
+              />
+              <div v-else class="avatar-placeholder">
+                <Plus :size="28" />
+              </div>
+            </div>
+            <input ref="characterFileInput" type="file" accept="image/*" class="hidden" @change="handleCharacterFileChange" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.name') }}</label>
+            <Input v-model="newCharacter.name" :placeholder="$t('character.name')" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.role') }}</label>
+            <Select v-model="newCharacter.role">
+              <SelectTrigger>
+                <SelectValue :placeholder="$t('common.pleaseSelect')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="main">Main</SelectItem>
+                <SelectItem value="supporting">Supporting</SelectItem>
+                <SelectItem value="minor">Minor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.appearance') }}</label>
+            <textarea v-model="newCharacter.appearance" class="glass-input-base form-textarea" :rows="3" :placeholder="$t('character.appearance')" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.personality') }}</label>
+            <textarea v-model="newCharacter.personality" class="glass-input-base form-textarea" :rows="3" :placeholder="$t('character.personality')" />
+          </div>
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.description') }}</label>
+            <textarea v-model="newCharacter.description" class="glass-input-base form-textarea" :rows="3" :placeholder="$t('common.description')" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="addCharacterDialogVisible = false">{{ $t('common.cancel') }}</Button>
+          <Button @click="saveCharacter">{{ $t('common.confirm') }}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- 从剧本提取角色对话框 -->
-    <el-dialog
-      v-model="extractCharactersDialogVisible"
-      :title="$t('character.batchExtract')"
-      width="500px"
-    >
-      <el-form label-width="100px">
-        <el-form-item :label="$t('character.selectEpisodes')">
-          <div style="width: 100%">
-            <el-checkbox
-              v-model="selectAllEpisodes"
-              :indeterminate="isEpisodesIndeterminate"
-              @change="handleSelectAllEpisodes"
-              style="margin-bottom: 8px"
-            >{{ $t('common.selectAll') }}</el-checkbox>
-            <el-select
-              v-model="selectedExtractEpisodeIds"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              :placeholder="$t('common.pleaseSelect')"
-              style="width: 100%"
-              @change="handleEpisodeSelectionChange"
-            >
-              <el-option
-                v-for="ep in sortedEpisodes"
-                :key="ep.id"
-                :label="ep.title"
-                :value="ep.id"
-              />
-            </el-select>
+    <Dialog v-model:open="extractCharactersDialogVisible">
+      <DialogContent class="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{{ $t('character.batchExtract') }}</DialogTitle>
+        </DialogHeader>
+        <div class="dialog-form">
+          <div class="form-field">
+            <label class="form-label">{{ $t('character.selectEpisodes') }}</label>
+            <div class="episode-select">
+              <div class="select-all-row">
+                <Checkbox
+                  :checked="selectAllEpisodes"
+                  :indeterminate="isEpisodesIndeterminate"
+                  @update:checked="handleSelectAllEpisodes"
+                />
+                <span>{{ $t('common.selectAll') }}</span>
+              </div>
+              <div class="episode-checkboxes">
+                <label v-for="ep in sortedEpisodes" :key="ep.id" class="episode-checkbox-item">
+                  <Checkbox
+                    :checked="selectedExtractEpisodeIds.includes(ep.id)"
+                    @update:checked="(val: boolean) => toggleEpisodeSelection(ep.id, val)"
+                  />
+                  <span>{{ ep.title }}</span>
+                </label>
+              </div>
+            </div>
           </div>
-        </el-form-item>
-        <el-alert
-          :title="$t('character.batchExtractTip')"
-          type="info"
-          :closable="false"
-          show-icon
-        />
-        <div v-if="extractProgress.active" style="margin-top: 16px">
-          <el-progress :percentage="extractProgress.percent" :status="extractProgress.status" />
-          <p style="margin-top: 8px; color: var(--el-text-color-secondary); font-size: 13px">
-            {{ extractProgress.message }}
-          </p>
+          <div class="info-alert">
+            <Info :size="16" />
+            <span>{{ $t('character.batchExtractTip') }}</span>
+          </div>
+          <div v-if="extractProgress.active" class="progress-section">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: extractProgress.percent + '%' }" :class="{ 'progress-error': extractProgress.status === 'exception' }" />
+            </div>
+            <p class="progress-message">{{ extractProgress.message }}</p>
+          </div>
         </div>
-      </el-form>
-      <template #footer>
-        <el-button @click="extractCharactersDialogVisible = false" :disabled="extractProgress.active">{{ $t('common.cancel') }}</el-button>
-        <el-button
-          type="primary"
-          @click="handleExtractCharacters"
-          :disabled="selectedExtractEpisodeIds.length === 0 || extractProgress.active"
-          :loading="extractProgress.active"
-        >{{ $t('prop.startExtract') }}</el-button>
-      </template>
-    </el-dialog>
+        <DialogFooter>
+          <Button variant="outline" @click="extractCharactersDialogVisible = false" :disabled="extractProgress.active">{{ $t('common.cancel') }}</Button>
+          <Button
+            @click="handleExtractCharacters"
+            :disabled="selectedExtractEpisodeIds.length === 0 || extractProgress.active"
+          >
+            <Loader2 v-if="extractProgress.active" :size="16" class="animate-spin mr-1" />
+            {{ $t('prop.startExtract') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -220,7 +226,12 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { Document, Plus, Search, User, Edit, Delete, PictureFilled } from '@element-plus/icons-vue'
+import { FileText, Plus, Search, User, Pencil, Trash2, Image as ImageIcon, Info, Loader2 } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { getImageUrl } from '@/utils/image'
 import { useFilteredList } from '@/composables/useFilteredList'
@@ -235,6 +246,7 @@ const { t } = useI18n()
 const dramaStore = useDramaStore()
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null
+const characterFileInput = ref<HTMLInputElement>()
 
 onUnmounted(() => {
   if (pollingTimer) clearInterval(pollingTimer)
@@ -326,19 +338,33 @@ const editCharacter = (character: Character) => {
   addCharacterDialogVisible.value = true
 }
 
-const handleCharacterAvatarSuccess = (response: any) => {
-  if (response.data && response.data.url) {
-    newCharacter.value.image_url = response.data.url
-    newCharacter.value.local_path = response.data.local_path || ''
-  }
+const triggerFileInput = (type: string) => {
+  if (type === 'character') characterFileInput.value?.click()
 }
 
-const beforeAvatarUpload = (file: any) => {
+const handleCharacterFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
   const isImage = file.type.startsWith('image/')
   const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isImage) toast.error(t('message.imageOnlyUpload'))
-  if (!isLt10M) toast.error(t('message.imageSizeLimit'))
-  return isImage && isLt10M
+  if (!isImage) { toast.error(t('message.imageOnlyUpload')); return }
+  if (!isLt10M) { toast.error(t('message.imageSizeLimit')); return }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    const response = await fetch('/api/v1/upload/image', { method: 'POST', body: formData })
+    const result = await response.json()
+    if (result.data?.url) {
+      newCharacter.value.image_url = result.data.url
+      newCharacter.value.local_path = result.data.local_path || ''
+    }
+  } catch {
+    toast.error('Upload failed')
+  }
+  input.value = ''
 }
 
 const saveCharacter = async () => {
@@ -448,13 +474,19 @@ const openExtractCharacterDialog = () => {
 
 const handleSelectAllEpisodes = (val: boolean) => {
   selectedExtractEpisodeIds.value = val ? sortedEpisodes.value.map(ep => ep.id) : []
+  selectAllEpisodes.value = val
   isEpisodesIndeterminate.value = false
 }
 
-const handleEpisodeSelectionChange = (val: (string | number)[]) => {
+const toggleEpisodeSelection = (id: string | number, checked: boolean) => {
+  if (checked) {
+    selectedExtractEpisodeIds.value = [...selectedExtractEpisodeIds.value, id]
+  } else {
+    selectedExtractEpisodeIds.value = selectedExtractEpisodeIds.value.filter(v => v !== id)
+  }
   const total = sortedEpisodes.value.length
-  selectAllEpisodes.value = val.length === total
-  isEpisodesIndeterminate.value = val.length > 0 && val.length < total
+  selectAllEpisodes.value = selectedExtractEpisodeIds.value.length === total
+  isEpisodesIndeterminate.value = selectedExtractEpisodeIds.value.length > 0 && selectedExtractEpisodeIds.value.length < total
 }
 
 const handleExtractCharacters = async () => {
@@ -526,8 +558,161 @@ const handleExtractCharacters = async () => {
   flex-wrap: wrap;
 }
 
+.batch-bar__label {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
 .batch-bar__count {
   font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.hidden { display: none; }
+
+.avatar-upload {
+  width: 100px;
+  height: 100px;
+  border: 1px dashed var(--border-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: border-color 0.2s;
+}
+
+.avatar-upload:hover {
+  border-color: var(--accent);
+}
+
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-textarea {
+  width: 100%;
+  resize: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.filter-input-wrapper {
+  position: relative;
+  width: 220px;
+}
+
+.filter-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.filter-input {
+  padding-left: 32px;
+}
+
+.mr-1 { margin-right: 0.25rem; }
+
+.episode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.select-all-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.episode-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-left: 4px;
+}
+
+.episode-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.info-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--glass-tone-info-bg);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: var(--glass-tone-info-fg);
+}
+
+.progress-section {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.progress-fill.progress-error {
+  background: #ef4444;
+}
+
+.progress-message {
+  margin-top: 8px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 </style>

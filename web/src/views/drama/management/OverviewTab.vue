@@ -4,7 +4,7 @@
       <StatCard
         :label="$t('drama.management.episodeStats')"
         :value="episodesCount"
-        :icon="Document"
+        :icon="FileText"
         icon-color="var(--accent)"
         icon-bg="var(--accent-light)"
         value-color="var(--accent)"
@@ -22,7 +22,7 @@
       <StatCard
         :label="$t('drama.management.sceneStats')"
         :value="scenesCount"
-        :icon="Picture"
+        :icon="ImageIcon"
         icon-color="var(--warning)"
         icon-bg="var(--warning-light)"
         value-color="var(--warning)"
@@ -31,7 +31,7 @@
       <StatCard
         :label="$t('drama.management.propStats')"
         :value="propsCount"
-        :icon="Box"
+        :icon="Package"
         icon-color="var(--primary)"
         icon-bg="var(--primary-light)"
         value-color="var(--primary)"
@@ -44,50 +44,39 @@
       v-if="episodesCount === 0"
       :title="$t('drama.management.startFirstEpisode')"
       :description="$t('drama.management.noEpisodesYet')"
-      :icon="Document"
+      :icon="FileText"
       style="margin-top: 20px"
     >
-      <el-button
-        type="primary"
-        :icon="Plus"
-        @click="createEpisode"
-      >
+      <Button @click="createEpisode">
+        <Plus :size="16" class="mr-1" />
         {{ $t("drama.management.createFirstEpisode") }}
-      </el-button>
+      </Button>
     </EmptyState>
 
-    <el-card shadow="never" class="project-info-card">
-      <template #header>
-        <div class="card-header">
-          <h3 class="card-title">
-            {{ $t("drama.management.projectInfo") }}
-          </h3>
-          <el-tag :type="getStatusType(drama?.status)" size="small">{{
-            getStatusText(drama?.status)
-          }}</el-tag>
-        </div>
-      </template>
-      <el-descriptions :column="2" border class="project-descriptions">
-        <el-descriptions-item
-          :label="$t('drama.management.projectName')"
-        >
+    <div class="project-info-card glass-surface">
+      <div class="card-header">
+        <h3 class="card-title">
+          {{ $t("drama.management.projectInfo") }}
+        </h3>
+        <Badge :variant="getStatusVariant(drama?.status)">{{
+          getStatusText(drama?.status)
+        }}</Badge>
+      </div>
+      <div class="project-info-grid">
+        <div class="info-row">
+          <span class="info-label">{{ $t('drama.management.projectName') }}</span>
           <span class="info-value">{{ drama?.title }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item :label="$t('common.createdAt')">
-          <span class="info-value">{{
-            formatDate(drama?.created_at)
-          }}</span>
-        </el-descriptions-item>
-        <el-descriptions-item
-          :label="$t('drama.management.projectDesc')"
-          :span="2"
-        >
-          <span class="info-desc">{{
-            drama?.description || $t("drama.management.noDescription")
-          }}</span>
-        </el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+        </div>
+        <div class="info-row">
+          <span class="info-label">{{ $t('common.createdAt') }}</span>
+          <span class="info-value">{{ formatDate(drama?.created_at) }}</span>
+        </div>
+        <div class="info-row full-width">
+          <span class="info-label">{{ $t('drama.management.projectDesc') }}</span>
+          <span class="info-desc">{{ drama?.description || $t("drama.management.noDescription") }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -95,7 +84,9 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Document, User, Picture, Plus, Box } from '@element-plus/icons-vue'
+import { FileText, User, Image as ImageIcon, Plus, Package } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { StatCard, EmptyState } from '@/components/common'
 import { useDramaStore } from '@/stores/drama'
 
@@ -120,13 +111,13 @@ const createEpisode = () => {
   })
 }
 
-const getStatusType = (status?: string) => {
-  const map: Record<string, any> = {
-    draft: 'info',
-    in_progress: 'warning',
-    completed: 'success',
+const getStatusVariant = (status?: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  const map: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+    draft: 'secondary',
+    in_progress: 'default',
+    completed: 'outline',
   }
-  return map[status || 'draft'] || 'info'
+  return map[status || 'draft'] || 'secondary'
 }
 
 const getStatusText = (status?: string) => {
@@ -167,13 +158,14 @@ const formatDate = (date?: string) => {
 
 .project-info-card {
   margin-top: var(--space-5);
-  border-radius: var(--radius-lg);
+  padding: var(--space-5);
 }
 
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: var(--space-4);
 }
 
 .card-title {
@@ -183,18 +175,26 @@ const formatDate = (date?: string) => {
   color: var(--text-primary);
 }
 
-.project-descriptions {
-  width: 100%;
+.project-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
 }
 
-:deep(.project-descriptions .el-descriptions__label) {
-  width: 120px;
+.info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-row.full-width {
+  grid-column: 1 / -1;
+}
+
+.info-label {
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary);
-}
-
-:deep(.project-descriptions .el-descriptions__content) {
-  min-width: 150px;
 }
 
 .info-value {
@@ -205,5 +205,9 @@ const formatDate = (date?: string) => {
 .info-desc {
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
 }
 </style>

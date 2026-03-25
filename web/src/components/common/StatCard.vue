@@ -3,9 +3,7 @@
   <!-- 统计卡片组件 - 现代设计的统计数据展示 -->
   <div :class="['stat-card', `variant-${variant}`]">
     <div class="stat-icon" :style="{ background: iconBg }">
-      <el-icon :size="24" :color="iconColor">
-        <component :is="icon" />
-      </el-icon>
+      <component :is="icon" :size="24" :color="iconColor" />
     </div>
     <div class="stat-content">
       <span class="stat-label">{{ label }}</span>

@@ -2,17 +2,18 @@
   <slot v-if="!error" />
   <div v-else class="error-boundary">
     <div class="error-boundary__content">
-      <el-icon :size="48" color="var(--error)"><WarningFilled /></el-icon>
+      <AlertTriangle :size="48" style="color: var(--error)" />
       <h3>{{ $t('common.error') }}</h3>
       <p>{{ error.message }}</p>
-      <el-button type="primary" @click="reset">{{ $t('common.reset') }}</el-button>
+      <Button @click="reset">{{ $t('common.reset') }}</Button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onErrorCaptured } from 'vue'
-import { WarningFilled } from '@element-plus/icons-vue'
+import { AlertTriangle } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
 
 const error = ref<Error | null>(null)
 

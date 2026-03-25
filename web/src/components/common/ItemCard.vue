@@ -4,11 +4,11 @@
     :class="{ 'item-card--selected': selected, 'item-card--selectable': selectable }"
     @click="$emit('click')"
   >
-    <el-checkbox
+    <Checkbox
       v-if="selectable"
       class="item-card__checkbox"
-      :model-value="selected"
-      @change="(val: boolean) => $emit('select', val)"
+      :checked="selected"
+      @update:checked="(val: boolean) => $emit('select', val)"
       @click.stop
     />
 
@@ -16,16 +16,14 @@
       <slot name="image-overlay" />
       <img v-if="imageUrl" :src="imageUrl" :alt="imageAlt || title" />
       <div v-else class="item-card__placeholder">
-        <el-icon :size="40">
-          <component :is="placeholderIcon" />
-        </el-icon>
+        <component :is="placeholderIcon" :size="40" />
       </div>
     </div>
 
     <div class="item-card__body">
       <div class="item-card__title-row">
         <h4 class="item-card__title">{{ title }}</h4>
-        <el-tag v-if="tag" :type="tagType" size="small">{{ tag }}</el-tag>
+        <Badge v-if="tag" :variant="tagVariant">{{ tag }}</Badge>
       </div>
 
       <slot name="extra-info" />
@@ -43,7 +41,9 @@
 
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { FolderOpened } from '@element-plus/icons-vue'
+import { FolderOpen } from 'lucide-vue-next'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
 
 withDefaults(defineProps<{
   title: string
@@ -52,13 +52,13 @@ withDefaults(defineProps<{
   imageAlt?: string
   placeholderIcon?: Component
   tag?: string
-  tagType?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+  tagVariant?: 'default' | 'secondary' | 'destructive' | 'outline'
   meta?: string
   selectable?: boolean
   selected?: boolean
 }>(), {
-  placeholderIcon: FolderOpened,
-  tagType: 'info',
+  placeholderIcon: FolderOpen,
+  tagVariant: 'secondary',
   selectable: false,
   selected: false,
 })

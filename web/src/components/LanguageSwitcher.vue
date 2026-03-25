@@ -1,30 +1,37 @@
 <template>
-  <el-dropdown @command="handleCommand">
-    <button class="lang-trigger" :class="{ 'icon-only': collapsed }">
-      <el-icon><Switch /></el-icon>
-      <span v-if="!collapsed" class="lang-text">{{ currentLangText }}</span>
-    </button>
-    <template #dropdown>
-      <el-dropdown-menu>
-        <el-dropdown-item command="zh-CN" :disabled="currentLang === 'zh-CN'">
-          🇨🇳 简体中文
-        </el-dropdown-item>
-        <el-dropdown-item command="en-US" :disabled="currentLang === 'en-US'">
-          🇺🇸 English
-        </el-dropdown-item>
-      </el-dropdown-menu>
-    </template>
-  </el-dropdown>
+  <DropdownMenu>
+    <DropdownMenuTrigger as-child>
+      <button class="lang-trigger" :class="{ 'icon-only': collapsed }">
+        <Languages :size="16" />
+        <span v-if="!collapsed" class="lang-text">{{ currentLangText }}</span>
+      </button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent>
+      <DropdownMenuItem :disabled="currentLang === 'zh-CN'" @click="handleCommand('zh-CN')">
+        简体中文
+      </DropdownMenuItem>
+      <DropdownMenuItem :disabled="currentLang === 'en-US'" @click="handleCommand('en-US')">
+        English
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Languages } from 'lucide-vue-next'
 
 defineProps<{ collapsed?: boolean }>()
 import { useI18n } from 'vue-i18n'
 import { setLanguage } from '@/locales'
 import { toast } from 'vue-sonner'
 import { settingsAPI } from '@/api/settings'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const { locale } = useI18n()
 
@@ -37,13 +44,11 @@ const currentLangText = computed(() => {
 
 const handleCommand = async (lang: string) => {
   if (loading.value) return
-  
-  // 将 zh-CN/en-US 转换为 zh/en (后端格式)
+
   const backendLang = lang === 'zh-CN' ? 'zh' : 'en'
   const currentBackendLang = currentLang.value === 'zh-CN' ? 'zh' : 'en'
-  
-  // 双语确认消息
-  const confirmMessage = backendLang === 'zh' 
+
+  const confirmMessage = backendLang === 'zh'
     ? `切换为中文后，后端生成的所有提示词、角色描述、场景描述等都将使用中文。是否继续？
 
 
@@ -52,38 +57,24 @@ After switching to Chinese, all prompts, character descriptions, scene descripti
 
 
 切换为英文后，后端生成的所有提示词、角色描述、场景描述等都将使用英文。是否继续？`
-  
+
   if (!window.confirm(confirmMessage)) return
 
   loading.value = true
   try {
-    // 调用后端API更新语言设置
     const res = await settingsAPI.updateLanguage(backendLang)
-
-    // 更新前端语言
     setLanguage(lang)
     currentLang.value = lang
-
-    // 使用后端返回的双语消息（request拦截器已经返回了data）
     toast.success(res?.message || (backendLang === 'zh' ? '语言已切换为中文' : 'Language switched to English'))
   } catch (error: any) {
     console.error('Failed to switch language:', error)
-
-    // 安全获取错误消息
     let errorMessage = '未知错误'
-    if (error?.message) {
-      errorMessage = error.message
-    } else if (error?.response?.data?.error?.message) {
-      errorMessage = error.response.data.error.message
-    } else if (typeof error === 'string') {
-      errorMessage = error
-    }
-
-    // 双语错误提示
+    if (error?.message) errorMessage = error.message
+    else if (error?.response?.data?.error?.message) errorMessage = error.response.data.error.message
+    else if (typeof error === 'string') errorMessage = error
     const errorMsg = currentBackendLang === 'zh'
       ? `切换语言失败: ${errorMessage}`
       : `Failed to switch language: ${errorMessage}`
-
     toast.error(errorMsg)
   } finally {
     loading.value = false

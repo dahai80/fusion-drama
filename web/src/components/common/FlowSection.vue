@@ -7,10 +7,10 @@
     <div class="flow-content">
       <div class="flow-header" @click="toggle">
         <div class="flow-header-left">
-          <el-icon class="flow-icon" :size="18"><component :is="icon" /></el-icon>
+          <component :is="icon" :size="18" class="flow-icon" />
           <h3 class="flow-title">{{ title }}</h3>
-          <el-tag v-if="count !== undefined" size="small" round type="info" class="flow-count">{{ count }}</el-tag>
-          <el-icon class="flow-arrow" :class="{ collapsed: !expanded }"><ArrowDown /></el-icon>
+          <span v-if="count !== undefined" class="flow-count glass-chip glass-chip-info">{{ count }}</span>
+          <ChevronDown :size="14" class="flow-arrow" :class="{ collapsed: !expanded }" />
         </div>
         <div v-if="$slots.actions" class="flow-header-actions" @click.stop>
           <slot name="actions" />
@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { ref, provide, type Component } from 'vue'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ChevronDown } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   title: string
@@ -126,7 +126,6 @@ provide('insideFlowSection', true)
 .flow-arrow {
   transition: transform 0.25s ease;
   color: var(--text-tertiary);
-  font-size: 14px;
 }
 
 .flow-arrow.collapsed {

@@ -1,36 +1,31 @@
 <template>
   <!-- Minimalist action button with icon and optional tooltip -->
   <!-- 简约操作按钮，带图标和可选提示 -->
-  <el-tooltip
-    v-if="tooltip"
-    :content="tooltip"
-    placement="top"
-    :show-after="500"
-  >
-    <button
-      :class="['action-button', variant, { disabled }]"
-      :disabled="disabled"
-      @click="$emit('click')"
-    >
-      <el-icon :size="size">
-        <component :is="icon" />
-      </el-icon>
-    </button>
-  </el-tooltip>
+  <Tooltip v-if="tooltip">
+    <TooltipTrigger as-child>
+      <button
+        :class="['action-button', variant, { disabled }]"
+        :disabled="disabled"
+        @click="$emit('click')"
+      >
+        <component :is="icon" :size="size" />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent>{{ tooltip }}</TooltipContent>
+  </Tooltip>
   <button
     v-else
     :class="['action-button', variant, { disabled }]"
     :disabled="disabled"
     @click="$emit('click')"
   >
-    <el-icon :size="size">
-      <component :is="icon" />
-    </el-icon>
+    <component :is="icon" :size="size" />
   </button>
 </template>
 
 <script setup lang="ts">
 import type { Component } from 'vue'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 
 /**
  * ActionButton - Minimalist icon button for actions

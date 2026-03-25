@@ -100,10 +100,9 @@
           class="model-row glass-list-row"
         >
           <span class="model-name">{{ model.name }}</span>
-          <el-switch
-            :model-value="model.active"
-            size="small"
-            @change="(val: boolean) => handleModelToggle(model, val)"
+          <Switch
+            :checked="model.active"
+            @update:checked="(val: boolean) => handleModelToggle(model, val)"
           />
         </div>
 
@@ -142,6 +141,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import { Switch } from '@/components/ui/switch'
 import { aiAPI } from '@/api/ai'
 import type { AIServiceConfig, AIServiceType } from '@/types/ai'
 import type { ProviderGroup } from '@/constants/ai-providers'

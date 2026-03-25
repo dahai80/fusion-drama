@@ -23,7 +23,7 @@
           <span class="mini-stat-label">{{ $t('drama.management.propList') }}</span>
         </div>
       </div>
-      <el-tag v-if="status" :type="statusType" size="small">{{ statusText }}</el-tag>
+      <Badge v-if="status" :variant="statusVariant">{{ statusText }}</Badge>
     </div>
   </div>
 </template>
@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { Badge } from '@/components/ui/badge'
 
 const { t } = useI18n()
 
@@ -44,9 +45,9 @@ const props = defineProps<{
   propsCount: number
 }>()
 
-const statusType = computed(() => {
-  const map: Record<string, any> = { draft: 'info', in_progress: 'warning', completed: 'success' }
-  return map[props.status || 'draft'] || 'info'
+const statusVariant = computed<'default' | 'secondary' | 'destructive' | 'outline'>(() => {
+  const map: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = { draft: 'secondary', in_progress: 'default', completed: 'outline' }
+  return map[props.status || 'draft'] || 'secondary'
 })
 
 const statusText = computed(() => {

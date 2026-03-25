@@ -8,36 +8,29 @@
     >
       <img v-if="hasImage" :src="imageUrl" :alt="alt" class="thumbnail-image" />
       <div v-else class="no-image-placeholder">
-        <el-icon :size="size / 2"><Picture /></el-icon>
+        <ImageIcon :size="size / 2" />
         <span v-if="showPlaceholderText">{{ placeholderText }}</span>
       </div>
     </div>
 
     <!-- 放大预览对话框 -->
-    <el-dialog
-      v-model="previewVisible"
-      :width="dialogWidth"
-      align-center
-      :show-close="true"
-      class="image-preview-dialog"
-      @close="handleClose"
-    >
-      <template #header>
-        <div class="preview-header">
-          <span class="preview-title">{{ alt || "图片预览" }}</span>
+    <Dialog v-model:open="previewVisible">
+      <DialogContent class="image-preview-dialog-content" :style="{ maxWidth: dialogWidth }">
+        <DialogHeader>
+          <DialogTitle>{{ alt || "图片预览" }}</DialogTitle>
+        </DialogHeader>
+        <div class="preview-content">
+          <img :src="imageUrl" :alt="alt" class="preview-image" />
         </div>
-      </template>
-
-      <div class="preview-content">
-        <img :src="imageUrl" :alt="alt" class="preview-image" />
-      </div>
-    </el-dialog>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { Picture } from "@element-plus/icons-vue";
+import { Image as ImageIcon } from "lucide-vue-next";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface Props {
   imageUrl?: string;
@@ -67,10 +60,6 @@ const handlePreview = () => {
   if (hasImage.value) {
     previewVisible.value = true;
   }
-};
-
-const handleClose = () => {
-  previewVisible.value = false;
 };
 </script>
 
@@ -125,35 +114,8 @@ const handleClose = () => {
 }
 
 /* 预览对话框样式 */
-.image-preview-dialog :deep(.el-dialog) {
-  border-radius: var(--radius-xl);
-  background: var(--bg-primary);
-}
-
-.image-preview-dialog :deep(.el-dialog__header) {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-primary);
-  margin-right: 0;
-}
-
-.image-preview-dialog :deep(.el-dialog__body) {
+.image-preview-dialog-content {
   padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.preview-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
 }
 
 .preview-content {
@@ -163,6 +125,7 @@ const handleClose = () => {
   justify-content: center;
   min-height: 400px;
   max-height: 80vh;
+  background: #000;
 }
 
 .preview-image {

@@ -3,9 +3,7 @@
   <!-- 空状态组件 - 无数据时的展示 -->
   <div :class="['empty-state', `size-${size}`]">
     <div class="empty-icon" :class="{ 'has-animation': animated }">
-      <el-icon :size="iconSize">
-        <component :is="icon" />
-      </el-icon>
+      <component :is="icon" :size="iconSize" />
     </div>
     <h3 class="empty-title">{{ title }}</h3>
     <p v-if="description" class="empty-description">{{ description }}</p>
@@ -17,7 +15,7 @@
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { FolderOpened } from '@element-plus/icons-vue'
+import { FolderOpen } from 'lucide-vue-next'
 
 /**
  * EmptyState - Display when no data is available
@@ -30,7 +28,7 @@ const props = withDefaults(defineProps<{
   size?: 'small' | 'medium' | 'large'
   animated?: boolean
 }>(), {
-  icon: FolderOpened,
+  icon: FolderOpen,
   size: 'medium',
   animated: true
 })

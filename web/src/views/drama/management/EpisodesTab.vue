@@ -2,34 +2,34 @@
   <div>
     <TabHeader :title="$t('drama.management.episodeList')">
       <template #actions>
-        <el-button
-          :icon="Upload"
-          @click="showUploadNovel = true"
-        >{{ $t('drama.management.uploadNovel') }}</el-button>
-        <el-button
-          type="primary"
-          :icon="Plus"
-          @click="createEpisode"
-        >{{ $t('drama.management.createEpisode') }}</el-button>
+        <Button variant="outline" @click="showUploadNovel = true">
+          <Upload :size="16" class="mr-1" />
+          {{ $t('drama.management.uploadNovel') }}
+        </Button>
+        <Button @click="createEpisode">
+          <Plus :size="16" class="mr-1" />
+          {{ $t('drama.management.createEpisode') }}
+        </Button>
       </template>
       <template #filter>
-        <el-input
-          v-model="searchQuery"
-          :placeholder="$t('drama.management.searchPlaceholder')"
-          :prefix-icon="Search"
-          clearable
-          style="width: 220px"
-        />
-        <el-select
-          v-model="filterValue"
-          :placeholder="$t('drama.management.filterStatus')"
-          clearable
-          style="width: 150px"
-        >
-          <el-option :label="$t('message.statusDraft')" value="draft" />
-          <el-option :label="$t('message.episodeCreated')" value="created" />
-          <el-option :label="$t('message.episodeSplit')" value="split" />
-        </el-select>
+        <div class="filter-input-wrapper">
+          <Search :size="16" class="filter-icon" />
+          <Input
+            v-model="searchQuery"
+            :placeholder="$t('drama.management.searchPlaceholder')"
+            class="filter-input"
+          />
+        </div>
+        <Select v-model="filterValue">
+          <SelectTrigger class="w-[150px]">
+            <SelectValue :placeholder="$t('drama.management.filterStatus')" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="draft">{{ $t('message.statusDraft') }}</SelectItem>
+            <SelectItem value="created">{{ $t('message.episodeCreated') }}</SelectItem>
+            <SelectItem value="split">{{ $t('message.episodeSplit') }}</SelectItem>
+          </SelectContent>
+        </Select>
       </template>
     </TabHeader>
 
@@ -41,7 +41,7 @@
         @click="enterEpisode(episode)"
       >
         <div class="row-thumb row-thumb-icon">
-          <el-icon :size="20"><DocumentIcon /></el-icon>
+          <FileText :size="20" />
         </div>
         <div class="row-body">
           <div class="row-top">
@@ -58,8 +58,8 @@
           </div>
         </div>
         <div class="row-actions" @click.stop>
-          <ActionButton :icon="Edit" :tooltip="$t('drama.management.goToEdit')" variant="primary" @click="enterEpisode(episode)" />
-          <ActionButton :icon="Delete" :tooltip="$t('common.delete')" variant="danger" @click="deleteEpisode(episode)" />
+          <ActionButton :icon="Pencil" :tooltip="$t('drama.management.goToEdit')" variant="primary" @click="enterEpisode(episode)" />
+          <ActionButton :icon="Trash2" :tooltip="$t('common.delete')" variant="danger" @click="deleteEpisode(episode)" />
         </div>
       </div>
     </div>
@@ -68,9 +68,12 @@
       v-else-if="episodes.length === 0"
       :title="$t('drama.management.noEpisodes')"
       :description="$t('drama.management.emptyTip')"
-      :icon="DocumentIcon"
+      :icon="FileText"
     >
-      <el-button type="primary" :icon="Plus" @click="createEpisode">{{ $t('drama.management.createEpisode') }}</el-button>
+      <Button @click="createEpisode">
+        <Plus :size="16" class="mr-1" />
+        {{ $t('drama.management.createEpisode') }}
+      </Button>
     </EmptyState>
 
     <EmptyState
@@ -95,7 +98,10 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { Plus, Upload, Search, Document as DocumentIcon, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Upload, Search, FileText, Pencil, Trash2 } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TabHeader, ActionButton, EmptyState } from '@/components/common'
 import { useFilteredList } from '@/composables/useFilteredList'
 import { useDramaStore } from '@/stores/drama'
@@ -199,3 +205,28 @@ const formatDate = (date?: string) => {
   return new Date(date).toLocaleString('zh-CN')
 }
 </script>
+
+<style scoped>
+.filter-input-wrapper {
+  position: relative;
+  width: 220px;
+}
+
+.filter-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.filter-input {
+  padding-left: 32px;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
+}
+</style>
