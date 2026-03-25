@@ -14,6 +14,7 @@ export const useDramaStore = defineStore('drama', () => {
 
   const dramaId = computed(() => currentDrama.value?.id || '')
   const episodes = computed(() => currentDrama.value?.episodes || [])
+  const isLoaded = computed(() => currentDrama.value !== null && !loading.value)
 
   async function loadDrama(id: string) {
     loading.value = true
@@ -60,6 +61,7 @@ export const useDramaStore = defineStore('drama', () => {
     error,
     dramaId,
     episodes,
+    isLoaded,
     loadDrama,
     loadScenes,
     reset
