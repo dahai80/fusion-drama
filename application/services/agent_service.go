@@ -49,8 +49,9 @@ type AgentChatRequest struct {
 
 // AgentSSEEvent SSE 事件
 type AgentSSEEvent struct {
-	Type string      `json:"type"` // tool_call, tool_result, content, done, error
-	Data interface{} `json:"data"`
+	Type     string `json:"type"`                // tool_call, tool_result, content, done, error
+	Data     string `json:"data"`                // 事件数据（字符串）
+	ToolName string `json:"tool_name,omitempty"` // 工具名称（tool_call/tool_result 时使用）
 }
 
 // 支持的 Agent 类型
@@ -305,12 +306,12 @@ func (s *AgentService) processAgentEvents(ctx context.Context, iter *adk.AsyncIt
 
 		event, ok := iter.Next()
 		if !ok {
-			s.sendEvent(ctx, eventCh, AgentSSEEvent{Type: "done", Data: map[string]string{}})
+			s.sendEvent(ctx, eventCh, AgentSSEEvent{Type: "done", Data: ""})
 			return
 		}
 
 		if event.Err != nil {
-			s.sendEvent(ctx, eventCh, AgentSSEEvent{Type: "error", Data: map[string]string{"message": event.Err.Error()}})
+			s.sendEvent(ctx, eventCh, AgentSSEEvent{Type: "error", Data: event.Err.Error()})
 			return
 		}
 
@@ -367,11 +368,9 @@ func (s *AgentService) processMessage(ctx context.Context, msg *schema.Message, 
 	if len(msg.ToolCalls) > 0 {
 		for _, tc := range msg.ToolCalls {
 			s.sendEvent(ctx, eventCh, AgentSSEEvent{
-				Type: "tool_call",
-				Data: map[string]interface{}{
-					"tool":      tc.Function.Name,
-					"arguments": tc.Function.Arguments,
-				},
+				Type:     "tool_call",
+				Data:     tc.Function.Arguments,
+				ToolName: tc.Function.Name,
 			})
 		}
 		return
@@ -384,11 +383,9 @@ func (s *AgentService) processMessage(ctx context.Context, msg *schema.Message, 
 			content = content[:2000] + "...[truncated]"
 		}
 		s.sendEvent(ctx, eventCh, AgentSSEEvent{
-			Type: "tool_result",
-			Data: map[string]interface{}{
-				"tool":   toolName,
-				"result": content,
-			},
+			Type:     "tool_result",
+			Data:     content,
+			ToolName: toolName,
 		})
 		return
 	}
@@ -397,7 +394,7 @@ func (s *AgentService) processMessage(ctx context.Context, msg *schema.Message, 
 	if msg.Content != "" {
 		s.sendEvent(ctx, eventCh, AgentSSEEvent{
 			Type: "content",
-			Data: map[string]string{"content": msg.Content},
+			Data: msg.Content,
 		})
 	}
 }

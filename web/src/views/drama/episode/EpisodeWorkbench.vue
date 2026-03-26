@@ -112,7 +112,7 @@
     <AgentDrawer
       v-model:open="agentOpen"
       :drama-id="dramaId"
-      :episode-id="episodeNumber"
+      :episode-id="Number(resource.episode?.id || 0)"
       :initial-agent-type="agentInitType"
       @apply="handleAgentApply"
     />

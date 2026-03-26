@@ -106,8 +106,9 @@ func (h *AgentHandler) StreamChat(c *gin.Context) {
 			if !ok {
 				return false
 			}
-			data, _ := json.Marshal(event.Data)
-			c.SSEvent(event.Type, string(data))
+			// 前端期望 data: {type, data, tool_name} 格式
+			data, _ := json.Marshal(event)
+			fmt.Fprintf(w, "data: %s\n\n", data)
 			c.Writer.Flush()
 
 			// done 或 error 事件后停止
