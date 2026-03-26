@@ -9,13 +9,30 @@
         </Button>
         <span class="wb-title">{{ resource.drama?.title }} - 第{{ episodeNumber }}集</span>
       </div>
+      <div class="wb-topbar-center">
+        <button
+          class="tab-btn"
+          :class="{ 'tab-btn--active': table.activeTab === 'script' }"
+          @click="table.activeTab = 'script'"
+        >
+          <FileText :size="14" />
+          剧本
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ 'tab-btn--active': table.activeTab === 'storyboard' }"
+          @click="table.activeTab = 'storyboard'"
+        >
+          <Clapperboard :size="14" />
+          分镜
+        </button>
+      </div>
       <div class="wb-topbar-right">
-        <!-- Progress -->
-        <div v-if="grid.progress.total > 0" class="wb-progress">
+        <div v-if="table.progress.total > 0" class="wb-progress">
           <div class="progress-track">
             <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
           </div>
-          <span class="progress-label">{{ grid.progress.withImage }}/{{ grid.progress.total }}</span>
+          <span class="progress-label">{{ table.progress.withImage }}/{{ table.progress.total }}</span>
         </div>
         <Button variant="outline" size="sm" @click="agentOpen = true">
           <Wand2 :size="14" />
@@ -31,10 +48,10 @@
     <!-- Main content -->
     <div class="wb-body">
       <ResourcePanel
-        :resource="resource"
-        @extract="handleExtract"
-        @upload-script="handleUploadScript"
-        @rewrite-script="handleRewriteScript"
+        :characters="resource.characters"
+        :scenes="resource.scenes"
+        :has-characters="resource.hasCharacters"
+        :has-scenes="resource.hasScenes"
         @generate-character-image="handleGenerateCharacterImage"
         @batch-generate-characters="handleBatchGenerateCharacters"
         @generate-scene-image="handleGenerateSceneImage"
@@ -42,50 +59,42 @@
       />
 
       <div class="wb-main">
-        <!-- Stage: script only -->
-        <div v-if="resource.pipelineStage === 'script'" class="wb-empty">
-          <Clapperboard :size="48" :stroke-width="1" />
-          <p>镜头工作区</p>
-          <p class="wb-empty-hint">完成剧本 → 提取角色场景 → 拆解分镜后，镜头将在此展示</p>
-        </div>
-
-        <!-- Stage: extracted, waiting for storyboard -->
-        <div v-else-if="resource.pipelineStage === 'extracted'" class="wb-empty">
-          <Clapperboard :size="48" :stroke-width="1" />
-          <p>角色和场景已就绪，可以拆解分镜了</p>
-          <Button @click="handleBreakdown">
-            <Wand2 :size="14" />
-            Agent 拆解分镜
-          </Button>
-        </div>
-
-        <!-- Stage: storyboards - grid mode -->
-        <StoryboardGrid
-          v-else-if="grid.viewMode === 'grid'"
-          :storyboards="resource.storyboards"
-          :progress="grid.progress"
-          @select="grid.selectStoryboard"
-          @add="handleAddStoryboard"
-          @batch-generate-images="handleBatchImages"
-          @batch-generate-videos="handleBatchVideos"
+        <!-- Script Tab -->
+        <ScriptTab
+          v-if="table.activeTab === 'script'"
+          :script-content="resource.scriptContent"
+          :has-script="resource.hasScript"
+          :has-characters="resource.hasCharacters"
+          :has-scenes="resource.hasScenes"
+          :character-count="resource.characters.length"
+          :scene-count="resource.scenes.length"
+          @save="resource.saveScript"
+          @upload="handleUploadScript"
+          @rewrite="handleRewriteScript"
+          @extract="handleExtract"
         />
 
-        <!-- Stage: storyboards - edit mode -->
-        <StoryboardEditor
+        <!-- Storyboard Tab -->
+        <StoryboardTable
           v-else
           :storyboards="resource.storyboards"
-          :current-storyboard="grid.currentStoryboard"
-          :current-id="grid.selectedStoryboardId"
           :characters="resource.characters"
           :scenes="resource.scenes"
-          :images="imageGen.generatedImages"
-          :video-url="currentVideoUrl"
-          @select="grid.selectStoryboard"
-          @back="grid.backToGrid"
-          @add="handleAddStoryboard"
+          :selected-ids="table.selectedIds"
+          :all-selected="table.allSelected"
+          :has-selection="table.hasSelection"
+          :progress="table.progress"
+          @toggle-select="table.toggleSelect"
+          @toggle-select-all="table.toggleSelectAll"
+          @clear-selection="table.clearSelection"
           @save-field="handleSaveField"
           @generate-image="handleGenerateImage"
           @generate-video="handleGenerateVideo"
+          @add="handleAddStoryboard"
+          @batch-images="handleBatchImages"
+          @batch-videos="handleBatchVideos"
+          @generate-grid="handleGenerateGrid"
+          @breakdown="handleBreakdown"
         />
       </div>
     </div>
@@ -103,11 +112,11 @@
 <script setup lang="ts">
 import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, Wand2, Clapperboard } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Wand2, Clapperboard, FileText } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import ResourcePanel from './workbench/ResourcePanel.vue'
-import StoryboardGrid from './workbench/StoryboardGrid.vue'
-import StoryboardEditor from './workbench/StoryboardEditor.vue'
+import ScriptTab from './workbench/ScriptTab.vue'
+import StoryboardTable from './workbench/StoryboardTable.vue'
 import { useEpisodeWorkbench } from '@/composables/useEpisodeWorkbench'
 import AgentDrawer from '@/components/agent/AgentDrawer.vue'
 import type { AgentType } from '@/types/agent'
@@ -115,46 +124,40 @@ import type { AgentType } from '@/types/agent'
 const router = useRouter()
 const wb = useEpisodeWorkbench()
 const { dramaId, episodeNumber } = wb
-// Wrap in reactive so nested refs auto-unwrap in template
 const resource = reactive(wb.resource)
-const grid = reactive(wb.grid)
+const table = reactive(wb.table)
 const imageGen = reactive(wb.imageGen)
 const videoGen = reactive(wb.videoGen)
 
 const agentOpen = ref(false)
 
 const progressPct = computed(() => {
-  const p = grid.progress
+  const p = table.progress
   return p.total > 0 ? Math.round((p.withImage / p.total) * 100) : 0
-})
-
-const currentVideoUrl = computed(() => {
-  const videos = videoGen.generatedVideos
-  const v = Array.isArray(videos) ? videos.find((v: any) => v.video_url) : null
-  return v?.video_url || null
 })
 
 const goBack = () => router.push(`/drama/${dramaId}`)
 const goToCompose = () => router.push(`/drama/${dramaId}/episode/${episodeNumber}/compose`)
 
-// Action stubs (will be fully wired in later tasks)
+// Action handlers
 const handleExtract = () => { /* TODO: call extract agent */ }
 const handleBreakdown = () => { /* TODO: call storyboard_breaker agent */ }
 const handleAddStoryboard = () => { /* TODO: call dramaAPI to add storyboard */ }
 const handleBatchImages = () => { /* TODO: batch image generation */ }
 const handleBatchVideos = () => { /* TODO: batch video generation */ }
-const handleSaveField = (_field: string, _value: any) => { /* TODO: save via API */ }
-const handleGenerateImage = () => { imageGen.generateFrameImage([]) }
-const handleGenerateVideo = () => { videoGen.generateVideo() }
+const handleGenerateGrid = () => { /* TODO: generate grid image from selected storyboards */ }
+const handleSaveField = (_id: string, _field: string, _value: any) => {
+  /* TODO: save via dramaAPI.updateStoryboard */
+}
+const handleGenerateImage = (_id: string) => { imageGen.generateFrameImage([]) }
+const handleGenerateVideo = (_id: string) => { videoGen.generateVideo() }
 const handleUploadScript = () => { /* TODO: upload script */ }
 const handleRewriteScript = () => { /* TODO: rewrite script */ }
-const handleGenerateCharacterImage = (_id: number) => { /* TODO: generate character image */ }
-const handleBatchGenerateCharacters = () => { /* TODO: batch generate characters */ }
-const handleGenerateSceneImage = (_id: number) => { /* TODO: generate scene image */ }
-const handleBatchGenerateScenes = () => { /* TODO: batch generate scenes */ }
-const handleAgentApply = (_data: { type: AgentType; content: string }) => {
-  /* TODO: map agent results to workbench actions based on _data.type */
-}
+const handleGenerateCharacterImage = (_id: number) => { /* TODO */ }
+const handleBatchGenerateCharacters = () => { /* TODO */ }
+const handleGenerateSceneImage = (_id: number) => { /* TODO */ }
+const handleBatchGenerateScenes = () => { /* TODO */ }
+const handleAgentApply = (_data: { type: AgentType; content: string }) => { /* TODO */ }
 </script>
 
 <style scoped>
@@ -173,6 +176,7 @@ const handleAgentApply = (_data: { type: AgentType; content: string }) => {
   padding: 8px 16px;
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-card);
+  gap: 12px;
 }
 
 .wb-topbar-left,
@@ -180,6 +184,40 @@ const handleAgentApply = (_data: { type: AgentType; content: string }) => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.wb-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn--active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .wb-title {
@@ -199,21 +237,6 @@ const handleAgentApply = (_data: { type: AgentType; content: string }) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.wb-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  color: var(--text-muted);
-}
-
-.wb-empty-hint {
-  font-size: 12px;
-  color: var(--text-muted);
 }
 
 .wb-progress {

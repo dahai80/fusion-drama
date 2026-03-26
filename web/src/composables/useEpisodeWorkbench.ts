@@ -1,7 +1,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useResourcePanel } from './useResourcePanel'
-import { useStoryboardGrid } from './useStoryboardGrid'
+import { useStoryboardTable } from './useStoryboardTable'
 import { useFrameImageGeneration } from './useFrameImageGeneration'
 import { useVideoGenerationPro } from './useVideoGenerationPro'
 
@@ -11,17 +11,21 @@ export function useEpisodeWorkbench() {
   const episodeNumber = Number(route.params.episodeNumber)
 
   const resource = useResourcePanel(dramaId, episodeNumber)
-  const grid = useStoryboardGrid(resource.storyboards)
+  const table = useStoryboardTable(resource.storyboards)
 
-  // imageGen expects Ref<Storyboard | null> — grid.currentStoryboard is computed ref
-  const imageGen = useFrameImageGeneration(grid.currentStoryboard, dramaId)
+  // imageGen needs a current storyboard ref — use first selected or null
+  const currentStoryboard = computed(() => {
+    const selected = table.selectedStoryboards.value
+    return selected.length === 1 ? selected[0] : null
+  })
 
-  // videoGen expects Ref types
+  const imageGen = useFrameImageGeneration(currentStoryboard, dramaId)
+
   const episodeIdRef = computed(() => resource.episode.value?.id || 0)
   const timelineEditorRef = ref(null)
 
   const videoGen = useVideoGenerationPro(
-    grid.currentStoryboard,
+    currentStoryboard,
     dramaId,
     episodeIdRef,
     resource.storyboards,
@@ -43,7 +47,7 @@ export function useEpisodeWorkbench() {
     dramaId,
     episodeNumber,
     resource,
-    grid,
+    table,
     imageGen,
     videoGen,
   }
