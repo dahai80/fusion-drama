@@ -2,197 +2,152 @@
   <div class="animate-fade-in">
     <!-- Settings Tab Nav -->
     <div class="settings-tabs">
-      <router-link to="/settings/ai-config" class="settings-tab active">
-        {{ $t('aiConfig.title') }}
-      </router-link>
-      <router-link to="/settings/agent-config" class="settings-tab">
-        {{ $t('agentConfig.title') }}
-      </router-link>
-      <router-link to="/settings/agent-debug" class="settings-tab">
-        {{ $t('agentDebug.title') }}
-      </router-link>
+      <router-link to="/settings/ai-config" class="settings-tab active">AI 服务</router-link>
+      <router-link to="/settings/agent-config" class="settings-tab">Agent 配置</router-link>
+      <router-link to="/settings/agent-debug" class="settings-tab">Agent 调试</router-link>
     </div>
 
     <!-- Page Header -->
-    <PageHeader
-      :title="$t('aiConfig.title')"
-      :subtitle="$t('aiConfig.subtitle') || '管理 AI 服务配置'"
-    >
-      <template #actions>
-        <Button variant="outline" @click="showQuickSetupDialog">
-          <Wand2 :size="16" class="mr-1" />
-          <span>一键配置火宝</span>
-        </Button>
-      </template>
-    </PageHeader>
-
-    <!-- Service Type Tabs -->
-    <div class="service-type-tabs">
-      <button
-        v-for="tab in serviceTypeTabs"
-        :key="tab.key"
-        :class="['svc-tab', { active: activeServiceType === tab.key }]"
-        @click="activeServiceType = tab.key"
-      >
-        <component :is="tab.icon" :size="15" />
-        {{ tab.label }}
-        <span class="svc-tab-count">{{ getConfigCount(tab.key) }}</span>
-      </button>
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">AI 服务配置</h2>
+        <p class="page-subtitle">管理文本、图片、视频服务的 API 密钥和模型</p>
+      </div>
+      <Button variant="outline" size="sm" @click="showQuickSetupDialog">
+        <Wand2 :size="14" />
+        一键配置
+      </Button>
     </div>
 
-    <!-- Provider List -->
-    <div class="provider-list">
-      <template v-if="loading">
-        <Skeleton v-for="i in 3" :key="i" class="h-16 rounded-lg" />
-      </template>
-      <template v-else>
-        <div
-          v-for="group in filteredProviderGroups"
-          :key="group.key"
-          class="provider-row"
-          :class="{ expanded: expandedProvider === group.key }"
-        >
-          <!-- Row header -->
-          <div class="row-header" @click="toggleProvider(group.key)">
-            <div class="row-left">
-              <div class="provider-avatar" :style="{ background: avatarColor(group.key) }">
-                {{ group.name.charAt(0) }}
-              </div>
-              <div class="row-info">
-                <span class="row-name">{{ group.name }}</span>
-                <span class="row-models">
-                  {{ getActiveModelCount(group) }} 个模型已启用
-                </span>
-              </div>
-            </div>
-            <div class="row-right">
-              <span :class="['status-dot', hasApiKeyForGroup(group) ? 'connected' : 'disconnected']" />
-              <span class="row-url">{{ getBaseUrlForGroup(group) || '未配置' }}</span>
-              <ChevronDown :size="14" class="row-chevron" :class="{ rotated: expandedProvider === group.key }" />
-            </div>
-          </div>
+    <!-- Loading -->
+    <div v-if="loading" class="loading-wrap">
+      <Skeleton v-for="i in 3" :key="i" class="h-32 rounded-lg" />
+    </div>
 
-          <!-- Expanded detail -->
-          <div v-if="expandedProvider === group.key" class="row-detail">
-            <!-- Credentials -->
-            <div class="detail-credentials">
-              <div class="cred-field">
-                <label>API Key</label>
-                <div class="cred-input-wrap">
-                  <Input
-                    v-model="editFields[group.key + '_api_key']"
-                    type="password"
-                    placeholder="sk-..."
-                    class="cred-input"
-                  />
-                  <Button variant="ghost" size="sm" @click="saveGroupCredential(group, 'api_key')">
-                    <Save :size="13" />
-                  </Button>
-                </div>
-              </div>
-              <div class="cred-field">
-                <label>Base URL</label>
-                <div class="cred-input-wrap">
-                  <Input
-                    v-model="editFields[group.key + '_base_url']"
-                    type="text"
-                    :placeholder="getDefaultBaseUrl(group.ids[0])"
-                    class="cred-input"
-                  />
-                  <Button variant="ghost" size="sm" @click="saveGroupCredential(group, 'base_url')">
-                    <Save :size="13" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Models for current service type -->
-            <div class="detail-models">
-              <div class="models-header">
-                <span class="models-title">{{ serviceTypeLabel(activeServiceType) }}模型</span>
-                <Button variant="ghost" size="sm" class="add-btn" @click="startAddModel(group)">
-                  <Plus :size="13" />
-                  添加模型
-                </Button>
-              </div>
-              <div class="models-list">
-                <div
-                  v-for="model in getModelsForGroup(group)"
-                  :key="model.name"
-                  class="model-item"
-                >
-                  <span class="model-name">{{ model.name }}</span>
-                  <Switch
-                    :checked="model.active"
-                    @update:checked="(val: boolean) => handleModelToggle(group, model, val)"
-                  />
-                </div>
-                <div v-if="getModelsForGroup(group).length === 0" class="models-empty">
-                  该服务商暂无{{ serviceTypeLabel(activeServiceType) }}模型
-                </div>
-                <!-- Add model input -->
-                <div v-if="addingModelGroup === group.key" class="model-item model-add">
-                  <Input
-                    v-model="newModelName"
-                    placeholder="输入模型名称"
-                    class="model-add-input"
-                    @keyup.enter="confirmAddModel(group)"
-                    @keyup.escape="addingModelGroup = null"
-                  />
-                  <Button variant="ghost" size="sm" @click="confirmAddModel(group)">
-                    <Check :size="13" />
-                  </Button>
-                  <Button variant="ghost" size="sm" @click="addingModelGroup = null">
-                    <X :size="13" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+    <!-- Service Sections -->
+    <div v-else class="sections">
+      <section v-for="svc in serviceSections" :key="svc.type" class="svc-section">
+        <!-- Section header -->
+        <div class="section-header">
+          <div class="section-title-row">
+            <component :is="svc.icon" :size="16" class="section-icon" />
+            <h3 class="section-title">{{ svc.label }}</h3>
+            <span class="section-count" v-if="getActiveCount(svc.type) > 0">
+              {{ getActiveCount(svc.type) }} 个已启用
+            </span>
           </div>
         </div>
 
-        <div v-if="filteredProviderGroups.length === 0" class="empty-state">
-          暂无{{ serviceTypeLabel(activeServiceType) }}服务配置
+        <!-- Config list -->
+        <div class="config-list">
+          <div
+            v-for="cfg in getConfigsForType(svc.type)"
+            :key="cfg.id"
+            class="config-row"
+          >
+            <div class="config-left">
+              <div class="provider-dot" :style="{ background: providerColor(cfg.provider) }" />
+              <div class="config-info">
+                <span class="config-provider">{{ providerName(cfg.provider) }}</span>
+                <span class="config-models">{{ formatModels(cfg.model) }}</span>
+              </div>
+            </div>
+            <div class="config-right">
+              <span class="config-url">{{ cfg.base_url || '' }}</span>
+              <span :class="['key-status', cfg.api_key ? 'has-key' : 'no-key']">
+                {{ cfg.api_key ? '已配置' : '无密钥' }}
+              </span>
+              <Switch
+                :checked="cfg.is_active"
+                @update:checked="(val: boolean) => toggleConfig(cfg.id, val)"
+              />
+              <Button variant="ghost" size="icon" class="edit-btn" @click="startEdit(cfg)">
+                <Pencil :size="13" />
+              </Button>
+              <Button variant="ghost" size="icon" class="del-btn" @click="deleteConfig(cfg.id)">
+                <Trash2 :size="13" />
+              </Button>
+            </div>
+          </div>
+
+          <!-- Empty -->
+          <div v-if="getConfigsForType(svc.type).length === 0" class="config-empty">
+            暂无{{ svc.label }}服务
+          </div>
+
+          <!-- Add button -->
+          <button class="add-config-btn" @click="startCreate(svc.type)">
+            <Plus :size="13" />
+            添加{{ svc.label }}服务
+          </button>
         </div>
-      </template>
+      </section>
     </div>
+
+    <!-- Edit/Create Dialog -->
+    <Dialog v-model:open="editDialogOpen">
+      <DialogContent class="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>{{ editingConfig ? '编辑服务' : '添加服务' }}</DialogTitle>
+        </DialogHeader>
+        <div class="dialog-form">
+          <div class="form-row">
+            <label>服务商</label>
+            <Select v-model="editForm.provider">
+              <SelectTrigger><SelectValue placeholder="选择服务商" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="p in PROVIDER_GROUPS" :key="p.key" :value="p.ids[0]">
+                  {{ p.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="form-row">
+            <label>API Key</label>
+            <Input v-model="editForm.api_key" type="password" placeholder="sk-..." />
+          </div>
+          <div class="form-row">
+            <label>Base URL</label>
+            <Input v-model="editForm.base_url" type="text" :placeholder="getDefaultBaseUrl(editForm.provider)" />
+          </div>
+          <div class="form-row">
+            <label>模型（逗号分隔）</label>
+            <Input v-model="editForm.modelStr" type="text" placeholder="model-name-1, model-name-2" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="editDialogOpen = false">取消</Button>
+          <Button @click="saveEdit" :disabled="saving">
+            <Loader2 v-if="saving" :size="14" class="animate-spin" />
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <!-- Quick Setup Dialog -->
     <Dialog v-model:open="quickSetupVisible">
-      <DialogContent class="sm:max-w-[500px]">
+      <DialogContent class="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>一键配置</DialogTitle>
+          <DialogTitle>一键配置 ChatFire</DialogTitle>
         </DialogHeader>
-        <div class="quick-setup-info">
-          <p>将自动创建以下配置：</p>
-          <ul>
-            <li><strong>文本服务</strong>: {{ chatfireFirstModel('text') }}</li>
-            <li><strong>图片服务</strong>: {{ chatfireFirstModel('image') }}</li>
-            <li><strong>视频服务</strong>: {{ chatfireFirstModel('video') }}</li>
-          </ul>
-          <p class="quick-setup-tip">Base URL: https://api.chatfire.site/v1</p>
+        <div class="quick-info">
+          <p>自动创建文本、图片、视频三项服务配置</p>
+          <p class="quick-tip">Base URL: https://api.chatfire.site/v1</p>
         </div>
-        <div class="form-field">
-          <label class="form-label">API Key <span class="required">*</span></label>
-          <Input
-            v-model="quickSetupApiKey"
-            type="password"
-            placeholder="请输入 ChatFire API Key"
-          />
+        <div class="form-row">
+          <label>API Key <span class="required">*</span></label>
+          <Input v-model="quickSetupApiKey" type="password" placeholder="请输入 ChatFire API Key" />
         </div>
-        <DialogFooter class="quick-setup-footer">
-          <a
-            href="https://api.chatfire.site/login?inviteCode=C4453345"
-            target="_blank"
-            class="register-link"
-          >
+        <DialogFooter class="quick-footer">
+          <a href="https://api.chatfire.site/login?inviteCode=C4453345" target="_blank" class="register-link">
             没有 API Key？点击注册
           </a>
-          <div class="footer-buttons">
+          <div class="footer-btns">
             <Button variant="outline" @click="quickSetupVisible = false">取消</Button>
             <Button @click="handleQuickSetup" :disabled="quickSetupLoading">
-              <Loader2 v-if="quickSetupLoading" :size="16" class="animate-spin mr-1" />
-              确认配置
+              <Loader2 v-if="quickSetupLoading" :size="14" class="animate-spin" />
+              确认
             </Button>
           </div>
         </DialogFooter>
@@ -202,216 +157,138 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { toast } from 'vue-sonner'
-import {
-  Wand2, Loader2, ChevronDown, Save, Plus, Check, X,
-  Type, ImageIcon, Video, AudioLines,
-} from 'lucide-vue-next'
+import { Wand2, Loader2, Plus, Pencil, Trash2, Type, ImageIcon, Video, AudioLines } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { aiAPI } from '@/api/ai'
-import { PageHeader } from '@/components/common'
 import type { AIServiceConfig, AIServiceProvider, AIServiceType } from '@/types/ai'
-import { PROVIDER_GROUPS, buildPresetModels, type ProviderGroup } from '@/constants/ai-providers'
+import { PROVIDER_GROUPS, buildPresetModels } from '@/constants/ai-providers'
 
 const loading = ref(false)
 const allConfigs = ref<AIServiceConfig[]>([])
 const allProviders = ref<AIServiceProvider[]>([])
-const quickSetupVisible = ref(false)
-const quickSetupApiKey = ref('')
-const quickSetupLoading = ref(false)
-const activeServiceType = ref<AIServiceType>('text')
-const expandedProvider = ref<string | null>(null)
-const addingModelGroup = ref<string | null>(null)
-const newModelName = ref('')
-const editFields = reactive<Record<string, string>>({})
+const saving = ref(false)
 
-const serviceTypeTabs = [
-  { key: 'text' as AIServiceType, label: '文本', icon: Type },
-  { key: 'image' as AIServiceType, label: '图片', icon: ImageIcon },
-  { key: 'video' as AIServiceType, label: '视频', icon: Video },
-  { key: 'audio' as AIServiceType, label: '音频', icon: AudioLines },
+// Service sections
+const serviceSections = [
+  { type: 'text' as AIServiceType, label: '文本', icon: Type },
+  { type: 'image' as AIServiceType, label: '图片', icon: ImageIcon },
+  { type: 'video' as AIServiceType, label: '视频', icon: Video },
+  { type: 'audio' as AIServiceType, label: '音频', icon: AudioLines },
 ]
 
-function serviceTypeLabel(t: AIServiceType) {
-  return serviceTypeTabs.find(tab => tab.key === t)?.label || t
+function getConfigsForType(type: AIServiceType) {
+  return allConfigs.value.filter(c => c.service_type === type)
 }
 
-const presetModelsMap = computed(() => buildPresetModels(allProviders.value))
-
-// Filter provider groups that have models or configs for the active service type
-const filteredProviderGroups = computed(() => {
-  return PROVIDER_GROUPS.filter(group => {
-    const presets = presetModelsMap.value[group.key]?.[activeServiceType.value] || []
-    const configs = allConfigs.value.filter(
-      c => group.ids.includes(c.provider || '') && c.service_type === activeServiceType.value
-    )
-    return presets.length > 0 || configs.length > 0
-  })
-})
-
-function getConfigCount(serviceType: AIServiceType) {
-  return allConfigs.value.filter(c => c.service_type === serviceType && c.is_active).length
+function getActiveCount(type: AIServiceType) {
+  return allConfigs.value.filter(c => c.service_type === type && c.is_active).length
 }
 
-function toggleProvider(key: string) {
-  if (expandedProvider.value === key) {
-    expandedProvider.value = null
-  } else {
-    expandedProvider.value = key
-    // Pre-fill edit fields
-    const group = PROVIDER_GROUPS.find(g => g.key === key)!
-    const configs = allConfigs.value.filter(c => group.ids.includes(c.provider || ''))
-    const apiKey = configs.find(c => c.api_key)?.api_key || ''
-    const baseUrl = configs.find(c => c.base_url)?.base_url || ''
-    editFields[key + '_api_key'] = apiKey
-    editFields[key + '_base_url'] = baseUrl
-  }
+function formatModels(model: string | string[]): string {
+  const models = Array.isArray(model) ? model : [model]
+  return models.filter(Boolean).join(', ') || '-'
 }
 
-function hasApiKeyForGroup(group: ProviderGroup) {
-  return allConfigs.value.some(c => group.ids.includes(c.provider || '') && c.api_key)
+const providerNames: Record<string, string> = {
+  chatfire: 'ChatFire', openai: 'OpenAI', gemini: 'Gemini', google: 'Google',
+  volcengine: '火山引擎', volces: '火山引擎', minimax: 'MiniMax',
+  vidu: 'Vidu', openrouter: 'OpenRouter', qwen: '阿里百炼',
 }
+function providerName(id: string) { return providerNames[id] || id }
 
-function getBaseUrlForGroup(group: ProviderGroup) {
-  return allConfigs.value.find(c => group.ids.includes(c.provider || '') && c.base_url)?.base_url || ''
+const providerColors: Record<string, string> = {
+  chatfire: '#f97316', openai: '#10a37f', gemini: '#4285f4', google: '#4285f4',
+  volcengine: '#3370ff', volces: '#3370ff', minimax: '#8b5cf6',
+  vidu: '#06b6d4', openrouter: '#f59e0b', qwen: '#6366f1',
 }
+function providerColor(id: string) { return providerColors[id] || '#6366f1' }
 
-function getActiveModelCount(group: ProviderGroup) {
-  return allConfigs.value.filter(
-    c => group.ids.includes(c.provider || '') && c.service_type === activeServiceType.value && c.is_active
-  ).length
-}
-
-interface ModelItem {
-  name: string
-  active: boolean
-  configId?: number
-}
-
-function getModelsForGroup(group: ProviderGroup): ModelItem[] {
-  const st = activeServiceType.value
-  const presets = presetModelsMap.value[group.key]?.[st] || []
-  const configsForType = allConfigs.value.filter(
-    c => group.ids.includes(c.provider || '') && c.service_type === st
-  )
-  const configModelMap = new Map<string, { active: boolean; configId: number }>()
-  for (const cfg of configsForType) {
-    const models = Array.isArray(cfg.model) ? cfg.model : [cfg.model]
-    for (const m of models) {
-      configModelMap.set(m, { active: cfg.is_active, configId: cfg.id })
-    }
-  }
-  const allNames = new Set([...presets, ...configModelMap.keys()])
-  return Array.from(allNames).map(name => {
-    const info = configModelMap.get(name)
-    return { name, active: info?.active ?? false, configId: info?.configId }
-  })
-}
-
-const avatarColors: Record<string, string> = {
-  chatfire: 'linear-gradient(135deg, #f97316, #ef4444)',
-  gemini: 'linear-gradient(135deg, #4285f4, #34a853)',
-  openai: 'linear-gradient(135deg, #10a37f, #1a7f64)',
-  volcengine: 'linear-gradient(135deg, #3370ff, #2b5fd9)',
-  minimax: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-  vidu: 'linear-gradient(135deg, #06b6d4, #0891b2)',
-  openrouter: 'linear-gradient(135deg, #f59e0b, #d97706)',
-  qwen: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-}
-function avatarColor(key: string) { return avatarColors[key] || 'linear-gradient(135deg, #6366f1, #8b5cf6)' }
-
-// --- Save credentials ---
-async function saveGroupCredential(group: ProviderGroup, field: 'api_key' | 'base_url') {
-  const value = editFields[group.key + '_' + field]?.trim()
-  if (!value) { toast.warning(field === 'api_key' ? '请输入 API Key' : '请输入 Base URL'); return }
+// --- Toggle ---
+async function toggleConfig(id: number, active: boolean) {
   try {
-    const configs = allConfigs.value.filter(c => group.ids.includes(c.provider || ''))
-    if (configs.length > 0) {
-      await Promise.all(configs.map(c => aiAPI.update(c.id, { [field]: value })))
-    } else {
-      // No config exists yet — create one for current service type
-      await aiAPI.create({
-        service_type: activeServiceType.value,
-        provider: group.ids[0],
-        name: `${group.name}-${serviceTypeLabel(activeServiceType.value)}`,
-        base_url: field === 'base_url' ? value : getDefaultBaseUrl(group.ids[0]),
-        api_key: field === 'api_key' ? value : '',
-        model: [],
-        priority: 0,
-      })
-    }
-    toast.success('保存成功')
-    loadAll()
-  } catch { toast.error('保存失败') }
-}
-
-// --- Model toggle ---
-async function handleModelToggle(group: ProviderGroup, model: ModelItem, active: boolean) {
-  try {
-    if (model.configId) {
-      await aiAPI.update(model.configId, { is_active: active })
-    } else {
-      const apiKey = editFields[group.key + '_api_key'] || allConfigs.value.find(c => group.ids.includes(c.provider || '') && c.api_key)?.api_key || ''
-      const baseUrl = editFields[group.key + '_base_url'] || getBaseUrlForGroup(group) || getDefaultBaseUrl(group.ids[0])
-      await aiAPI.create({
-        service_type: activeServiceType.value,
-        provider: group.ids[0],
-        name: `${group.name}-${serviceTypeLabel(activeServiceType.value)}-${model.name}`,
-        base_url: baseUrl,
-        api_key: apiKey,
-        model: [model.name],
-        priority: 0,
-      })
-    }
+    await aiAPI.update(id, { is_active: active })
     loadAll()
   } catch { toast.error('操作失败') }
 }
 
-// --- Add model ---
-function startAddModel(group: ProviderGroup) {
-  addingModelGroup.value = group.key
-  newModelName.value = ''
+// --- Delete ---
+async function deleteConfig(id: number) {
+  try {
+    await aiAPI.delete(id)
+    toast.success('已删除')
+    loadAll()
+  } catch { toast.error('删除失败') }
 }
 
-async function confirmAddModel(group: ProviderGroup) {
-  const name = newModelName.value.trim()
-  if (!name) return
+// --- Edit/Create Dialog ---
+const editDialogOpen = ref(false)
+const editingConfig = ref<AIServiceConfig | null>(null)
+const editForm = ref({ provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text' as AIServiceType })
+
+function startEdit(cfg: AIServiceConfig) {
+  editingConfig.value = cfg
+  const models = Array.isArray(cfg.model) ? cfg.model : [cfg.model]
+  editForm.value = {
+    provider: cfg.provider || '',
+    api_key: cfg.api_key || '',
+    base_url: cfg.base_url || '',
+    modelStr: models.filter(Boolean).join(', '),
+    service_type: cfg.service_type,
+  }
+  editDialogOpen.value = true
+}
+
+function startCreate(type: AIServiceType) {
+  editingConfig.value = null
+  editForm.value = { provider: '', api_key: '', base_url: '', modelStr: '', service_type: type }
+  editDialogOpen.value = true
+}
+
+async function saveEdit() {
+  const f = editForm.value
+  if (!f.provider) { toast.warning('请选择服务商'); return }
+  const models = f.modelStr.split(',').map(s => s.trim()).filter(Boolean)
+  saving.value = true
   try {
-    const apiKey = allConfigs.value.find(c => group.ids.includes(c.provider || '') && c.api_key)?.api_key || ''
-    const baseUrl = getBaseUrlForGroup(group) || getDefaultBaseUrl(group.ids[0])
-    await aiAPI.create({
-      service_type: activeServiceType.value,
-      provider: group.ids[0],
-      name: `${group.name}-${serviceTypeLabel(activeServiceType.value)}-${name}`,
-      base_url: baseUrl,
-      api_key: apiKey,
-      model: [name],
-      priority: 0,
-    })
-    toast.success('模型已添加')
-    addingModelGroup.value = null
-    newModelName.value = ''
+    if (editingConfig.value) {
+      await aiAPI.update(editingConfig.value.id, {
+        provider: f.provider,
+        api_key: f.api_key,
+        base_url: f.base_url || getDefaultBaseUrl(f.provider),
+        model: models,
+      })
+    } else {
+      await aiAPI.create({
+        service_type: f.service_type,
+        provider: f.provider,
+        name: `${providerName(f.provider)}-${serviceSections.find(s => s.type === f.service_type)?.label || f.service_type}`,
+        api_key: f.api_key,
+        base_url: f.base_url || getDefaultBaseUrl(f.provider),
+        model: models,
+        priority: 0,
+      })
+    }
+    toast.success('保存成功')
+    editDialogOpen.value = false
     loadAll()
-  } catch { toast.error('添加失败') }
+  } catch { toast.error('保存失败') }
+  finally { saving.value = false }
 }
 
 function getDefaultBaseUrl(providerId: string): string {
   const defaults: Record<string, string> = {
-    chatfire: 'https://api.chatfire.site/v1',
-    openai: 'https://api.openai.com/v1',
-    gemini: 'https://generativelanguage.googleapis.com',
-    google: 'https://generativelanguage.googleapis.com',
-    volcengine: 'https://ark.cn-beijing.volces.com/api/v3',
-    volces: 'https://ark.cn-beijing.volces.com/api/v3',
-    minimax: 'https://api.minimaxi.com/v1',
-    vidu: 'https://api.vidu.com/v1',
-    openrouter: 'https://openrouter.ai/api/v1',
-    qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    chatfire: 'https://api.chatfire.site/v1', openai: 'https://api.openai.com/v1',
+    gemini: 'https://generativelanguage.googleapis.com', google: 'https://generativelanguage.googleapis.com',
+    volcengine: 'https://ark.cn-beijing.volces.com/api/v3', volces: 'https://ark.cn-beijing.volces.com/api/v3',
+    minimax: 'https://api.minimaxi.com/v1', vidu: 'https://api.vidu.com/v1',
+    openrouter: 'https://openrouter.ai/api/v1', qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   }
   return defaults[providerId] || ''
 }
@@ -431,9 +308,13 @@ async function loadAll() {
 }
 
 // --- Quick Setup ---
+const quickSetupVisible = ref(false)
+const quickSetupApiKey = ref('')
+const quickSetupLoading = ref(false)
+const presetModelsMap = computed(() => buildPresetModels(allProviders.value))
+
 function chatfireFirstModel(serviceType: AIServiceType): string {
-  const models = presetModelsMap.value['chatfire']?.[serviceType]
-  return models?.[0] || '-'
+  return presetModelsMap.value['chatfire']?.[serviceType]?.[0] || '-'
 }
 
 function showQuickSetupDialog() { quickSetupApiKey.value = ''; quickSetupVisible.value = true }
@@ -447,22 +328,18 @@ async function handleQuickSetup() {
     const types: { key: AIServiceType; label: string }[] = [
       { key: 'text', label: '文本' }, { key: 'image', label: '图片' }, { key: 'video', label: '视频' },
     ]
-    const created: string[] = []; const skipped: string[] = []
+    const created: string[] = []
     for (const { key, label } of types) {
-      const configs = allConfigs.value.filter(c => c.provider === 'chatfire' && c.service_type === key)
-      if (configs.length === 0) {
+      if (!allConfigs.value.find(c => c.provider === 'chatfire' && c.service_type === key)) {
         const firstModel = chatfireFirstModel(key)
         await aiAPI.create({
-          service_type: key, provider: 'chatfire',
-          name: `ChatFire-${label}`,
-          base_url: baseUrl, api_key: apiKey,
-          model: firstModel !== '-' ? [firstModel] : [], priority: 0,
+          service_type: key, provider: 'chatfire', name: `ChatFire-${label}`,
+          base_url: baseUrl, api_key: apiKey, model: firstModel !== '-' ? [firstModel] : [], priority: 0,
         })
         created.push(label)
-      } else { skipped.push(label) }
+      }
     }
-    if (created.length > 0) toast.success(`已创建 ${created.join('、')} 配置`)
-    else toast.info('所有配置已存在')
+    toast.success(created.length > 0 ? `已创建 ${created.join('、')} 配置` : '所有配置已存在')
     quickSetupVisible.value = false; loadAll()
   } catch (error: any) { toast.error(error.message || '配置失败') }
   finally { quickSetupLoading.value = false }
@@ -472,302 +349,91 @@ onMounted(() => { loadAll() })
 </script>
 
 <style scoped>
-.settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--glass-stroke-soft); padding-bottom: 0; }
-.settings-tab { padding: 8px 20px; font-size: 14px; font-weight: 500; color: var(--glass-text-secondary); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
-.settings-tab:hover { color: var(--glass-accent-from); }
-.settings-tab.active, .settings-tab.router-link-exact-active { color: var(--glass-accent-from); border-bottom-color: var(--glass-accent-from); }
+/* Tab Nav */
+.settings-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border-primary); padding-bottom: 0; }
+.settings-tab { padding: 8px 20px; font-size: 14px; font-weight: 500; color: var(--text-muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
+.settings-tab:hover { color: var(--accent); }
+.settings-tab.active, .settings-tab.router-link-exact-active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* Service Type Tabs */
-.service-type-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  padding: 3px;
-  background: var(--glass-bg-muted, rgba(255,255,255,0.04));
-  border-radius: 10px;
-  width: fit-content;
-}
+/* Page Header */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.page-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.page-subtitle { font-size: 13px; color: var(--text-muted); margin: 4px 0 0; }
 
-.svc-tab {
+.loading-wrap { display: flex; flex-direction: column; gap: 16px; }
+
+/* Sections */
+.sections { display: flex; flex-direction: column; gap: 24px; }
+
+.svc-section { display: flex; flex-direction: column; gap: 8px; }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; }
+
+.section-title-row { display: flex; align-items: center; gap: 8px; }
+.section-icon { color: var(--text-muted); }
+.section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.section-count { font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 1px 8px; border-radius: 9999px; }
+
+/* Config list */
+.config-list { display: flex; flex-direction: column; gap: 4px; }
+
+.config-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.svc-tab:hover { color: var(--text-primary); }
-
-.svc-tab.active {
-  background: var(--bg-card);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
-
-.svc-tab-count {
-  font-size: 11px;
-  padding: 0 5px;
-  border-radius: 9999px;
-  background: rgba(255,255,255,0.06);
-  color: var(--text-muted);
-}
-
-.svc-tab.active .svc-tab-count {
-  background: rgba(232, 162, 67, 0.15);
-  color: rgba(232, 162, 67, 0.9);
-}
-
-/* Provider List */
-.provider-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.provider-row {
+  justify-content: space-between;
+  padding: 10px 14px;
   border: 1px solid var(--border-primary);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg-card);
-  overflow: hidden;
   transition: border-color 0.15s;
 }
 
-.provider-row:hover {
-  border-color: rgba(255,255,255,0.12);
+.config-row:hover { border-color: rgba(255,255,255,0.12); }
+
+.config-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+
+.provider-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
 }
 
-.provider-row.expanded {
-  border-color: var(--accent, #e8a243);
-}
+.config-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.config-provider { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.config-models { font-size: 11px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Row header */
-.row-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
+.config-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
-.row-header:hover {
-  background: rgba(255,255,255,0.02);
-}
+.config-url { font-size: 10px; color: var(--text-muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.row-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.key-status { font-size: 10px; padding: 1px 6px; border-radius: 9999px; }
+.key-status.has-key { background: rgba(34,197,94,0.1); color: rgba(34,197,94,0.8); }
+.key-status.no-key { background: rgba(234,179,8,0.1); color: rgba(234,179,8,0.8); }
 
-.provider-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  color: #fff;
-  flex-shrink: 0;
-}
+.edit-btn, .del-btn { width: 26px !important; height: 26px !important; padding: 0 !important; color: var(--text-muted) !important; }
+.edit-btn:hover { color: var(--accent) !important; }
+.del-btn:hover { color: #ef4444 !important; }
 
-.row-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+.config-empty { padding: 20px; text-align: center; font-size: 12px; color: var(--text-muted); }
 
-.row-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+.add-config-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px; border: 1px dashed var(--border-primary); border-radius: 8px;
+  background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer;
+  transition: all 0.15s;
 }
+.add-config-btn:hover { border-color: var(--accent); color: var(--text-primary); }
 
-.row-models {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.row-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-dot.connected {
-  background: #22c55e;
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.4);
-}
-
-.status-dot.disconnected {
-  background: #eab308;
-}
-
-.row-url {
-  font-size: 11px;
-  color: var(--text-muted);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row-chevron {
-  color: var(--text-muted);
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-
-.row-chevron.rotated {
-  transform: rotate(180deg);
-}
-
-/* Detail panel */
-.row-detail {
-  padding: 0 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-top: 1px solid var(--border-primary);
-}
-
-.detail-credentials {
-  display: flex;
-  gap: 12px;
-  padding-top: 12px;
-}
-
-.cred-field {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cred-field label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.cred-input-wrap {
-  display: flex;
-  gap: 4px;
-}
-
-.cred-input {
-  flex: 1;
-  height: 32px !important;
-  font-size: 12px !important;
-}
-
-/* Models */
-.detail-models {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.models-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.models-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.add-btn {
-  font-size: 11px !important;
-  height: 26px !important;
-  color: var(--text-muted) !important;
-}
-
-.models-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.model-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  border-radius: 6px;
-  transition: background 0.1s;
-}
-
-.model-item:hover {
-  background: rgba(255,255,255,0.03);
-}
-
-.model-name {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-family: monospace;
-}
-
-.models-empty {
-  padding: 16px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.model-add {
-  gap: 4px;
-}
-
-.model-add-input {
-  flex: 1;
-  height: 28px !important;
-  font-size: 12px !important;
-}
-
-/* Empty */
-.empty-state {
-  padding: 40px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
+/* Dialog form */
+.dialog-form { display: flex; flex-direction: column; gap: 12px; }
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+.form-row label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
 
 /* Quick Setup */
-.quick-setup-info { margin-bottom: 16px; padding: 12px 16px; background: var(--glass-bg-muted); border-radius: 8px; font-size: 14px; color: var(--glass-text-primary); }
-.quick-setup-info p { margin: 0 0 8px 0; }
-.quick-setup-info ul { margin: 8px 0; padding-left: 20px; }
-.quick-setup-info li { margin: 4px 0; color: var(--glass-text-secondary); }
-.quick-setup-info .quick-setup-tip { margin-top: 12px; font-size: 12px; color: var(--glass-text-tertiary); }
-.quick-setup-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.register-link { font-size: 12px; color: var(--glass-text-tertiary); text-decoration: none; transition: color 0.2s; }
-.register-link:hover { color: var(--glass-accent-from); }
-.footer-buttons { display: flex; gap: 8px; }
-.form-field { display: flex; flex-direction: column; gap: 0.5rem; }
-.form-label { font-size: 0.875rem; font-weight: 500; color: var(--glass-text-primary); }
+.quick-info { margin-bottom: 12px; padding: 10px 14px; background: var(--bg-primary); border-radius: 8px; font-size: 13px; color: var(--text-secondary); }
+.quick-info p { margin: 0 0 4px; }
+.quick-tip { font-size: 11px; color: var(--text-muted); }
+.quick-footer { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.register-link { font-size: 11px; color: var(--text-muted); text-decoration: none; }
+.register-link:hover { color: var(--accent); }
+.footer-btns { display: flex; gap: 8px; }
 .required { color: #ef4444; }
-.mr-1 { margin-right: 0.25rem; }
 </style>
