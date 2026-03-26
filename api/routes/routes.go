@@ -147,6 +147,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		// 分镜头路由
 		episodes := api.Group("/episodes")
 		{
+			episodes.PUT("/:id", dramaHandler.UpdateEpisode)
 			// 分镜头
 			episodes.POST("/:episode_id/storyboards", storyboardHandler.GenerateStoryboard)
 			episodes.POST("/:episode_id/props/extract", propHandler.ExtractProps)

@@ -289,6 +289,42 @@ func (h *DramaHandler) SaveProgress(c *gin.Context) {
 	response.Success(c, gin.H{"message": "保存成功"})
 }
 
+// UpdateEpisode 更新单个剧集字段
+// PUT /api/v1/episodes/:id
+func (h *DramaHandler) UpdateEpisode(c *gin.Context) {
+	episodeID := c.Param("id")
+
+	var updates map[string]interface{}
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	// 只允许更新安全字段
+	allowed := map[string]bool{
+		"content": true, "script_content": true, "title": true,
+		"description": true, "status": true,
+	}
+	safeUpdates := map[string]interface{}{}
+	for k, v := range updates {
+		if allowed[k] {
+			safeUpdates[k] = v
+		}
+	}
+
+	if len(safeUpdates) == 0 {
+		response.BadRequest(c, "no valid fields to update")
+		return
+	}
+
+	if err := h.db.Model(&models.Episode{}).Where("id = ?", episodeID).Updates(safeUpdates).Error; err != nil {
+		response.InternalError(c, "更新失败")
+		return
+	}
+
+	response.Success(c, gin.H{"message": "更新成功"})
+}
+
 // FinalizeEpisode 完成集数制作（触发视频合成）
 func (h *DramaHandler) FinalizeEpisode(c *gin.Context) {
 

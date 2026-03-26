@@ -26,12 +26,17 @@ func (s *AgentService) getScriptRewriterTools() []tool.BaseTool {
 			}
 			var episode models.Episode
 			if err := s.db.First(&episode, episodeID).Error; err != nil {
-				return "", fmt.Errorf("episode not found")
+				return "", fmt.Errorf("episode not found (id=%d)", episodeID)
 			}
-			if episode.ScriptContent == nil || *episode.ScriptContent == "" {
-				return "", fmt.Errorf("episode has no script content")
+			// 优先返回原始内容（Content），用于改写
+			// 如果没有原始内容，回退到格式化剧本（ScriptContent）
+			if episode.Content != nil && *episode.Content != "" {
+				return *episode.Content, nil
 			}
-			return *episode.ScriptContent, nil
+			if episode.ScriptContent != nil && *episode.ScriptContent != "" {
+				return *episode.ScriptContent, nil
+			}
+			return "", fmt.Errorf("episode has no content (id=%d)", episodeID)
 		},
 	)
 
@@ -45,10 +50,16 @@ func (s *AgentService) getScriptRewriterTools() []tool.BaseTool {
 			}
 			var episode models.Episode
 			if err := s.db.Preload("Drama").First(&episode, episodeID).Error; err != nil {
-				return "", fmt.Errorf("episode not found")
+				return "", fmt.Errorf("episode not found (id=%d)", episodeID)
 			}
-			if episode.ScriptContent == nil || *episode.ScriptContent == "" {
-				return "", fmt.Errorf("episode has no script content")
+			// 优先使用原始内容（Content）作为改写输入
+			var sourceContent string
+			if episode.Content != nil && *episode.Content != "" {
+				sourceContent = *episode.Content
+			} else if episode.ScriptContent != nil && *episode.ScriptContent != "" {
+				sourceContent = *episode.ScriptContent
+			} else {
+				return "", fmt.Errorf("episode has no content to rewrite (id=%d)", episodeID)
 			}
 
 			prompt := fmt.Sprintf(`将以下内容改写为格式化剧本。
@@ -87,7 +98,7 @@ func (s *AgentService) getScriptRewriterTools() []tool.BaseTool {
 %s
 
 【原始内容】
-%s`, params.Instructions, *episode.ScriptContent)
+%s`, params.Instructions, sourceContent)
 
 			result, err := s.aiService.GenerateText(prompt, "你是专业编剧，擅长将小说改编为短剧剧本。")
 			if err != nil {

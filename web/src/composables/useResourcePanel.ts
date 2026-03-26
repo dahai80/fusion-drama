@@ -50,17 +50,13 @@ export function useResourcePanel(dramaId: number, episodeNumber: number) {
   async function saveRawContent(content: string) {
     if (!episode.value) return
     episode.value.content = content
-    await dramaAPI.saveEpisodes(String(dramaId), [
-      { id: episode.value.id, content },
-    ])
+    await dramaAPI.updateEpisode(String(episode.value.id), { content })
   }
 
   async function saveScript(content: string) {
     if (!episode.value) return
     episode.value.script_content = content
-    await dramaAPI.saveEpisodes(String(dramaId), [
-      { id: episode.value.id, script_content: content },
-    ])
+    await dramaAPI.updateEpisode(String(episode.value.id), { script_content: content })
   }
 
   return {

@@ -68,7 +68,8 @@ type Episode struct {
 	DramaID       uint           `gorm:"not null;index" json:"drama_id"`
 	EpisodeNum    int            `gorm:"column:episode_number;not null" json:"episode_number"`
 	Title         string         `gorm:"type:varchar(200);not null" json:"title"`
-	ScriptContent *string        `gorm:"type:longtext" json:"script_content"`
+	Content       *string        `gorm:"type:longtext" json:"content"`         // 原始内容（小说/故事）
+	ScriptContent *string        `gorm:"type:longtext" json:"script_content"` // 格式化剧本
 	Description   *string        `gorm:"type:text" json:"description"`
 	Duration      int            `gorm:"default:0" json:"duration"` // 总时长（秒）
 	Status        string         `gorm:"type:varchar(20);default:'draft'" json:"status"`

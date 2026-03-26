@@ -67,6 +67,10 @@ export const dramaAPI = {
     return request.put(`/dramas/${id}/episodes`, { episodes: data })
   },
 
+  updateEpisode(episodeId: string, data: Record<string, any>) {
+    return request.put(`/episodes/${episodeId}`, data)
+  },
+
   saveProgress(id: string, data: { current_step: string; step_data?: Record<string, unknown> }) {
     return request.put(`/dramas/${id}/progress`, data)
   },
