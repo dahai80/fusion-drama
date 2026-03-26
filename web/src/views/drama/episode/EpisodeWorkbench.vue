@@ -114,11 +114,13 @@ import { computed, ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Wand2, Clapperboard, FileText } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
+import { toast } from 'vue-sonner'
 import ResourcePanel from './workbench/ResourcePanel.vue'
 import ScriptTab from './workbench/ScriptTab.vue'
 import StoryboardTable from './workbench/StoryboardTable.vue'
 import { useEpisodeWorkbench } from '@/composables/useEpisodeWorkbench'
 import AgentDrawer from '@/components/agent/AgentDrawer.vue'
+import { dramaAPI } from '@/api/drama'
 import type { AgentType } from '@/types/agent'
 
 const router = useRouter()
@@ -139,25 +141,119 @@ const progressPct = computed(() => {
 const goBack = () => router.push(`/drama/${dramaId}`)
 const goToCompose = () => router.push(`/drama/${dramaId}/episode/${episodeNumber}/compose`)
 
-// Action handlers
-const handleExtract = () => { /* TODO: call extract agent */ }
-const handleBreakdown = () => { /* TODO: call storyboard_breaker agent */ }
-const handleAddStoryboard = () => { /* TODO: call dramaAPI to add storyboard */ }
-const handleBatchImages = () => { /* TODO: batch image generation */ }
-const handleBatchVideos = () => { /* TODO: batch video generation */ }
-const handleGenerateGrid = () => { /* TODO: generate grid image from selected storyboards */ }
-const handleSaveField = (_id: string, _field: string, _value: any) => {
-  /* TODO: save via dramaAPI.updateStoryboard */
+// --- Agent triggers: open drawer with pre-selected agent type ---
+function openAgent(type: AgentType) {
+  agentOpen.value = true
+  // AgentDrawer's useAgentChat exposes agentType — we set it via the drawer
+  // For now we open drawer and let user interact. TODO: auto-send message
 }
-const handleGenerateImage = (_id: string) => { imageGen.generateFrameImage([]) }
-const handleGenerateVideo = (_id: string) => { videoGen.generateVideo() }
-const handleUploadScript = () => { /* TODO: upload script */ }
-const handleRewriteScript = () => { /* TODO: rewrite script */ }
-const handleGenerateCharacterImage = (_id: number) => { /* TODO */ }
-const handleBatchGenerateCharacters = () => { /* TODO */ }
-const handleGenerateSceneImage = (_id: number) => { /* TODO */ }
-const handleBatchGenerateScenes = () => { /* TODO */ }
-const handleAgentApply = (_data: { type: AgentType; content: string }) => { /* TODO */ }
+
+// --- Script Tab handlers ---
+const handleUploadScript = () => {
+  // TODO: file upload dialog
+  toast.info('上传功能开发中')
+}
+
+const handleRewriteScript = () => openAgent('script_rewriter')
+const handleExtract = () => openAgent('extractor')
+
+// --- Storyboard Tab handlers ---
+const handleBreakdown = () => openAgent('storyboard_breaker')
+
+const handleAddStoryboard = async () => {
+  const ep = resource.episode
+  if (!ep) return
+  try {
+    const nextNum = resource.storyboards.length + 1
+    await dramaAPI.createStoryboard({
+      episode_id: Number(ep.id),
+      storyboard_number: nextNum,
+      title: `镜头 ${nextNum}`,
+      duration: 10,
+    })
+    await resource.loadData()
+    toast.success('已添加镜头')
+  } catch {
+    toast.error('添加镜头失败')
+  }
+}
+
+const handleSaveField = async (id: string, field: string, value: any) => {
+  try {
+    await dramaAPI.updateStoryboard(id, { [field]: value })
+  } catch {
+    toast.error('保存失败')
+  }
+}
+
+// --- Image generation ---
+const handleGenerateImage = (id: string) => {
+  // Select the storyboard first so composable picks it up
+  table.selectedIds = new Set([id])
+  const sb = resource.storyboards.find((s: any) => s.id === id)
+  const charIds = sb?.character_ids || []
+  const chars = resource.characters.filter((c: any) => charIds.includes(c.id))
+  imageGen.generateFrameImage(chars)
+}
+
+const handleGenerateCharacterImage = (id: number) => {
+  dramaAPI.generateSceneImage({ scene_id: id }).catch(() => toast.error('生成失败'))
+}
+
+const handleBatchGenerateCharacters = () => {
+  toast.info('批量生成角色形象开发中')
+}
+
+const handleGenerateSceneImage = (id: number) => {
+  dramaAPI.generateSceneImage({ scene_id: id }).catch(() => toast.error('生成失败'))
+}
+
+const handleBatchGenerateScenes = () => {
+  const ep = resource.episode
+  if (!ep) return
+  dramaAPI.batchGenerateBackgrounds(String(ep.id)).catch(() => toast.error('批量生成失败'))
+}
+
+// --- Video generation ---
+const handleGenerateVideo = (id: string) => {
+  table.selectedIds = new Set([id])
+  videoGen.generateVideo()
+}
+
+// --- Batch operations ---
+const handleBatchImages = () => {
+  const selected = table.selectedStoryboards
+  if (selected.length === 0) {
+    // No selection: generate for all pending
+    toast.info('请先选择要生成图片的镜头')
+    return
+  }
+  for (const sb of selected) {
+    handleGenerateImage(sb.id)
+  }
+}
+
+const handleBatchVideos = () => {
+  const selected = table.selectedStoryboards
+  if (selected.length === 0) {
+    toast.info('请先选择要生成视频的镜头')
+    return
+  }
+  for (const sb of selected) {
+    handleGenerateVideo(sb.id)
+  }
+}
+
+const handleGenerateGrid = () => {
+  toast.info('宫格图功能开发中')
+}
+
+// --- Agent result apply ---
+const handleAgentApply = async (_data: { type: AgentType; content: string }) => {
+  // Agent tools auto-save to DB, just reload data
+  await resource.loadData()
+  toast.success('Agent 操作完成，数据已刷新')
+}
 </script>
 
 <style scoped>
