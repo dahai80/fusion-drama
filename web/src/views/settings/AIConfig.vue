@@ -93,7 +93,10 @@
         <div class="dialog-form">
           <div class="form-row">
             <label>服务商</label>
-            <Select v-model="editForm.provider">
+            <Select
+              :model-value="editForm.provider"
+              @update:model-value="(v: string) => editForm.provider = v"
+            >
               <SelectTrigger><SelectValue placeholder="选择服务商" /></SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="p in PROVIDER_GROUPS" :key="p.key" :value="p.ids[0]">
@@ -157,7 +160,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { toast } from 'vue-sonner'
 import { Wand2, Loader2, Plus, Pencil, Trash2, Type, ImageIcon, Video, AudioLines } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
@@ -230,29 +233,29 @@ async function deleteConfig(id: number) {
 // --- Edit/Create Dialog ---
 const editDialogOpen = ref(false)
 const editingConfig = ref<AIServiceConfig | null>(null)
-const editForm = ref({ provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text' as AIServiceType })
+const editForm = reactive({ provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text' as AIServiceType })
 
 function startEdit(cfg: AIServiceConfig) {
   editingConfig.value = cfg
   const models = Array.isArray(cfg.model) ? cfg.model : [cfg.model]
-  editForm.value = {
+  Object.assign(editForm, {
     provider: cfg.provider || '',
     api_key: cfg.api_key || '',
     base_url: cfg.base_url || '',
     modelStr: models.filter(Boolean).join(', '),
     service_type: cfg.service_type,
-  }
+  })
   editDialogOpen.value = true
 }
 
 function startCreate(type: AIServiceType) {
   editingConfig.value = null
-  editForm.value = { provider: '', api_key: '', base_url: '', modelStr: '', service_type: type }
+  Object.assign(editForm, { provider: '', api_key: '', base_url: '', modelStr: '', service_type: type })
   editDialogOpen.value = true
 }
 
 async function saveEdit() {
-  const f = editForm.value
+  const f = editForm
   if (!f.provider) { toast.warning('请选择服务商'); return }
   const models = f.modelStr.split(',').map(s => s.trim()).filter(Boolean)
   saving.value = true
