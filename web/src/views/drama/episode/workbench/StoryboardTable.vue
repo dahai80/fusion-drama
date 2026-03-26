@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Wand2 } from 'lucide-vue-next'
+import { Wand2, Loader2 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import type { Storyboard, Character, Scene } from '@/types/drama'
 import TableToolbar from './TableToolbar.vue'
@@ -21,6 +21,8 @@ const props = defineProps<{
     generating: number
     totalDuration: number
   }
+  running?: boolean
+  runningType?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -116,9 +118,10 @@ const durationDisplay = computed(() => {
       <Wand2 :size="32" class="table-empty__icon" />
       <p class="table-empty__text">暂无分镜</p>
       <p class="table-empty__hint">请先在「剧本」页完成改写和角色场景提取，然后拆解分镜</p>
-      <Button variant="outline" size="sm" @click="emit('breakdown')">
-        <Wand2 :size="14" />
-        Agent 拆解分镜
+      <Button variant="outline" size="sm" :disabled="running" @click="emit('breakdown')">
+        <Loader2 v-if="runningType === 'storyboard_breaker'" :size="14" class="animate-spin" />
+        <Wand2 v-else :size="14" />
+        {{ runningType === 'storyboard_breaker' ? '拆解中...' : 'Agent 拆解分镜' }}
       </Button>
     </div>
   </div>

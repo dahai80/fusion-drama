@@ -68,6 +68,8 @@
           :has-scenes="resource.hasScenes"
           :character-count="resource.characters.length"
           :scene-count="resource.scenes.length"
+          :running="agent.running"
+          :running-type="agent.runningType"
           @save="resource.saveScript"
           @upload="handleUploadScript"
           @rewrite="handleRewriteScript"
@@ -84,6 +86,8 @@
           :all-selected="table.allSelected"
           :has-selection="table.hasSelection"
           :progress="table.progress"
+          :running="agent.running"
+          :running-type="agent.runningType"
           @toggle-select="table.toggleSelect"
           @toggle-select-all="table.toggleSelectAll"
           @clear-selection="table.clearSelection"
@@ -129,6 +133,7 @@ import ResourcePanel from './workbench/ResourcePanel.vue'
 import ScriptTab from './workbench/ScriptTab.vue'
 import StoryboardTable from './workbench/StoryboardTable.vue'
 import { useEpisodeWorkbench } from '@/composables/useEpisodeWorkbench'
+import { useAgentAction } from '@/composables/useAgentAction'
 import AgentDrawer from '@/components/agent/AgentDrawer.vue'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/character-library'
@@ -146,6 +151,10 @@ const videoGen = reactive(wb.videoGen)
 const agentOpen = ref(false)
 const agentInitType = ref<AgentType | undefined>(undefined)
 
+// 流水线操作
+const agent = useAgentAction()
+const episodeDbId = computed(() => Number(resource.episode?.id || 0))
+
 const progressPct = computed(() => {
   const p = table.progress
   return p.total > 0 ? Math.round((p.withImage / p.total) * 100) : 0
@@ -153,12 +162,6 @@ const progressPct = computed(() => {
 
 const goBack = () => router.push(`/drama/${dramaId}`)
 const goToCompose = () => router.push(`/drama/${dramaId}/episode/${episodeNumber}/compose`)
-
-// --- Agent triggers: open drawer with pre-selected agent type ---
-function openAgent(type: AgentType) {
-  agentInitType.value = type
-  agentOpen.value = true
-}
 
 // --- Script Tab handlers ---
 const scriptFileInput = ref<HTMLInputElement | null>(null)
@@ -179,15 +182,33 @@ const onScriptFileSelected = async (e: Event) => {
   } catch {
     toast.error('读取文件失败')
   }
-  // Reset so same file can be selected again
   if (scriptFileInput.value) scriptFileInput.value.value = ''
 }
 
-const handleRewriteScript = () => openAgent('script_rewriter')
-const handleExtract = () => openAgent('extractor')
+// 流水线操作：一键执行，自动刷新数据
+const handleRewriteScript = () => {
+  agent.execute('script_rewriter', dramaId, episodeDbId.value,
+    '请将剧本改写为格式化剧本',
+    () => resource.loadData(),
+  )
+}
 
-// --- Storyboard Tab handlers ---
-const handleBreakdown = () => openAgent('storyboard_breaker')
+const handleExtract = () => {
+  agent.execute('extractor', dramaId, episodeDbId.value,
+    '请提取角色和场景信息',
+    () => resource.loadData(),
+  )
+}
+
+const handleBreakdown = () => {
+  agent.execute('storyboard_breaker', dramaId, episodeDbId.value,
+    '请拆解分镜并生成视频提示词',
+    () => {
+      resource.loadData()
+      table.activeTab = 'storyboard'
+    },
+  )
+}
 
 const handleAddStoryboard = async () => {
   const ep = resource.episode

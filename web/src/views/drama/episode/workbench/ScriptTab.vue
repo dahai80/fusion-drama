@@ -9,6 +9,7 @@ import {
   Save,
   Users,
   MapPin,
+  Loader2,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -18,6 +19,8 @@ const props = defineProps<{
   hasScenes: boolean
   characterCount: number
   sceneCount: number
+  running: boolean
+  runningType: string | null
 }>()
 
 const emit = defineEmits<{
@@ -91,13 +94,21 @@ async function saveAndEmit(event: 'rewrite' | 'extract') {
           <Upload :size="13" />
           上传
         </Button>
-        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasContent" @click="saveAndEmit('rewrite')">
-          <Wand2 :size="13" />
-          AI 改写
+        <Button variant="ghost" size="sm" class="tb-btn"
+          :disabled="!hasContent || running"
+          @click="saveAndEmit('rewrite')"
+        >
+          <Loader2 v-if="runningType === 'script_rewriter'" :size="13" class="animate-spin" />
+          <Wand2 v-else :size="13" />
+          {{ runningType === 'script_rewriter' ? '改写中...' : 'AI 改写' }}
         </Button>
-        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasContent" @click="saveAndEmit('extract')">
-          <FileText :size="13" />
-          提取角色&场景
+        <Button variant="ghost" size="sm" class="tb-btn"
+          :disabled="!hasContent || running"
+          @click="saveAndEmit('extract')"
+        >
+          <Loader2 v-if="runningType === 'extractor'" :size="13" class="animate-spin" />
+          <FileText v-else :size="13" />
+          {{ runningType === 'extractor' ? '提取中...' : '提取角色&场景' }}
         </Button>
         <Button v-if="isDirty" size="sm" class="tb-btn tb-btn--save" @click="handleSave">
           <Save :size="13" />
