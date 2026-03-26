@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { toRef } from 'vue'
+import { toRef, watch } from 'vue'
 import {
   Sheet,
   SheetContent,
@@ -36,6 +36,7 @@ const props = defineProps<{
   open: boolean
   dramaId: number
   episodeId: number
+  initialAgentType?: AgentType
 }>()
 
 defineEmits<{
@@ -44,6 +45,11 @@ defineEmits<{
 }>()
 
 const { agentType, messages, streaming, currentStreamContent, sendMessage, clearMessages } = useAgentChat(props.dramaId, toRef(props, 'episodeId'))
+
+// Watch for external agent type changes
+watch(() => props.initialAgentType, (newType) => {
+  if (newType) agentType.value = newType
+})
 </script>
 
 <style scoped>

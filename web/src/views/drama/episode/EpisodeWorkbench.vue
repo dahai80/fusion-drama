@@ -113,6 +113,7 @@
       v-model:open="agentOpen"
       :drama-id="dramaId"
       :episode-id="episodeNumber"
+      :initial-agent-type="agentInitType"
       @apply="handleAgentApply"
     />
   </div>
@@ -143,6 +144,7 @@ const imageGen = reactive(wb.imageGen)
 const videoGen = reactive(wb.videoGen)
 
 const agentOpen = ref(false)
+const agentInitType = ref<AgentType | undefined>(undefined)
 
 const progressPct = computed(() => {
   const p = table.progress
@@ -154,9 +156,8 @@ const goToCompose = () => router.push(`/drama/${dramaId}/episode/${episodeNumber
 
 // --- Agent triggers: open drawer with pre-selected agent type ---
 function openAgent(type: AgentType) {
+  agentInitType.value = type
   agentOpen.value = true
-  // AgentDrawer's useAgentChat exposes agentType — we set it via the drawer
-  // For now we open drawer and let user interact. TODO: auto-send message
 }
 
 // --- Script Tab handlers ---
