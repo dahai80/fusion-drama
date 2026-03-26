@@ -7,8 +7,10 @@ import { X } from "lucide-vue-next"
 import {
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogOverlay,
   DialogPortal,
+  VisuallyHidden,
   useForwardPropsEmits,
 } from "reka-ui"
 import { cn } from "@/lib/utils"
@@ -41,6 +43,10 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       :class="cn(sheetVariants({ side }), props.class)"
       v-bind="{ ...forwarded, ...$attrs }"
     >
+      <VisuallyHidden>
+        <DialogDescription />
+      </VisuallyHidden>
+
       <slot />
 
       <DialogClose
