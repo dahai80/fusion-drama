@@ -62,7 +62,9 @@
         <!-- Script Tab -->
         <ScriptTab
           v-if="table.activeTab === 'script'"
+          :raw-content="resource.rawContent"
           :script-content="resource.scriptContent"
+          :has-raw-content="resource.hasRawContent"
           :has-script="resource.hasScript"
           :has-characters="resource.hasCharacters"
           :has-scenes="resource.hasScenes"
@@ -70,7 +72,8 @@
           :scene-count="resource.scenes.length"
           :running="agent.running"
           :running-type="agent.runningType"
-          @save="resource.saveScript"
+          @save-raw="resource.saveRawContent"
+          @save-script="resource.saveScript"
           @upload="handleUploadScript"
           @rewrite="handleRewriteScript"
           @extract="handleExtract"
@@ -176,7 +179,7 @@ const onScriptFileSelected = async (e: Event) => {
   try {
     const text = await file.text()
     if (text.trim()) {
-      await resource.saveScript(text)
+      await resource.saveRawContent(text)
       toast.success(`已导入 ${file.name}`)
     }
   } catch {
@@ -188,14 +191,14 @@ const onScriptFileSelected = async (e: Event) => {
 // 流水线操作：一键执行，自动刷新数据
 const handleRewriteScript = () => {
   agent.execute('script_rewriter', dramaId, episodeDbId.value,
-    '请将剧本改写为格式化剧本',
+    '请读取剧本并改写为格式化剧本，然后保存',
     () => resource.loadData(),
   )
 }
 
 const handleExtract = () => {
   agent.execute('extractor', dramaId, episodeDbId.value,
-    '请提取角色和场景信息',
+    '请从剧本中提取所有角色和场景信息',
     () => resource.loadData(),
   )
 }

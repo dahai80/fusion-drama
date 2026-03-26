@@ -14,6 +14,8 @@ export function useResourcePanel(dramaId: number, episodeNumber: number) {
 
   const expandedBlock = ref<'script' | 'characters' | 'scenes' | null>('script')
 
+  const rawContent = computed(() => episode.value?.content || '')
+  const hasRawContent = computed(() => !!rawContent.value)
   const scriptContent = computed(() => episode.value?.script_content || '')
   const hasScript = computed(() => !!scriptContent.value)
   const hasCharacters = computed(() => characters.value.length > 0)
@@ -45,6 +47,14 @@ export function useResourcePanel(dramaId: number, episodeNumber: number) {
     }
   }
 
+  async function saveRawContent(content: string) {
+    if (!episode.value) return
+    episode.value.content = content
+    await dramaAPI.saveEpisodes(String(dramaId), [
+      { id: episode.value.id, content },
+    ])
+  }
+
   async function saveScript(content: string) {
     if (!episode.value) return
     episode.value.script_content = content
@@ -61,6 +71,8 @@ export function useResourcePanel(dramaId: number, episodeNumber: number) {
     storyboards,
     loading,
     expandedBlock,
+    rawContent,
+    hasRawContent,
     scriptContent,
     hasScript,
     hasCharacters,
@@ -68,6 +80,7 @@ export function useResourcePanel(dramaId: number, episodeNumber: number) {
     pipelineStage,
     toggleBlock,
     loadData,
+    saveRawContent,
     saveScript,
   }
 }
