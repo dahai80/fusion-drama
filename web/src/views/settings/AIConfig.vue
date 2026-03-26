@@ -206,7 +206,7 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { toast } from 'vue-sonner'
 import {
   Wand2, Loader2, ChevronDown, Save, Plus, Check, X,
-  Type, ImageIcon, Video, AudioLines, Mic,
+  Type, ImageIcon, Video, AudioLines,
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -235,7 +235,6 @@ const serviceTypeTabs = [
   { key: 'image' as AIServiceType, label: '图片', icon: ImageIcon },
   { key: 'video' as AIServiceType, label: '视频', icon: Video },
   { key: 'audio' as AIServiceType, label: '音频', icon: AudioLines },
-  { key: 'lipsync' as AIServiceType, label: '口型同步', icon: Mic },
 ]
 
 function serviceTypeLabel(t: AIServiceType) {
@@ -421,11 +420,11 @@ function getDefaultBaseUrl(providerId: string): string {
 async function loadAll() {
   loading.value = true
   try {
-    const [text, image, video, audio, lipsync, providers] = await Promise.all([
+    const [text, image, video, audio, providers] = await Promise.all([
       aiAPI.list('text'), aiAPI.list('image'), aiAPI.list('video'),
-      aiAPI.list('audio'), aiAPI.list('lipsync'), aiAPI.listProviders(),
+      aiAPI.list('audio'), aiAPI.listProviders(),
     ])
-    allConfigs.value = [...text, ...image, ...video, ...audio, ...lipsync]
+    allConfigs.value = [...text, ...image, ...video, ...audio]
     allProviders.value = providers
   } catch (error: any) { toast.error(error.message || '加载失败') }
   finally { loading.value = false }
