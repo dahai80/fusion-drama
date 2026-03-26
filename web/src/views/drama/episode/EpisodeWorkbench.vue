@@ -151,8 +151,8 @@ const videoGen = reactive(wb.videoGen)
 const agentOpen = ref(false)
 const agentInitType = ref<AgentType | undefined>(undefined)
 
-// 流水线操作
-const agent = useAgentAction()
+// 流水线操作（用 reactive 包裹使 refs 在模板中自动 unwrap）
+const agent = reactive(useAgentAction())
 const episodeDbId = computed(() => Number(resource.episode?.id || 0))
 
 const progressPct = computed(() => {
