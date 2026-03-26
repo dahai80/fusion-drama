@@ -48,15 +48,26 @@ function handleSave() {
   isDirty.value = false
 }
 
+const hasContent = computed(() => localContent.value.trim().length > 0)
+
 const wordCount = computed(() => {
   return localContent.value.replace(/\s/g, '').length
 })
 
 const pipelineHint = computed(() => {
-  if (!props.hasScript) return '上传或粘贴剧本内容开始制作'
+  if (!hasContent.value) return '上传或粘贴剧本内容开始制作'
   if (!props.hasCharacters && !props.hasScenes) return '剧本就绪，可以改写为格式化剧本或提取角色场景'
   return '角色场景已提取，可以切换到分镜 Tab 拆解分镜'
 })
+
+// Auto-save before triggering agent actions
+async function saveAndEmit(event: 'rewrite' | 'extract') {
+  if (isDirty.value) {
+    emit('save', localContent.value)
+    isDirty.value = false
+  }
+  emit(event)
+}
 </script>
 
 <template>
@@ -65,7 +76,7 @@ const pipelineHint = computed(() => {
     <div class="script-toolbar">
       <div class="script-toolbar-left">
         <span class="script-toolbar-title">剧本</span>
-        <Badge v-if="hasScript" variant="secondary" class="word-badge">{{ wordCount.toLocaleString() }}字</Badge>
+        <Badge v-if="hasContent" variant="secondary" class="word-badge">{{ wordCount.toLocaleString() }}字</Badge>
         <Badge v-if="hasCharacters" class="resource-badge resource-badge--char">
           <Users :size="10" />
           {{ characterCount }}
@@ -80,11 +91,11 @@ const pipelineHint = computed(() => {
           <Upload :size="13" />
           上传
         </Button>
-        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasScript" @click="emit('rewrite')">
+        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasContent" @click="saveAndEmit('rewrite')">
           <Wand2 :size="13" />
           AI 改写
         </Button>
-        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasScript" @click="emit('extract')">
+        <Button variant="ghost" size="sm" class="tb-btn" :disabled="!hasContent" @click="saveAndEmit('extract')">
           <FileText :size="13" />
           提取角色&场景
         </Button>
