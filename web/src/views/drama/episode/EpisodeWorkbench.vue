@@ -99,6 +99,15 @@
       </div>
     </div>
 
+    <!-- Hidden file input for script upload -->
+    <input
+      ref="scriptFileInput"
+      type="file"
+      accept=".txt,.md,.doc,.docx"
+      style="display: none"
+      @change="onScriptFileSelected"
+    />
+
     <!-- Agent drawer -->
     <AgentDrawer
       v-model:open="agentOpen"
@@ -121,6 +130,8 @@ import StoryboardTable from './workbench/StoryboardTable.vue'
 import { useEpisodeWorkbench } from '@/composables/useEpisodeWorkbench'
 import AgentDrawer from '@/components/agent/AgentDrawer.vue'
 import { dramaAPI } from '@/api/drama'
+import { characterLibraryAPI } from '@/api/character-library'
+import { generatePanelFrames } from '@/api/frame'
 import type { AgentType } from '@/types/agent'
 
 const router = useRouter()
@@ -149,9 +160,26 @@ function openAgent(type: AgentType) {
 }
 
 // --- Script Tab handlers ---
+const scriptFileInput = ref<HTMLInputElement | null>(null)
+
 const handleUploadScript = () => {
-  // TODO: file upload dialog
-  toast.info('上传功能开发中')
+  scriptFileInput.value?.click()
+}
+
+const onScriptFileSelected = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    if (text.trim()) {
+      await resource.saveScript(text)
+      toast.success(`已导入 ${file.name}`)
+    }
+  } catch {
+    toast.error('读取文件失败')
+  }
+  // Reset so same file can be selected again
+  if (scriptFileInput.value) scriptFileInput.value.value = ''
 }
 
 const handleRewriteScript = () => openAgent('script_rewriter')
@@ -196,12 +224,29 @@ const handleGenerateImage = (id: string) => {
   imageGen.generateFrameImage(chars)
 }
 
-const handleGenerateCharacterImage = (id: number) => {
-  dramaAPI.generateSceneImage({ scene_id: id }).catch(() => toast.error('生成失败'))
+const handleGenerateCharacterImage = async (id: number) => {
+  try {
+    await characterLibraryAPI.generateCharacterImage(String(id))
+    toast.success('角色形象生成已开始')
+  } catch {
+    toast.error('生成失败')
+  }
 }
 
-const handleBatchGenerateCharacters = () => {
-  toast.info('批量生成角色形象开发中')
+const handleBatchGenerateCharacters = async () => {
+  const ids = resource.characters
+    .filter((c: any) => c.image_generation_status !== 'completed' && c.image_generation_status !== 'generating')
+    .map((c: any) => String(c.id))
+  if (ids.length === 0) {
+    toast.info('没有需要生成的角色')
+    return
+  }
+  try {
+    await characterLibraryAPI.batchGenerateCharacterImages(ids)
+    toast.success(`已开始生成 ${ids.length} 个角色形象`)
+  } catch {
+    toast.error('批量生成失败')
+  }
 }
 
 const handleGenerateSceneImage = (id: number) => {
@@ -244,8 +289,22 @@ const handleBatchVideos = () => {
   }
 }
 
-const handleGenerateGrid = () => {
-  toast.info('宫格图功能开发中')
+const handleGenerateGrid = async () => {
+  const selected = table.selectedStoryboards
+  if (selected.length === 0) {
+    toast.info('请先选择要生成宫格图的镜头')
+    return
+  }
+  try {
+    // Generate panel frames for each selected storyboard
+    const promises = selected.map((sb: any) =>
+      generatePanelFrames(Number(sb.id), Math.min(selected.length, 9))
+    )
+    await Promise.all(promises)
+    toast.success(`已开始为 ${selected.length} 个镜头生成宫格图`)
+  } catch {
+    toast.error('宫格图生成失败')
+  }
 }
 
 // --- Agent result apply ---
