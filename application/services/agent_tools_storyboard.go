@@ -63,6 +63,12 @@ func (s *AgentService) getStoryboardBreakerTools() []tool.BaseTool {
 			if params.Duration != nil {
 				updates["duration"] = *params.Duration
 			}
+			if params.VideoPrompt != nil {
+				updates["video_prompt"] = *params.VideoPrompt
+			}
+			if params.Description != nil {
+				updates["description"] = *params.Description
+			}
 			if len(updates) == 0 {
 				return "", fmt.Errorf("no fields to update")
 			}
@@ -90,6 +96,8 @@ type UpdateStoryboardParams struct {
 	Action       *string `json:"action,omitempty" jsonschema:"description=Character action description"`
 	Dialogue     *string `json:"dialogue,omitempty" jsonschema:"description=Dialogue content"`
 	Duration     *int    `json:"duration,omitempty" jsonschema:"description=Shot duration in seconds"`
+	VideoPrompt  *string `json:"video_prompt,omitempty" jsonschema:"description=Video generation prompt with time segments and tags"`
+	Description  *string `json:"description,omitempty" jsonschema:"description=Shot description in Chinese"`
 }
 
 func formatStoryboardSummary(storyboards []Storyboard) []map[string]interface{} {

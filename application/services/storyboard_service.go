@@ -37,23 +37,24 @@ func NewStoryboardService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *
 
 type Storyboard struct {
 	ShotNumber  int    `json:"shot_number"`
-	Title       string `json:"title"`        // 镜头标题
-	ShotType    string `json:"shot_type"`    // 景别
-	Angle       string `json:"angle"`        // 镜头角度
-	Time        string `json:"time"`         // 时间
-	Location    string `json:"location"`     // 地点
-	SceneID     *uint  `json:"scene_id"`     // 背景ID（AI直接返回，可为null）
-	Movement    string `json:"movement"`     // 运镜
-	Action      string `json:"action"`       // 动作
-	Dialogue    string `json:"dialogue"`     // 对话/独白
-	Result      string `json:"result"`       // 画面结果
-	Atmosphere  string `json:"atmosphere"`   // 环境氛围
-	Emotion     string `json:"emotion"`      // 情绪
-	Duration    int    `json:"duration"`     // 时长（秒）
-	BgmPrompt   string `json:"bgm_prompt"`   // 配乐提示词
-	SoundEffect string `json:"sound_effect"` // 音效描述
-	Characters  []uint `json:"characters"`   // 涉及的角色ID列表
-	IsPrimary   bool   `json:"is_primary"`   // 是否主镜
+	Title       string `json:"title"`         // 镜头标题
+	ShotType    string `json:"shot_type"`     // 景别
+	Angle       string `json:"angle"`         // 镜头角度
+	Time        string `json:"time"`          // 时间
+	Location    string `json:"location"`      // 地点
+	SceneID     *uint  `json:"scene_id"`      // 背景ID（AI直接返回，可为null）
+	Movement    string `json:"movement"`      // 运镜
+	Action      string `json:"action"`        // 动作
+	Dialogue    string `json:"dialogue"`      // 对话/独白
+	Result      string `json:"result"`        // 画面结果
+	Atmosphere  string `json:"atmosphere"`    // 环境氛围
+	Emotion     string `json:"emotion"`       // 情绪
+	Duration    int    `json:"duration"`      // 时长（秒）
+	BgmPrompt   string `json:"bgm_prompt"`    // 配乐提示词
+	SoundEffect string `json:"sound_effect"`  // 音效描述
+	VideoPrompt string `json:"video_prompt"`  // 视频生成提示词（带时间段+标签）
+	Characters  []uint `json:"characters"`    // 涉及的角色ID列表
+	IsPrimary   bool   `json:"is_primary"`    // 是否主镜
 }
 
 type GenerateStoryboardResult struct {
@@ -874,7 +875,11 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 
 			// 生成两种专用提示词
 			imagePrompt := s.generateImagePrompt(sb) // 专用于图片生成
-			videoPrompt := s.generateVideoPrompt(sb) // 专用于视频生成
+			// 优先使用 AI 拆分时直接生成的视频提示词，否则 fallback 到自动生成
+			videoPrompt := sb.VideoPrompt
+			if videoPrompt == "" {
+				videoPrompt = s.generateVideoPrompt(sb)
+			}
 
 			// 处理 dialogue 字段
 			var dialoguePtr *string

@@ -78,6 +78,16 @@ func (p *PromptI18n) GetStoryboardSystemPrompt() string {
    - dialogue: Character dialogue or narration (if any)
    - emotion: Current emotion
    - emotion_intensity: Emotion intensity level (3/2/1/0/-1)
+   - video_prompt: Video generation prompt with time segments (REQUIRED)
+
+2. video_prompt format rules:
+   - Split into 3-second segments with time markers
+   - Use <location>place</location> for scene tags
+   - Use <role>name</role> for character tags
+   - Use <voice>name</voice> for voiceover/narration tags
+   - Use <n> to separate segments
+   - Each shot should be 10-15 seconds total
+   - Example: "0-3秒：<location>咖啡厅</location>，近景，<role>小明</role>低头看手机，表情焦虑。<n>3-6秒：<location>咖啡厅</location>，全景，门铃响，<role>小红</role>推门走入。"
 
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
 
@@ -133,6 +143,16 @@ func (p *PromptI18n) GetStoryboardSystemPrompt() string {
    - dialogue：角色对话或旁白（如有）
    - emotion：当前情绪
    - emotion_intensity：情绪强度等级（3/2/1/0/-1）
+   - video_prompt：视频生成提示词，按时间段描述（必填）
+
+2. video_prompt 格式要求：
+   - 按 3 秒为一段，用时间标记分隔
+   - 使用 <location>地点</location> 标记场景
+   - 使用 <role>角色名</role> 标记角色
+   - 使用 <voice>角色名</voice> 标记画外音/旁白
+   - 用 <n> 分隔不同时间段
+   - 每个镜头总时长 10-15 秒
+   - 示例："0-3秒：<location>咖啡厅</location>，近景，<role>小明</role>低头看手机，表情焦虑。<n>3-6秒：<location>咖啡厅</location>，全景，门铃响，<role>小红</role>推门走入。"
 
 **重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
 
