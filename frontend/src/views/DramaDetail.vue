@@ -70,7 +70,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.page { padding: 24px 32px; max-width: 900px; }
+.page { padding: 24px 32px; max-width: 800px; margin: 0 auto; }
 .page-header { margin-bottom: 20px; }
 .header-left { display: flex; align-items: center; gap: 12px; }
 .page-title { font-size: 18px; font-weight: 700; }
