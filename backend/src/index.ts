@@ -2,7 +2,6 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -17,6 +16,7 @@ import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
 import agentConfigs from './routes/agentConfigs.js'
 import agent from './routes/agent.js'
+import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
@@ -25,10 +25,11 @@ const app = new Hono()
 
 // Middleware
 app.use('*', cors({
-  origin: ['http://localhost:3012', 'http://localhost:5678', 'http://localhost:5679'],
+  origin: ['http://localhost:3013', 'http://localhost:5679'],
   credentials: true,
 }))
-app.use('*', logger())
+app.use('*', errorHandler)
+app.use('*', requestLogger)
 
 // Health check
 app.get('/api/v1/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
@@ -53,8 +54,8 @@ app.route('/api/v1', api)
 // Serve static files (storage)
 app.use('/static/*', serveStatic({ root: path.join(projectRoot, 'data') }))
 
-// Serve frontend
-const distPath = path.join(projectRoot, 'web', 'dist')
+// Serve frontend (production build)
+const distPath = path.join(projectRoot, 'frontend', 'dist')
 app.use('*', serveStatic({ root: distPath }))
 app.get('*', serveStatic({ root: distPath, path: 'index.html' }))
 
