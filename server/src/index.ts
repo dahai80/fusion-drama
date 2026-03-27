@@ -4,19 +4,27 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
-import dramas from './routes/dramas'
-import episodes from './routes/episodes'
-import storyboards from './routes/storyboards'
-import scenes from './routes/scenes'
-import aiConfigs, { aiProviders } from './routes/aiConfigs'
-import agentConfigs from './routes/agentConfigs'
+import dramas from './routes/dramas.js'
+import episodes from './routes/episodes.js'
+import storyboards from './routes/storyboards.js'
+import scenes from './routes/scenes.js'
+import characters from './routes/characters.js'
+import images from './routes/images.js'
+import videos from './routes/videos.js'
+import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
+import agentConfigs from './routes/agentConfigs.js'
+import agent from './routes/agent.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const projectRoot = path.resolve(__dirname, '../..')
 
 const app = new Hono()
 
 // Middleware
 app.use('*', cors({
-  origin: ['http://localhost:3012', 'http://localhost:5678'],
+  origin: ['http://localhost:3012', 'http://localhost:5678', 'http://localhost:5679'],
   credentials: true,
 }))
 app.use('*', logger())
@@ -25,29 +33,29 @@ app.use('*', logger())
 app.get('/api/v1/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
 // API routes
-const api = app.basePath('/api/v1')
+const api = new Hono()
 api.route('/dramas', dramas)
 api.route('/episodes', episodes)
 api.route('/storyboards', storyboards)
 api.route('/scenes', scenes)
+api.route('/characters', characters)
+api.route('/images', images)
+api.route('/videos', videos)
 api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
 api.route('/agent-configs', agentConfigs)
+api.route('/agent', agent)
 
-// TODO: Phase 2 routes
-// api.route('/images', images)
-// api.route('/videos', videos)
-// api.route('/video-merges', videoMerges)
-// api.route('/agent', agent)
-// api.route('/characters', characters)
+app.route('/api/v1', api)
 
-// Serve frontend static files
-app.use('/static/*', serveStatic({ root: './data' }))
-app.use('*', serveStatic({ root: './web/dist' }))
+// Serve static files (storage)
+app.use('/static/*', serveStatic({ root: path.join(projectRoot, 'data') }))
 
-// SPA fallback
-app.get('*', serveStatic({ root: './web/dist', path: 'index.html' }))
+// Serve frontend
+const distPath = path.join(projectRoot, 'web', 'dist')
+app.use('*', serveStatic({ root: distPath }))
+app.get('*', serveStatic({ root: distPath, path: 'index.html' }))
 
 const port = Number(process.env.PORT || 5679)
-console.log(`🚀 Huobao Drama TS server running on http://localhost:${port}`)
+console.log(`🚀 Huobao Drama TS server on http://localhost:${port}`)
 serve({ fetch: app.fetch, port })
