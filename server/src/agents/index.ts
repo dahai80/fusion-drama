@@ -16,8 +16,9 @@ function getModel() {
   const provider = createOpenAI({
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
+    compatibility: 'compatible', // 使用 Chat Completions 格式而非 Responses API
   })
-  return provider(config.model)
+  return provider.chat(config.model)
 }
 
 // 剧本改写 Agent
