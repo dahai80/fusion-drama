@@ -51,28 +51,32 @@ app.get('/', async (c) => {
 app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
-  const [result] = await db.insert(schema.dramas).values({
+  const res = db.insert(schema.dramas).values({
     title: body.title,
     description: body.description,
     genre: body.genre,
     style: body.style,
     tags: body.tags ? JSON.stringify(body.tags) : null,
+    metadata: body.metadata,
     status: 'draft',
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+
+  const [result] = db.select().from(schema.dramas)
+    .where(eq(schema.dramas.id, Number(res.lastInsertRowid))).all()
 
   // Create default episodes
   const totalEpisodes = body.total_episodes || 1
   for (let i = 1; i <= totalEpisodes; i++) {
-    await db.insert(schema.episodes).values({
+    db.insert(schema.episodes).values({
       dramaId: result.id,
       episodeNumber: i,
       title: `第${i}集`,
       status: 'draft',
       createdAt: ts,
       updatedAt: ts,
-    })
+    }).run()
   }
 
   return created(c, result)

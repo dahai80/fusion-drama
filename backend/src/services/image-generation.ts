@@ -39,14 +39,16 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     status: 'processing',
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+
+  const lastId = Number(db.select().from(schema.imageGenerations).all().pop()?.id || 0)
 
   // 异步处理
-  processImageGeneration(record.id, config).catch(err => {
-    console.error(`Image generation ${record.id} failed:`, err)
+  processImageGeneration(lastId, config).catch(err => {
+    console.error(`Image generation ${lastId} failed:`, err)
   })
 
-  return record.id
+  return lastId
 }
 
 async function processImageGeneration(id: number, config: { baseUrl: string; apiKey: string; model: string }) {

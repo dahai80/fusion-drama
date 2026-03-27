@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
-import { db, schema } from '../db'
-import { success, notFound, created, now } from '../utils/response'
+import { db, schema } from '../db/index.js'
+import { success, created, now } from '../utils/response.js'
 
 const app = new Hono()
 
@@ -9,18 +9,17 @@ const app = new Hono()
 app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
-  const [result] = await db.insert(schema.scenes).values({
+  const res = db.insert(schema.scenes).values({
     dramaId: body.drama_id,
     episodeId: body.episode_id,
     location: body.location,
-    time: body.time,
-    prompt: body.prompt,
-    description: body.description,
-    imageUrl: body.image_url,
-    localPath: body.local_path,
+    time: body.time || '',
+    prompt: body.prompt || body.location,
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+  const [result] = db.select().from(schema.scenes)
+    .where(eq(schema.scenes.id, Number(res.lastInsertRowid))).all()
   return created(c, result)
 })
 
@@ -28,22 +27,18 @@ app.post('/', async (c) => {
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
-  await db.update(schema.scenes).set({
-    location: body.location,
-    time: body.time,
-    prompt: body.prompt,
-    description: body.description,
-    imageUrl: body.image_url,
-    localPath: body.local_path,
-    updatedAt: now(),
-  }).where(eq(schema.scenes.id, id))
+  const updates: Record<string, any> = { updatedAt: now() }
+  if (body.location !== undefined) updates.location = body.location
+  if (body.time !== undefined) updates.time = body.time
+  if (body.prompt !== undefined) updates.prompt = body.prompt
+  db.update(schema.scenes).set(updates).where(eq(schema.scenes.id, id)).run()
   return success(c)
 })
 
 // DELETE /scenes/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  await db.delete(schema.scenes).where(eq(schema.scenes.id, id))
+  db.delete(schema.scenes).where(eq(schema.scenes.id, id)).run()
   return success(c)
 })
 

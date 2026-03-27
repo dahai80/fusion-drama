@@ -1,15 +1,15 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
-import { db, schema } from '../db'
-import { success, notFound, badRequest, created, now } from '../utils/response'
+import { db, schema } from '../db/index.js'
+import { success, created, now } from '../utils/response.js'
 
 const app = new Hono()
 
-// POST /storyboards - Create storyboard
+// POST /storyboards
 app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
-  const [result] = await db.insert(schema.storyboards).values({
+  const res = db.insert(schema.storyboards).values({
     episodeId: body.episode_id,
     storyboardNumber: body.storyboard_number || 1,
     title: body.title,
@@ -20,11 +20,13 @@ app.post('/', async (c) => {
     duration: body.duration || 10,
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+  const [result] = db.select().from(schema.storyboards)
+    .where(eq(schema.storyboards.id, Number(res.lastInsertRowid))).all()
   return created(c, result)
 })
 
-// PUT /storyboards/:id - Update storyboard
+// PUT /storyboards/:id
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
@@ -43,14 +45,14 @@ app.put('/:id', async (c) => {
     if (snakeKey in body) updates[camelKey] = body[snakeKey]
   }
 
-  await db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, id))
+  db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, id)).run()
   return success(c)
 })
 
 // DELETE /storyboards/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  await db.delete(schema.storyboards).where(eq(schema.storyboards.id, id))
+  db.delete(schema.storyboards).where(eq(schema.storyboards.id, id)).run()
   return success(c)
 })
 

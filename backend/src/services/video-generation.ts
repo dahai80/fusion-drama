@@ -42,14 +42,16 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     status: 'processing',
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+
+  const lastId = Number(db.select().from(schema.videoGenerations).all().pop()?.id || 0)
 
   // 异步处理
-  processVideoGeneration(record.id, config).catch(err => {
-    console.error(`Video generation ${record.id} failed:`, err)
+  processVideoGeneration(lastId, config).catch(err => {
+    console.error(`Video generation ${lastId} failed:`, err)
   })
 
-  return record.id
+  return lastId
 }
 
 async function processVideoGeneration(id: number, config: { baseUrl: string; apiKey: string; model: string }) {

@@ -29,7 +29,7 @@ app.post('/', async (c) => {
     return badRequest(c, 'service_type and provider are required')
   }
 
-  const [result] = db.insert(schema.aiServiceConfigs).values({
+  const res = db.insert(schema.aiServiceConfigs).values({
     serviceType: body.service_type,
     provider: body.provider,
     name: body.name || `${body.provider}-${body.service_type}`,
@@ -40,11 +40,14 @@ app.post('/', async (c) => {
     isActive: true,
     createdAt: ts,
     updatedAt: ts,
-  }).returning()
+  }).run()
+
+  const [row] = db.select().from(schema.aiServiceConfigs)
+    .where(eq(schema.aiServiceConfigs.id, Number(res.lastInsertRowid))).all()
 
   return created(c, {
-    ...toSnakeCase(result),
-    model: result.model ? JSON.parse(result.model) : [],
+    ...toSnakeCase(row),
+    model: row.model ? JSON.parse(row.model) : [],
   })
 })
 
