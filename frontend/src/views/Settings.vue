@@ -186,7 +186,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.page { padding: 24px 32px; max-width: 700px; }
+.page { padding: 24px 32px; max-width: 800px; margin: 0 auto; }
 .page-header { margin-bottom: 24px; }
 .page-title { font-size: 18px; font-weight: 700; }
 
