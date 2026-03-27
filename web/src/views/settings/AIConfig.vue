@@ -90,7 +90,7 @@
         <DialogHeader>
           <DialogTitle>{{ editingConfig ? '编辑服务' : '添加服务' }}</DialogTitle>
         </DialogHeader>
-        <div class="dialog-form">
+        <form class="dialog-form" @submit.prevent="saveEdit">
           <div class="form-row">
             <label>服务商</label>
             <Select
@@ -117,7 +117,7 @@
             <label>模型（逗号分隔）</label>
             <Input v-model="editForm.modelStr" type="text" placeholder="model-name-1, model-name-2" />
           </div>
-        </div>
+        </form>
         <DialogFooter>
           <Button variant="outline" @click="editDialogOpen = false">取消</Button>
           <Button @click="saveEdit" :disabled="saving">
@@ -138,10 +138,12 @@
           <p>自动创建文本、图片、视频三项服务配置</p>
           <p class="quick-tip">Base URL: https://api.chatfire.site/v1</p>
         </div>
-        <div class="form-row">
-          <label>API Key <span class="required">*</span></label>
-          <Input v-model="quickSetupApiKey" type="password" placeholder="请输入 ChatFire API Key" />
-        </div>
+        <form @submit.prevent="handleQuickSetup">
+          <div class="form-row">
+            <label>API Key <span class="required">*</span></label>
+            <Input v-model="quickSetupApiKey" type="password" placeholder="请输入 ChatFire API Key" />
+          </div>
+        </form>
         <DialogFooter class="quick-footer">
           <a href="https://api.chatfire.site/login?inviteCode=C4453345" target="_blank" class="register-link">
             没有 API Key？点击注册
