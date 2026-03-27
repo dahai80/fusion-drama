@@ -61,10 +61,10 @@
                 :checked="cfg.is_active"
                 @update:checked="(val: boolean) => toggleConfig(cfg.id, val)"
               />
-              <Button variant="ghost" size="icon" class="edit-btn" @click="startEdit(cfg)">
+              <Button variant="ghost" size="sm" class="edit-btn" @click.stop="startEdit(cfg)">
                 <Pencil :size="13" />
               </Button>
-              <Button variant="ghost" size="icon" class="del-btn" @click="deleteConfig(cfg.id)">
+              <Button variant="ghost" size="sm" class="del-btn" @click.stop="deleteConfig(cfg.id)">
                 <Trash2 :size="13" />
               </Button>
             </div>
@@ -76,10 +76,10 @@
           </div>
 
           <!-- Add button -->
-          <button class="add-config-btn" @click="startCreate(svc.type)">
+          <div class="add-config-btn" @click="startCreate(svc.type)">
             <Plus :size="13" />
             添加{{ svc.label }}服务
-          </button>
+          </div>
         </div>
       </section>
     </div>
@@ -240,19 +240,21 @@ const editForm = reactive({ provider: '', api_key: '', base_url: '', modelStr: '
 function startEdit(cfg: AIServiceConfig) {
   editingConfig.value = cfg
   const models = Array.isArray(cfg.model) ? cfg.model : [cfg.model]
-  Object.assign(editForm, {
-    provider: cfg.provider || '',
-    api_key: cfg.api_key || '',
-    base_url: cfg.base_url || '',
-    modelStr: models.filter(Boolean).join(', '),
-    service_type: cfg.service_type,
-  })
+  editForm.provider = cfg.provider || ''
+  editForm.api_key = cfg.api_key || ''
+  editForm.base_url = cfg.base_url || ''
+  editForm.modelStr = models.filter(Boolean).join(', ')
+  editForm.service_type = cfg.service_type
   editDialogOpen.value = true
 }
 
 function startCreate(type: AIServiceType) {
   editingConfig.value = null
-  Object.assign(editForm, { provider: '', api_key: '', base_url: '', modelStr: '', service_type: type })
+  editForm.provider = ''
+  editForm.api_key = ''
+  editForm.base_url = ''
+  editForm.modelStr = ''
+  editForm.service_type = type
   editDialogOpen.value = true
 }
 
