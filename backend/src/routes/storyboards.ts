@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, now } from '../utils/response.js'
+import { toSnakeCase } from '../utils/transform.js'
 
 const app = new Hono()
 
@@ -23,7 +24,7 @@ app.post('/', async (c) => {
   }).run()
   const [result] = db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.id, Number(res.lastInsertRowid))).all()
-  return created(c, result)
+  return created(c, toSnakeCase(result))
 })
 
 // PUT /storyboards/:id

@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { eq, isNull, like, desc } from 'drizzle-orm'
-import { db, schema } from '../db'
-import { success, badRequest, notFound, created, now } from '../utils/response'
+import { db, schema } from '../db/index.js'
+import { success, badRequest, notFound, created, now } from '../utils/response.js'
+import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
 
 const app = new Hono()
 
@@ -32,12 +33,12 @@ app.get('/', async (c) => {
     const scns = await db.select().from(schema.scenes)
       .where(eq(schema.scenes.dramaId, drama.id))
     return {
-      ...drama,
+      ...toSnakeCase(drama),
       tags: drama.tags ? JSON.parse(drama.tags) : [],
       total_episodes: eps.length,
-      episodes: eps,
-      characters: chars,
-      scenes: scns,
+      episodes: toSnakeCaseArray(eps),
+      characters: toSnakeCaseArray(chars),
+      scenes: toSnakeCaseArray(scns),
     }
   }))
 
@@ -79,8 +80,9 @@ app.post('/', async (c) => {
     }).run()
   }
 
-  return created(c, result)
+  return created(c, toSnakeCase(result))
 })
+
 
 // GET /dramas/stats — must be before /:id
 app.get('/stats', async (c) => {
@@ -110,12 +112,12 @@ app.get('/:id', async (c) => {
     .where(eq(schema.props.dramaId, id))
 
   return success(c, {
-    ...drama,
+    ...toSnakeCase(drama),
     tags: drama.tags ? JSON.parse(drama.tags) : [],
-    episodes: eps,
-    characters: chars,
-    scenes: scns,
-    props: prps,
+    episodes: toSnakeCaseArray(eps),
+    characters: toSnakeCaseArray(chars),
+    scenes: toSnakeCaseArray(scns),
+    props: toSnakeCaseArray(prps),
   })
 })
 

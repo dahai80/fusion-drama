@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
-import { db, schema } from '../db'
-import { success, notFound, badRequest, now } from '../utils/response'
+import { db, schema } from '../db/index.js'
+import { success, notFound, badRequest, now } from '../utils/response.js'
+import { toSnakeCaseArray } from '../utils/transform.js'
 
 const app = new Hono()
 
@@ -35,7 +36,7 @@ app.get('/:episode_id/storyboards', async (c) => {
   const rows = await db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
-  return success(c, rows)
+  return success(c, toSnakeCaseArray(rows))
 })
 
 // GET /episodes/:id/pipeline-status — 流水线进度
