@@ -295,7 +295,7 @@ const composedCount = computed(() => sbs.value.filter(s => s.composed_video_url 
 const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
 
-const selectedSb = ref<any>(null)
+const selectedSb = ref(null)
 const shotTypes = ['远景', '全景', '中景', '近景', '特写']
 
 function updateField(sb, field, value) {
