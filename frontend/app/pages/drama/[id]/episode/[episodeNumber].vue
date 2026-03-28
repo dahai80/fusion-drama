@@ -113,76 +113,68 @@
         </div>
       </div>
 
-      <div v-if="sbs.length" class="sb-split">
-        <!-- Left: Table -->
-        <div class="sb-table-side">
-          <table class="table">
-            <thead><tr><th style="width:36px">#</th><th style="width:56px">景别</th><th>描述</th><th style="width:44px">时长</th></tr></thead>
-            <tbody>
-              <tr v-for="(sb, i) in sbs" :key="sb.id"
-                :class="{ 'row-active': selectedSb?.id === sb.id }"
-                @click="selectedSb = sb">
-                <td class="mono dim">{{ String(i+1).padStart(2,'0') }}</td>
-                <td><span class="tag" style="font-size:10px">{{ sb.shot_type || sb.shotType || '—' }}</span></td>
-                <td class="cell-clip" style="max-width:240px">{{ sb.description || sb.title || '—' }}</td>
-                <td class="mono dim">{{ sb.duration || 10 }}s</td>
-              </tr>
-            </tbody>
-          </table>
+      <div v-if="sbs.length" class="sb-layout">
+        <!-- Left: Shot cards -->
+        <div class="sb-list-side">
+          <div v-for="(sb, i) in sbs" :key="sb.id"
+            :class="['shot-card', { 'shot-active': selectedSb?.id === sb.id }]"
+            @click="selectedSb = sb">
+            <div class="shot-header">
+              <span class="shot-num mono">#{{ String(i+1).padStart(2,'0') }}</span>
+              <span class="tag" style="font-size:10px">{{ sb.shot_type || sb.shotType || '—' }}</span>
+              <span class="shot-dur mono">{{ sb.duration || 10 }}s</span>
+            </div>
+            <div class="shot-desc">{{ sb.description || sb.title || '无描述' }}</div>
+            <div v-if="sb.dialogue" class="shot-dialogue">{{ sb.dialogue }}</div>
+          </div>
         </div>
 
-        <!-- Right: Detail Editor -->
-        <div class="sb-detail-side" v-if="selectedSb">
-          <div class="detail-head">
-            <span class="detail-title">镜头 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
-            <button class="btn btn-ghost btn-sm" style="color:var(--error)" @click="deleteShot(selectedSb)">
-              <Trash2 :size="12" /> 删除
+        <!-- Right: Editor -->
+        <div class="sb-editor-side" v-if="selectedSb">
+          <div class="editor-head">
+            <span class="editor-title">镜头 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
+            <span class="tag mono">{{ (selectedSb.duration || 10) }}s</span>
+            <button class="btn btn-ghost btn-sm ml-auto" style="color:var(--error)" @click="deleteShot(selectedSb)">
+              <Trash2 :size="12" />
             </button>
           </div>
-          <div class="detail-form">
+          <div class="editor-body">
+            <div class="field-row">
+              <label class="field" style="flex:1">
+                <span class="field-label">景别</span>
+                <select :value="selectedSb.shot_type || selectedSb.shotType || ''" class="input"
+                  @change="updateField(selectedSb, 'shot_type', $event.target.value)">
+                  <option value="">选择景别</option>
+                  <option v-for="t in shotTypes" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </label>
+              <label class="field" style="flex:0 0 80px">
+                <span class="field-label">时长</span>
+                <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60"
+                  @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
+              </label>
+            </div>
             <label class="field">
-              <span class="field-label">景别</span>
-              <select :value="selectedSb.shot_type || selectedSb.shotType || ''" class="input"
-                @change="updateField(selectedSb, 'shot_type', $event.target.value)">
-                <option value="">选择</option>
-                <option v-for="t in shotTypes" :key="t" :value="t">{{ t }}</option>
-              </select>
+              <span class="field-label">地点</span>
+              <input :value="selectedSb.location || ''" class="input"
+                @blur="updateField(selectedSb, 'location', $event.target.value)" placeholder="场景地点" />
             </label>
             <label class="field">
-              <span class="field-label">描述</span>
+              <span class="field-label">画面描述</span>
               <textarea :value="selectedSb.description || ''" class="textarea" rows="3"
-                @blur="updateField(selectedSb, 'description', $event.target.value)"
-                placeholder="画面描述..." />
+                @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="描述画面内容..." />
             </label>
             <label class="field">
               <span class="field-label">视频提示词</span>
-              <textarea :value="selectedSb.video_prompt || selectedSb.videoPrompt || ''" class="textarea" rows="4"
-                @blur="updateField(selectedSb, 'video_prompt', $event.target.value)"
-                placeholder="视频生成提示词..." />
+              <textarea :value="selectedSb.video_prompt || selectedSb.videoPrompt || ''" class="textarea" rows="5"
+                @blur="updateField(selectedSb, 'video_prompt', $event.target.value)" placeholder="0-3秒：<location>...</location>..." />
             </label>
             <label class="field">
               <span class="field-label">对白</span>
               <textarea :value="selectedSb.dialogue || ''" class="textarea" rows="2"
-                @blur="updateField(selectedSb, 'dialogue', $event.target.value)"
-                placeholder="角色：台词..." />
+                @blur="updateField(selectedSb, 'dialogue', $event.target.value)" placeholder="角色名：台词内容" />
             </label>
-            <div class="field-row">
-              <label class="field">
-                <span class="field-label">时长 (秒)</span>
-                <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60"
-                  @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
-              </label>
-              <label class="field">
-                <span class="field-label">地点</span>
-                <input :value="selectedSb.location || ''" class="input"
-                  @blur="updateField(selectedSb, 'location', $event.target.value)"
-                  placeholder="场景地点" />
-              </label>
-            </div>
           </div>
-        </div>
-        <div v-else class="sb-detail-empty">
-          <p style="color:var(--text-3)">← 点击左侧镜头查看详情</p>
         </div>
       </div>
 
@@ -306,9 +298,12 @@ function updateField(sb, field, value) {
 
 async function deleteShot(sb) {
   if (!confirm('确定删除此镜头？')) return
+  const idx = sbs.value.indexOf(sb)
   await storyboardAPI.del(sb.id)
-  selectedSb.value = null
-  refresh()
+  await refresh()
+  // 选中下一个或上一个
+  if (sbs.value.length) selectedSb.value = sbs.value[Math.min(idx, sbs.value.length - 1)]
+  else selectedSb.value = null
 }
 
 const panelDefs = computed(() => [
@@ -331,7 +326,12 @@ watch(scriptContent, v => { localScript.value = v }, { immediate: true })
 async function refresh() {
   drama.value = await dramaAPI.get(dramaId)
   const ep = drama.value.episodes?.find(e => (e.episode_number || e.episodeNumber) === episodeNumber)
-  if (ep) { episode.value = ep; chars.value = drama.value.characters || []; scenes.value = drama.value.scenes || []; sbs.value = await episodeAPI.storyboards(ep.id) }
+  if (ep) {
+    episode.value = ep; chars.value = drama.value.characters || []; scenes.value = drama.value.scenes || []
+    sbs.value = await episodeAPI.storyboards(ep.id)
+    // 默认选中第一个镜头
+    if (sbs.value.length && !selectedSb.value) selectedSb.value = sbs.value[0]
+  }
   try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
 }
 
@@ -416,15 +416,26 @@ onMounted(refresh)
 .bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); flex-shrink: 0; }
 .bar-title { font-size: 13px; font-weight: 600; }
 
-/* Storyboard Split */
-.sb-split { flex: 1; display: flex; min-height: 0; }
-.sb-table-side { flex: 1; overflow: auto; border-right: 1px solid var(--border); }
-.sb-detail-side { width: 340px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; }
-.sb-detail-empty { width: 340px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.detail-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
-.detail-title { font-size: 13px; font-weight: 600; }
-.detail-form { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-.row-active { background: var(--accent-bg) !important; }
+/* Storyboard Layout */
+.sb-layout { flex: 1; display: flex; min-height: 0; }
+.sb-list-side { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--border); }
+
+.shot-card {
+  padding: 10px 12px; border-radius: var(--radius); cursor: pointer;
+  border-left: 3px solid transparent; transition: all 0.1s;
+}
+.shot-card:hover { background: var(--bg-hover); }
+.shot-active { background: var(--accent-bg) !important; border-left-color: var(--accent); }
+.shot-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.shot-num { font-size: 11px; color: var(--text-3); min-width: 24px; }
+.shot-dur { font-size: 10px; color: var(--text-3); margin-left: auto; }
+.shot-desc { font-size: 12px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.shot-dialogue { font-size: 11px; color: var(--text-2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sb-editor-side { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; overflow-y: auto; }
+.editor-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.editor-title { font-size: 14px; font-weight: 600; }
+.editor-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
 /* Table */
 .table-wrap { flex: 1; overflow: auto; }
