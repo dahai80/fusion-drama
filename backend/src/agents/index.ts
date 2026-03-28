@@ -8,6 +8,7 @@ import { getTextConfig } from '../services/ai.js'
 import { createScriptTools } from './tools/script-tools.js'
 import { createExtractTools } from './tools/extract-tools.js'
 import { createStoryboardTools } from './tools/storyboard-tools.js'
+import { createVoiceTools } from './tools/voice-tools.js'
 
 function getModel() {
   const config = getTextConfig()
@@ -18,7 +19,7 @@ function getModel() {
   return provider.chat(config.model)
 }
 
-export const validAgentTypes = ['script_rewriter', 'extractor', 'storyboard_breaker']
+export const validAgentTypes = ['script_rewriter', 'extractor', 'storyboard_breaker', 'voice_assigner']
 
 /**
  * 创建 agent 实例（per-request，工具已注入 episodeId/dramaId）
@@ -96,6 +97,25 @@ export function createAgent(type: string, episodeId: number, dramaId: number): A
 
 示例：
 "0-3秒：<location>咖啡厅</location>，近景，<role>小明</role>低头看手机。<n>3-6秒：全景，<role>小红</role>推门走入。"`,
+        model,
+        tools,
+      })
+    }
+
+    case 'voice_assigner': {
+      const tools = createVoiceTools(episodeId, dramaId)
+      return new Agent({
+        id: 'voice_assigner',
+        name: '角色音色分配',
+        instructions: `你是配音导演，擅长为角色选择合适的音色。
+
+工作流程：
+1. 调用 list_voices 获取可用音色列表
+2. 调用 get_characters 获取所有角色信息
+3. 根据每个角色的性别、性格、年龄、角色定位，选择最匹配的音色
+4. 对每个角色调用 assign_voice 分配音色，并说明选择理由
+
+注意：每个角色都必须分配音色，不要遗漏。`,
         model,
         tools,
       })

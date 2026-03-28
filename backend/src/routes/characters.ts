@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
-import { success, now } from '../utils/response.js'
+import { success, badRequest, now } from '../utils/response.js'
+import { generateVoiceSample } from '../services/tts-generation.js'
 
 const app = new Hono()
 
@@ -24,6 +25,24 @@ app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   db.update(schema.characters).set({ deletedAt: now() }).where(eq(schema.characters.id, id)).run()
   return success(c)
+})
+
+// POST /characters/:id/generate-voice-sample — 生成角色音色试听
+app.post('/:id/generate-voice-sample', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
+  if (!char) return badRequest(c, 'Character not found')
+  if (!char.voiceStyle) return badRequest(c, '请先分配音色')
+
+  try {
+    const audioPath = await generateVoiceSample(char.name, char.voiceStyle)
+    db.update(schema.characters)
+      .set({ voiceSampleUrl: audioPath, updatedAt: now() })
+      .where(eq(schema.characters.id, id)).run()
+    return success(c, { voice_sample_url: audioPath })
+  } catch (err: any) {
+    return badRequest(c, `TTS 生成失败: ${err.message}`)
+  }
 })
 
 // POST /characters/:id/generate-image (placeholder)

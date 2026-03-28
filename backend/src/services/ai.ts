@@ -4,6 +4,8 @@
 import { db, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 
+export type ServiceType = 'text' | 'image' | 'video' | 'audio'
+
 export interface AIConfig {
   provider: string
   baseUrl: string
@@ -11,10 +13,7 @@ export interface AIConfig {
   model: string
 }
 
-/**
- * 获取指定服务类型的活跃 AI 配置
- */
-export function getActiveConfig(serviceType: 'text' | 'image' | 'video'): AIConfig | null {
+export function getActiveConfig(serviceType: ServiceType): AIConfig | null {
   const rows = db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
     .all()
@@ -31,20 +30,14 @@ export function getActiveConfig(serviceType: 'text' | 'image' | 'video'): AIConf
   }
 }
 
-/**
- * 构建 Mastra 模型标识符
- * 格式：provider/model（如 openai/gpt-4o）
- * 对于 chatfire 等中转服务，使用 openai compatible 模式
- */
-export function getModelId(serviceType: 'text' | 'image' | 'video' = 'text'): string {
-  const config = getActiveConfig(serviceType)
-  if (!config) throw new Error(`No active ${serviceType} AI config`)
-  // chatfire/openrouter 等中转站用 openai compatible 模式
-  return config.model
-}
-
 export function getTextConfig(): AIConfig {
   const config = getActiveConfig('text')
   if (!config) throw new Error('No active text AI config')
+  return config
+}
+
+export function getAudioConfig(): AIConfig {
+  const config = getActiveConfig('audio')
+  if (!config) throw new Error('No active audio AI config — 请在设置中添加音频服务')
   return config
 }

@@ -16,6 +16,8 @@ import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
 import agentConfigs from './routes/agentConfigs.js'
 import agent from './routes/agent.js'
+import compose from './routes/compose.js'
+import merge from './routes/merge.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -48,6 +50,8 @@ api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
 api.route('/agent-configs', agentConfigs)
 api.route('/agent', agent)
+api.route('/compose', compose)
+api.route('/merge', merge)
 
 app.route('/api/v1', api)
 
