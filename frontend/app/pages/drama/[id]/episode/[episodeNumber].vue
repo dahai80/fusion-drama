@@ -19,82 +19,146 @@
       </button>
     </header>
 
-    <!-- ===== SCRIPT PANEL ===== -->
+    <!-- ===== SCRIPT PANEL (引导式) ===== -->
     <section v-if="panel === 'script'" class="panel">
-      <div class="pipeline">
-        <template v-for="(s, i) in scriptSteps" :key="i">
-          <span v-if="i > 0" class="pipe-sep">→</span>
-          <span :class="['pipe-step', s.state]">
-            <Loader2 v-if="s.spinning" :size="12" class="animate-spin" />
-            <span v-else-if="s.state === 'done'" style="color:var(--success)">✓</span>
-            {{ s.label }}
+      <!-- Step bar -->
+      <div class="wizard-bar">
+        <button v-for="(s, i) in scriptSteps" :key="i"
+          :class="['wizard-step', { done: s.state === 'done', active: i === scriptStep, future: i > scriptStep && s.state !== 'done' }]"
+          @click="s.state === 'done' || i <= scriptStep ? scriptStep = i : null">
+          <span class="wizard-dot">
+            <Loader2 v-if="s.spinning" :size="11" class="animate-spin" />
+            <Check v-else-if="s.state === 'done'" :size="11" />
+            <span v-else>{{ i + 1 }}</span>
           </span>
-        </template>
+          <span class="wizard-label">{{ s.label }}</span>
+        </button>
       </div>
 
-      <div class="split">
-        <div class="split-pane">
-          <div class="pane-head">
-            <span>原始内容</span>
+      <div class="wizard-body">
+        <!-- Step 1: 原始内容 -->
+        <div v-if="scriptStep === 0" class="wizard-content">
+          <div class="wizard-title">粘贴或上传原始内容</div>
+          <div class="wizard-desc">将小说、故事或大纲内容粘贴到下方</div>
+          <textarea class="textarea wizard-textarea" v-model="localRaw" placeholder="粘贴小说/故事原文..." />
+          <div class="wizard-actions">
             <span v-if="rawLen" class="tag mono">{{ rawLen }}字</span>
-            <button class="btn btn-ghost btn-sm ml-auto" @click="saveRaw">保存</button>
-          </div>
-          <textarea class="textarea split-text" v-model="localRaw" placeholder="粘贴小说/故事原文..." />
-        </div>
-
-        <div class="split-actions">
-          <button class="action-pill" :disabled="!localRaw.trim() || rn" @click="doRewrite" title="AI 改写">
-            <Wand2 :size="14" />
-          </button>
-          <button class="action-pill" :disabled="!localScript.trim() || rn" @click="doExtract" title="提取角色场景">
-            <Scan :size="14" />
-          </button>
-        </div>
-
-        <div class="split-pane">
-          <div class="pane-head">
-            <span>格式化剧本</span>
-            <span v-if="scriptLen" class="tag mono">{{ scriptLen }}字</span>
-            <button class="btn btn-ghost btn-sm ml-auto" @click="saveScr">保存</button>
-          </div>
-          <textarea class="textarea split-text" v-model="localScript" placeholder="AI 改写后的格式化剧本..." />
-        </div>
-      </div>
-
-      <!-- Resources -->
-      <div v-if="chars.length || scenes.length" class="resources">
-        <div class="res-col">
-          <div class="res-title">
-            <Users :size="13" /> 角色 ({{ chars.length }})
-            <button class="btn btn-ghost btn-sm ml-auto" :disabled="rn" @click="doVoice">
-              <Mic :size="12" /> 分配音色
+            <button class="btn btn-primary ml-auto" :disabled="!localRaw.trim()" @click="saveRaw(); scriptStep = 1">
+              保存并继续 →
             </button>
           </div>
-          <div class="char-list">
-            <div v-for="c in chars" :key="c.id" class="char-item card">
-              <div class="char-top">
-                <span class="char-name">{{ c.name }}</span>
-                <span class="tag tag-accent mono">{{ c.voice_style || c.voiceStyle || '—' }}</span>
-              </div>
-              <div v-if="c.role" class="char-role">{{ c.role }}</div>
-              <div v-if="c.voice_sample_url || c.voiceSampleUrl" class="char-audio">
-                <audio :src="'/' + (c.voice_sample_url || c.voiceSampleUrl)" controls preload="none" />
-              </div>
-              <button v-if="c.voice_style || c.voiceStyle" class="btn btn-ghost btn-sm" @click="genSample(c.id)">生成试听</button>
-            </div>
-          </div>
         </div>
-        <div v-if="scenes.length" class="res-col">
-          <div class="res-title"><MapPin :size="13" /> 场景 ({{ scenes.length }})</div>
-          <div class="scene-chips">
-            <span v-for="s in scenes" :key="s.id" class="tag">{{ s.location }}{{ s.time ? ' · ' + s.time : '' }}</span>
-          </div>
-        </div>
-      </div>
 
-      <div class="panel-foot">
-        <div />
-        <button class="btn btn-primary" @click="panel = 'storyboard'">分镜 →</button>
+        <!-- Step 2: AI 改写 -->
+        <div v-else-if="scriptStep === 1" class="wizard-content">
+          <div class="wizard-title">AI 改写为格式化剧本</div>
+          <div class="wizard-desc">将原始内容改写为带场景头和对白格式的剧本</div>
+          <div v-if="!scriptContent && !rn" class="wizard-action-center">
+            <button class="btn btn-primary" :disabled="rn" @click="doRewrite">
+              <Wand2 :size="14" /> 开始改写
+            </button>
+          </div>
+          <div v-else-if="rn && rt === 'script_rewriter'" class="wizard-action-center">
+            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+            <p style="color:var(--text-2);margin-top:8px">正在改写中...</p>
+          </div>
+          <template v-else>
+            <textarea class="textarea wizard-textarea" v-model="localScript" placeholder="格式化剧本内容..." />
+            <div class="wizard-actions">
+              <span v-if="scriptLen" class="tag mono">{{ scriptLen }}字</span>
+              <button class="btn btn-ghost" @click="doRewrite" :disabled="rn">重新改写</button>
+              <button class="btn btn-primary ml-auto" @click="saveScr(); scriptStep = 2">
+                保存并继续 →
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Step 3: 提取角色场景 -->
+        <div v-else-if="scriptStep === 2" class="wizard-content">
+          <div class="wizard-title">提取角色和场景</div>
+          <div class="wizard-desc">从格式化剧本中自动提取角色信息和场景列表</div>
+          <div v-if="!chars.length && !rn" class="wizard-action-center">
+            <button class="btn btn-primary" :disabled="rn" @click="doExtract">
+              <Scan :size="14" /> 开始提取
+            </button>
+          </div>
+          <div v-else-if="rn && rt === 'extractor'" class="wizard-action-center">
+            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+            <p style="color:var(--text-2);margin-top:8px">正在提取中...</p>
+          </div>
+          <template v-else>
+            <div class="extract-result">
+              <div class="extract-section">
+                <div class="extract-head"><Users :size="13" /> 角色 ({{ chars.length }})</div>
+                <table class="table" v-if="chars.length">
+                  <thead><tr><th>名字</th><th>角色</th><th>描述</th></tr></thead>
+                  <tbody>
+                    <tr v-for="c in chars" :key="c.id">
+                      <td style="font-weight:600">{{ c.name }}</td>
+                      <td>{{ c.role || '—' }}</td>
+                      <td class="cell-clip">{{ c.description || c.appearance || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="extract-section" v-if="scenes.length">
+                <div class="extract-head"><MapPin :size="13" /> 场景 ({{ scenes.length }})</div>
+                <div class="scene-chips">
+                  <span v-for="s in scenes" :key="s.id" class="tag">{{ s.location }}{{ s.time ? ' · ' + s.time : '' }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-actions">
+              <button class="btn btn-ghost" @click="doExtract" :disabled="rn">重新提取</button>
+              <button class="btn btn-primary ml-auto" @click="scriptStep = 3">继续 →</button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Step 4: 分配音色 -->
+        <div v-else-if="scriptStep === 3" class="wizard-content">
+          <div class="wizard-title">分配角色音色</div>
+          <div class="wizard-desc">为每个角色选择合适的 TTS 音色</div>
+          <div v-if="!charsVoiced && !rn" class="wizard-action-center">
+            <button class="btn btn-primary" :disabled="rn" @click="doVoice">
+              <Mic :size="14" /> AI 自动分配
+            </button>
+          </div>
+          <div v-else-if="rn && rt === 'voice_assigner'" class="wizard-action-center">
+            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+            <p style="color:var(--text-2);margin-top:8px">正在分配音色...</p>
+          </div>
+          <template v-else>
+            <table class="table voice-table">
+              <thead><tr><th>角色</th><th>角色定位</th><th>音色</th><th>试听</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="c in chars" :key="c.id">
+                  <td style="font-weight:600">{{ c.name }}</td>
+                  <td>{{ c.role || '—' }}</td>
+                  <td>
+                    <select :value="c.voice_style || c.voiceStyle || ''" class="input" style="width:120px;font-size:11px"
+                      @change="updateCharVoice(c.id, $event.target.value)">
+                      <option value="">未选择</option>
+                      <option v-for="v in voiceOptions" :key="v" :value="v">{{ v }}</option>
+                    </select>
+                  </td>
+                  <td>
+                    <audio v-if="c.voice_sample_url || c.voiceSampleUrl" :src="'/' + (c.voice_sample_url || c.voiceSampleUrl)" controls preload="none" style="height:28px;max-width:140px" />
+                    <span v-else class="dim">—</span>
+                  </td>
+                  <td>
+                    <button v-if="c.voice_style || c.voiceStyle" class="btn btn-ghost btn-sm" @click="genSample(c.id)">生成</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="wizard-actions">
+              <button class="btn btn-ghost" @click="doVoice" :disabled="rn">重新分配</button>
+              <button class="btn btn-primary ml-auto" @click="panel = 'storyboard'">完成，进入分镜 →</button>
+            </div>
+          </template>
+        </div>
       </div>
     </section>
 
@@ -259,7 +323,7 @@
 <script setup>
 import { toast } from 'vue-sonner'
 import {
-  ArrowLeft, RefreshCw, Wand2, Scan, Users, MapPin, Mic,
+  ArrowLeft, RefreshCw, Wand2, Scan, Users, MapPin, Mic, Check,
   Plus, Clapperboard, ImageIcon, Video, Layers, Film, Download, Loader2,
   FileText, Trash2,
 } from 'lucide-vue-next'
@@ -285,6 +349,16 @@ const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 
 const charsVoiced = computed(() => chars.value.filter(c => c.voice_style || c.voiceStyle).length)
 const composedCount = computed(() => sbs.value.filter(s => s.composed_video_url || s.composedVideoUrl).length)
 const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
+
+// Wizard state
+const scriptStep = ref(0)
+const voiceOptions = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
+
+function updateCharVoice(charId, voiceId) {
+  characterAPI.update(charId, { voice_style: voiceId })
+  const c = chars.value.find(ch => ch.id === charId)
+  if (c) { c.voice_style = voiceId; c.voiceStyle = voiceId }
+}
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
 
 const selectedSb = ref(null)
@@ -329,8 +403,13 @@ async function refresh() {
   if (ep) {
     episode.value = ep; chars.value = drama.value.characters || []; scenes.value = drama.value.scenes || []
     sbs.value = await episodeAPI.storyboards(ep.id)
-    // 默认选中第一个镜头
     if (sbs.value.length && !selectedSb.value) selectedSb.value = sbs.value[0]
+    // 自动检测当前步骤
+    if (chars.value.some(c => c.voice_style || c.voiceStyle)) scriptStep.value = 3
+    else if (chars.value.length) scriptStep.value = 2
+    else if (episode.value?.script_content || episode.value?.scriptContent) scriptStep.value = 1
+    else if (episode.value?.content) scriptStep.value = 1
+    else scriptStep.value = 0
   }
   try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
 }
@@ -383,34 +462,35 @@ onMounted(refresh)
 .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .panel-foot { flex-shrink: 0; display: flex; justify-content: space-between; padding: 8px 16px; border-top: 1px solid var(--border); background: var(--bg-1); }
 
-/* Pipeline */
-.pipeline { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); font-size: 12px; flex-shrink: 0; }
-.pipe-sep { color: var(--text-3); }
-.pipe-step { display: flex; align-items: center; gap: 4px; color: var(--text-3); }
-.pipe-step.done { color: var(--success); }
-.pipe-step.active { color: var(--accent); font-weight: 600; }
+/* Wizard Steps */
+.wizard-bar { display: flex; align-items: center; gap: 0; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); flex-shrink: 0; }
+.wizard-step { display: flex; align-items: center; gap: 6px; padding: 10px 16px; font-size: 12px; color: var(--text-3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+.wizard-step:hover { color: var(--text-1); }
+.wizard-step.done { color: var(--success); cursor: pointer; }
+.wizard-step.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.wizard-step.future { opacity: 0.4; cursor: default; }
+.wizard-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--bg-2); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.wizard-step.done .wizard-dot { background: var(--success-bg); color: var(--success); }
+.wizard-step.active .wizard-dot { background: var(--accent-bg); color: var(--accent); }
+.wizard-label { white-space: nowrap; }
 
-/* Split Editor */
-.split { flex: 1; display: flex; min-height: 0; }
-.split-pane { flex: 1; display: flex; flex-direction: column; }
-.pane-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); }
-.split-text { flex: 1; padding: 12px; border: none; background: transparent; font-size: 13px; }
-.split-actions { width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--bg-1); }
-.action-pill { width: 32px; height: 32px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-0); color: var(--text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow); }
-.action-pill:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.action-pill:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+.wizard-body { flex: 1; overflow-y: auto; }
+.wizard-content { max-width: 700px; margin: 0 auto; padding: 28px 24px; display: flex; flex-direction: column; gap: 16px; }
+.wizard-title { font-size: 18px; font-weight: 700; }
+.wizard-desc { font-size: 13px; color: var(--text-2); margin-bottom: 4px; }
+.wizard-textarea { min-height: 300px; font-size: 13px; line-height: 1.8; }
+.wizard-actions { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+.wizard-action-center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 0; }
 
-/* Resources */
-.resources { flex-shrink: 0; max-height: 240px; overflow-y: auto; border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 20px; }
-.res-col { flex: 1; }
-.res-title { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-.char-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.char-item { padding: 10px; min-width: 160px; display: flex; flex-direction: column; gap: 4px; }
-.char-top { display: flex; justify-content: space-between; align-items: center; }
-.char-name { font-size: 13px; font-weight: 600; }
-.char-role { font-size: 11px; color: var(--text-2); }
-.char-audio audio { width: 100%; height: 28px; margin-top: 4px; }
+/* Extract result */
+.extract-result { display: flex; flex-direction: column; gap: 16px; }
+.extract-section { }
+.extract-head { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .scene-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Voice table */
+.voice-table { margin-top: 8px; }
+.voice-table td { vertical-align: middle; }
 
 /* Bar */
 .bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); flex-shrink: 0; }
