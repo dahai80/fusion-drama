@@ -103,6 +103,7 @@
       <div class="bar">
         <span class="bar-title">镜头列表</span>
         <span class="tag">{{ sbs.length }}</span>
+        <span v-if="sbs.length" class="tag tag-info mono">{{ totalDuration }}s</span>
         <div class="ml-auto flex gap-1">
           <button class="btn btn-sm" @click="addShot"><Plus :size="12" /> 添加</button>
           <button class="btn btn-primary btn-sm" :disabled="rn" @click="doBreakdown">
@@ -111,25 +112,85 @@
           </button>
         </div>
       </div>
-      <div v-if="sbs.length" class="table-wrap">
-        <table class="table">
-          <thead><tr><th style="width:40px">#</th><th style="width:60px">景别</th><th>描述</th><th style="min-width:200px">视频提示词</th><th>对白</th><th style="width:50px">时长</th></tr></thead>
-          <tbody>
-            <tr v-for="(sb, i) in sbs" :key="sb.id" @dblclick="editRow(sb)">
-              <td class="mono dim">{{ String(i+1).padStart(2,'0') }}</td>
-              <td>{{ sb.shot_type || sb.shotType || '' }}</td>
-              <td class="cell-clip">{{ sb.description || '' }}</td>
-              <td class="cell-clip">{{ sb.video_prompt || sb.videoPrompt || '' }}</td>
-              <td class="cell-clip">{{ sb.dialogue || '' }}</td>
-              <td class="mono dim">{{ sb.duration || 10 }}s</td>
-            </tr>
-          </tbody>
-        </table>
+
+      <div v-if="sbs.length" class="sb-split">
+        <!-- Left: Table -->
+        <div class="sb-table-side">
+          <table class="table">
+            <thead><tr><th style="width:36px">#</th><th style="width:56px">景别</th><th>描述</th><th style="width:44px">时长</th></tr></thead>
+            <tbody>
+              <tr v-for="(sb, i) in sbs" :key="sb.id"
+                :class="{ 'row-active': selectedSb?.id === sb.id }"
+                @click="selectedSb = sb">
+                <td class="mono dim">{{ String(i+1).padStart(2,'0') }}</td>
+                <td><span class="tag" style="font-size:10px">{{ sb.shot_type || sb.shotType || '—' }}</span></td>
+                <td class="cell-clip" style="max-width:240px">{{ sb.description || sb.title || '—' }}</td>
+                <td class="mono dim">{{ sb.duration || 10 }}s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Right: Detail Editor -->
+        <div class="sb-detail-side" v-if="selectedSb">
+          <div class="detail-head">
+            <span class="detail-title">镜头 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
+            <button class="btn btn-ghost btn-sm" style="color:var(--error)" @click="deleteShot(selectedSb)">
+              <Trash2 :size="12" /> 删除
+            </button>
+          </div>
+          <div class="detail-form">
+            <label class="field">
+              <span class="field-label">景别</span>
+              <select :value="selectedSb.shot_type || selectedSb.shotType || ''" class="input"
+                @change="updateField(selectedSb, 'shot_type', $event.target.value)">
+                <option value="">选择</option>
+                <option v-for="t in shotTypes" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">描述</span>
+              <textarea :value="selectedSb.description || ''" class="textarea" rows="3"
+                @blur="updateField(selectedSb, 'description', $event.target.value)"
+                placeholder="画面描述..." />
+            </label>
+            <label class="field">
+              <span class="field-label">视频提示词</span>
+              <textarea :value="selectedSb.video_prompt || selectedSb.videoPrompt || ''" class="textarea" rows="4"
+                @blur="updateField(selectedSb, 'video_prompt', $event.target.value)"
+                placeholder="视频生成提示词..." />
+            </label>
+            <label class="field">
+              <span class="field-label">对白</span>
+              <textarea :value="selectedSb.dialogue || ''" class="textarea" rows="2"
+                @blur="updateField(selectedSb, 'dialogue', $event.target.value)"
+                placeholder="角色：台词..." />
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">时长 (秒)</span>
+                <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60"
+                  @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
+              </label>
+              <label class="field">
+                <span class="field-label">地点</span>
+                <input :value="selectedSb.location || ''" class="input"
+                  @blur="updateField(selectedSb, 'location', $event.target.value)"
+                  placeholder="场景地点" />
+              </label>
+            </div>
+          </div>
+        </div>
+        <div v-else class="sb-detail-empty">
+          <p style="color:var(--text-3)">← 点击左侧镜头查看详情</p>
+        </div>
       </div>
+
       <div v-else class="empty-state">
         <Clapperboard :size="28" style="color:var(--text-3)" />
         <p>暂无分镜，点击「拆解分镜」自动生成</p>
       </div>
+
       <div class="panel-foot">
         <button class="btn" @click="panel = 'script'">← 剧本</button>
         <button class="btn btn-primary" :disabled="!sbs.length" @click="panel = 'production'">制作 →</button>
@@ -208,7 +269,7 @@ import { toast } from 'vue-sonner'
 import {
   ArrowLeft, RefreshCw, Wand2, Scan, Users, MapPin, Mic,
   Plus, Clapperboard, ImageIcon, Video, Layers, Film, Download, Loader2,
-  FileText,
+  FileText, Trash2,
 } from 'lucide-vue-next'
 import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, imageAPI, videoAPI, composeAPI, mergeAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
@@ -232,6 +293,23 @@ const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 
 const charsVoiced = computed(() => chars.value.filter(c => c.voice_style || c.voiceStyle).length)
 const composedCount = computed(() => sbs.value.filter(s => s.composed_video_url || s.composedVideoUrl).length)
 const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
+const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
+
+const selectedSb = ref<any>(null)
+const shotTypes = ['远景', '全景', '中景', '近景', '特写']
+
+function updateField(sb, field, value) {
+  if (sb[field] === value) return
+  sb[field] = value
+  storyboardAPI.update(sb.id, { [field]: value })
+}
+
+async function deleteShot(sb) {
+  if (!confirm('确定删除此镜头？')) return
+  await storyboardAPI.del(sb.id)
+  selectedSb.value = null
+  refresh()
+}
 
 const panelDefs = computed(() => [
   { id: 'script', label: '剧本', icon: FileText, badge: chars.value.length ? `${chars.value.length}` : '', badgeType: 'tag-accent' },
@@ -337,6 +415,16 @@ onMounted(refresh)
 /* Bar */
 .bar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); flex-shrink: 0; }
 .bar-title { font-size: 13px; font-weight: 600; }
+
+/* Storyboard Split */
+.sb-split { flex: 1; display: flex; min-height: 0; }
+.sb-table-side { flex: 1; overflow: auto; border-right: 1px solid var(--border); }
+.sb-detail-side { width: 340px; flex-shrink: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.sb-detail-empty { width: 340px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.detail-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.detail-title { font-size: 13px; font-weight: 600; }
+.detail-form { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.row-active { background: var(--accent-bg) !important; }
 
 /* Table */
 .table-wrap { flex: 1; overflow: auto; }
