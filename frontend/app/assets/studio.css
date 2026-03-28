@@ -39,40 +39,7 @@
   --scrollbar: #d0d0d0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-0: #111;
-    --bg-1: #181818;
-    --bg-2: #222;
-    --bg-3: #2a2a2a;
-    --bg-hover: #252525;
-    --bg-active: #2e2e2e;
-    --bg-input: #1a1a1a;
-
-    --border: #2a2a2a;
-    --border-strong: #3a3a3a;
-    --border-focus: #e8a243;
-
-    --text-0: #eee;
-    --text-1: #bbb;
-    --text-2: #888;
-    --text-3: #555;
-
-    --accent: #e8a243;
-    --accent-bg: rgba(232,162,67,0.12);
-    --accent-text: #e8a243;
-    --success: #34d058;
-    --success-bg: rgba(52,208,88,0.1);
-    --error: #f85149;
-    --error-bg: rgba(248,81,73,0.08);
-    --info: #58a6ff;
-    --info-bg: rgba(88,166,255,0.08);
-
-    --shadow: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-lg: 0 4px 16px rgba(0,0,0,0.4);
-    --scrollbar: #444;
-  }
-}
+/* Dark theme removed — light only */
 
 html, body, #__nuxt { height: 100%; }
 body {
