@@ -3,7 +3,7 @@
  */
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { getAgent, validAgentTypes } from '../agents/index.js'
+import { createAgent, validAgentTypes } from '../agents/index.js'
 import { success, badRequest } from '../utils/response.js'
 
 const app = new Hono()
@@ -18,29 +18,29 @@ app.post('/:type/chat', async (c) => {
   const body = await c.req.json()
   const { message, drama_id, episode_id } = body
 
-  const agent = getAgent(agentType)
+  if (!episode_id || !drama_id) {
+    return badRequest(c, 'drama_id and episode_id are required')
+  }
+
+  // 每次请求创建新 agent（工具已注入 episodeId/dramaId）
+  const agent = createAgent(agentType, episode_id, drama_id)
   if (!agent) return badRequest(c, 'Agent not found')
 
-  // 构建消息，注入上下文
-  const contextInfo = `[Context: drama_id=${drama_id}, episode_id=${episode_id}]`
-  const fullMessage = `${contextInfo}\n\n${message}`
+  console.log(`[Agent] ${agentType} | drama=${drama_id} episode=${episode_id} | "${message}"`)
 
   return streamSSE(c, async (stream) => {
     try {
       const result = await agent.stream([
-        { role: 'user', content: fullMessage },
+        { role: 'user', content: message },
       ])
 
-      // Stream fullStream for tool calls + text
       for await (const chunk of result.fullStream) {
         if (chunk.type === 'text-delta') {
           await stream.writeSSE({
-            data: JSON.stringify({
-              type: 'content',
-              data: chunk.textDelta,
-            }),
+            data: JSON.stringify({ type: 'content', data: chunk.textDelta }),
           })
         } else if (chunk.type === 'tool-call') {
+          console.log(`[Agent] tool_call: ${chunk.toolName}(${JSON.stringify(chunk.args).slice(0, 200)})`)
           await stream.writeSSE({
             data: JSON.stringify({
               type: 'tool_call',
@@ -49,9 +49,8 @@ app.post('/:type/chat', async (c) => {
             }),
           })
         } else if (chunk.type === 'tool-result') {
-          const resultStr = typeof chunk.result === 'string'
-            ? chunk.result
-            : JSON.stringify(chunk.result)
+          const resultStr = typeof chunk.result === 'string' ? chunk.result : JSON.stringify(chunk.result)
+          console.log(`[Agent] tool_result: ${chunk.toolName} → ${resultStr.slice(0, 100)}`)
           await stream.writeSSE({
             data: JSON.stringify({
               type: 'tool_result',
@@ -62,16 +61,14 @@ app.post('/:type/chat', async (c) => {
         }
       }
 
-      // Done
+      console.log(`[Agent] ${agentType} done`)
       await stream.writeSSE({
         data: JSON.stringify({ type: 'done', data: '' }),
       })
     } catch (err: any) {
+      console.error(`[Agent] ${agentType} error:`, err.message)
       await stream.writeSSE({
-        data: JSON.stringify({
-          type: 'error',
-          data: err.message || 'Agent execution failed',
-        }),
+        data: JSON.stringify({ type: 'error', data: err.message || 'Agent execution failed' }),
       })
     }
   })
@@ -80,14 +77,8 @@ app.post('/:type/chat', async (c) => {
 // GET /agent/:type/debug
 app.get('/:type/debug', async (c) => {
   const agentType = c.req.param('type')
-  const agent = getAgent(agentType)
-  if (!agent) return badRequest(c, 'Invalid agent type')
-
-  return success(c, {
-    agent_type: agentType,
-    name: agent.name,
-    tools: Object.keys(agent.tools || {}),
-  })
+  if (!validAgentTypes.includes(agentType)) return badRequest(c, 'Invalid agent type')
+  return success(c, { agent_type: agentType, valid: true })
 })
 
 export default app
