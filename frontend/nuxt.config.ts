@@ -1,4 +1,5 @@
 export default defineNuxtConfig({
+  srcDir: 'app/',
   ssr: false, // SPA mode
   devtools: { enabled: false },
   app: {
