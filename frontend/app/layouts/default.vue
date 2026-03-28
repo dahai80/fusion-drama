@@ -1,20 +1,22 @@
 <template>
-  <div class="studio">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <span class="brand-icon">▶</span>
-        <span class="brand-text">HuoBao</span>
+  <div class="shell">
+    <nav class="nav-bar">
+      <div class="nav-brand" @click="navigateTo('/')">
+        <span class="brand-mark">▶</span>
+        <span class="brand-name">HuoBao Drama</span>
       </div>
-      <nav class="sidebar-nav">
+      <div class="nav-links">
         <NuxtLink to="/" class="nav-link" :class="{ active: route.path === '/' }">
-          <LayoutGrid :size="15" /> 项目
+          <LayoutGrid :size="16" />
+          <span>项目</span>
         </NuxtLink>
         <NuxtLink to="/settings" class="nav-link" :class="{ active: route.path === '/settings' }">
-          <Settings :size="15" /> 设置
+          <Settings :size="16" />
+          <span>设置</span>
         </NuxtLink>
-      </nav>
-    </aside>
-    <main class="main">
+      </div>
+    </nav>
+    <main class="content">
       <slot />
     </main>
   </div>
@@ -26,30 +28,28 @@ const route = useRoute()
 </script>
 
 <style scoped>
-.studio { display: flex; height: 100vh; overflow: hidden; }
+.shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-.sidebar {
-  width: 52px; flex-shrink: 0;
-  display: flex; flex-direction: column;
-  background: var(--bg-panel); border-right: 1px solid var(--border);
+.nav-bar {
+  display: flex; align-items: center; gap: 24px;
+  padding: 0 20px; height: 48px; flex-shrink: 0;
+  background: var(--bg-1); border-bottom: 1px solid var(--border);
 }
 
-.sidebar-brand {
-  display: flex; align-items: center; justify-content: center;
-  height: 40px; border-bottom: 1px solid var(--border);
-}
-.brand-icon { font-size: 14px; color: var(--accent); }
-.brand-text { display: none; }
+.nav-brand { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.brand-mark { font-size: 16px; color: var(--accent); }
+.brand-name { font-size: 14px; font-weight: 700; color: var(--text-0); }
 
-.sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 6px; }
+.nav-links { display: flex; gap: 2px; }
 
 .nav-link {
-  display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 36px; border-radius: var(--radius);
-  color: var(--text-muted); text-decoration: none; transition: all 0.1s;
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: var(--radius);
+  font-size: 13px; color: var(--text-2); text-decoration: none;
+  transition: all 0.15s;
 }
-.nav-link:hover { background: var(--bg-hover); color: var(--text-secondary); }
-.nav-link.active { background: var(--bg-active); color: var(--accent); }
+.nav-link:hover { background: var(--bg-hover); color: var(--text-0); }
+.nav-link.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 500; }
 
-.main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.content { flex: 1; overflow: hidden; }
 </style>
