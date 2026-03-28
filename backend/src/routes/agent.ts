@@ -49,7 +49,9 @@ app.post('/:type/chat', async (c) => {
             }),
           })
         } else if (chunk.type === 'tool-result') {
-          const resultStr = typeof chunk.result === 'string' ? chunk.result : JSON.stringify(chunk.result)
+          const resultStr = chunk.result != null
+            ? (typeof chunk.result === 'string' ? chunk.result : JSON.stringify(chunk.result))
+            : ''
           console.log(`[Agent] tool_result: ${chunk.toolName} → ${resultStr.slice(0, 100)}`)
           await stream.writeSSE({
             data: JSON.stringify({
