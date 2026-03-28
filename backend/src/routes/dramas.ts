@@ -82,6 +82,18 @@ app.post('/', async (c) => {
   return created(c, result)
 })
 
+// GET /dramas/stats — must be before /:id
+app.get('/stats', async (c) => {
+  const all = db.select().from(schema.dramas).where(isNull(schema.dramas.deletedAt)).all()
+  const byStatus = Object.entries(
+    all.reduce((acc, d) => {
+      acc[d.status || 'draft'] = (acc[d.status || 'draft'] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  ).map(([status, count]) => ({ status, count }))
+  return success(c, { total: all.length, by_status: byStatus })
+})
+
 // GET /dramas/:id - Get drama detail
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
@@ -111,11 +123,15 @@ app.get('/:id', async (c) => {
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
-  await db.update(schema.dramas).set({
-    ...body,
-    tags: body.tags ? JSON.stringify(body.tags) : undefined,
-    updatedAt: now(),
-  }).where(eq(schema.dramas.id, id))
+  const updates: Record<string, any> = { updatedAt: now() }
+  if (body.title !== undefined) updates.title = body.title
+  if (body.description !== undefined) updates.description = body.description
+  if (body.genre !== undefined) updates.genre = body.genre
+  if (body.style !== undefined) updates.style = body.style
+  if (body.status !== undefined) updates.status = body.status
+  if (body.tags !== undefined) updates.tags = JSON.stringify(body.tags)
+  if (body.metadata !== undefined) updates.metadata = body.metadata
+  db.update(schema.dramas).set(updates).where(eq(schema.dramas.id, id)).run()
   return success(c)
 })
 
@@ -124,18 +140,6 @@ app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   await db.update(schema.dramas).set({ deletedAt: now() }).where(eq(schema.dramas.id, id))
   return success(c)
-})
-
-// GET /dramas/stats
-app.get('/stats', async (c) => {
-  const all = await db.select().from(schema.dramas).where(isNull(schema.dramas.deletedAt))
-  const byStatus = Object.entries(
-    all.reduce((acc, d) => {
-      acc[d.status || 'draft'] = (acc[d.status || 'draft'] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-  ).map(([status, count]) => ({ status, count }))
-  return success(c, { total: all.length, by_status: byStatus })
 })
 
 // PUT /dramas/:id/characters - Save characters

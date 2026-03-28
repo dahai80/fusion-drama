@@ -17,8 +17,10 @@ export function getActiveConfig(serviceType: ServiceType): AIConfig | null {
   const rows = db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
     .all()
+    .filter(r => r.isActive)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0)) // 高优先级优先
 
-  const active = rows.find(r => r.isActive)
+  const active = rows[0]
   if (!active) return null
 
   const models = active.model ? JSON.parse(active.model) : []

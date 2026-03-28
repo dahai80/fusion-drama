@@ -43,14 +43,11 @@ export async function composeStoryboard(storyboardId: number): Promise<string> {
     const match = sb.dialogue.match(/^(.+?)[:：]/)
     if (match) {
       const charName = match[1].replace(/[（(].+?[)）]/, '').trim()
-      const chars = db.select().from(schema.characters)
-        .where(eq(schema.characters.dramaId, sb.episodeId)).all() // 近似：通过 episode 找 drama
-      // 从 episode 找 drama_id
       const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId)).all()
       if (ep) {
-        const allChars = db.select().from(schema.characters)
+        const chars = db.select().from(schema.characters)
           .where(eq(schema.characters.dramaId, ep.dramaId)).all()
-        const found = allChars.find(c => c.name === charName)
+        const found = chars.find(c => c.name === charName)
         if (found?.voiceStyle) voiceId = found.voiceStyle
       }
     }

@@ -30,8 +30,8 @@ app.use('*', cors({
   origin: ['http://localhost:3013', 'http://localhost:5679'],
   credentials: true,
 }))
-app.use('*', errorHandler)
 app.use('*', requestLogger)
+app.use('*', errorHandler)
 
 // Health check
 app.get('/api/v1/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
