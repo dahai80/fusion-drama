@@ -27,7 +27,7 @@ app.post('/', async (c) => {
     })
 
     const [record] = db.select().from(schema.videoGenerations)
-      .where(eq(schema.videoGenerations.id, id))
+      .where(eq(schema.videoGenerations.id, id)).all()
     return created(c, record)
   } catch (err: any) {
     return badRequest(c, err.message)
@@ -38,7 +38,7 @@ app.post('/', async (c) => {
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [row] = db.select().from(schema.videoGenerations)
-    .where(eq(schema.videoGenerations.id, id))
+    .where(eq(schema.videoGenerations.id, id)).all()
   return success(c, row || null)
 })
 

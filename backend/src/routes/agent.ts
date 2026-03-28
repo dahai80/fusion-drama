@@ -60,49 +60,53 @@ app.post('/:type/chat', async (c) => {
 
       for await (const chunk of result.fullStream) {
         chunkCount++
+        const p = (chunk as any).payload || chunk
 
         switch (chunk.type) {
-          case 'text-delta':
-            textLength += (chunk.textDelta || '').length
+          case 'text-delta': {
+            const text = p.textDelta ?? p.delta ?? ''
+            textLength += text.length
             await stream.writeSSE({
-              data: JSON.stringify({ type: 'content', data: chunk.textDelta }),
+              data: JSON.stringify({ type: 'content', data: text }),
             })
             break
+          }
 
-          case 'tool-call':
+          case 'tool-call': {
             toolCallCount++
-            const argsStr = chunk.args != null ? JSON.stringify(chunk.args) : '{}'
-            log('Tool', C.magenta, `CALL ${C.bold}${chunk.toolName}${C.r}(${argsStr.slice(0, 300)})`)
+            const toolName = p.toolName ?? p.name ?? 'unknown'
+            const args = p.args ?? p.arguments ?? {}
+            const argsStr = JSON.stringify(args)
+            log('Tool', C.magenta, `CALL ${C.bold}${toolName}${C.r}(${argsStr.slice(0, 300)})`)
             await stream.writeSSE({
-              data: JSON.stringify({
-                type: 'tool_call',
-                data: argsStr,
-                tool_name: chunk.toolName,
-              }),
+              data: JSON.stringify({ type: 'tool_call', data: argsStr, tool_name: toolName }),
             })
             break
+          }
 
-          case 'tool-result':
+          case 'tool-result': {
             toolResultCount++
-            const resultStr = chunk.result != null
-              ? (typeof chunk.result === 'string' ? chunk.result : JSON.stringify(chunk.result))
+            const toolName = p.toolName ?? p.name ?? 'unknown'
+            const rawResult = p.result ?? p.output ?? null
+            const resultStr = rawResult != null
+              ? (typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult))
               : '(empty)'
-            log('Tool', C.green, `RESULT ${C.bold}${chunk.toolName}${C.r} → ${resultStr.slice(0, 200)}`)
+            log('Tool', C.green, `RESULT ${C.bold}${toolName}${C.r} → ${resultStr.slice(0, 200)}`)
             await stream.writeSSE({
               data: JSON.stringify({
                 type: 'tool_result',
                 data: resultStr.length > 2000 ? resultStr.slice(0, 2000) + '...[truncated]' : resultStr,
-                tool_name: chunk.toolName,
+                tool_name: toolName,
               }),
             })
             break
+          }
 
           case 'error':
-            log('Agent', C.red, `STREAM ERROR:`, (chunk as any).error || chunk)
+            log('Agent', C.red, `STREAM ERROR:`, p.error || p)
             break
 
           default:
-            // Log unknown chunk types for debugging
             if (!['step-start', 'step-finish', 'finish'].includes(chunk.type)) {
               log('Agent', C.dim, `chunk: ${chunk.type}`)
             }

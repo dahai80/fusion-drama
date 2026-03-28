@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
-import { success, notFound, now } from '../utils/response.js'
+import { success, now } from '../utils/response.js'
 
 const app = new Hono()
 
@@ -15,23 +15,19 @@ app.put('/:id', async (c) => {
     if (snakeKey in body) updates[key] = body[snakeKey]
     else if (key in body) updates[key] = body[key]
   }
-  await db.update(schema.characters).set(updates).where(eq(schema.characters.id, id))
+  db.update(schema.characters).set(updates).where(eq(schema.characters.id, id)).run()
   return success(c)
 })
 
 // DELETE /characters/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  await db.update(schema.characters).set({ deletedAt: now() }).where(eq(schema.characters.id, id))
+  db.update(schema.characters).set({ deletedAt: now() }).where(eq(schema.characters.id, id)).run()
   return success(c)
 })
 
 // POST /characters/:id/generate-image (placeholder)
 app.post('/:id/generate-image', async (c) => {
-  const id = Number(c.req.param('id'))
-  await db.update(schema.characters)
-    .set({ imageGenerationStatus: 'pending', updatedAt: now() })
-    .where(eq(schema.characters.id, id))
   return success(c, { message: 'Image generation queued' })
 })
 

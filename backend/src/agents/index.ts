@@ -14,8 +14,7 @@ function getModel() {
   const provider = createOpenAI({
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
-    compatibility: 'compatible',
-  })
+  } as any)
   return provider.chat(config.model)
 }
 
