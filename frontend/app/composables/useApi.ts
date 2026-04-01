@@ -44,7 +44,10 @@ export const dramaAPI = {
 }
 
 export const episodeAPI = {
+  create: (data: any) => api.post('/episodes', data),
   update: (id: number, data: any) => api.put(`/episodes/${id}`, data),
+  characters: (id: number) => api.get(`/episodes/${id}/characters`),
+  scenes: (id: number) => api.get(`/episodes/${id}/scenes`),
   storyboards: (id: number) => api.get(`/episodes/${id}/storyboards`),
   pipelineStatus: (id: number) => api.get(`/episodes/${id}/pipeline-status`),
 }
@@ -52,19 +55,44 @@ export const episodeAPI = {
 export const storyboardAPI = {
   create: (data: any) => api.post('/storyboards', data),
   update: (id: number, data: any) => api.put(`/storyboards/${id}`, data),
+  generateTTS: (id: number) => api.post(`/storyboards/${id}/generate-tts`),
   del: (id: number) => api.del(`/storyboards/${id}`),
 }
 
 export const characterAPI = {
   update: (id: number, data: any) => api.put(`/characters/${id}`, data),
-  voiceSample: (id: number) => api.post(`/characters/${id}/generate-voice-sample`),
+  voiceSample: (id: number, episodeId: number) => api.post(`/characters/${id}/generate-voice-sample`, { episode_id: episodeId }),
+  generateImage: (id: number, episodeId: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId }),
+  batchImages: (ids: number[], episodeId: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId }),
 }
 
-export const imageAPI = { generate: (d: any) => api.post('/images', d) }
-export const videoAPI = { generate: (d: any) => api.post('/videos', d) }
+export const sceneAPI = {
+  generateImage: (id: number, episodeId: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId }),
+}
+
+export const imageAPI = {
+  generate: (d: any) => api.post('/images', d),
+  list: (params?: { drama_id?: number; storyboard_id?: number }) => {
+    const query = new URLSearchParams()
+    if (params?.drama_id) query.set('drama_id', String(params.drama_id))
+    if (params?.storyboard_id) query.set('storyboard_id', String(params.storyboard_id))
+    return api.get(`/images${query.size ? `?${query.toString()}` : ''}`)
+  },
+}
+export const gridAPI = {
+  prompt: (d: any) => api.post('/grid/prompt', d),
+  generate: (d: any) => api.post('/grid/generate', d),
+  status: (id: number) => api.get(`/grid/status/${id}`),
+  split: (d: any) => api.post('/grid/split', d),
+}
+export const videoAPI = {
+  generate: (d: any) => api.post('/videos', d),
+  get: (id: number) => api.get(`/videos/${id}`),
+}
 export const composeAPI = {
   shot: (id: number) => api.post(`/compose/storyboards/${id}/compose`),
   all: (epId: number) => api.post(`/compose/episodes/${epId}/compose-all`),
+  status: (epId: number) => api.get(`/compose/episodes/${epId}/compose-status`),
 }
 export const mergeAPI = {
   merge: (epId: number) => api.post(`/merge/episodes/${epId}/merge`),
@@ -75,38 +103,26 @@ export const aiConfigAPI = {
   create: (d: any) => api.post('/ai-configs', d),
   update: (id: number, d: any) => api.put(`/ai-configs/${id}`, d),
   del: (id: number) => api.del(`/ai-configs/${id}`),
+  test: (d: any) => api.post('/ai-configs/test', d),
 }
 
-export async function* streamAgent(type: string, msg: string, dramaId: number, episodeId: number) {
-  console.log(`%c[Agent] %cSTART %c${type}`, 'color:#888', 'color:#ce93d8;font-weight:bold', 'color:#ccc', `drama=${dramaId} episode=${episodeId}`)
+export const agentConfigAPI = {
+  list: () => api.get('/agent-configs'),
+  get: (id: number) => api.get(`/agent-configs/${id}`),
+  create: (d: any) => api.post('/agent-configs', d),
+  update: (id: number, d: any) => api.put(`/agent-configs/${id}`, d),
+  del: (id: number) => api.del(`/agent-configs/${id}`),
+}
 
-  const r = await fetch(`${BASE}/agent/${type}/chat`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: msg, drama_id: dramaId, episode_id: episodeId }),
-  })
-  if (!r.ok || !r.body) {
-    console.log(`%c[Agent] %cFAILED %c${type} %c${r.status}`, 'color:#888', 'color:#ef5350', 'color:#ccc', 'color:#ef5350')
-    throw new Error('Agent failed')
-  }
+export const skillsAPI = {
+  list: () => api.get('/skills'),
+  get: (id: string) => api.get(`/skills/${id}`),
+  create: (data: { id: string; name: string; description?: string }) => api.post('/skills', data),
+  update: (id: string, content: string) => api.put(`/skills/${id}`, { content }),
+  del: (id: string) => api.del(`/skills/${id}`),
+}
 
-  const reader = r.body.getReader(), dec = new TextDecoder()
-  let buf = ''
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += dec.decode(value, { stream: true })
-    const lines = buf.split('\n'); buf = lines.pop() || ''
-    for (const l of lines) {
-      if (l.startsWith('data: ')) {
-        try {
-          const event = JSON.parse(l.slice(6))
-          if (event.type === 'tool_call') console.log(`%c[Agent] %cCALL %c${event.tool_name}`, 'color:#888', 'color:#ffb74d', 'color:#fff', event.data ? JSON.parse(event.data) : '')
-          else if (event.type === 'tool_result') console.log(`%c[Agent] %cRESULT %c${event.tool_name}`, 'color:#888', 'color:#66bb6a', 'color:#ccc', event.data?.slice?.(0, 100) || '')
-          else if (event.type === 'done') console.log(`%c[Agent] %cDONE %c${type}`, 'color:#888', 'color:#66bb6a;font-weight:bold', 'color:#ccc')
-          else if (event.type === 'error') console.log(`%c[Agent] %cERROR %c${type}`, 'color:#888', 'color:#ef5350;font-weight:bold', 'color:#ccc', event.data)
-          yield event
-        } catch {}
-      }
-    }
-  }
+export const voicesAPI = {
+  list: (provider?: string) => api.get(`/ai-voices${provider ? `?provider=${provider}` : ''}`),
+  sync: () => api.post('/ai-voices/sync', {}),
 }

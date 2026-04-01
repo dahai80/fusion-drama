@@ -2,9 +2,108 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, notFound, created, badRequest, now } from '../utils/response.js'
-import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
+import { toSnakeCase } from '../utils/transform.js'
+import { joinProviderUrl } from '../services/adapters/url.js'
+import { redactUrl, logTaskError, logTaskProgress, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
+
+function bearerHeaders(apiKey?: string, withJson = false) {
+  const headers: Record<string, string> = {}
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+  if (withJson) headers['Content-Type'] = 'application/json'
+  return headers
+}
+
+function geminiHeaders(apiKey?: string, withJson = false) {
+  const headers: Record<string, string> = {}
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+    headers['x-goog-api-key'] = apiKey
+  }
+  if (withJson) headers['Content-Type'] = 'application/json'
+  return headers
+}
+
+function viduHeaders(apiKey?: string, withJson = false) {
+  const headers: Record<string, string> = {}
+  if (apiKey) headers.Authorization = `Token ${apiKey}`
+  if (withJson) headers['Content-Type'] = 'application/json'
+  return headers
+}
+
+function buildProbe(serviceType: string, provider: string, baseUrl: string, model?: string, apiKey?: string) {
+  const p = provider.toLowerCase()
+  const m = model || ''
+
+  if (p === 'gemini') {
+    const url = new URL(joinProviderUrl(baseUrl, '/v1beta', `/models/${m || 'gemini-2.5-flash'}:generateContent`))
+    if (apiKey) url.searchParams.set('key', apiKey)
+    return { method: 'POST', url: url.toString(), headers: geminiHeaders(apiKey, true), body: {} }
+  }
+
+  if (p === 'openai' || p === 'openrouter' || p === 'chatfire') {
+    return {
+      method: 'GET',
+      url: joinProviderUrl(baseUrl, '/v1', '/models'),
+      headers: bearerHeaders(apiKey),
+      body: undefined,
+    }
+  }
+
+  if (p === 'ali') {
+    return {
+      method: 'POST',
+      url: joinProviderUrl(baseUrl, '/api/v1', serviceType === 'video'
+        ? '/services/aigc/video-generation/video-synthesis'
+        : '/services/aigc/image-generation/generation'),
+      headers: bearerHeaders(apiKey, true),
+      body: {},
+    }
+  }
+
+  if (p === 'volcengine') {
+    const path = serviceType === 'video'
+      ? '/contents/generations/tasks'
+      : '/images/generations'
+    return {
+      method: 'POST',
+      url: joinProviderUrl(baseUrl, '/api/v3', path),
+      headers: bearerHeaders(apiKey, true),
+      body: {},
+    }
+  }
+
+  if (p === 'minimax') {
+    const path = serviceType === 'audio'
+      ? '/t2a_v2'
+      : serviceType === 'video'
+        ? '/video_generation'
+        : '/image_generation'
+    return {
+      method: 'POST',
+      url: joinProviderUrl(baseUrl, '/v1', path),
+      headers: bearerHeaders(apiKey, true),
+      body: {},
+    }
+  }
+
+  if (p === 'vidu') {
+    return {
+      method: 'POST',
+      url: joinProviderUrl(baseUrl, '', '/ent/v2/img2video'),
+      headers: viduHeaders(apiKey, true),
+      body: {},
+    }
+  }
+
+  return {
+    method: 'GET',
+    url: joinProviderUrl(baseUrl, '', m ? `/${m}` : '/'),
+    headers: bearerHeaders(apiKey),
+    body: undefined,
+  }
+}
 
 // GET /ai-configs?service_type=text
 app.get('/', async (c) => {
@@ -49,6 +148,75 @@ app.post('/', async (c) => {
     ...toSnakeCase(row),
     model: row.model ? JSON.parse(row.model) : [],
   })
+})
+
+// POST /ai-configs/test
+app.post('/test', async (c) => {
+  const body = await c.req.json()
+  if (!body.service_type || !body.provider || !body.base_url) {
+    return badRequest(c, 'service_type, provider and base_url are required')
+  }
+
+  const model = Array.isArray(body.model) ? body.model[0] : body.model
+  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key)
+  const probeUrl = redactUrl(probe.url)
+
+  logTaskProgress('AIConfig', 'probe-start', {
+    serviceType: body.service_type,
+    provider: body.provider,
+    method: probe.method,
+    url: probeUrl,
+  })
+
+  try {
+    const resp = await fetch(probe.url, {
+      method: probe.method,
+      headers: probe.headers,
+      body: probe.body ? JSON.stringify(probe.body) : undefined,
+    })
+    const text = await resp.text()
+    const reachable = [200, 204, 400, 401, 403].includes(resp.status)
+    const payload = {
+      ok: resp.ok,
+      reachable,
+      status: resp.status,
+      status_text: resp.statusText,
+      method: probe.method,
+      url: probeUrl,
+      message: reachable
+        ? (resp.ok ? '端点可访问，认证与路径基本正常' : '端点已响应，请根据状态码判断认证或路径是否正确')
+        : '端点未按预期响应，请检查 Base URL 和代理前缀',
+      response_preview: text.slice(0, 240),
+    }
+    if (reachable) {
+      logTaskSuccess('AIConfig', 'probe-done', {
+        provider: body.provider,
+        status: resp.status,
+        url: probeUrl,
+      })
+    } else {
+      logTaskError('AIConfig', 'probe-unexpected', {
+        provider: body.provider,
+        status: resp.status,
+        url: probeUrl,
+      })
+    }
+    return success(c, payload)
+  } catch (error: any) {
+    logTaskError('AIConfig', 'probe-failed', {
+      provider: body.provider,
+      url: probeUrl,
+      error: error.message,
+    })
+    return success(c, {
+      ok: false,
+      reachable: false,
+      method: probe.method,
+      url: probeUrl,
+      message: error.message || '请求失败',
+      response_preview: '',
+    })
+  }
 })
 
 // GET /ai-configs/:id

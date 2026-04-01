@@ -18,6 +18,10 @@ import agentConfigs from './routes/agentConfigs.js'
 import agent from './routes/agent.js'
 import compose from './routes/compose.js'
 import merge from './routes/merge.js'
+import grid from './routes/grid.js'
+import skills from './routes/skills.js'
+import webhooks from './routes/webhooks.js'
+import aiVoices from './routes/aiVoices.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -52,8 +56,14 @@ api.route('/agent-configs', agentConfigs)
 api.route('/agent', agent)
 api.route('/compose', compose)
 api.route('/merge', merge)
+api.route('/grid', grid)
+api.route('/skills', skills)
+api.route('/ai-voices', aiVoices)
 
 app.route('/api/v1', api)
+
+// Webhook callbacks (Vidu, etc.) - outside /api/v1
+app.route('/webhooks', webhooks)
 
 // Serve static files (storage)
 app.use('/static/*', serveStatic({ root: path.join(projectRoot, 'data') }))

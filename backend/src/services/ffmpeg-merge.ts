@@ -9,6 +9,7 @@ import { v4 as uuid } from 'uuid'
 import { db, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
+import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../../data/static')
@@ -29,14 +30,17 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Pr
     .orderBy(schema.storyboards.storyboardNumber)
     .all()
 
-  // 取有合成视频的镜头（composedVideoUrl），回退到原始视频（videoUrl）
-  const videos = storyboards
-    .map(sb => sb.composedVideoUrl || sb.videoUrl)
+  const composedStoryboards = storyboards.filter(sb => !!sb.composedVideoUrl)
+  if (composedStoryboards.length !== storyboards.length) {
+    throw new Error(`Only composed storyboards can be merged (${composedStoryboards.length}/${storyboards.length} ready)`)
+  }
+  const videos = composedStoryboards
+    .map(sb => sb.composedVideoUrl)
     .filter(Boolean) as string[]
 
   if (videos.length === 0) throw new Error('No videos to merge')
 
-  console.log(`[Merge] Starting: ${videos.length} videos for episode ${episodeId}`)
+  logTaskStart('MergeTask', 'episode-merge', { episodeId, dramaId, clips: videos.length })
 
   // 创建 merge 记录
   const ts = now()
@@ -44,6 +48,8 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Pr
     episodeId,
     dramaId,
     title: `Episode ${episodeId} Merge`,
+    provider: 'ffmpeg',
+    model: 'ffmpeg-concat-h264-aac',
     status: 'processing',
     scenes: JSON.stringify(videos),
     createdAt: ts,
@@ -52,6 +58,7 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Pr
 
   // 异步执行
   doMerge(mergeId, episodeId, videos).catch(err => {
+    logTaskError('MergeTask', 'episode-merge', { mergeId, episodeId, error: err.message })
     console.error(`[Merge] Failed:`, err)
     db.update(schema.videoMerges)
       .set({ status: 'failed', errorMsg: err.message })
@@ -82,7 +89,16 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
     ffmpeg()
       .input(listPath)
       .inputOptions(['-f', 'concat', '-safe', '0'])
-      .outputOptions(['-c', 'copy'])
+      .outputOptions([
+        '-fflags', '+genpts',
+        '-c:v', 'libx264',
+        '-preset', 'medium',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-ar', '48000',
+        '-b:a', '192k',
+        '-movflags', '+faststart',
+      ])
       .output(outputPath)
       .on('end', () => resolve())
       .on('error', (err) => reject(err))
@@ -107,7 +123,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
     .set({ videoUrl: mergedRelative, updatedAt: now() })
     .where(eq(schema.episodes.id, episodeId)).run()
 
-  console.log(`[Merge] Done: ${mergedRelative} (${duration}s, ${videos.length} clips)`)
+  logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length })
 }
 
 function getVideoDuration(filePath: string): Promise<number> {

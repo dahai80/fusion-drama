@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateVideo } from '../services/video-generation.js'
+import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
 
@@ -12,6 +13,22 @@ app.post('/', async (c) => {
   if (!body.prompt) return badRequest(c, 'prompt is required')
 
   try {
+    let configId: number | undefined = body.config_id
+    if (body.storyboard_id) {
+      const [sb] = db.select().from(schema.storyboards).where(eq(schema.storyboards.id, Number(body.storyboard_id))).all()
+      if (sb) {
+        const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId)).all()
+        if (ep?.videoConfigId != null) configId = ep.videoConfigId
+      }
+    }
+
+    logTaskStart('VideoAPI', 'generate', {
+      storyboardId: body.storyboard_id,
+      dramaId: body.drama_id,
+      referenceMode: body.reference_mode,
+      duration: body.duration,
+    })
+    logTaskPayload('VideoAPI', 'request body', body)
     const id = await generateVideo({
       storyboardId: body.storyboard_id,
       dramaId: body.drama_id,
@@ -24,12 +41,15 @@ app.post('/', async (c) => {
       referenceImageUrls: body.reference_image_urls,
       duration: body.duration,
       aspectRatio: body.aspect_ratio,
+      configId,
     })
 
     const [record] = db.select().from(schema.videoGenerations)
       .where(eq(schema.videoGenerations.id, id)).all()
+    logTaskSuccess('VideoAPI', 'generate', { generationId: id, provider: record?.provider })
     return created(c, record)
   } catch (err: any) {
+    logTaskError('VideoAPI', 'generate', { error: err.message })
     return badRequest(c, err.message)
   }
 })

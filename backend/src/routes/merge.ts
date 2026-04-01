@@ -4,6 +4,7 @@ import { db, schema } from '../db/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { mergeEpisodeVideos } from '../services/ffmpeg-merge.js'
 import { toSnakeCase } from '../utils/transform.js'
+import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
 
@@ -14,9 +15,12 @@ app.post('/episodes/:id/merge', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   try {
+    logTaskStart('MergeAPI', 'episode-merge', { episodeId, dramaId: ep.dramaId })
     const mergeId = await mergeEpisodeVideos(episodeId, ep.dramaId)
+    logTaskSuccess('MergeAPI', 'episode-merge', { episodeId, mergeId })
     return success(c, { merge_id: mergeId, status: 'processing' })
   } catch (err: any) {
+    logTaskError('MergeAPI', 'episode-merge', { episodeId, error: err.message })
     return badRequest(c, err.message)
   }
 })

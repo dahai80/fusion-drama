@@ -2,9 +2,47 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, notFound, badRequest, now } from '../utils/response.js'
-import { toSnakeCaseArray } from '../utils/transform.js'
+import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 
 const app = new Hono()
+
+// POST /episodes — Create a new episode
+app.post('/', async (c) => {
+  const body = await c.req.json()
+  if (!body.drama_id) return badRequest(c, 'drama_id required')
+  if (!body.image_config_id || !body.video_config_id || !body.audio_config_id) {
+    return badRequest(c, 'image_config_id, video_config_id and audio_config_id are required')
+  }
+  const ts = now()
+
+  // Get next episode number
+  const existing = db.select().from(schema.episodes)
+    .where(eq(schema.episodes.dramaId, body.drama_id))
+    .orderBy(schema.episodes.episodeNumber).all()
+  const nextNum = existing.length ? Math.max(...existing.map(e => e.episodeNumber)) + 1 : 1
+
+  const res = db.insert(schema.episodes).values({
+    dramaId: body.drama_id,
+    episodeNumber: nextNum,
+    title: body.title || `第${nextNum}集`,
+    imageConfigId: body.image_config_id,
+    videoConfigId: body.video_config_id,
+    audioConfigId: body.audio_config_id,
+    createdAt: ts,
+    updatedAt: ts,
+  }).run()
+
+  const [ep] = db.select().from(schema.episodes)
+    .where(eq(schema.episodes.id, Number(res.lastInsertRowid))).all()
+  return success(c, {
+    id: ep.id,
+    episode_number: ep.episodeNumber,
+    title: ep.title,
+    image_config_id: ep.imageConfigId,
+    video_config_id: ep.videoConfigId,
+    audio_config_id: ep.audioConfigId,
+  })
+})
 
 // PUT /episodes/:id - Update episode fields
 app.put('/:id', async (c) => {
@@ -30,13 +68,58 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
+// GET /episodes/:id/characters — characters linked to this episode
+app.get('/:id/characters', async (c) => {
+  const episodeId = Number(c.req.param('id'))
+  const links = db.select().from(schema.episodeCharacters)
+    .where(eq(schema.episodeCharacters.episodeId, episodeId)).all()
+  const charIds = links.map(l => l.characterId)
+  if (!charIds.length) return success(c, [])
+  const allChars = db.select().from(schema.characters).all()
+  const result = allChars.filter(ch => charIds.includes(ch.id) && !ch.deletedAt)
+  return success(c, toSnakeCaseArray(result))
+})
+
+// GET /episodes/:id/scenes — scenes linked to this episode
+app.get('/:id/scenes', async (c) => {
+  const episodeId = Number(c.req.param('id'))
+  const links = db.select().from(schema.episodeScenes)
+    .where(eq(schema.episodeScenes.episodeId, episodeId)).all()
+  const sceneIds = links.map(l => l.sceneId)
+  if (!sceneIds.length) return success(c, [])
+  const allScenes = db.select().from(schema.scenes).all()
+  const result = allScenes.filter(sc => sceneIds.includes(sc.id) && !sc.deletedAt)
+  return success(c, toSnakeCaseArray(result))
+})
+
 // GET /episodes/:episode_id/storyboards
 app.get('/:episode_id/storyboards', async (c) => {
   const episodeId = Number(c.req.param('episode_id'))
-  const rows = await db.select().from(schema.storyboards)
+  const rows = db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
-  return success(c, toSnakeCaseArray(rows))
+    .all()
+  const links = db.select().from(schema.storyboardCharacters).all()
+  const charIdsByStoryboard = new Map<number, number[]>()
+  for (const link of links) {
+    const arr = charIdsByStoryboard.get(link.storyboardId) || []
+    arr.push(link.characterId)
+    charIdsByStoryboard.set(link.storyboardId, arr)
+  }
+
+  const episodeCharIds = db.select().from(schema.episodeCharacters)
+    .where(eq(schema.episodeCharacters.episodeId, episodeId)).all()
+    .map(link => link.characterId)
+  const allChars = db.select().from(schema.characters).all()
+    .filter(ch => episodeCharIds.includes(ch.id) && !ch.deletedAt)
+
+  return success(c, rows.map((row) => ({
+    ...toSnakeCase(row),
+    character_ids: charIdsByStoryboard.get(row.id) || [],
+    characters: allChars
+      .filter(ch => (charIdsByStoryboard.get(row.id) || []).includes(ch.id))
+      .map(ch => toSnakeCase(ch)),
+  })))
 })
 
 // GET /episodes/:id/pipeline-status — 流水线进度

@@ -1,26 +1,28 @@
 /**
- * Agent SSE 聊天路由 — 完整日志版
+ * Agent 聊天路由 — 非流式版本
  */
 import { Hono } from 'hono'
-import { streamSSE } from 'hono/streaming'
 import { createAgent, validAgentTypes } from '../agents/index.js'
 import { success, badRequest } from '../utils/response.js'
-
-const C = {
-  r: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m',
-  cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m',
-  red: '\x1b[31m', magenta: '\x1b[35m', blue: '\x1b[34m',
-}
-
-function ts() { return new Date().toLocaleTimeString('zh-CN', { hour12: false }) }
-
-function log(tag: string, color: string, ...args: any[]) {
-  console.log(`${C.dim}${ts()}${C.r} ${color}[${tag}]${C.r}`, ...args)
-}
+import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
 
-// POST /agent/:type/chat — SSE 流式 Agent 对话
+function normalizeToolName(entry: any) {
+  return entry?.toolName
+    || entry?.tool?.toolName
+    || entry?.tool?.id
+    || entry?.name
+    || entry?.type
+    || null
+}
+
+function normalizeToolResult(entry: any) {
+  const result = entry?.result ?? entry?.output ?? entry?.data ?? null
+  return typeof result === 'string' ? result : JSON.stringify(result)
+}
+
+// POST /agent/:type/chat — 非流式 Agent 对话
 app.post('/:type/chat', async (c) => {
   const agentType = c.req.param('type')
   if (!validAgentTypes.includes(agentType)) {
@@ -30,105 +32,66 @@ app.post('/:type/chat', async (c) => {
   const body = await c.req.json()
   const { message, drama_id, episode_id } = body
 
-  log('Agent', C.cyan, `START ${C.bold}${agentType}${C.r} | drama=${drama_id} episode=${episode_id}`)
-  log('Agent', C.cyan, `message: "${message}"`)
+  logTaskStart('Agent', agentType, {
+    dramaId: drama_id,
+    episodeId: episode_id,
+    message,
+  })
+  logTaskPayload('Agent', `${agentType} input`, body)
 
   if (!episode_id || !drama_id) {
-    log('Agent', C.red, 'MISSING drama_id or episode_id')
+    logTaskError('Agent', agentType, { reason: 'missing drama_id or episode_id' })
     return badRequest(c, 'drama_id and episode_id are required')
   }
 
   const agent = createAgent(agentType, episode_id, drama_id)
   if (!agent) {
-    log('Agent', C.red, `UNKNOWN agent type: ${agentType}`)
+    logTaskError('Agent', agentType, { reason: 'agent not found' })
     return badRequest(c, 'Agent not found')
   }
 
   const startTime = performance.now()
 
-  return streamSSE(c, async (stream) => {
-    try {
-      log('Agent', C.blue, 'calling LLM stream...')
-      const result = await agent.stream([
-        { role: 'user', content: message },
-      ])
+  try {
+    const result = await agent.generate(
+      [{ role: 'user', content: message }],
+      { maxSteps: 20 },
+    )
 
-      let chunkCount = 0
-      let textLength = 0
-      let toolCallCount = 0
-      let toolResultCount = 0
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
+    logTaskSuccess('Agent', agentType, { elapsedSeconds: elapsed })
 
-      for await (const chunk of result.fullStream) {
-        chunkCount++
-        const p = (chunk as any).payload || chunk
+    // 收集所有 tool calls 和 results
+    const toolCalls = result.toolCalls || []
+    const toolResults = result.toolResults || []
+    const normalizedToolCalls = toolCalls.map((tc: any) => ({
+      toolName: normalizeToolName(tc),
+      args: tc?.args ?? tc?.input ?? null,
+    }))
+    const normalizedToolResults = toolResults.map((tr: any) => ({
+      toolName: normalizeToolName(tr),
+      result: normalizeToolResult(tr),
+    }))
 
-        switch (chunk.type) {
-          case 'text-delta': {
-            const text = p.textDelta ?? p.delta ?? ''
-            textLength += text.length
-            await stream.writeSSE({
-              data: JSON.stringify({ type: 'content', data: text }),
-            })
-            break
-          }
+    logTaskProgress('Agent', 'tool-summary', {
+      agentType,
+      toolCalls: normalizedToolCalls.map((tc: any) => tc.toolName),
+      toolResults: normalizedToolResults.map((tr: any) => tr.toolName),
+    })
+    logTaskPayload('Agent', `${agentType} tool-results`, normalizedToolResults)
 
-          case 'tool-call': {
-            toolCallCount++
-            const toolName = p.toolName ?? p.name ?? 'unknown'
-            const args = p.args ?? p.arguments ?? {}
-            const argsStr = JSON.stringify(args)
-            log('Tool', C.magenta, `CALL ${C.bold}${toolName}${C.r}(${argsStr.slice(0, 300)})`)
-            await stream.writeSSE({
-              data: JSON.stringify({ type: 'tool_call', data: argsStr, tool_name: toolName }),
-            })
-            break
-          }
-
-          case 'tool-result': {
-            toolResultCount++
-            const toolName = p.toolName ?? p.name ?? 'unknown'
-            const rawResult = p.result ?? p.output ?? null
-            const resultStr = rawResult != null
-              ? (typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult))
-              : '(empty)'
-            log('Tool', C.green, `RESULT ${C.bold}${toolName}${C.r} → ${resultStr.slice(0, 200)}`)
-            await stream.writeSSE({
-              data: JSON.stringify({
-                type: 'tool_result',
-                data: resultStr.length > 2000 ? resultStr.slice(0, 2000) + '...[truncated]' : resultStr,
-                tool_name: toolName,
-              }),
-            })
-            break
-          }
-
-          case 'error':
-            log('Agent', C.red, `STREAM ERROR:`, p.error || p)
-            break
-
-          default:
-            if (!['step-start', 'step-finish', 'finish'].includes(chunk.type)) {
-              log('Agent', C.dim, `chunk: ${chunk.type}`)
-            }
-            break
-        }
-      }
-
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
-      log('Agent', C.green, `DONE ${C.bold}${agentType}${C.r} | ${elapsed}s | chunks=${chunkCount} text=${textLength}chars tools=${toolCallCount}→${toolResultCount}`)
-
-      await stream.writeSSE({
-        data: JSON.stringify({ type: 'done', data: '' }),
-      })
-    } catch (err: any) {
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
-      log('Agent', C.red, `ERROR ${C.bold}${agentType}${C.r} | ${elapsed}s`)
-      console.error(err.stack || err)
-      await stream.writeSSE({
-        data: JSON.stringify({ type: 'error', data: err.message || 'Agent execution failed' }),
-      })
-    }
-  })
+    return success(c, {
+      type: 'done',
+      text: result.text || '',
+      toolCalls: normalizedToolCalls,
+      toolResults: normalizedToolResults,
+    })
+  } catch (err: any) {
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
+    logTaskError('Agent', agentType, { elapsedSeconds: elapsed, error: err.message })
+    console.error(err.stack || err)
+    return badRequest(c, err.message || 'Agent execution failed')
+  }
 })
 
 // GET /agent/:type/debug

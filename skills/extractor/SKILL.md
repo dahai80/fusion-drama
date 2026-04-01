@@ -32,6 +32,15 @@ description: 角色和场景提取的规范与方法
 
 ## 使用步骤
 
-1. 根据用户请求判断需要提取什么（角色/场景/道具/全部）
-2. 调用对应的 `extract_characters`、`extract_scenes`、`extract_props` 工具
-3. 汇报提取结果给用户
+1. 调用 `read_script_for_extraction` 读取当前集剧本
+2. 调用 `read_existing_characters` 查看项目已有角色和当前集已关联角色
+3. 调用 `read_existing_scenes` 查看项目已有场景和当前集已关联场景
+4. 只提取当前集真实涉及的角色和场景
+5. 调用 `save_dedup_characters` 保存角色并自动关联到当前集
+6. 调用 `save_dedup_scenes` 保存场景并自动关联到当前集
+
+## 当前集规则
+
+- 目标是补齐“当前集”需要的角色和场景，不是重扫整个项目
+- 若角色或场景已在项目中存在但当前集未关联，仍应复用并关联到当前集
+- 若项目中已有同名角色或同地点同时间场景，优先复用，不要重复创建
