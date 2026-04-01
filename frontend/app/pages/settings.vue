@@ -337,7 +337,7 @@
           <div>
             <div class="setup-kicker">Huobao Preset</div>
             <h2 class="modal-title">火宝一键配置</h2>
-            <div class="modal-note">按火宝推荐链路自动创建或更新 4 条配置：文本 / 图片 / 视频 / 音频。</div>
+            <div class="modal-note">按火宝推荐链路自动创建或更新 4 条服务配置，并同时初始化 5 个 Agent 的默认模型。</div>
           </div>
           <span class="tag tag-success">推荐</span>
         </div>
@@ -454,7 +454,6 @@ const huobaoPresetCards = [
   { serviceType: 'video', label: '视频', provider: 'volcengine', baseUrl: 'https://api.chatfire.site/volcengine', model: 'doubao-seedance-1-5-pro-251215', priority: 98 },
   { serviceType: 'audio', label: '音频', provider: 'minimax', baseUrl: 'https://api.chatfire.site/minimax', model: 'speech-2.8-hd', priority: 97 },
 ]
-const huobaoAgentModel = 'gemini-3-pro-preview'
 const endpointPrefixes = {
   chatfire: '/v1',
   openai: '/v1',
@@ -561,35 +560,7 @@ async function applyHuobaoPreset() {
     return
   }
   try {
-    for (const preset of huobaoPresetCards) {
-      const existing = cfgs.value.find(c => c.service_type === preset.serviceType && c.provider === preset.provider)
-      const payload = {
-        service_type: preset.serviceType,
-        provider: preset.provider,
-        name: `火宝默认${preset.label}服务`,
-        api_key: huobaoForm.apiKey,
-        base_url: preset.baseUrl,
-        model: [preset.model],
-        priority: preset.priority,
-        is_active: true,
-      }
-      if (existing) await aiConfigAPI.update(existing.id, payload)
-      else await aiConfigAPI.create(payload)
-    }
-    for (const agent of agentDefs) {
-      const existing = agentCfgs.value.find(c => c.agent_type === agent.type)
-      const payload = {
-        agent_type: agent.type,
-        name: agent.label,
-        model: huobaoAgentModel,
-        temperature: existing?.temperature ?? 0.7,
-        max_tokens: existing?.max_tokens ?? 4096,
-        system_prompt: existing?.system_prompt || defaultPrompts[agent.type] || '',
-        is_active: true,
-      }
-      if (existing) await agentConfigAPI.update(existing.id, payload)
-      else await agentConfigAPI.create(payload)
-    }
+    await aiConfigAPI.huobaoPreset(huobaoForm.apiKey)
     await loadCfgs()
     await loadAgents()
     presetDialog.value = false
