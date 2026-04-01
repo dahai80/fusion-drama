@@ -1,666 +1,481 @@
-# 🎬 Huobao Drama - AI Short Drama Production Platform
+# 火宝短剧
 
-<div align="center">
+基于 TypeScript 的 AI 短剧生产工作台。  
+当前开源版本覆盖了从剧集内容编写、AI 改写、角色场景提取、分镜生成，到图片生成、配音生成、视频生成、单镜头合成和整集拼接导出的完整流程。
 
-**Full-stack AI Short Drama Automation Platform Based on Go + Vue3**
+![火宝短剧](/Users/connor/AiProject/huobao-drama/drama.png)
 
-[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+## 项目简介
 
-[Features](#features) • [Quick Start](#quick-start) • [Deployment](#deployment)
+火宝短剧是一个本地优先的短剧生产工具，面向连载短剧项目，提供完整的生产工作流：
 
-[简体中文](README-CN.md) | [English](README.md) | [日本語](README-JA.md)
+- 项目与剧集管理
+- AI 剧本改写与信息提取
+- 角色、场景、分镜编辑
+- 角色图、场景图、镜头图生成
+- 配音试听、镜头 TTS、视频生成
+- FFmpeg 单镜头合成与整集拼接
+- 可视化工作台统一管理全流程
 
-</div>
+本仓库是当前的 TypeScript 版本，不是旧的 Go 版本实现。
 
----
+## 技术栈
 
-## 📖 About
+### 前端
 
-Huobao Drama is an AI-powered short drama production platform that automates the entire workflow from script generation, character design, storyboarding to video composition.
+- Nuxt 3
+- Vue 3
+- TypeScript
+- 纯 CSS
 
-火宝短剧商业版地址：[火宝短剧商业版](https://drama.chatfire.site/shortvideo)
+### 后端
 
-火宝小说生成：[火宝小说生成](https://marketing.chatfire.site/huobao-novel/)
+- Hono
+- Drizzle ORM
+- better-sqlite3
+- Mastra Agents
+- FFmpeg
 
-### 🎯 Core Features
+### 存储
 
-- **🤖 AI-Driven**: Parse scripts using large language models to extract characters, scenes, and storyboards
-- **🎨 Intelligent Creation**: AI-generated character portraits and scene backgrounds
-- **📹 Video Generation**: Automatic storyboard video generation using text-to-video and image-to-video models
-- **🔄 Complete Workflow**: End-to-end production workflow from idea to final video。
+- SQLite 数据库
+- 本地文件存储 `data/static/`
 
-### 🛠️ Technical Architecture
+## 项目结构
 
-Based on **DDD (Domain-Driven Design)** with clear layering:
-
+```text
+frontend/   Nuxt 3 工作台前端
+backend/    Hono API + Drizzle + agent/runtime 服务
+configs/    示例配置
+data/       本地数据库与生成资源
+skills/     agent 运行时技能定义
 ```
-├── API Layer (Gin HTTP)
-├── Application Service Layer (Business Logic)
-├── Domain Layer (Domain Models)
-└── Infrastructure Layer (Database, External Services)
-```
 
-### 🎥 Demo Videos
+关键入口：
 
-Experience AI short drama generation:
+- 后端入口：[backend/src/index.ts](/Users/connor/AiProject/huobao-drama/backend/src/index.ts)
+- 数据库入口：[backend/src/db/index.ts](/Users/connor/AiProject/huobao-drama/backend/src/db/index.ts)
+- 工作台页面：[frontend/app/pages/drama/[id]/episode/[episodeNumber].vue](/Users/connor/AiProject/huobao-drama/frontend/app/pages/drama/[id]/episode/[episodeNumber].vue)
 
-<div align="center">
+## 核心工作流
 
-**Sample Work 1**
+工作台当前按这条流程组织：
 
-<video src="https://ffile.chatfire.site/cf/public/20260114094337396.mp4" controls width="640"></video>
+1. 原始内容录入
+2. 可选 AI 改写
+3. 角色与场景提取
+4. 音色分配
+5. 分镜拆解与编辑
+6. 角色图 / 场景图 / 镜头图生成
+7. 配音生成
+8. 视频生成
+9. 单镜头视频合成
+10. 整集拼接导出
 
-**Sample Work 2**
+此外还包含宫格图工具，用于：
 
-<video src="https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4" controls width="640"></video>
+- 生成多格参考图
+- 切分宫格图
+- 手动将格子分配回选中的分镜
 
-[Watch Video 1](https://ffile.chatfire.site/cf/public/20260114094337396.mp4) | [Watch Video 2](https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4)
+## 功能概览
 
-</div>
+### 项目与剧集管理
 
----
+- 创建和管理短剧项目
+- 创建剧集，并在创建时锁定图片 / 视频 / 音频模型配置
+- 本地 SQLite 持久化
 
-## ✨ Features
+### AI 工作流
 
-### 🎭 Character Management
+当前内置 agent：
 
-- ✅ AI-generated character portraits
-- ✅ Batch character generation
-- ✅ Character image upload and management
+- `script_rewriter`
+- `extractor`
+- `storyboard_breaker`
+- `voice_assigner`
+- `grid_prompt_generator`
 
-### 🎬 Storyboard Production
+对应能力包括：
 
-- ✅ Automatic storyboard script generation
-- ✅ Scene descriptions and shot design
-- ✅ Storyboard image generation (text-to-image)
-- ✅ Frame type selection (first frame/key frame/last frame/panel)
+- 剧本改写
+- 角色与场景提取
+- 分镜拆解
+- 音色分配
+- 宫格图提示词生成
 
-### 🎥 Video Generation
+### 素材生成
 
-- ✅ Automatic image-to-video generation
-- ✅ Video composition and editing
-- ✅ Transition effects
+- 角色图片生成
+- 场景图片生成
+- 镜头图片生成
+- 角色试听生成
+- 镜头 TTS 生成
+- 文生视频 / 图生视频生成
 
-### 📦 Asset Management
+### 编辑与生产
 
-- ✅ Unified asset library management
-- ✅ Local storage support
-- ✅ Asset import/export
-- ✅ Task progress tracking
+- 分镜绑定角色与场景
+- 分镜级提示词编辑
+- 已生成图片 / 视频预览
+- 批量合成
+- 最终整集导出
 
----
+### 运维与配置
 
-## 🚀 Quick Start
+- AI 服务配置页面
+- 音色同步接口
+- agent / 图片 / 音频 / 视频 / 合成 / 拼接日志输出
 
-### 📋 Prerequisites
+## 环境要求
 
-| Software    | Version | Description                     |
-| ----------- | ------- | ------------------------------- |
-| **Go**      | 1.23+   | Backend runtime                 |
-| **Node.js** | 18+     | Frontend build environment      |
-| **npm**     | 9+      | Package manager                 |
-| **FFmpeg**  | 4.0+    | Video processing (**Required**) |
-| **SQLite**  | 3.x     | Database (built-in)             |
+- Node.js 18+
+- npm 9+
+- FFmpeg 已安装并在 `PATH` 中可用
 
-#### Installing FFmpeg
+推荐：
 
-**macOS:**
+- macOS / Linux
+- 本地对 `data/` 目录有读写权限
+
+## 快速开始
+
+### 1. 安装依赖
 
 ```bash
-brew install ffmpeg
+cd backend
+npm install
+
+cd ../frontend
+npm install
 ```
 
-**Ubuntu/Debian:**
+### 2. 准备配置
 
-```bash
-sudo apt update
-sudo apt install ffmpeg
-```
-
-**Windows:**
-Download from [FFmpeg Official Site](https://ffmpeg.org/download.html) and configure environment variables
-
-Verify installation:
-
-```bash
-ffmpeg -version
-```
-
-### ⚙️ Configuration
-
-Copy and edit the configuration file:
+如需本地配置文件：
 
 ```bash
 cp configs/config.example.yaml configs/config.yaml
-vim configs/config.yaml
 ```
 
-Configuration file format (`configs/config.yaml`):
+当前运行时的 provider 配置主要来自 Web 设置页数据库配置，但 `config.example.yaml` 仍然可作为本地参考。
 
-```yaml
-app:
-  name: "Huobao Drama API"
-  version: "1.0.0"
-  debug: true # Set to true for development, false for production
-
-server:
-  port: 5678
-  host: "0.0.0.0"
-  cors_origins:
-    - "http://localhost:3012"
-  read_timeout: 600
-  write_timeout: 600
-
-database:
-  type: "sqlite"
-  path: "./data/drama_generator.db"
-  max_idle: 10
-  max_open: 100
-
-storage:
-  type: "local"
-  local_path: "./data/storage"
-  base_url: "http://localhost:5678/static"
-
-ai:
-  default_text_provider: "openai"
-  default_image_provider: "openai"
-  default_video_provider: "doubao"
-```
-
-**Key Configuration Items:**
-
-- `app.debug`: Debug mode switch (recommended true for development)
-- `server.port`: Service port
-- `server.cors_origins`: Allowed CORS origins for frontend
-- `database.path`: SQLite database file path
-- `storage.local_path`: Local file storage path
-- `storage.base_url`: Static resource access URL
-- `ai.default_*_provider`: AI service provider configuration (API keys configured in Web UI)
-
-### 📥 Installation
+### 3. 启动后端
 
 ```bash
-# Clone the project
-git clone https://github.com/chatfire-AI/huobao-drama.git
-cd huobao-drama
-
-# Install Go dependencies
-go mod download
-
-# Install frontend dependencies
-cd web
-npm install
-cd ..
-```
-
-### 🎯 Starting the Project
-
-#### Method 1: Development Mode (Recommended)
-
-**Frontend and backend separation with hot reload**
-
-```bash
-# Terminal 1: Start backend service
-go run main.go
-
-# Terminal 2: Start frontend dev server
-cd web
+cd backend
 npm run dev
 ```
 
-- Frontend: `http://localhost:3012`
-- Backend API: `http://localhost:5678/api/v1`
-- Frontend automatically proxies API requests to backend
+默认地址：
 
-#### Method 2: Single Service Mode
+- `http://localhost:5679`
 
-**Backend serves both API and frontend static files**
+### 4. 启动前端
 
 ```bash
-# 1. Build frontend
-cd web
+cd frontend
+npm run dev
+```
+
+默认地址：
+
+- `http://localhost:3013`
+
+开发模式下前端会代理：
+
+- `/api`
+- `/static`
+
+到后端服务。
+
+## 构建与运行
+
+### 前端静态导出
+
+```bash
+cd frontend
+npm run generate
+```
+
+当前前端是 Nuxt SPA 模式。  
+如果你希望后端直接托管前端静态资源，使用 `npm run generate`，输出目录为：
+
+- `frontend/dist`
+
+### 后端类型检查
+
+```bash
+cd backend
+npm run typecheck
+```
+
+### 后端启动
+
+```bash
+cd backend
+npm start
+```
+
+## 生产运行模式
+
+### 前后端分离模式
+
+- 前端：`cd frontend && npm run preview`
+- 后端：`cd backend && npm start`
+
+### 单服务模式
+
+如果希望后端直接提供前端页面：
+
+```bash
+cd frontend
+npm run generate
+
+cd ../backend
+npm start
+```
+
+当前后端静态托管前端目录：
+
+- `frontend/dist`
+
+## 数据库
+
+当前默认数据库文件：
+
+- `data/huobao_drama.db`
+
+后端现在支持从空数据库文件启动，并自动初始化基础表。
+
+如果需要改路径：
+
+```bash
+DB_PATH=/absolute/path/to/your.db npm start
+```
+
+## 文件存储
+
+生成资源默认写入：
+
+- `data/static/images`
+- `data/static/videos`
+- `data/static/audio`
+- `data/static/subtitles`
+- `data/static/composed`
+- `data/static/merged`
+- `data/static/grid-cells`
+
+后端通过：
+
+- `/static/*`
+
+对外提供访问。
+
+## AI 服务配置
+
+在设置页中配置 provider。
+
+当前支持的服务分类：
+
+- 文本
+- 图片
+- 视频
+- 音频
+
+设置页内还提供：
+
+- 火宝一键配置
+
+用于快速初始化默认服务配置。
+
+## Agents 与 Skills
+
+当前运行时 agent：
+
+- `script_rewriter`
+- `extractor`
+- `storyboard_breaker`
+- `voice_assigner`
+- `grid_prompt_generator`
+
+Skills 存放在：
+
+- `skills/`
+
+后端会在运行时按 agent 类型加载对应 skill，并拼接进最终 agent instructions。
+
+## 媒体链路说明
+
+### 图片生成
+
+- 本地参考图在需要时会转成 base64 再发给 provider
+- 单镜头图片会自动带入场景图、角色图、镜头参考图
+
+### 配音生成
+
+- `无`
+- `无对白`
+- `环境音`
+- `音效`
+- `BGM`
+
+这类内容会自动跳过，不进入 TTS 生成
+
+### 视频生成
+
+- 支持包括 Volcengine / Seedance 在内的 provider adapter
+- 本地参考图会在发送前转换成 provider 可接受的格式
+
+### 视频合成与拼接
+
+- 单镜头合成使用 FFmpeg
+- 如果本机 FFmpeg 不支持字幕烧录 filter，会自动降级为视频 + 音频合成
+- 整集拼接现在要求使用已合成镜头，并统一转码，稳定性更高
+
+## 主要 API 分组
+
+关键路由包括：
+
+- `/api/v1/dramas`
+- `/api/v1/episodes`
+- `/api/v1/storyboards`
+- `/api/v1/characters`
+- `/api/v1/scenes`
+- `/api/v1/images`
+- `/api/v1/videos`
+- `/api/v1/compose`
+- `/api/v1/merge`
+- `/api/v1/grid`
+- `/api/v1/agent`
+- `/api/v1/ai-configs`
+- `/api/v1/ai-voices`
+
+Webhook 路由：
+
+- `/webhooks`
+
+## 开源说明
+
+当前仓库已做过一轮开源清理：
+
+- 运行期内容数据已清空
+- 生成静态资源已清空
+- 默认本地数据库已切换为新的 `huobao_drama.db`
+
+发布前仍建议自行检查：
+
+- `.env`
+- 本地配置覆盖
+- API Key
+- 本地数据库快照
+
+## 更新日志
+
+### v2.0.0
+
+这是火宝短剧当前 TypeScript 版本的开源基线版本。
+
+`2.0.0` 主要更新：
+
+- 项目迁移到当前 TypeScript 技术栈
+  - Hono 后端
+  - Drizzle + better-sqlite3
+  - Nuxt 3 工作台前端
+- 重做单集工作台 UI 和生产流程
+  - 更紧凑的控制台布局
+  - 重做分镜编辑区
+  - 重做配音、镜头图、视频、合成、导出界面
+- 增加运行时 skill 加载
+- 扩展多种媒体 provider adapter
+  - Gemini
+  - OpenAI 兼容图片接口
+  - MiniMax
+  - Volcengine / Seedance
+  - Ali
+- 增加宫格图生成、切分和重新分配流程
+- 完善 agent / 图片 / 音频 / 视频 / 合成 / 拼接日志
+- 优化本地文件处理
+  - 本地参考图按需转码
+  - 默认数据库切换为 `data/huobao_drama.db`
+- 完成开源版运行数据清理
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request。
+
+建议流程：
+
+1. Fork 仓库
+2. 创建功能分支
+3. 完成修改
+4. 运行相关检查
+5. 提交 Pull Request
+
+常用检查命令：
+
+```bash
+cd backend
+npm run typecheck
+
+cd ../frontend
 npm run build
-cd ..
-
-# 2. Start service
-go run main.go
 ```
 
-Access: `http://localhost:5678`
+## API 配置站点
 
-### 🗄️ Database Initialization
-
-Database tables are automatically created on first startup (using GORM AutoMigrate), no manual migration needed.
+2 分钟完成配置：[API 聚合站点](https://api.chatfire.site/models)
 
 ---
 
-## 📦 Deployment
+## 👨‍💻 关于我们
 
-### ☁️ Cloud One-Click Deployment (Recommended 3080Ti)
+**AI 火宝 - AI 工作室创业中**
 
-👉 [优云智算，一键部署](https://www.compshare.cn/images/fScvzK95NUk5?referral_code=8hUJOaWz3YzG64FI2OlCiB&ytag=GPU_YY_YX_GitHub_huobaoai)
-
-> ⚠️ **Note**: Please save your data to local storage promptly when using cloud deployment
-
----
-
-### 🐳 Docker Deployment (Recommended)
-
-#### Method 1: Docker Compose (Recommended)
-
-#### 🚀 China Network Acceleration (Optional)
-
-If you are in China, pulling Docker images and installing dependencies may be slow. You can speed up the build process by configuring mirror sources.
-
-**Step 1: Create environment variable file**
-
-```bash
-cp .env.example .env
-```
-
-**Step 2: Edit `.env` file and uncomment the mirror sources you need**
-
-```bash
-# Enable Docker Hub mirror (recommended)
-DOCKER_REGISTRY=docker.1ms.run/
-
-# Enable npm mirror
-NPM_REGISTRY=https://registry.npmmirror.com/
-
-# Enable Go proxy
-GO_PROXY=https://goproxy.cn,direct
-
-# Enable Alpine mirror
-ALPINE_MIRROR=mirrors.aliyun.com
-```
-
-**Step 3: Build with docker compose (required)**
-
-```bash
-docker compose build
-```
-
-> **Important Note**:
->
-> - ⚠️ You must use `docker compose build` to automatically load mirror source configurations from the `.env` file
-> - ❌ If using `docker build` command, you need to manually pass `--build-arg` parameters
-> - ✅ Always recommended to use `docker compose build` for building
-
-**Performance Comparison**:
-
-| Operation        | Without Mirrors | With Mirrors |
-| ---------------- | --------------- | ------------ |
-| Pull base images | 5-30 minutes    | 1-5 minutes  |
-| Install npm deps | May fail        | Fast success |
-| Download Go deps | 5-10 minutes    | 30s-1 minute |
-
-> **Note**: Users outside China should not configure mirror sources, use default settings.
-
-```bash
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-#### Method 2: Docker Command
-
-> **Note**: Linux users need to add `--add-host=host.docker.internal:host-gateway` to access host services
-
-```bash
-# Run from Docker Hub
-docker run -d \
-  --name huobao-drama \
-  -p 5678:5678 \
-  -v $(pwd)/data:/app/data \
-  --restart unless-stopped \
-  huobao/huobao-drama:latest
-
-# View logs
-docker logs -f huobao-drama
-```
-
-**Local Build** (optional):
-
-```bash
-docker build -t huobao-drama:latest .
-docker run -d --name huobao-drama -p 5678:5678 -v $(pwd)/data:/app/data huobao-drama:latest
-```
-
-**Docker Deployment Advantages:**
-
-- ✅ Ready to use with default configuration
-- ✅ Environment consistency, avoiding dependency issues
-- ✅ One-click start, no need to install Go, Node.js, FFmpeg
-- ✅ Easy to migrate and scale
-- ✅ Automatic health checks and restarts
-- ✅ Automatic file permission handling
-
-#### 🔗 Accessing Host Services (Ollama/Local Models)
-
-The container is configured to access host services using `http://host.docker.internal:PORT`.
-
-**Configuration Steps:**
-
-1. **Start service on host (listen on all interfaces)**
-
-   ```bash
-   export OLLAMA_HOST=0.0.0.0:11434 && ollama serve
-   ```
-
-2. **Frontend AI Service Configuration**
-   - Base URL: `http://host.docker.internal:11434/v1`
-   - Provider: `openai`
-   - Model: `qwen2.5:latest`
-
----
-
-### 🏭 Traditional Deployment
-
-#### 1. Build
-
-```bash
-# 1. Build frontend
-cd web
-npm run build
-cd ..
-
-# 2. Compile backend
-go build -o huobao-drama .
-```
-
-Generated files:
-
-- `huobao-drama` - Backend executable
-- `web/dist/` - Frontend static files (embedded in backend)
-
-#### 2. Prepare Deployment Files
-
-Files to upload to server:
-
-```
-huobao-drama            # Backend executable
-configs/config.yaml     # Configuration file
-data/                   # Data directory (optional, auto-created on first run)
-```
-
-#### 3. Server Configuration
-
-```bash
-# Upload files to server
-scp huobao-drama user@server:/opt/huobao-drama/
-scp configs/config.yaml user@server:/opt/huobao-drama/configs/
-
-# SSH to server
-ssh user@server
-
-# Modify configuration file
-cd /opt/huobao-drama
-vim configs/config.yaml
-# Set mode to production
-# Configure domain and storage path
-
-# Create data directory and set permissions (Important!)
-# Note: Replace YOUR_USER with actual user running the service (e.g., www-data, ubuntu, deploy)
-sudo mkdir -p /opt/huobao-drama/data/storage
-sudo chown -R YOUR_USER:YOUR_USER /opt/huobao-drama/data
-sudo chmod -R 755 /opt/huobao-drama/data
-
-# Grant execute permission
-chmod +x huobao-drama
-
-# Start service
-./huobao-drama
-```
-
-#### 4. Manage Service with systemd
-
-Create service file `/etc/systemd/system/huobao-drama.service`:
-
-```ini
-[Unit]
-Description=Huobao Drama Service
-After=network.target
-
-[Service]
-Type=simple
-User=YOUR_USER
-WorkingDirectory=/opt/huobao-drama
-ExecStart=/opt/huobao-drama/huobao-drama
-Restart=on-failure
-RestartSec=10
-
-# Environment variables (optional)
-# Environment="GIN_MODE=release"
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Start service:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable huobao-drama
-sudo systemctl start huobao-drama
-sudo systemctl status huobao-drama
-```
-
-**⚠️ Common Issue: SQLite Write Permission Error**
-
-If you encounter `attempt to write a readonly database` error:
-
-```bash
-# 1. Check current user running the service
-sudo systemctl status huobao-drama | grep "Main PID"
-ps aux | grep huobao-drama
-
-# 2. Fix permissions (replace YOUR_USER with actual username)
-sudo chown -R YOUR_USER:YOUR_USER /opt/huobao-drama/data
-sudo chmod -R 755 /opt/huobao-drama/data
-
-# 3. Verify permissions
-ls -la /opt/huobao-drama/data
-# Should show owner as the user running the service
-
-# 4. Restart service
-sudo systemctl restart huobao-drama
-```
-
-**Reason:**
-
-- SQLite requires write permission on both the database file **and** its directory
-- Needs to create temporary files in the directory (e.g., `-wal`, `-journal`)
-- **Key**: Ensure systemd `User` matches data directory owner
-
-**Common Usernames:**
-
-- Ubuntu/Debian: `www-data`, `ubuntu`
-- CentOS/RHEL: `nginx`, `apache`
-- Custom deployment: `deploy`, `app`, current logged-in user
-
-#### 5. Nginx Reverse Proxy
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:5678;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # Direct access to static files
-    location /static/ {
-        alias /opt/huobao-drama/data/storage/;
-    }
-}
-```
-
----
-
-## 🎨 Tech Stack
-
-### Backend
-
-- **Language**: Go 1.23+
-- **Web Framework**: Gin 1.9+
-- **ORM**: GORM
-- **Database**: SQLite
-- **Logging**: Zap
-- **Video Processing**: FFmpeg
-- **AI Services**: OpenAI, Gemini, Doubao, etc.
-
-### Frontend
-
-- **Framework**: Vue 3.4+
-- **Language**: TypeScript 5+
-- **Build Tool**: Vite 5
-- **UI Components**: Element Plus
-- **CSS Framework**: TailwindCSS
-- **State Management**: Pinia
-- **Router**: Vue Router 4
-
-### Development Tools
-
-- **Package Management**: Go Modules, npm
-- **Code Standards**: ESLint, Prettier
-- **Version Control**: Git
-
----
-
-## 📝 FAQ
-
-### Q: How can Docker containers access Ollama on the host?
-
-A: Use `http://host.docker.internal:11434/v1` as Base URL. Note two things:
-
-1. Host Ollama needs to listen on `0.0.0.0`: `export OLLAMA_HOST=0.0.0.0:11434 && ollama serve`
-2. Linux users using `docker run` need to add: `--add-host=host.docker.internal:host-gateway`
-
-See: [DOCKER_HOST_ACCESS.md](docs/DOCKER_HOST_ACCESS.md)
-
-### Q: FFmpeg not installed or not found?
-
-A: Ensure FFmpeg is installed and in the PATH environment variable. Verify with `ffmpeg -version`.
-
-### Q: Frontend cannot connect to backend API?
-
-A: Check if backend is running and port is correct. In development mode, frontend proxy config is in `web/vite.config.ts`.
-
-### Q: Database tables not created?
-
-A: GORM automatically creates tables on first startup, check logs to confirm migration success.
-
----
-
-## 📋 Changelog
-
-### v1.0.5 (2026-02-06)
-
-#### 🎨 Major Features
-
-- **🎭 Global Style System**: Introduced comprehensive style selection support across the entire project. Users can now define custom visual styles at the drama level, which automatically applies to all AI-generated content including characters, scenes, and storyboards, ensuring consistent artistic direction throughout the production.
-
-- **✂️ Nine-Grid Sequence Image Cropping**: Added cropping tool for action sequence images. Users can now extract individual frames from 3x3 grid layouts and designate them as first frames, last frames, or keyframes for video generation, providing greater flexibility in shot composition and continuity.
-
-#### 🚀 Enhancements
-
-- **📐 Optimized Action Sequence Grid**: Enhanced the visual quality and layout of nine-grid action sequence images with improved spacing, alignment, and frame transitions.
-
-- **🔧 Manual Grid Assembly**: Introduced manual grid composition tools supporting 2x2 (four-grid), 2x3 (six-grid), and 3x3 (nine-grid) layouts, allowing users to create custom action sequences from individual frames.
-
-- **🗑️ Content Management**: Added delete functionality for both generated images and videos, enabling better asset organization and storage management.
-
-### v1.0.4 (2026-01-27)
-
-#### 🚀 Major Updates
-
-- Introduced local storage strategy for generated content caching, effectively mitigating external resource link expiration risks
-- Implemented Base64 encoding for embedded reference image transmission
-- Fixed issue where shot image prompt state was not reset when switching shots
-- Fixed issue where video duration displayed as 0 when adding library videos
-- Added scene migration to episodes
-
-#### Historical Data Migration
-
-- Added migration script for processing historical data. For detailed instructions, please refer to [MIGRATE_README.md](MIGRATE_README.md)
-
-### v1.0.3 (2026-01-16)
-
-#### 🚀 Major Updates
-
-- Pure Go SQLite driver (`modernc.org/sqlite`), supports `CGO_ENABLED=0` cross-platform compilation
-- Optimized concurrency performance (WAL mode), resolved "database is locked" errors
-- Docker cross-platform support for `host.docker.internal` to access host services
-- Streamlined documentation and deployment guides
-
-### v1.0.2 (2026-01-14)
-
-#### 🐛 Bug Fixes / 🔧 Improvements
-
-- Fixed video generation API response parsing issues
-- Added OpenAI Sora video endpoint configuration
-- Optimized error handling and logging
-
----
-
-## 🤝 Contributing
-
-Issues and Pull Requests are welcome!
-
-1. Fork this project
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## API Configuration Site
-
-Configure in 2 minutes: [API Aggregation Site](https://api.chatfire.site/models)
-
----
-
-## 👨‍💻 About Us
-
-**AI Huobao - AI Studio Startup**
-
-- 🏠 **Location**: Nanjing, China
-- 🚀 **Status**: Startup in Progress
+- 🏠 **位置**: 中国南京
+- 🚀 **状态**: 创业中
 - 📧 **Email**: [18550175439@163.com](mailto:18550175439@163.com)
 - 🐙 **GitHub**: [https://github.com/chatfire-AI/huobao-drama](https://github.com/chatfire-AI/huobao-drama)
 
-> _"Let AI help us do more creative things"_
+> _"让 AI 帮我们做更有创造力的事"_
 
-## Community Group
+### 📢 招聘信息
 
-![Community Group](drama.png)
+#### 全栈高级开发工程师（Base 南京）
 
-- Submit [Issue](../../issues)
-- Email project maintainers
+**关于岗位：**
+
+我们是创业团队，致力于打造 AI 驱动的终端应用。如果你热爱技术、追求极致，渴望在 AI 领域有所作为，欢迎加入我们，一起做有意义的事！
+
+**岗位要求：**
+
+1. 参与 AI 驱动的终端应用全栈开发，覆盖 Web/移动端前后端系统搭建，主导核心业务模块的设计、开发、测试与上线迭代。
+2. 负责核心功能模块开发，包括：前端交互实现（React/Vue.js + TypeScript）、后端服务开发（Python/Node.js + Flask/FastAPI），确保模块高效、稳定、可扩展。
+3. 负责 AI 模型服务接口设计与对接，参与 AI 能力落地终端场景的技术方案设计，推动 AI 技术与业务场景的深度融合。
+4. 深度践行 vibe coding 开发模式，注重代码质量、开发效率与技术美感，搭建规范的开发流程，推动团队研发模式优化。
+
+**加入我们：**
+
+如果你对 AI 技术充满热情，喜欢挑战和创新，欢迎投递简历至 [18550175439@163.com](mailto:18550175439@163.com)
+
+期待志同道合的你一起探索 AI 的无限可能！
+
+## 项目交流群
+
+![项目交流群](drama.png)
+
+- 提交 [Issue](../../issues)
+- 发送邮件至项目维护者
 
 ---
 
 <div align="center">
 
-**⭐ If this project helps you, please give it a Star!**
+**⭐ 如果这个项目对你有帮助，请给一个 Star！**
 
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=chatfire-AI/huobao-drama&type=date&legend=top-left)](https://www.star-history.com/#chatfire-AI/huobao-drama&type=date&legend=top-left)
-
 Made with ❤️ by Huobao Team
 
 </div>
