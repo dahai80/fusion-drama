@@ -454,6 +454,7 @@ const huobaoPresetCards = [
   { serviceType: 'video', label: '视频', provider: 'volcengine', baseUrl: 'https://api.chatfire.site/volcengine', model: 'doubao-seedance-1-5-pro-251215', priority: 98 },
   { serviceType: 'audio', label: '音频', provider: 'minimax', baseUrl: 'https://api.chatfire.site/minimax', model: 'speech-2.8-hd', priority: 97 },
 ]
+const huobaoAgentModel = 'gemini-3-pro-preview'
 const endpointPrefixes = {
   chatfire: '/v1',
   openai: '/v1',
@@ -575,9 +576,24 @@ async function applyHuobaoPreset() {
       if (existing) await aiConfigAPI.update(existing.id, payload)
       else await aiConfigAPI.create(payload)
     }
+    for (const agent of agentDefs) {
+      const existing = agentCfgs.value.find(c => c.agent_type === agent.type)
+      const payload = {
+        agent_type: agent.type,
+        name: agent.label,
+        model: huobaoAgentModel,
+        temperature: existing?.temperature ?? 0.7,
+        max_tokens: existing?.max_tokens ?? 4096,
+        system_prompt: existing?.system_prompt || defaultPrompts[agent.type] || '',
+        is_active: true,
+      }
+      if (existing) await agentConfigAPI.update(existing.id, payload)
+      else await agentConfigAPI.create(payload)
+    }
     await loadCfgs()
+    await loadAgents()
     presetDialog.value = false
-    toast.success('火宝推荐配置已写入')
+    toast.success('火宝推荐配置与默认 Agent LLM 已写入')
   } catch (e) {
     toast.error(e.message)
   }
