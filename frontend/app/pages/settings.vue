@@ -345,6 +345,7 @@
           <label class="field">
             <span class="field-label">Huobao API Key <span class="dim">(统一用于文本 / 图片 / 视频 / 音频)</span></span>
             <input v-model="huobaoForm.apiKey" class="input" type="password" placeholder="用于 api.chatfire.site 全链路服务" />
+            <span class="field-hint">还没有账号？<a href="https://api.chatfire.site/" target="_blank" rel="noopener">立即注册 →</a></span>
           </label>
         </div>
         <div class="preset-grid compact">
@@ -950,6 +951,16 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   gap: 16px;
   margin-bottom: 14px;
 }
+.btn-primary.btn {
+  border: none !important;
+}
+
+.btn-primary.btn:hover {
+  background: var(--accent-gradient) !important;
+  transition: all 0.18s ease-in-out !important;
+  transform: translateY(-2px);
+}
+
 .setup-panel-head.compact { margin-bottom: 12px; }
 .setup-kicker {
   font-size: 10px;
@@ -1158,6 +1169,14 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 10px;
+}
+.huobao-grid .field-hint a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.huobao-grid .field-hint a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 900px) {

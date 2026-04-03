@@ -148,6 +148,7 @@ p { line-height: 1.75; }
   transform: translateY(-1px);
   color: #fff;
 }
+
 .btn-primary:active { filter: brightness(0.97); transform: translateY(0); }
 .btn-ghost {
   background: transparent; border-color: transparent;
