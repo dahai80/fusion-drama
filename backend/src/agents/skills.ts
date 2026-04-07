@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const SKILLS_DIR = path.resolve(__dirname, '../../skills')
+const SKILLS_DIR = path.resolve(__dirname, '../../../skills')
 const AGENT_SKILL_MAP: Record<string, string[]> = {
   script_rewriter: ['script_rewriter'],
   extractor: ['extractor'],

@@ -149,6 +149,16 @@ p { line-height: 1.75; }
   color: #fff;
 }
 
+.btn-primary.btn {
+  border: none !important;
+}
+
+.btn-primary.btn:hover {
+  background: var(--accent-gradient) !important;
+  transition: all 0.18s ease-in-out !important;
+  transform: translateY(-2px);
+}
+
 .btn-primary:active { filter: brightness(0.97); transform: translateY(0); }
 .btn-ghost {
   background: transparent; border-color: transparent;

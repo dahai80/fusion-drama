@@ -1,15 +1,20 @@
 import { Hono } from 'hono'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { success, badRequest } from '../utils/response.js'
 
 const app = new Hono()
-const __dirname = path.dirname(new URL(import.meta.url).pathname)
-const SKILLS_DIR = path.resolve(__dirname, '../../skills')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const SKILLS_DIR = path.resolve(__dirname, '../../../skills')
 
 // GET /skills — List all skills (recursive, supports nested dirs)
 app.get('/', async (c) => {
   const skills: { id: string; name: string; description: string }[] = []
+
+  if (!fs.existsSync(SKILLS_DIR)) {
+    return success(c, skills)
+  }
 
   function scanDir(dir: string, prefix = '') {
     const entries = fs.readdirSync(dir, { withFileTypes: true })

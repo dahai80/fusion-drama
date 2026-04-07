@@ -951,15 +951,6 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   gap: 16px;
   margin-bottom: 14px;
 }
-.btn-primary.btn {
-  border: none !important;
-}
-
-.btn-primary.btn:hover {
-  background: var(--accent-gradient) !important;
-  transition: all 0.18s ease-in-out !important;
-  transform: translateY(-2px);
-}
 
 .setup-panel-head.compact { margin-bottom: 12px; }
 .setup-kicker {
