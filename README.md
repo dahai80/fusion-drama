@@ -480,6 +480,12 @@ cd ../frontend && npm run build
 
 > _"让 AI 帮我们做更有创造力的事"_
 
+## 🔗 友情链接
+
+本项目已获得 [LINUX DO](https://linux.do/) 社区链接认可。
+
+- [LINUX DO](https://linux.do/) — 真正的开源精神，共建共享的技术社区
+
 ## 项目交流群
 
 ![项目交流群](drama.png)
