@@ -4150,7 +4150,7 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 /* Shared */
 .dim { color: var(--text-3); }
 
-@media (max-width: 1240px) {
+@media (max-width: 1080px) {
   .studio-body {
     grid-template-columns: 1fr;
   }
