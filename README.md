@@ -244,14 +244,6 @@ DB_PATH=/path/to/your.db npm start
 
 ## 📦 部署指南
 
-### ☁️ 云端一键部署（推荐 3080Ti）
-
-👉 [优云智算，一键部署](https://www.compshare.cn/images/fScvzK95NUk5?referral_code=8hUJOaWz3YzG64FI2OlCiB&ytag=GPU_YY_YX_GitHub_huobaoai)
-
-> ⚠️ **注意**：云端部署方案数据请及时存储到本地
-
----
-
 ### 🐳 Docker 部署（推荐）
 
 #### 方式一：Docker Compose（推荐）
