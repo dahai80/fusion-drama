@@ -92,14 +92,13 @@
               <div class="dialog-title">创建新集</div>
               <span class="dialog-badge">配置将锁定</span>
             </div>
-            <div class="dialog-sub">为这一集预先锁定图片、视频和音频生成服务。创建后，这些生成链路将始终跟随当前集配置。</div>
+            <div class="dialog-sub">为这一集预先锁定图片和视频生成服务。创建后，这些生成链路将始终跟随当前集配置。</div>
           </div>
           <button class="back-btn" @click="addDialog = false">取消</button>
         </div>
         <div class="dialog-summary">
           <div class="summary-chip">图片 · {{ imageConfigs.length }} 可选</div>
           <div class="summary-chip">视频 · {{ videoConfigs.length }} 可选</div>
-          <div class="summary-chip">音频 · {{ audioConfigs.length }} 可选</div>
         </div>
         <div class="dialog-body">
           <div class="dialog-section">
@@ -130,16 +129,11 @@
                 <span class="field-label">视频配置</span>
                 <BaseSelect v-model="newEpisodeVideoConfigId" :options="videoConfigOptions" placeholder="选择视频服务" searchable />
               </label>
-              <label class="config-card">
-                <span class="config-card-kicker">AUDIO</span>
-                <span class="field-label">音频配置</span>
-                <BaseSelect v-model="newEpisodeAudioConfigId" :options="audioConfigOptions" placeholder="选择音频服务" searchable />
-              </label>
             </div>
           </div>
         </div>
         <div class="dialog-foot">
-          <div class="dialog-foot-copy">创建后，工作台中的图片、视频、音频生成入口都会锁定到当前集。</div>
+          <div class="dialog-foot-copy">创建后，工作台中的图片和视频生成入口都会锁定到当前集。</div>
           <button class="btn btn-primary" :disabled="creatingEpisode || !canCreateEpisode" @click="addEpisode">
             {{ creatingEpisode ? '创建中...' : '创建并锁定配置' }}
           </button>
@@ -161,10 +155,8 @@ const creatingEpisode = ref(false)
 const newEpisodeTitle = ref('')
 const imageConfigs = ref([])
 const videoConfigs = ref([])
-const audioConfigs = ref([])
 const newEpisodeImageConfigId = ref(null)
 const newEpisodeVideoConfigId = ref(null)
-const newEpisodeAudioConfigId = ref(null)
 
 function hasScript(ep) { return !!(ep.script_content || ep.scriptContent) }
 
@@ -177,8 +169,7 @@ function configLabel(config) {
 
 const imageConfigOptions = computed(() => imageConfigs.value.map(c => ({ label: configLabel(c), value: c.id })))
 const videoConfigOptions = computed(() => videoConfigs.value.map(c => ({ label: configLabel(c), value: c.id })))
-const audioConfigOptions = computed(() => audioConfigs.value.map(c => ({ label: configLabel(c), value: c.id })))
-const canCreateEpisode = computed(() => !!(newEpisodeImageConfigId.value && newEpisodeVideoConfigId.value && newEpisodeAudioConfigId.value))
+const canCreateEpisode = computed(() => !!(newEpisodeImageConfigId.value && newEpisodeVideoConfigId.value))
 
 async function load() {
   try {
@@ -190,17 +181,14 @@ async function load() {
 
 async function loadConfigs() {
   try {
-    const [imgs, vids, auds] = await Promise.all([
+    const [imgs, vids] = await Promise.all([
       aiConfigAPI.list('image'),
       aiConfigAPI.list('video'),
-      aiConfigAPI.list('audio'),
     ])
     imageConfigs.value = imgs || []
     videoConfigs.value = vids || []
-    audioConfigs.value = auds || []
     if (!newEpisodeImageConfigId.value && imageConfigs.value.length) newEpisodeImageConfigId.value = imageConfigs.value[0].id
     if (!newEpisodeVideoConfigId.value && videoConfigs.value.length) newEpisodeVideoConfigId.value = videoConfigs.value[0].id
-    if (!newEpisodeAudioConfigId.value && audioConfigs.value.length) newEpisodeAudioConfigId.value = audioConfigs.value[0].id
   } catch (e) {
     toast.error(e.message)
   }
@@ -219,7 +207,6 @@ async function addEpisode() {
       title: newEpisodeTitle.value || undefined,
       image_config_id: newEpisodeImageConfigId.value,
       video_config_id: newEpisodeVideoConfigId.value,
-      audio_config_id: newEpisodeAudioConfigId.value,
     })
     toast.success('已添加新集')
     addDialog.value = false
@@ -254,13 +241,26 @@ onMounted(() => { load(); loadConfigs() })
 
 .back-btn {
   display: flex; align-items: center; gap: 6px;
-  padding: 7px 12px; font-size: 13px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--bg-0); color: var(--text-2);
+  min-height: var(--button-height);
+  padding: 0 12px; font-size: 13px; font-weight: 650;
+  border: 1px solid var(--button-border); border-radius: var(--button-radius);
+  background: var(--button-bg); color: var(--button-text);
   cursor: pointer; transition: all 0.18s var(--ease-out);
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--button-shadow);
+  line-height: 1;
 }
-.back-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-0); }
+.back-btn:hover {
+  background: var(--button-bg-hover);
+  border-color: var(--button-border-hover);
+  color: var(--button-text-hover);
+  box-shadow: var(--button-shadow-hover);
+  transform: translateY(-1px);
+}
+.back-btn:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
+}
 
 .page-title {
   font-family: var(--font-display);
@@ -352,7 +352,7 @@ onMounted(() => { load(); loadConfigs() })
 .dialog-mask {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 38, 0.18);
+  background: rgba(8, 10, 12, 0.62);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -366,14 +366,13 @@ onMounted(() => { load(); loadConfigs() })
   flex-direction: column;
   gap: 14px;
   padding: 26px 26px 22px;
-  border-radius: 28px;
+  border-radius: var(--radius-xl);
   background:
-    radial-gradient(circle at top left, rgba(122,167,255,0.14), transparent 34%),
-    radial-gradient(circle at top right, rgba(76,125,255,0.08), transparent 26%),
-    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(242,247,255,0.92));
+    radial-gradient(circle at top left, rgba(217,111,39,0.14), transparent 34%),
+    linear-gradient(180deg, var(--surface-raised), rgba(18,20,22,0.96));
   overflow: hidden;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  box-shadow: 0 22px 52px rgba(32, 48, 77, 0.14), 0 8px 18px rgba(32, 48, 77, 0.08);
+  border: 1px solid var(--surface-outline);
+  box-shadow: var(--shadow-elevated);
 }
 .dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .dialog-head-copy { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
@@ -392,7 +391,7 @@ onMounted(() => { load(); loadConfigs() })
   height: 28px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(76,125,255,0.1);
+  background: var(--accent-bg);
   color: var(--accent-text);
   font-size: 12px;
   font-weight: 700;
@@ -409,8 +408,8 @@ onMounted(() => { load(); loadConfigs() })
   height: 30px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.78);
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-outline);
   font-size: 12px;
   color: var(--text-2);
 }
@@ -426,9 +425,9 @@ onMounted(() => { load(); loadConfigs() })
   flex-direction: column;
   gap: 12px;
   padding: 16px 18px;
-  border-radius: 22px;
-  background: rgba(255,255,255,0.72);
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-outline);
 }
 .dialog-section-head {
   display: flex;
@@ -449,9 +448,9 @@ onMounted(() => { load(); loadConfigs() })
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(244,248,255,0.96), rgba(255,255,255,0.78));
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(31,36,42,0.92), rgba(19,22,25,0.94));
+  border: 1px solid var(--surface-outline);
 }
 .config-card-kicker {
   font-size: 10px;
