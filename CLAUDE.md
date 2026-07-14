@@ -7,10 +7,10 @@ Huobao Drama — AI-powered drama/video production tool. Full TypeScript stack.
 ## Structure
 
 ```
-backend/   — Hono + Drizzle ORM + Mastra (AI agents) + better-sqlite3
-frontend/  — Vue 3 + TypeScript + Vite (pure CSS, no UI framework)
+backend/   — Hono + Drizzle ORM + Mastra (AI agents) + mysql2
+frontend/  — Nuxt 3 + Vue 3 + TypeScript (pure CSS, no UI framework)
 configs/   — config.yaml
-data/      — SQLite database + static files
+data/      — generated static files
 skills/    — Agent SKILL.md definitions
 ```
 
@@ -29,10 +29,10 @@ skills/    — Agent SKILL.md definitions
 
 ### Backend
 - **HTTP**: Hono framework with CORS, logger middleware
-- **Database**: Drizzle ORM + better-sqlite3, WAL mode, schema in `src/db/schema.ts`
+- **Database**: Drizzle ORM + mysql2, schema in `src/db/schema.ts`
 - **AI Agents**: Mastra framework with AI SDK (OpenAI compatible providers)
-- **Agent Types**: script_rewriter, extractor, storyboard_breaker
-- **SSE Streaming**: Hono streamSSE for agent chat responses
+- **Agent Types**: script_rewriter, extractor, storyboard_breaker, grid_prompt_generator
+- **Agent Chat**: Hono JSON endpoints for agent responses
 - **File Storage**: Local filesystem under `data/static/`
 
 ### Frontend
@@ -43,8 +43,8 @@ skills/    — Agent SKILL.md definitions
 - **Styling**: Pure CSS with CSS variables (dark theme)
 
 ## Database
-SQLite at `data/drama_generator.db`. Schema matches existing GORM-created tables.
-Auto-WAL mode. No migrations needed — reads existing DB directly.
+MySQL is the only runtime database. The backend reads `DATABASE_URL` first, then falls back to `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE`.
+Tables are created on startup from `src/db/mysql-schema.ts`.
 
 ## Key Config
 - `configs/config.yaml` — AI provider defaults
