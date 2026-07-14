@@ -66,20 +66,29 @@ const showBrandImage = ref(true)
   display: flex; align-items: center;
   height: 56px; flex-shrink: 0;
   padding: 0 24px;
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--surface-outline);
   gap: 32px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03), 0 10px 24px rgba(0,0,0,0.18);
 }
 
 .header-left { display: flex; align-items: center; }
 
 .brand {
   display: flex; align-items: center; gap: 10px;
-  background: none; border: none; cursor: pointer; padding: 0;
+  background: transparent; border: 1px solid transparent; cursor: pointer; padding: 3px 5px 3px 3px;
   text-decoration: none; border-radius: var(--radius);
-  transition: opacity 0.15s;
+  transition: background 0.18s var(--ease-out), border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
 }
-.brand:hover { opacity: 0.75; }
+.brand:hover {
+  background: rgba(242,238,230,0.04);
+  border-color: var(--button-border);
+}
+.brand:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
 .brand-mark {
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
@@ -117,21 +126,30 @@ const showBrandImage = ref(true)
 .header-nav { display: flex; gap: 4px; flex: 1; }
 .nav-link {
   display: flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border-radius: var(--radius);
-  font-size: 13px; font-weight: 500;
+  min-height: var(--button-height);
+  padding: 0 14px; border-radius: var(--button-radius);
+  font-size: 13px; font-weight: 650;
   color: var(--text-2); text-decoration: none;
   transition: all 0.18s var(--ease-out);
   border: 1px solid transparent;
+  line-height: 1;
 }
 .nav-link:hover {
-  background: var(--bg-hover); color: var(--text-0);
-  border-color: var(--border);
+  background: var(--button-bg); color: var(--text-0);
+  border-color: var(--button-border);
+  box-shadow: var(--button-shadow);
 }
 .nav-link.active {
-  background: var(--accent-bg);
+  background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08));
   color: var(--accent-text);
-  border-color: rgba(76,125,255,0.18);
+  border-color: var(--accent-glow);
   font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.nav-link:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow);
 }
 
 .header-right { display: flex; align-items: center; margin-left: auto; }

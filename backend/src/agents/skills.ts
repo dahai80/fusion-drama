@@ -9,7 +9,6 @@ const AGENT_SKILL_MAP: Record<string, string[]> = {
   script_rewriter: ['script_rewriter'],
   extractor: ['extractor'],
   storyboard_breaker: ['storyboard_breaker'],
-  voice_assigner: ['voice_assigner'],
   grid_prompt_generator: ['grid_prompt_generator'],
 }
 

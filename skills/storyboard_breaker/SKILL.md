@@ -42,7 +42,6 @@ description: 分镜拆解专业规范
 标签说明：
 - `<location>地点</location>` — 场景标记
 - `<role>角色名</role>` — 角色标记
-- `<voice>角色名</voice>` — 画外音/旁白标记
 - `<n>` — 时间段分隔符
 
 ## 使用步骤

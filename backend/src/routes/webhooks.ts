@@ -30,9 +30,9 @@ app.post('/vidu', async (c) => {
   }
 
   // 查找对应的 video_generation 记录
-  const rows = db.select().from(schema.videoGenerations)
+  const rows = await db.select().from(schema.videoGenerations)
     .where(eq(schema.videoGenerations.taskId, task_id))
-    .all()
+
 
   if (rows.length === 0) {
     // 可能任务还没写入（极少见），返回成功避免重复回调
@@ -45,7 +45,7 @@ app.post('/vidu', async (c) => {
   if (state === 'success' && video_url) {
     try {
       const localPath = await downloadFile(video_url, 'videos')
-      db.update(schema.videoGenerations)
+      await db.update(schema.videoGenerations)
         .set({
           videoUrl: video_url,
           localPath,
@@ -53,14 +53,14 @@ app.post('/vidu', async (c) => {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.videoGenerations.id, record.id))
-        .run()
+
 
       // 更新 storyboard
       if (record.storyboardId) {
-        db.update(schema.storyboards)
+        await db.update(schema.storyboards)
           .set({ videoUrl: localPath, updatedAt: new Date().toISOString() })
           .where(eq(schema.storyboards.id, record.storyboardId))
-          .run()
+
       }
 
       logTaskSuccess('Webhook', 'vidu-video-updated', {
@@ -72,23 +72,23 @@ app.post('/vidu', async (c) => {
       return success(c, { message: 'Video updated successfully' })
     } catch (err: any) {
       logTaskError('Webhook', 'vidu-download-failed', { taskId: task_id, generationId: record.id, error: err.message })
-      db.update(schema.videoGenerations)
+      await db.update(schema.videoGenerations)
         .set({ status: 'failed', errorMsg: `Webhook download failed: ${err.message}` })
         .where(eq(schema.videoGenerations.id, record.id))
-        .run()
+
       return badRequest(c, err.message)
     }
   }
 
   if (state === 'failed') {
     logTaskError('Webhook', 'vidu-generation-failed', { taskId: task_id, generationId: record.id, error: error || 'Vidu generation failed' })
-    db.update(schema.videoGenerations)
+    await db.update(schema.videoGenerations)
       .set({
         status: 'failed',
         errorMsg: error || 'Vidu generation failed',
       })
       .where(eq(schema.videoGenerations.id, record.id))
-      .run()
+
     return success(c, { message: 'Error recorded' })
   }
 

@@ -55,18 +55,17 @@ export const episodeAPI = {
 export const storyboardAPI = {
   create: (data: any) => api.post('/storyboards', data),
   update: (id: number, data: any) => api.put(`/storyboards/${id}`, data),
-  generateTTS: (id: number) => api.post(`/storyboards/${id}/generate-tts`),
   del: (id: number) => api.del(`/storyboards/${id}`),
 }
 
 export const characterAPI = {
   update: (id: number, data: any) => api.put(`/characters/${id}`, data),
-  voiceSample: (id: number, episodeId: number) => api.post(`/characters/${id}/generate-voice-sample`, { episode_id: episodeId }),
   generateImage: (id: number, episodeId: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId }),
   batchImages: (ids: number[], episodeId: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId }),
 }
 
 export const sceneAPI = {
+  update: (id: number, data: any) => api.put(`/scenes/${id}`, data),
   generateImage: (id: number, episodeId: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId }),
 }
 
@@ -79,20 +78,9 @@ export const imageAPI = {
     return api.get(`/images${query.size ? `?${query.toString()}` : ''}`)
   },
 }
-export const gridAPI = {
-  prompt: (d: any) => api.post('/grid/prompt', d),
-  generate: (d: any) => api.post('/grid/generate', d),
-  status: (id: number) => api.get(`/grid/status/${id}`),
-  split: (d: any) => api.post('/grid/split', d),
-}
 export const videoAPI = {
   generate: (d: any) => api.post('/videos', d),
   get: (id: number) => api.get(`/videos/${id}`),
-}
-export const composeAPI = {
-  shot: (id: number) => api.post(`/compose/storyboards/${id}/compose`),
-  all: (epId: number) => api.post(`/compose/episodes/${epId}/compose-all`),
-  status: (epId: number) => api.get(`/compose/episodes/${epId}/compose-status`),
 }
 export const mergeAPI = {
   merge: (epId: number) => api.post(`/merge/episodes/${epId}/merge`),
@@ -104,7 +92,6 @@ export const aiConfigAPI = {
   update: (id: number, d: any) => api.put(`/ai-configs/${id}`, d),
   del: (id: number) => api.del(`/ai-configs/${id}`),
   test: (d: any) => api.post('/ai-configs/test', d),
-  huobaoPreset: (apiKey: string) => api.post('/ai-configs/huobao-preset', { api_key: apiKey }),
 }
 
 export const agentConfigAPI = {
@@ -121,9 +108,4 @@ export const skillsAPI = {
   create: (data: { id: string; name: string; description?: string }) => api.post('/skills', data),
   update: (id: string, content: string) => api.put(`/skills/${id}`, { content }),
   del: (id: string) => api.del(`/skills/${id}`),
-}
-
-export const voicesAPI = {
-  list: (provider?: string) => api.get(`/ai-voices${provider ? `?provider=${provider}` : ''}`),
-  sync: () => api.post('/ai-voices/sync', {}),
 }

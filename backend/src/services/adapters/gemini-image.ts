@@ -1,8 +1,6 @@
 /**
  * Gemini 图片生成 Adapter
- * 认证: 同时兼容两种方式
- * 1. URL Query 参数 ?key=
- * 2. Header 认证（x-goog-api-key / Authorization: Bearer）
+ * 认证: URL Query 参数 ?key= 或 Header x-goog-api-key
  * 请求: Google REST 风格的 contents[].parts[] 结构
  * 响应: base64 编码在 inlineData.data 中，无 URL
  */
@@ -21,8 +19,30 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   provider = 'gemini'
 
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
-    // Gemini 模型名格式: "models/gemini-2.5-flash-image" 或直接 "gemini-2.5-flash-image"
-    const modelName = record.model || config.model || 'gemini-2.5-flash-image'
+    // Gemini 模型名格式: "models/gemini-3-pro-image-preview" 或直接 "gemini-3-pro-image-preview"
+    const modelName = record.model || config.model || 'gemini-3-pro-image-preview'
+    const isGemini3Image = /gemini-3.*image/.test(modelName)
+
+    if (isGemini3Image) {
+      return {
+        url: joinProviderUrl(config.baseUrl, '/v1beta', '/interactions'),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': config.apiKey,
+        },
+        body: {
+          model: modelName.replace(/^models\//, ''),
+          input: record.prompt || 'Generate an image',
+          response_format: {
+            type: 'image',
+            aspect_ratio: this.parseAspectRatio(record.size),
+            image_size: this.parseImageSize(record.size),
+          },
+        },
+      }
+    }
+
     const model = modelName.startsWith('models/') ? modelName : `models/${modelName}`
 
     // Google REST 风格请求体
@@ -68,7 +88,6 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       headers: {
         'Content-Type': 'application/json',
         'x-goog-api-key': config.apiKey,
-        'Authorization': `Bearer ${config.apiKey}`,
       },
       body,
     }
@@ -115,7 +134,6 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       method: 'GET',
       headers: {
         'x-goog-api-key': config.apiKey,
-        'Authorization': `Bearer ${config.apiKey}`,
       },
       body: undefined,
     }
@@ -132,6 +150,13 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
     const b64 = result?.data?.[0]?.b64_json
     if (b64) {
       return { data: b64, mimeType: 'image/png' }
+    }
+
+    if (result?.output_image?.data) {
+      return {
+        data: result.output_image.data,
+        mimeType: result.output_image.mime_type || result.output_image.mimeType || 'image/png',
+      }
     }
 
     const parts = result.candidates?.[0]?.content?.parts || []

@@ -41,34 +41,31 @@
             </div>
           </div>
           <h2 class="settings-title">AI 服务配置</h2>
-          <p class="settings-desc">先用推荐模板快速落配置，再按服务类型微调。工作台创建集时会锁定所选图片、视频和音频能力。</p>
+          <p class="settings-desc">先用推荐模板快速落配置，再按服务类型微调。工作台创建集时会锁定所选图片和视频能力。</p>
         </div>
         <section class="setup-panel card">
-          <div class="setup-panel-head">
+          <div class="setup-panel-head compact">
             <div>
-              <div class="setup-kicker">Quick Setup</div>
-              <div class="setup-title">火宝推荐配置</div>
-              <div class="setup-desc">一键写入文本、图片、视频、音频四类推荐配置，适合作为开箱默认方案。</div>
+              <div class="setup-title">火宝快捷配置</div>
+              <div class="setup-desc">输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。</div>
             </div>
-            <button class="btn btn-primary" @click="presetDialog = true">
-              <Sparkles :size="14" /> 火宝一键配置
+          </div>
+          <div class="huobao-quick-row">
+            <input v-model="huobaoApiKey" class="input" type="password" placeholder="Huobao API Key" />
+            <button class="btn btn-primary" :disabled="huobaoSaving" @click="applyHuobaoQuickConfig">
+              <Loader2 v-if="huobaoSaving" :size="13" class="animate-spin" />
+              <Sparkles v-else :size="13" />
+              写入火宝配置
             </button>
           </div>
-          <div class="preset-grid">
-            <article v-for="preset in huobaoPresetCards" :key="preset.serviceType" class="preset-card">
-              <div class="preset-card-top">
-                <span class="preset-service">{{ preset.label }}</span>
-                <span class="tag tag-accent">{{ preset.provider }}</span>
-              </div>
-              <div class="preset-model mono">{{ preset.model }}</div>
-              <div class="preset-base mono">{{ preset.baseUrl }}</div>
-            </article>
+          <div class="huobao-quick-models mono">
+            文本 gemini-3.1-pro-preview、gpt-5.4、deepseek-v4-pro / 图片 gemini-3-pro-image-preview、gemini-3.1-flash-image-preview、gpt-image-2、doubao-seedream-5-0-260128 / 视频 doubao-seedance-2-0-260128、doubao-seedance-2-0-fast-260128、doubao-seedance-2-0-mini-260615
           </div>
         </section>
         <section class="setup-panel card">
           <div class="setup-panel-head compact">
             <div>
-              <div class="setup-title">快捷模板</div>
+              <div class="setup-title">手动模板</div>
               <div class="setup-desc">选择服务类型后，直接用模板填充推荐的 `provider / base URL / model`。</div>
             </div>
           </div>
@@ -109,7 +106,7 @@
                 <button class="btn btn-ghost btn-sm" @click="testExistingCfg(c)">测试</button>
                 <label class="toggle"><input type="checkbox" :checked="c.is_active" @change="toggleCfg(c)"><span /></label>
                 <button class="btn btn-ghost btn-icon" @click="startEditCfg(c)"><Pencil :size="13" /></button>
-                <button class="btn btn-ghost btn-icon" @click="delCfg(c.id)"><Trash2 :size="13" /></button>
+                <button class="btn btn-danger btn-icon" @click="delCfg(c.id)"><Trash2 :size="13" /></button>
               </div>
               <p v-if="!byType(st.type).length" class="config-empty">暂无配置</p>
             </div>
@@ -240,7 +237,7 @@
                   <div style="font-weight:600;font-size:13px">{{ s.name }}</div>
                   <div class="dim" style="font-size:11px">{{ s.description }}</div>
                 </div>
-                <button class="btn btn-ghost btn-icon" style="margin-right:4px" @click.stop="deleteSkill(s.id)">
+                <button class="btn btn-danger btn-icon" style="margin-right:4px" @click.stop="deleteSkill(s.id)">
                   <Trash2 :size="13" />
                 </button>
                 <ChevronDown :size="14" :style="{ transform: editingSkill === s.id ? 'rotate(180deg)' : '', transition: '0.2s' }" />
@@ -306,10 +303,6 @@
         </label>
         <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" placeholder="sk-..." /></label>
         <label class="field"><span class="field-label">Base URL</span><input v-model="cfgForm.base_url" class="input" placeholder="https://..." /></label>
-        <div class="endpoint-hint">
-          <span class="dim">实际端点前缀：</span>
-          <span class="mono">{{ endpointHint }}</span>
-        </div>
         <label class="field"><span class="field-label">模型（逗号分隔）</span><input v-model="cfgForm.modelStr" class="input" placeholder="model-name" /></label>
         <div v-if="cfgTestResult" class="test-result" :class="{ ok: cfgTestResult.reachable, bad: !cfgTestResult.reachable }">
           <div class="test-result-head">
@@ -326,41 +319,6 @@
           </button>
           <button type="button" class="btn" @click="cfgDialog = false">取消</button>
           <button type="submit" class="btn btn-primary">保存</button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Huobao Preset Dialog -->
-    <div v-if="presetDialog" class="overlay" @click.self="presetDialog = false">
-      <form class="modal card config-modal" @submit.prevent="applyHuobaoPreset">
-        <div class="config-modal-head">
-          <div>
-            <div class="setup-kicker">Huobao Preset</div>
-            <h2 class="modal-title">火宝一键配置</h2>
-            <div class="modal-note">按火宝推荐链路自动创建或更新 4 条服务配置，并同时初始化 5 个 Agent 的默认模型。</div>
-          </div>
-          <span class="tag tag-success">推荐</span>
-        </div>
-        <div class="huobao-grid">
-          <label class="field">
-            <span class="field-label">Huobao API Key <span class="dim">(统一用于文本 / 图片 / 视频 / 音频)</span></span>
-            <input v-model="huobaoForm.apiKey" class="input" type="password" placeholder="用于 api.chatfire.site 全链路服务" />
-            <span class="field-hint">还没有账号？<a href="https://api.chatfire.site/" target="_blank" rel="noopener">立即注册 →</a></span>
-          </label>
-        </div>
-        <div class="preset-grid compact">
-          <article v-for="preset in huobaoPresetCards" :key="`${preset.serviceType}-${preset.provider}`" class="preset-card">
-            <div class="preset-card-top">
-              <span class="preset-service">{{ preset.label }}</span>
-              <span class="tag tag-accent">{{ preset.provider }}</span>
-            </div>
-            <div class="preset-model mono">{{ preset.model }}</div>
-            <div class="preset-base mono">{{ preset.baseUrl }}</div>
-          </article>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn" @click="presetDialog = false">取消</button>
-          <button type="submit" class="btn btn-primary">创建并启用</button>
         </div>
       </form>
     </div>
@@ -415,64 +373,42 @@ watch(showAdvanced, (v) => {
 const cfgs = ref([])
 const cfgDialog = ref(false)
 const cfgEditId = ref(null)
-const presetDialog = ref(false)
 const cfgTesting = ref(false)
 const cfgTestResult = ref(null)
+const huobaoApiKey = ref('')
+const huobaoSaving = ref(false)
 const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text', priority: 0 })
-const huobaoForm = reactive({ apiKey: '' })
-const serviceTypes = [{ type: 'text', label: '文本' }, { type: 'image', label: '图片' }, { type: 'video', label: '视频' }, { type: 'audio', label: '音频' }]
-const providers = ['ali', 'chatfire', 'gemini', 'minimax', 'openai', 'openrouter', 'vidu', 'volcengine']
+const serviceTypes = [{ type: 'text', label: '文本' }, { type: 'image', label: '图片' }, { type: 'video', label: '视频' }]
+const providers = ['ali', 'deepseek', 'gemini', 'openai', 'vidu', 'volcengine']
 const providerSelectOptions = computed(() => providers.map(p => ({ label: p, value: p })))
 const serviceMeta = {
   text: { label: '文本', desc: '剧本改写、角色场景提取、分镜拆解等 Agent 文本能力' },
   image: { label: '图片', desc: '角色图、场景图、镜头图与首尾帧等静态图像生成' },
-  video: { label: '视频', desc: '镜头视频生成，支持单图、多图和首尾帧模式' },
-  audio: { label: '音频', desc: '角色试听、旁白与对白语音生成' },
+  video: { label: '视频', desc: '镜头视频直出生成，默认 Seedance 2.0' },
 }
 const providerPresets = {
   text: {
-    chatfire: { label: 'ChatFire 推荐', baseUrl: 'https://api.chatfire.site', models: ['gemini-3-pro-preview'] },
-    openrouter: { label: 'OpenRouter 推荐', baseUrl: 'https://openrouter.ai/api', models: ['google/gemini-3-flash-preview'] },
-    openai: { label: 'OpenAI 推荐', baseUrl: 'https://api.openai.com', models: ['gpt-4.1-mini'] },
+    gemini: { label: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-3.1-pro-preview'] },
+    openai: { label: 'OpenAI 官方', baseUrl: 'https://api.openai.com', models: ['gpt-5.4'] },
+    deepseek: { label: 'DeepSeek 官方', baseUrl: 'https://api.deepseek.com', models: ['deepseek-v4-pro'] },
   },
   image: {
-    chatfire: { label: 'ChatFire 推荐', baseUrl: 'https://api.chatfire.site', models: ['doubao-seedream-4-5-251128'] },
-    gemini: { label: 'Gemini 推荐', baseUrl: 'https://api.chatfire.site', models: ['gemini-3-pro-image-preview'] },
-    volcengine: { label: '火山推荐', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedream-4-0-250828'] },
+    gemini: { label: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'] },
+    openai: { label: 'OpenAI 官方', baseUrl: 'https://api.openai.com', models: ['gpt-image-2'] },
+    volcengine: { label: '火山官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedream-5-0-260128'] },
+    ali: { label: '阿里官方', baseUrl: 'https://dashscope.aliyuncs.com', models: ['wan2.6-t2i'] },
   },
   video: {
-    volcengine: { label: '火宝视频', baseUrl: 'https://api.chatfire.site/volcengine', models: ['doubao-seedance-1-5-pro-251215'] },
-    vidu: { label: 'Vidu 推荐', baseUrl: 'https://api.vidu.com', models: ['viduq3-turbo'] },
-    ali: { label: '阿里推荐', baseUrl: 'https://dashscope.aliyuncs.com', models: ['wan2.6-i2v-flash'] },
-  },
-  audio: {
-    minimax: { label: '火宝音频', baseUrl: 'https://api.chatfire.site/minimax', models: ['speech-2.8-hd'] },
+    volcengine: { label: 'Seedance 2.0 官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-mini-260615'] },
+    ali: { label: '阿里官方', baseUrl: 'https://dashscope.aliyuncs.com', models: ['wan2.6-i2v-flash'] },
+    vidu: { label: 'Vidu 官方', baseUrl: 'https://api.vidu.com', models: ['viduq3-turbo', 'viduq3-pro'] },
   },
 }
-const huobaoPresetCards = [
-  { serviceType: 'text', label: '文本', provider: 'chatfire', baseUrl: 'https://api.chatfire.site', model: 'gemini-3-pro-preview', priority: 100 },
-  { serviceType: 'image', label: '图片', provider: 'gemini', baseUrl: 'https://api.chatfire.site', model: 'gemini-3-pro-image-preview', priority: 99 },
-  { serviceType: 'video', label: '视频', provider: 'volcengine', baseUrl: 'https://api.chatfire.site/volcengine', model: 'doubao-seedance-1-5-pro-251215', priority: 98 },
-  { serviceType: 'audio', label: '音频', provider: 'minimax', baseUrl: 'https://api.chatfire.site/minimax', model: 'speech-2.8-hd', priority: 97 },
+const huobaoQuickConfigs = [
+  { service_type: 'text', provider: 'openai', name: '火宝文本服务', base_url: 'https://api.chatfire.site', model: ['gemini-3.1-pro-preview', 'gpt-5.4', 'deepseek-v4-pro'], priority: 100 },
+  { service_type: 'image', provider: 'openai', name: '火宝图片服务', base_url: 'https://api.chatfire.site', model: ['gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview', 'gpt-image-2', 'doubao-seedream-5-0-260128'], priority: 99 },
+  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-mini-260615'], priority: 98 },
 ]
-const endpointPrefixes = {
-  chatfire: '/v1',
-  openai: '/v1',
-  openrouter: '/v1',
-  minimax: '/v1',
-  gemini: '/v1beta',
-  volcengine: '/api/v3',
-  ali: '/api/v1',
-  vidu: '/ent/v2',
-}
-
-const endpointHint = computed(() => {
-  const provider = cfgForm.provider
-  const base = cfgForm.base_url || 'https://...'
-  const prefix = endpointPrefixes[provider] || ''
-  if (!provider) return '选择服务商后显示推荐端点前缀'
-  return `${base}${prefix}`
-})
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }
 function countActive(t) { return byType(t).filter(c => c.is_active).length }
@@ -493,6 +429,26 @@ function applyProviderPreset(type, provider) {
 async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toast.error(e.message) } }
 async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
 async function delCfg(id) { await aiConfigAPI.del(id); toast.success('已删除'); loadCfgs() }
+async function applyHuobaoQuickConfig() {
+  const apiKey = huobaoApiKey.value.trim()
+  if (!apiKey) { toast.warning('请填写 Huobao API Key'); return }
+  huobaoSaving.value = true
+  try {
+    for (const preset of huobaoQuickConfigs) {
+      const payload = { ...preset, api_key: apiKey }
+      const existing = cfgs.value.find(c => c.name === preset.name || (c.service_type === preset.service_type && c.base_url === preset.base_url))
+      if (existing) await aiConfigAPI.update(existing.id, payload)
+      else await aiConfigAPI.create(payload)
+    }
+    toast.success('火宝快捷配置已写入')
+    huobaoApiKey.value = ''
+    await loadCfgs()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    huobaoSaving.value = false
+  }
+}
 function startAddCfg(t) {
   cfgEditId.value = null
   cfgTestResult.value = null
@@ -555,21 +511,6 @@ async function saveCfg() {
     cfgDialog.value = false; toast.success('已保存'); loadCfgs()
   } catch (e) { toast.error(e.message) }
 }
-async function applyHuobaoPreset() {
-  if (!huobaoForm.apiKey) {
-    toast.warning('请填写 Huobao API Key')
-    return
-  }
-  try {
-    await aiConfigAPI.huobaoPreset(huobaoForm.apiKey)
-    await loadCfgs()
-    await loadAgents()
-    presetDialog.value = false
-    toast.success('火宝推荐配置与默认 Agent LLM 已写入')
-  } catch (e) {
-    toast.error(e.message)
-  }
-}
 
 // ===== Agent Configs =====
 const agentCfgs = ref([])
@@ -582,7 +523,6 @@ const agentDefs = [
   { type: 'script_rewriter', label: '剧本改写', icon: '📝' },
   { type: 'extractor', label: '角色场景提取', icon: '🔍' },
   { type: 'storyboard_breaker', label: '分镜拆解', icon: '🎬' },
-  { type: 'voice_assigner', label: '音色分配', icon: '🎙' },
   { type: 'grid_prompt_generator', label: '图片提示词生成', icon: '🖼' },
 ]
 
@@ -627,21 +567,11 @@ const defaultPrompts = {
 2. 将剧本拆解为镜头序列（每个镜头 10-15 秒）
 3. 为每个镜头生成视频提示词（video_prompt）
 4. 调用 save_storyboards 保存所有分镜`,
-  voice_assigner: `你是配音导演，擅长为角色选择合适的音色。
-
-工作流程：
-1. 调用 list_voices 获取可用音色列表
-2. 调用 get_characters 获取所有角色信息
-3. 根据每个角色的性别、性格、年龄、角色定位，选择最匹配的音色
-4. 对每个角色调用 assign_voice 分配音色，并说明选择理由
-
-注意：每个角色都必须分配音色，不要遗漏。`,
-  grid_prompt_generator: `你是专业的 AI 图像提示词工程师，擅长为角色、场景和宫格图生成高质量的英文提示词。
+  grid_prompt_generator: `你是专业的 AI 图像提示词工程师，擅长为角色和场景生成高质量的英文提示词。
 
 你将收到用户的请求，告知要生成哪种类型的提示词：
 - "角色" → 生成角色图片提示词
 - "场景" → 生成场景图片提示词
-- "宫格" → 生成宫格图提示词
 
 ## 角色图片提示词
 
@@ -656,16 +586,6 @@ const defaultPrompts = {
 1. 调用 read_scenes 读取所有场景信息
 2. 根据场景地点（location）、时间段（time）、已有描述（prompt）生成英文提示词
 3. 提示词结构：[地点]，[时间/光线/氛围]，[已有描述]，[电影感场景]，[高质量]，[无文字水印]
-
-## 宫格图提示词（参考 skills/grid-image-generator/SKILL.md）
-
-工作流程：
-1. 调用 read_shots_for_grid 读取选中镜头的详细信息
-2. 根据 mode 调用 generate_grid_prompt：
-   - first_frame 模式：每格=一个镜头的首帧，NxN 风格统一
-   - first_last 模式：每个镜头占2格（左首右尾），同一行风格连续
-   - multi_ref 模式：所有格子都是同一镜头的不同参考角度
-3. 返回 grid_prompt（整体提示词）和 cell_prompts（每格提示词）
 
 提示词规范：
 - 使用英文提示词
@@ -851,16 +771,23 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   letter-spacing: 0.12em; text-transform: uppercase; padding: 0 10px 4px;
 }
 .nav-item {
-  display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 13px;
-  border: none; background: none; color: var(--text-2); cursor: pointer;
-  border-radius: var(--radius); transition: all 0.12s; text-align: left; width: 100%;
+  display: flex; align-items: center; gap: 8px; min-height: var(--button-height);
+  padding: 0 12px; font-size: 13px; font-weight: 650;
+  border: 1px solid transparent; background: transparent; color: var(--text-2); cursor: pointer;
+  border-radius: var(--button-radius); transition: all 0.18s var(--ease-out); text-align: left; width: 100%;
+  line-height: 1;
 }
-.nav-item:hover { background: var(--bg-hover); color: var(--text-0); }
-.nav-item.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 600; box-shadow: var(--shadow-card); }
+.nav-item:hover { background: var(--button-bg); border-color: var(--button-border); color: var(--text-0); box-shadow: var(--button-shadow); }
+.nav-item.active { background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08)); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; box-shadow: var(--button-shadow); }
+.nav-item:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow);
+}
 .nav-advanced {
   padding: 12px 8px;
-  border-top: 1px solid rgba(27, 41, 64, 0.08);
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
+  border-top: 1px solid var(--surface-outline);
+  border-bottom: 1px solid var(--surface-outline);
 }
 .advanced-toggle {
   display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
@@ -869,14 +796,18 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
 .advanced-toggle input { display: none; }
 .advanced-slider {
   position: relative; width: 38px; height: 22px; border-radius: 999px;
-  background: rgba(27, 41, 64, 0.12); transition: background 0.18s ease;
+  background: var(--bg-3); border: 1px solid var(--button-border); transition: background 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 .advanced-slider::after {
   content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
-  border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(18, 24, 38, 0.18); transition: transform 0.18s ease;
+  border-radius: 50%; background: #d7ece8; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28); transition: transform 0.18s ease;
 }
 .advanced-toggle input:checked + .advanced-slider { background: var(--accent); }
 .advanced-toggle input:checked + .advanced-slider::after { transform: translateX(16px); }
+.advanced-toggle input:focus-visible + .advanced-slider {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
 .advanced-note {
   margin: 8px 0 0;
   font-size: 11px;
@@ -897,9 +828,9 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   width: 42px;
   height: 42px;
   border-radius: 15px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(242,247,255,0.9));
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--surface-outline);
+  background: var(--surface-muted);
+  box-shadow: var(--button-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -971,48 +902,42 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   color: var(--text-2);
   margin-top: 4px;
 }
-.preset-grid {
+.huobao-quick-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
 }
-.preset-grid.compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 8px;
+.huobao-quick-models {
+  margin-top: 10px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
 }
-.preset-card {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.82);
-  padding: 12px 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.preset-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.preset-service { font-size: 12px; font-weight: 600; }
-.preset-model { font-size: 12px; color: var(--text-1); }
-.preset-base { font-size: 11px; color: var(--text-3); }
 .template-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .template-type-chip {
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.82);
-  color: var(--text-1);
-  border-radius: 999px;
-  padding: 8px 12px;
+  min-height: var(--button-height-sm);
+  border: 1px solid var(--button-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-radius: var(--button-radius);
+  padding: 0 12px;
   font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
   cursor: pointer;
-  transition: 0.15s;
+  transition: all 0.18s var(--ease-out);
+  box-shadow: var(--button-shadow);
 }
 .template-type-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent-text);
-  background: var(--accent-bg);
+  border-color: var(--button-border-hover);
+  color: var(--button-text-hover);
+  background: var(--button-bg-hover);
+  box-shadow: var(--button-shadow-hover);
+}
+.template-type-chip:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
 }
 .sections { display: flex; flex-direction: column; gap: 24px; }
 .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -1031,10 +956,14 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
 
 .toggle { position: relative; width: 30px; height: 17px; cursor: pointer; flex-shrink: 0; }
 .toggle input { opacity: 0; width: 0; height: 0; }
-.toggle span { position: absolute; inset: 0; background: var(--bg-3); border-radius: 99px; transition: 0.2s; }
+.toggle span { position: absolute; inset: 0; background: var(--bg-3); border: 1px solid var(--button-border); border-radius: 99px; transition: 0.2s; }
 .toggle span::before { content: ''; position: absolute; width: 13px; height: 13px; left: 2px; bottom: 2px; background: var(--bg-0); border-radius: 50%; transition: 0.2s; box-shadow: var(--shadow); }
 .toggle input:checked + span { background: var(--accent); }
 .toggle input:checked + span::before { transform: translateX(13px); }
+.toggle input:focus-visible + span {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
 
 /* Agent */
 .agent-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1058,20 +987,26 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
 }
 .skills-agent-item {
   display: flex; align-items: center; gap: 8px;
-  padding: 9px 14px; font-size: 13px; cursor: pointer;
-  border: none; background: none; color: var(--text-2);
-  transition: all 0.12s; width: 100%; text-align: left;
+  min-height: var(--button-height);
+  padding: 0 14px; font-size: 13px; font-weight: 650; cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--text-2);
+  transition: all 0.18s var(--ease-out); width: 100%; text-align: left;
   border-radius: 0;
 }
-.skills-agent-item:hover { background: var(--bg-hover); color: var(--text-0); }
-.skills-agent-item.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 600; }
+.skills-agent-item:hover { background: var(--button-bg); border-color: var(--button-border); color: var(--text-0); }
+.skills-agent-item.active { background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08)); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; }
+.skills-agent-item:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: inset 0 0 0 1px var(--action-primary), 0 0 0 3px var(--button-focus);
+}
 .skills-agent-label { flex: 1; }
 .skill-count-badge {
   font-size: 10px; font-weight: 700; font-family: var(--font-mono);
   background: var(--accent-bg); color: var(--accent-text);
   padding: 1px 5px; border-radius: 99px;
 }
-.skills-agent-item.active .skill-count-badge { background: rgba(255,255,255,0.2); color: inherit; }
+.skills-agent-item.active .skill-count-badge { background: rgba(217,111,39,0.22); color: inherit; }
 .skills-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .skills-main .settings-scroll { max-width: 900px; }
 
@@ -1111,26 +1046,29 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   gap: 8px;
 }
 .preset-pill {
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.72);
-  color: var(--text-1);
-  border-radius: 999px;
-  padding: 8px 11px;
+  min-height: var(--button-height-sm);
+  border: 1px solid var(--button-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-radius: var(--button-radius);
+  padding: 0 11px;
   font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
   cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+  box-shadow: var(--button-shadow);
 }
 .preset-pill:hover {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-  color: var(--accent-text);
+  border-color: var(--button-border-hover);
+  background: var(--button-bg-hover);
+  color: var(--button-text-hover);
+  box-shadow: var(--button-shadow-hover);
 }
-.endpoint-hint {
-  margin-top: -4px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px dashed var(--border);
-  background: rgba(244,248,255,0.72);
-  font-size: 12px;
+.preset-pill:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
 }
 .test-result {
   display: flex;
@@ -1138,8 +1076,8 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   gap: 8px;
   border-radius: 14px;
   padding: 12px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.72);
+  border: 1px solid var(--surface-outline);
+  background: var(--surface-muted);
 }
 .test-result.ok { border-color: rgba(74, 167, 92, 0.28); }
 .test-result.bad { border-color: rgba(201, 88, 68, 0.28); }
@@ -1155,25 +1093,5 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   font-size: 11px;
   color: var(--text-3);
   word-break: break-all;
-}
-.huobao-grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 10px;
-}
-.huobao-grid .field-hint a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-.huobao-grid .field-hint a:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 900px) {
-  .preset-grid,
-  .preset-grid.compact {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

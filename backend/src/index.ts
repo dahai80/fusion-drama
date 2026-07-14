@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
@@ -16,12 +17,9 @@ import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
 import agentConfigs from './routes/agentConfigs.js'
 import agent from './routes/agent.js'
-import compose from './routes/compose.js'
 import merge from './routes/merge.js'
-import grid from './routes/grid.js'
 import skills from './routes/skills.js'
 import webhooks from './routes/webhooks.js'
-import aiVoices from './routes/aiVoices.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -54,11 +52,8 @@ api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
 api.route('/agent-configs', agentConfigs)
 api.route('/agent', agent)
-api.route('/compose', compose)
 api.route('/merge', merge)
-api.route('/grid', grid)
 api.route('/skills', skills)
-api.route('/ai-voices', aiVoices)
 
 app.route('/api/v1', api)
 

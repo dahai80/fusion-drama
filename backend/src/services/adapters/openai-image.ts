@@ -17,15 +17,24 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
   provider = 'openai'
 
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
-    // OpenAI 使用 size 字段，格式为 "1024x1024"
-    const size = record.size || '1024x1024'
+    const model = record.model || config.model || 'gpt-image-1'
+    const isGptImage = model.startsWith('gpt-image-')
+    const isGptImage2 = model === 'gpt-image-2'
+    const size = isGptImage2
+      ? this.normalizeGptImage2Size(record.size)
+      : isGptImage
+      ? this.normalizeGptImageSize(record.size)
+      : record.size || '1024x1024'
 
     const body: any = {
-      model: record.model || 'dall-e-3',
+      model,
       prompt: record.prompt,
       size,
       n: 1,
-      response_format: 'url', // 默认返回 URL，可选 'b64_json'
+    }
+
+    if (!isGptImage) {
+      body.response_format = 'url'
     }
 
     return {
@@ -37,6 +46,36 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
       },
       body,
     }
+  }
+
+  private normalizeGptImageSize(size?: string | null): string {
+    const allowed = ['1024x1024', '1536x1024', '1024x1536', 'auto']
+    if (!size) return '1024x1024'
+
+    const normalized = size.toLowerCase()
+    if (allowed.includes(normalized)) return normalized
+
+    const [width, height] = normalized.split('x').map(Number)
+    if (!width || !height) return 'auto'
+    if (width === height) return '1024x1024'
+    return width > height ? '1536x1024' : '1024x1536'
+  }
+
+  private normalizeGptImage2Size(size?: string | null): string {
+    if (!size) return '1024x1024'
+    const normalized = size.toLowerCase()
+    if (normalized === 'auto') return 'auto'
+
+    const [rawWidth, rawHeight] = normalized.split('x').map(Number)
+    if (!rawWidth || !rawHeight) return 'auto'
+
+    const width = this.roundToMultiple(Math.min(4096, Math.max(256, rawWidth)), 16)
+    const height = this.roundToMultiple(Math.min(4096, Math.max(256, rawHeight)), 16)
+    return `${width}x${height}`
+  }
+
+  private roundToMultiple(value: number, multiple: number): number {
+    return Math.max(multiple, Math.round(value / multiple) * multiple)
   }
 
   parseGenerateResponse(result: any): ImageGenResponse {

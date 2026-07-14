@@ -15,9 +15,9 @@ app.post('/', async (c) => {
   try {
     let configId: number | undefined = body.config_id
     if (body.storyboard_id) {
-      const [sb] = db.select().from(schema.storyboards).where(eq(schema.storyboards.id, Number(body.storyboard_id))).all()
+      const [sb] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, Number(body.storyboard_id)))
       if (sb) {
-        const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId)).all()
+        const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId))
         if (ep?.videoConfigId != null) configId = ep.videoConfigId
       }
     }
@@ -44,8 +44,8 @@ app.post('/', async (c) => {
       configId,
     })
 
-    const [record] = db.select().from(schema.videoGenerations)
-      .where(eq(schema.videoGenerations.id, id)).all()
+    const [record] = await db.select().from(schema.videoGenerations)
+      .where(eq(schema.videoGenerations.id, id))
     logTaskSuccess('VideoAPI', 'generate', { generationId: id, provider: record?.provider })
     return created(c, record)
   } catch (err: any) {
@@ -57,8 +57,8 @@ app.post('/', async (c) => {
 // GET /videos/:id
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const [row] = db.select().from(schema.videoGenerations)
-    .where(eq(schema.videoGenerations.id, id)).all()
+  const [row] = await db.select().from(schema.videoGenerations)
+    .where(eq(schema.videoGenerations.id, id))
   return success(c, row || null)
 })
 
@@ -67,7 +67,7 @@ app.get('/', async (c) => {
   const storyboardId = c.req.query('storyboard_id')
   const dramaId = c.req.query('drama_id')
 
-  let rows = db.select().from(schema.videoGenerations).all()
+  let rows = await db.select().from(schema.videoGenerations)
 
   if (storyboardId) rows = rows.filter(r => r.storyboardId === Number(storyboardId))
   if (dramaId) rows = rows.filter(r => r.dramaId === Number(dramaId))
@@ -78,7 +78,7 @@ app.get('/', async (c) => {
 // DELETE /videos/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  db.delete(schema.videoGenerations).where(eq(schema.videoGenerations.id, id)).run()
+  await db.delete(schema.videoGenerations).where(eq(schema.videoGenerations.id, id))
   return success(c)
 })
 

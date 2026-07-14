@@ -44,7 +44,7 @@ app.post('/:type/chat', async (c) => {
     return badRequest(c, 'drama_id and episode_id are required')
   }
 
-  const agent = createAgent(agentType, episode_id, drama_id)
+  const agent = await createAgent(agentType, episode_id, drama_id)
   if (!agent) {
     logTaskError('Agent', agentType, { reason: 'agent not found' })
     return badRequest(c, 'Agent not found')

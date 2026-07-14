@@ -17,7 +17,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
   provider = 'volcengine'
 
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
-    const model = record.model || config.model || 'doubao-seedance-1-5-pro-251215'
+    const model = record.model || config.model || 'doubao-seedance-2-0-260128'
 
     const content: any[] = [{ type: 'text', text: record.prompt || '' }]
 
@@ -43,7 +43,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
     const body: any = {
       model,
       content,
-      generate_audio: true,
+      generate_audio: false,
       ratio: record.aspectRatio || 'adaptive',
       duration: this.normalizeDuration(record.duration),
       watermark: false,
