@@ -3,7 +3,7 @@
     <div class="page-head">
       <div class="head-left">
         <h1 class="page-title">短剧项目</h1>
-        <p class="page-desc">项目启动台 · 点击项目直接进入工作台</p>
+        <p class="page-desc">项目启动台 · 点击项目选择集后再进入工作台</p>
       </div>
       <button class="btn btn-primary" @click="showCreate = true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -46,7 +46,7 @@
       <div class="launcher-head" aria-hidden="true">
         <span>项目</span>
         <span>状态</span>
-        <span>当前工作台</span>
+        <span>最新集</span>
         <span>更新</span>
         <span></span>
         <span></span>
@@ -60,12 +60,14 @@
         tabindex="0"
         role="button"
         :aria-label="`进入 ${d.title} 工作台`"
-        @click="openWorkbench(d)"
-        @keydown.enter.prevent="openWorkbench(d)"
-        @keydown.space.prevent="openWorkbench(d)"
+        @click="openDrama(d)"
+        @keydown.enter.prevent="openDrama(d)"
+        @keydown.space.prevent="openDrama(d)"
       >
         <div class="project-main">
-          <div class="film-thumb project-slate" aria-hidden="true"></div>
+          <div class="project-thumb" aria-hidden="true">
+            <FolderOpen :size="22" :stroke-width="1.6" />
+          </div>
           <div class="project-copy">
             <h2 class="project-title">{{ d.title }}</h2>
             <p class="project-meta">
@@ -82,7 +84,7 @@
         </div>
 
         <div class="progress-cell">
-          <div class="progress-label">{{ currentWorkbenchLabel(d) }}</div>
+          <div class="progress-label">{{ latestEpisodeLabel(d) }}</div>
           <div class="progress-track">
             <div class="progress-fill" :style="{ width: getProgress(d) + '%' }"></div>
           </div>
@@ -90,11 +92,11 @@
 
         <div class="date-cell">{{ fmtDate(d.updated_at || d.updatedAt) }}</div>
 
-        <button class="btn btn-primary btn-sm row-action" type="button" @click.stop="openWorkbench(d)">
+        <button class="btn btn-primary btn-sm row-action" type="button" @click.stop="openDrama(d)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
           </svg>
-          进入工作台
+          打开项目
         </button>
 
         <div class="more-wrap">
@@ -104,7 +106,7 @@
             </svg>
           </button>
           <div v-if="activeMenuId === d.id" class="more-menu" @click.stop>
-            <button type="button" class="menu-item" @click="openWorkbench(d)">打开工作台</button>
+            <button type="button" class="menu-item" @click="openDrama(d)">打开项目</button>
             <button type="button" class="menu-item is-danger" @click="delDrama(d)">删除项目</button>
           </div>
         </div>
@@ -120,7 +122,7 @@
         </svg>
       </div>
       <p class="empty-title">{{ dramas.length ? '没有匹配的项目' : '新建第一个短剧项目' }}</p>
-      <p class="empty-desc">{{ dramas.length ? '调整搜索词或筛选条件。' : '创建后直接进入工作台开始制作。' }}</p>
+      <p class="empty-desc">{{ dramas.length ? '调整搜索词或筛选条件。' : '创建后选择集开始制作。' }}</p>
       <button v-if="!dramas.length" class="btn btn-primary" @click="showCreate = true">新建项目</button>
     </div>
 
@@ -134,7 +136,7 @@
             </svg>
           </div>
           <h2 class="modal-title">新建短剧项目</h2>
-          <p class="modal-desc">创建后直接进入第 1 集工作台</p>
+          <p class="modal-desc">创建后进入项目页选择集</p>
         </div>
         <form @submit.prevent="create" class="modal-form">
           <label class="field">
@@ -157,7 +159,7 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
-              创建并进入工作台
+              创建项目
             </button>
           </div>
         </form>
@@ -168,6 +170,7 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { FolderOpen } from 'lucide-vue-next'
 import { dramaAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
@@ -218,7 +221,7 @@ async function create() {
   try {
     const d = await dramaAPI.create(form.value)
     showCreate.value = false
-    navigateTo(`/drama/${d.id}/episode/1`)
+    navigateTo(`/drama/${d.id}`)
   } catch (e) {
     toast.error(e.message)
   }
@@ -251,18 +254,18 @@ function getEpisodeNumber(d) {
   return Number(episodes[0].episode_number || episodes[0].episodeNumber || 1)
 }
 
-function getWorkbenchPath(d) {
-  return `/drama/${d.id}/episode/${getEpisodeNumber(d)}`
+function getDramaPath(d) {
+  return `/drama/${d.id}`
 }
 
-function openWorkbench(d) {
+function openDrama(d) {
   activeMenuId.value = null
-  navigateTo(getWorkbenchPath(d))
+  navigateTo(getDramaPath(d))
 }
 
-function currentWorkbenchLabel(d) {
-  if (!d.episodes?.length) return '第 1 集工作台'
-  return `第 ${getEpisodeNumber(d)} 集工作台`
+function latestEpisodeLabel(d) {
+  if (!d.episodes?.length) return '暂无剧集'
+  return `第 ${getEpisodeNumber(d)} 集`
 }
 
 function fmtDate(s) {
@@ -292,10 +295,7 @@ onMounted(load)
   overflow-y: auto;
   height: 100%;
   animation: fadeUp 0.35s var(--ease-out) both;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
+  background: var(--surface-base);
 }
 
 .page-head {
@@ -308,8 +308,8 @@ onMounted(load)
 .head-left { display: flex; flex-direction: column; gap: 6px; }
 .page-title {
   font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 650;
   letter-spacing: 0;
   color: var(--text-0);
 }
@@ -363,7 +363,7 @@ onMounted(load)
 .filter-chip.active {
   color: var(--accent-text);
   border-color: var(--accent-glow);
-  background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08));
+  background: var(--accent-bg);
 }
 .sort-select { min-height: 36px; min-width: 132px; color: var(--text-1); }
 
@@ -372,17 +372,18 @@ onMounted(load)
   gap: 10px;
 }
 .launcher-board {
-  padding: 12px;
+  padding: 0;
   border: 1px solid var(--surface-outline);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-panel);
+  box-shadow: none;
 }
 .launcher-head {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) 116px 170px 106px 146px 42px;
   align-items: center;
-  padding: 0 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--surface-outline);
   color: var(--text-3);
   font-size: 11px;
   font-weight: 700;
@@ -397,13 +398,14 @@ onMounted(load)
   grid-template-columns: minmax(240px, 1fr) 116px 170px 106px 146px 42px;
   align-items: center;
   gap: 14px;
-  border: 1px solid rgba(242,238,230,0.08);
-  border-radius: var(--radius-lg);
+  border: 0;
+  border-bottom: 1px solid var(--surface-outline);
+  border-radius: 0;
   background: var(--surface-raised);
   color: inherit;
   padding: 14px;
   text-align: left;
-  box-shadow: var(--button-shadow);
+  box-shadow: none;
   cursor: pointer;
   transition: border-color 0.18s var(--ease-out), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), background 0.18s var(--ease-out);
   animation: fadeUp 0.32s var(--ease-out) both;
@@ -413,51 +415,37 @@ onMounted(load)
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  background: linear-gradient(180deg, var(--action-primary), var(--accent-dark));
+  border-radius: 0;
+  background: var(--accent);
 }
 .project-row:hover,
 .project-row:focus-visible {
   outline: none;
-  border-color: var(--surface-outline-strong);
-  background: linear-gradient(180deg, rgba(31,36,42,0.96), rgba(21,25,30,0.98));
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  border-color: var(--surface-outline);
+  background: var(--bg-hover);
+  box-shadow: none;
+  transform: none;
 }
 
 .project-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.film-thumb {
+.project-thumb {
   width: 78px;
   height: 56px;
   flex: 0 0 auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background:
-    linear-gradient(90deg, transparent 0 10px, rgba(255,255,255,0.05) 10px 18px, transparent 18px 100%),
-    linear-gradient(135deg, rgba(217,111,39,0.16), #17191c 58%, #101214);
-  position: relative;
-  overflow: hidden;
+  background: var(--bg-hover);
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.project-slate {
-  box-shadow: inset 0 0 0 1px rgba(217,111,39,0.08), 0 10px 18px rgba(0,0,0,0.16);
-}
-.film-thumb::before,
-.film-thumb::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 7px;
-  background: repeating-linear-gradient(90deg, #3a4048 0 10px, transparent 10px 28px);
-}
-.film-thumb::before { top: 0; }
-.film-thumb::after { bottom: 0; }
 .project-copy { min-width: 0; display: grid; gap: 6px; }
 .project-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 650;
   line-height: 1.15;
   letter-spacing: 0;
   color: var(--text-0);
@@ -503,7 +491,7 @@ onMounted(load)
 .progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--action-primary), var(--accent));
+  background: var(--accent);
   transition: width 0.6s var(--ease-out);
 }
 .date-cell { color: var(--text-2); font-size: 13px; white-space: nowrap; }
@@ -554,11 +542,10 @@ onMounted(load)
 .launcher-skeleton {
   height: 104px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(90deg, var(--bg-2) 25%, var(--bg-hover) 50%, var(--bg-2) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  background: var(--bg-2);
+  animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
 }
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes skeleton-pulse { to { opacity: 0.6; } }
 
 .empty-state {
   min-height: 280px;
@@ -653,7 +640,7 @@ onMounted(load)
     grid-column: auto;
     grid-row: auto;
   }
-  .film-thumb { width: 62px; height: 48px; }
+  .project-thumb { width: 62px; height: 48px; }
   .project-title { font-size: 20px; }
   .row-action.btn { width: 100%; }
   .modal {

@@ -778,7 +778,7 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   line-height: 1;
 }
 .nav-item:hover { background: var(--button-bg); border-color: var(--button-border); color: var(--text-0); box-shadow: var(--button-shadow); }
-.nav-item.active { background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08)); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; box-shadow: var(--button-shadow); }
+.nav-item.active { background: var(--accent-bg); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; box-shadow: none; }
 .nav-item:focus-visible {
   outline: none;
   border-color: var(--action-primary);
@@ -994,7 +994,7 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   border-radius: 0;
 }
 .skills-agent-item:hover { background: var(--button-bg); border-color: var(--button-border); color: var(--text-0); }
-.skills-agent-item.active { background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08)); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; }
+.skills-agent-item.active { background: var(--accent-bg); border-color: var(--accent-glow); color: var(--accent-text); font-weight: 650; }
 .skills-agent-item:focus-visible {
   outline: none;
   border-color: var(--action-primary);
@@ -1006,7 +1006,7 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills() })
   background: var(--accent-bg); color: var(--accent-text);
   padding: 1px 5px; border-radius: 99px;
 }
-.skills-agent-item.active .skill-count-badge { background: rgba(217,111,39,0.22); color: inherit; }
+.skills-agent-item.active .skill-count-badge { background: var(--accent-glow); color: inherit; }
 .skills-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 .skills-main .settings-scroll { max-width: 900px; }
 

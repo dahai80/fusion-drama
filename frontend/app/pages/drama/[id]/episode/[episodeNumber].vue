@@ -570,8 +570,9 @@
                 AI 生成分镜
               </button>
             </div>
-            <div v-else class="video-task-list">
-              <div class="video-task-head">
+            <div v-else class="video-task-workbench">
+              <section class="video-task-list">
+                <div class="video-task-head">
                 <div>
                   <div class="video-task-title">视频任务列表</div>
                   <div class="video-task-meta">按镜头顺序 · {{ videoTaskRows.length }} 个任务</div>
@@ -581,12 +582,17 @@
                   <span class="video-task-metric is-done">{{ videoTaskDoneCount }} 完成</span>
                   <span class="video-task-metric is-failed">{{ videoTaskFailedCount }} 失败</span>
                 </div>
-              </div>
-              <div class="video-task-table">
+                </div>
+                <div class="video-task-table">
                 <div
                   v-for="task in videoTaskRows"
                   :key="task.id"
-                  :class="['video-task-row', 'is-' + videoTaskState(task.storyboard)]"
+                  :class="['video-task-row', 'is-' + videoTaskState(task.storyboard), { active: selectedSb?.id === task.storyboard.id }]"
+                  role="button"
+                  tabindex="0"
+                  @click="selectedSb = task.storyboard"
+                  @keydown.enter.prevent="selectedSb = task.storyboard"
+                  @keydown.space.prevent="selectedSb = task.storyboard"
                 >
                   <div class="video-task-preview">
                     <video
@@ -620,13 +626,77 @@
                   <button
                     class="btn btn-sm video-task-action"
                     :disabled="videoTaskState(task.storyboard) === 'pending'"
-                    @click="genVid(task.storyboard)"
+                    @click.stop="genVid(task.storyboard)"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                     {{ videoTaskActionLabel(task.storyboard) }}
                   </button>
                 </div>
-              </div>
+                </div>
+              </section>
+
+              <aside v-if="selectedSb" class="video-task-inspector">
+                <div class="video-inspector-head">
+                  <div>
+                    <div class="video-inspector-title">分镜 {{ String(selectedVideoTaskNumber).padStart(2, '0') }}</div>
+                    <div class="video-inspector-sub">详细信息</div>
+                  </div>
+                  <span :class="['video-task-status', 'is-' + videoTaskState(selectedSb)]">
+                    <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
+                    {{ videoTaskStatusLabel(selectedSb) }}
+                  </span>
+                </div>
+
+                <div class="video-inspector-body">
+                  <label class="video-inspector-section">
+                    <span class="video-inspector-label">视频提示词</span>
+                    <textarea
+                      :value="selectedSb.video_prompt || selectedSb.videoPrompt || ''"
+                      class="textarea video-inspector-prompt"
+                      rows="7"
+                      placeholder="暂无视频提示词"
+                      @blur="updateField(selectedSb, 'video_prompt', $event.target.value)"
+                    />
+                  </label>
+
+                  <section class="video-inspector-section">
+                    <span class="video-inspector-label">参考素材</span>
+                    <div class="video-inspector-assets">
+                      <button
+                        v-for="asset in getShotReferenceAssets(selectedSb)"
+                        :key="asset.key"
+                        type="button"
+                        class="video-inspector-asset"
+                        :disabled="!asset.ready"
+                        @click="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
+                      >
+                        <img v-if="asset.ready" :src="assetImageSrc({ imageUrl: asset.imageUrl })" :alt="asset.name" />
+                        <span v-else>{{ asset.type }}</span>
+                        <small>{{ asset.name }}</small>
+                      </button>
+                      <div v-if="!getShotReferenceAssets(selectedSb).length" class="video-inspector-empty">当前分镜未绑定参考素材</div>
+                    </div>
+                  </section>
+
+                  <section class="video-inspector-section">
+                    <span class="video-inspector-label">参数设置</span>
+                    <dl class="video-inspector-params">
+                      <div><dt>画面比例</dt><dd>16:9</dd></div>
+                      <div><dt>生成时长</dt><dd>{{ selectedSb.duration || 10 }}s</dd></div>
+                      <div><dt>参考数量</dt><dd>{{ getShotReferenceAssets(selectedSb).filter(item => item.ready).length }}</dd></div>
+                      <div><dt>生成模型</dt><dd>{{ lockedVideoConfigLabel }}</dd></div>
+                    </dl>
+                  </section>
+
+                  <button
+                    class="btn btn-primary video-inspector-action"
+                    :disabled="videoTaskState(selectedSb) === 'pending'"
+                    @click="genVid(selectedSb)"
+                  >
+                    {{ videoTaskActionLabel(selectedSb) }}
+                  </button>
+                </div>
+              </aside>
             </div>
           </div>
 
@@ -1398,6 +1468,10 @@ const currentSubStageLabel = computed(() => {
 
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
 const selectedSb = ref(null)
+const selectedVideoTaskNumber = computed(() => {
+  const index = videoTaskRows.value.findIndex(task => String(task.id) === String(selectedSb.value?.id))
+  return index >= 0 ? index + 1 : 0
+})
 
 function updateField(sb, field, value) {
   const current = sb[field] ?? sb[toCamel(field)]
@@ -1745,7 +1819,7 @@ onMounted(() => { refresh(); loadConfigs() })
   overflow: hidden;
   padding: 8px;
   gap: 8px;
-  background: linear-gradient(180deg, #17191c 0%, var(--bg-base) 100%);
+  background: var(--surface-base);
 }
 
 .studio-topbar {
@@ -1957,9 +2031,9 @@ onMounted(() => { refresh(); loadConfigs() })
   box-shadow: var(--button-shadow);
 }
 .pipe-item.active {
-  background: linear-gradient(180deg, rgba(43,49,56,0.78), rgba(28,32,37,0.92));
+  background: var(--bg-hover);
   color: var(--text-0);
-  border-color: rgba(217,111,39,0.34);
+  border-color: var(--accent-glow);
   box-shadow: inset 3px 0 0 var(--accent), var(--button-shadow);
 }
 .pipe-item:focus-visible {
@@ -1994,12 +2068,12 @@ onMounted(() => { refresh(); loadConfigs() })
   position: relative;
   z-index: 1;
 }
-.pipe-item.active .pipe-icon { background: rgba(217,111,39,0.12); border-color: rgba(217,111,39,0.38); color: var(--accent-text); }
-.pipe-item.done .pipe-icon { background: rgba(217,111,39,0.08); border-color: rgba(217,111,39,0.24); color: #c89a74; }
-.pipe-item.active.done .pipe-icon { background: rgba(217,111,39,0.12); border-color: rgba(217,111,39,0.42); color: var(--accent-text); }
+.pipe-item.active .pipe-icon { background: var(--accent-bg); border-color: var(--accent-glow); color: var(--accent-text); }
+.pipe-item.done .pipe-icon { background: var(--success-bg); border-color: rgba(99,168,122,0.34); color: var(--success); }
+.pipe-item.active.done .pipe-icon { background: var(--accent-bg); border-color: var(--accent-glow); color: var(--accent-text); }
 .icon-active { background: var(--bg-2) !important; border-color: var(--accent) !important; color: var(--accent-text) !important; }
-.icon-done { background: rgba(217,111,39,0.08) !important; border-color: rgba(217,111,39,0.24) !important; color: #c89a74 !important; }
-.pipe-item.active.done .icon-done { background: rgba(217,111,39,0.12) !important; border-color: rgba(217,111,39,0.42) !important; color: var(--accent-text) !important; }
+.icon-done { background: var(--success-bg) !important; border-color: rgba(99,168,122,0.34) !important; color: var(--success) !important; }
+.pipe-item.active.done .icon-done { background: var(--accent-bg) !important; border-color: var(--accent-glow) !important; color: var(--accent-text) !important; }
 
 .pipe-label { flex: 1; font-size: 11px; }
 .pipe-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -2015,7 +2089,7 @@ onMounted(() => { refresh(); loadConfigs() })
   border-radius: 99px; background: var(--bg-3); color: var(--text-3);
   font-family: var(--font-mono);
 }
-.pipe-badge.badge-done { background: rgba(217,111,39,0.08); color: #c89a74; }
+.pipe-badge.badge-done { background: var(--success-bg); color: var(--success); }
 .pipe-spinner { width: 10px; height: 10px; border: 1.5px solid var(--accent-bg); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 
 /* Sidebar Bottom */
@@ -2024,7 +2098,7 @@ onMounted(() => { refresh(); loadConfigs() })
   border-top: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 7px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(30,33,37,0.64), rgba(20,22,25,0.88));
+  background: var(--surface-soft);
 }
 .sidebar-jumper {
   display: flex;
@@ -2052,8 +2126,8 @@ onMounted(() => { refresh(); loadConfigs() })
   border-color: var(--accent-glow);
 }
 .sidebar-jump-dot.done {
-  background: rgba(217,111,39,0.46);
-  border-color: rgba(217,111,39,0.38);
+  background: var(--success);
+  border-color: var(--success);
 }
 .sidebar-jump-dot.active.done {
   background: var(--accent);
@@ -2098,7 +2172,7 @@ onMounted(() => { refresh(); loadConfigs() })
   gap: 6px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(30,33,37,0.94), rgba(20,22,25,0.88));
+  background: var(--surface-raised);
   overflow-x: auto;
   flex-shrink: 0;
 }
@@ -2128,7 +2202,7 @@ onMounted(() => { refresh(); loadConfigs() })
 }
 .stage-subnav-item.active {
   background: var(--button-bg-active);
-  border-color: rgba(217,111,39,0.34);
+  border-color: var(--accent-glow);
   color: var(--accent-text);
 }
 .stage-subnav-item:focus-visible {
@@ -2144,7 +2218,7 @@ onMounted(() => { refresh(); loadConfigs() })
   height: 7px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(217,111,39,0.12);
+  box-shadow: 0 0 0 3px var(--button-focus);
 }
 
 /* Toolbar */
@@ -2152,9 +2226,9 @@ onMounted(() => { refresh(); loadConfigs() })
   display: flex; align-items: center; gap: 10px;
   min-height: 44px;
   padding: 8px 12px; border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(30,33,37,0.94), rgba(20,22,25,0.82)); flex-shrink: 0;
+  background: var(--surface-raised); flex-shrink: 0;
 }
-.prod-toolbar { background: linear-gradient(180deg, rgba(30,33,37,0.94), rgba(20,22,25,0.82)); }
+.prod-toolbar { background: var(--surface-raised); }
 .toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; }
 .toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .step-indicator { display: flex; align-items: center; gap: 8px; }
@@ -2206,7 +2280,7 @@ onMounted(() => { refresh(); loadConfigs() })
   position: static;
   display: flex; align-items: center; gap: 12px;
   padding: 10px 14px 12px;
-  background: linear-gradient(180deg, rgba(30,33,37,0.82), rgba(20,22,25,0.94));
+  background: var(--surface-muted);
   border-top: 1px solid var(--border);
   margin-top: auto;
 }
@@ -2233,9 +2307,9 @@ onMounted(() => { refresh(); loadConfigs() })
 }
 .bubble-btn.primary {
   margin-left: auto;
-  background: linear-gradient(180deg, #f0a35b 0%, var(--action-primary) 58%, #8d3615 100%);
+  background: var(--action-primary);
   color: var(--action-primary-text);
-  box-shadow: 0 7px 16px rgba(217,111,39,0.18), 0 2px 6px rgba(0,0,0,0.22);
+  box-shadow: none;
   border-color: rgba(240,163,91,0.20);
 }
 .bubble-btn.primary:hover:not(:disabled) { filter: brightness(1.04); }
@@ -2511,7 +2585,7 @@ onMounted(() => { refresh(); loadConfigs() })
   gap: 12px;
   padding: 12px;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--surface-muted), rgba(217,111,39,0.08));
+  background: var(--surface-muted);
   border: 1px solid var(--surface-outline);
 }
 .detail-hero-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -2587,7 +2661,7 @@ onMounted(() => { refresh(); loadConfigs() })
 }
 .role-pill.active {
   border-color: var(--accent-glow);
-  background: linear-gradient(180deg, var(--accent-bg), rgba(217,111,39,0.08));
+  background: var(--accent-bg);
   color: var(--accent-text);
   box-shadow: var(--button-shadow);
 }
@@ -2606,7 +2680,7 @@ onMounted(() => { refresh(); loadConfigs() })
   line-height: 1;
 }
 .prod-tab:hover { color: var(--text-0); background: var(--button-bg); border-color: var(--button-border); }
-.prod-tab.active { background: var(--button-bg-active); color: var(--accent-text); font-weight: 650; border-color: rgba(217,111,39,0.34); box-shadow: var(--button-shadow); }
+.prod-tab.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 650; border-color: var(--accent-glow); box-shadow: none; }
 .prod-tab:focus-visible {
   outline: none;
   border-color: var(--action-primary);
@@ -2657,8 +2731,8 @@ onMounted(() => { refresh(); loadConfigs() })
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
 }
 .character-asset-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
+  transform: none;
+  box-shadow: none;
   border-color: var(--accent-glow);
 }
 .character-portrait {
@@ -2669,9 +2743,7 @@ onMounted(() => { refresh(); loadConfigs() })
   margin: 0;
   border: 1px solid var(--surface-outline);
   border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 50% 18%, rgba(217,111,39,0.18), transparent 42%),
-    var(--bg-2);
+  background: var(--bg-2);
   overflow: hidden;
 }
 .character-portrait img {
@@ -2853,11 +2925,20 @@ onMounted(() => { refresh(); loadConfigs() })
 }
 
 /* Video tasks */
-.video-task-list {
+.video-task-workbench {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
   overflow: hidden;
   border: 1px solid var(--surface-outline);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, var(--surface-raised), rgba(16, 19, 23, 0.92));
+  background: var(--surface-raised);
+}
+.video-task-list {
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-raised);
 }
 .video-task-head {
   min-height: 48px;
@@ -2938,16 +3019,25 @@ onMounted(() => { refresh(); loadConfigs() })
   padding: 10px 12px;
   border-top: 1px solid var(--surface-outline);
   transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out);
+  cursor: pointer;
 }
 .video-task-row:first-child {
   border-top: 0;
 }
 .video-task-row:hover,
 .video-task-row.is-pending {
-  background: rgba(56, 200, 182, 0.055);
+  background: var(--bg-hover);
 }
 .video-task-row.is-failed {
-  background: rgba(224, 177, 72, 0.04);
+  background: rgba(201,107,107,0.06);
+}
+.video-task-row.active {
+  background: var(--accent-bg);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.video-task-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .video-task-preview {
   position: relative;
@@ -3021,6 +3111,61 @@ onMounted(() => { refresh(); loadConfigs() })
   min-width: 88px;
   justify-content: center;
 }
+.video-task-inspector {
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--surface-outline);
+  background: var(--surface-raised);
+}
+.video-inspector-head {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.video-inspector-title { color: var(--text-0); font-size: 14px; font-weight: 700; }
+.video-inspector-sub { margin-top: 2px; color: var(--text-3); font-size: 11px; }
+.video-inspector-body { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 16px; }
+.video-inspector-section { display: flex; flex-direction: column; gap: 7px; }
+.video-inspector-label { color: var(--text-0); font-size: 12px; font-weight: 700; }
+.video-inspector-prompt { min-height: 124px; }
+.video-inspector-assets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.video-inspector-asset {
+  position: relative;
+  min-height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.video-inspector-asset:disabled { cursor: default; }
+.video-inspector-asset img { width: 100%; height: 72px; display: block; object-fit: cover; }
+.video-inspector-asset > span { min-height: 72px; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.video-inspector-asset small {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  background: rgba(8,10,12,0.78);
+  color: var(--text-1);
+  font-size: 10px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-inspector-empty { padding: 12px; border: 1px dashed var(--surface-outline); border-radius: var(--radius); color: var(--text-3); font-size: 11px; }
+.video-inspector-params { display: grid; gap: 8px; }
+.video-inspector-params div { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.video-inspector-params dt { color: var(--text-3); }
+.video-inspector-params dd { margin: 0; color: var(--text-1); text-align: right; }
+.video-inspector-action { width: 100%; }
 
 /* Prod grid */
 .prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
@@ -3028,7 +3173,7 @@ onMounted(() => { refresh(); loadConfigs() })
   display: flex; flex-direction: column; overflow: hidden;
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
   border-radius: 20px;
-  background: linear-gradient(180deg, var(--surface-raised), rgba(18,22,26,0.88));
+  background: var(--surface-raised);
   border: 1px solid var(--surface-outline);
 }
 .prod-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(20, 32, 54, 0.08); }
@@ -3071,7 +3216,7 @@ onMounted(() => { refresh(); loadConfigs() })
   flex-direction: column;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, var(--surface-raised), rgba(18,22,26,0.96));
+  background: var(--surface-raised);
   animation: scaleIn 0.18s var(--ease-out);
 }
 .asset-detail-head {
@@ -3368,7 +3513,7 @@ onMounted(() => { refresh(); loadConfigs() })
   flex-direction: column;
   overflow: hidden;
   border-radius: 24px;
-  background: linear-gradient(180deg, var(--surface-raised), rgba(18,22,26,0.96));
+  background: var(--surface-raised);
 }
 .image-viewer-head {
   display: flex;
@@ -3415,19 +3560,6 @@ onMounted(() => { refresh(); loadConfigs() })
 .dim { color: var(--text-3); }
 
 @media (max-width: 1080px) {
-  .studio-body {
-    grid-template-columns: 1fr;
-  }
-
-  .studio-topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .studio-topbar-side {
-    justify-content: space-between;
-  }
-
   .split-layout,
   .export-split {
     flex-direction: column;
@@ -3442,10 +3574,6 @@ onMounted(() => { refresh(); loadConfigs() })
   .storyboard-editor-main,
   .storyboard-reference-panel {
     min-height: 280px;
-  }
-
-  .sidebar {
-    max-height: 340px;
   }
 
   .shot-list,
@@ -3463,6 +3591,30 @@ onMounted(() => { refresh(); loadConfigs() })
 
   .character-asset-grid {
     grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  }
+
+  .video-task-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .video-task-metrics {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .video-task-row {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+
+  .video-task-preview {
+    width: 84px;
+  }
+
+  .video-task-status,
+  .video-task-action {
+    justify-self: start;
   }
 
   .image-viewer-overlay {
@@ -3509,6 +3661,23 @@ onMounted(() => { refresh(); loadConfigs() })
     align-items: flex-start;
   }
 
+  .studio-body {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studio-topbar-side {
+    justify-content: space-between;
+  }
+
+  .sidebar {
+    max-height: 340px;
+  }
+
   .studio-topbar-side,
   .studio-actions {
     flex-wrap: wrap;
@@ -3547,28 +3716,14 @@ onMounted(() => { refresh(); loadConfigs() })
     flex-direction: column;
   }
 
-  .video-task-head {
-    align-items: flex-start;
-    flex-direction: column;
+  .video-task-workbench {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .video-task-metrics {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-
-  .video-task-row {
-    grid-template-columns: 84px minmax(0, 1fr);
-  }
-
-  .video-task-preview {
-    width: 84px;
-  }
-
-  .video-task-status,
-  .video-task-action {
-    justify-self: start;
+  .video-task-inspector {
+    border-top: 1px solid var(--surface-outline);
+    border-left: 0;
   }
 
   .frame-row {

@@ -302,9 +302,10 @@ onMounted(() => { load(); loadConfigs() })
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s;
 }
 .ep-card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow);
-  transform: translateX(4px);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  box-shadow: none;
+  transform: none;
 }
 
 .ep-number {
@@ -320,7 +321,7 @@ onMounted(() => { load(); loadConfigs() })
 }
 .ep-card:hover .ep-number {
   background: var(--accent-bg);
-  border-color: rgba(184,120,20,0.2);
+  border-color: var(--accent-glow);
   color: var(--accent);
 }
 
@@ -367,9 +368,7 @@ onMounted(() => { load(); loadConfigs() })
   gap: 14px;
   padding: 26px 26px 22px;
   border-radius: var(--radius-xl);
-  background:
-    radial-gradient(circle at top left, rgba(217,111,39,0.14), transparent 34%),
-    linear-gradient(180deg, var(--surface-raised), rgba(18,20,22,0.96));
+  background: var(--surface-raised);
   overflow: hidden;
   border: 1px solid var(--surface-outline);
   box-shadow: var(--shadow-elevated);
@@ -449,7 +448,7 @@ onMounted(() => { load(); loadConfigs() })
   gap: 8px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(31,36,42,0.92), rgba(19,22,25,0.94));
+  background: var(--surface-muted);
   border: 1px solid var(--surface-outline);
 }
 .config-card-kicker {

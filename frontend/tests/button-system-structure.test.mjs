@@ -12,9 +12,9 @@ const episodeWorkbench = readFileSync(new URL('../app/pages/drama/[id]/episode/[
 test('global button system exposes complete button tokens and states', () => {
   assert.match(studioCss, /--button-height:\s*36px/)
   assert.match(studioCss, /--button-height-sm:\s*30px/)
-  assert.match(studioCss, /--button-height-icon:\s*32px/)
-  assert.match(studioCss, /--button-border:\s*rgba\(242,238,230,0\.10\)/)
-  assert.match(studioCss, /--button-focus:\s*rgba\(217,111,39,0\.24\)/)
+  assert.match(studioCss, /--button-height-icon:\s*36px/)
+  assert.match(studioCss, /--button-border:\s*#30343a/)
+  assert.match(studioCss, /--button-focus:\s*rgba\(76,141,255,0\.24\)/)
   assert.match(studioCss, /\.btn:focus-visible\s*\{/)
   assert.match(studioCss, /\.btn-danger\s*\{/)
   assert.match(studioCss, /\.btn-danger:hover\s*\{/)

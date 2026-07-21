@@ -28,18 +28,18 @@ function cssBlock(source, selector) {
 }
 
 test('theme exposes a professional dark material system', () => {
-  assert.match(studioCss, /--surface-base:\s*#0f1114/)
-  assert.match(studioCss, /--surface-raised:\s*rgba\(22,25,29,0\.94\)/)
-  assert.match(studioCss, /--surface-muted:\s*rgba\(31,36,42,0\.72\)/)
-  assert.match(studioCss, /--surface-outline:\s*rgba\(242,238,230,0\.08\)/)
-  assert.match(studioCss, /--accent:\s*#d96f27/)
+  assert.match(studioCss, /--surface-base:\s*#15171a/)
+  assert.match(studioCss, /--surface-raised:\s*#1c1f23/)
+  assert.match(studioCss, /--surface-muted:\s*#20242a/)
+  assert.match(studioCss, /--surface-outline:\s*#30343a/)
+  assert.match(studioCss, /--accent:\s*#4c8dff/)
 })
 
 test('project entry is redesigned as a focused launcher board', () => {
   assert.match(indexPage, /class="launcher launcher-board"/)
-  assert.match(indexPage, /class="[^"]*project-slate[^"]*"/)
+  assert.match(indexPage, /class="project-thumb"/)
   assert.match(indexPage, /background:\s*var\(--surface-raised\)/)
-  assert.match(indexPage, /box-shadow:\s*var\(--shadow-panel\)/)
+  assert.match(indexPage, /box-shadow:\s*none/)
 })
 
 test('global header uses the same dark console material', () => {
@@ -65,7 +65,7 @@ test('settings page removes the legacy quick setup recommendation cards', () => 
   assert.doesNotMatch(settingsPage, /background:\s*rgba\(255,255,255,0\.72\)/)
 })
 
-test('project episode dialog follows the dark orange brand system', () => {
+test('project episode dialog follows the graphite brand system', () => {
   assert.doesNotMatch(dramaDetail, /rgba\(122,167,255/)
   assert.doesNotMatch(dramaDetail, /rgba\(76,125,255/)
   assert.doesNotMatch(dramaDetail, /rgba\(255,255,255,0\.(72|78|98)\)/)
@@ -73,7 +73,7 @@ test('project episode dialog follows the dark orange brand system', () => {
   assert.doesNotMatch(dramaDetail, /rgba\(244,248,255,0\.96\)/)
 })
 
-test('workbench active navigation uses restrained orange accents', () => {
+test('workbench active navigation uses restrained blue accents', () => {
   const pipeActive = cssBlock(episodeWorkbench, '.pipe-item.active')
   const iconActive = cssBlock(episodeWorkbench, '.icon-active')
 
@@ -83,19 +83,18 @@ test('workbench active navigation uses restrained orange accents', () => {
   assert.match(iconActive, /background:\s*var\(--bg-2\)/)
 })
 
-test('workbench completed navigation avoids clashing green fills', () => {
+test('workbench completed navigation uses restrained success states', () => {
   const doneItem = cssBlock(episodeWorkbench, '.pipe-item.done')
   const doneIcon = cssBlock(episodeWorkbench, '.pipe-item.done .pipe-icon')
   const iconDone = cssBlock(episodeWorkbench, '.icon-done')
   const sidebarDoneDot = cssBlock(episodeWorkbench, '.sidebar-jump-dot.done')
   const stageDoneDot = cssBlock(episodeWorkbench, '.stage-subnav-dot')
 
-  assert.doesNotMatch(doneItem, /#9fcaa7|var\(--success\)/)
-  assert.doesNotMatch(doneIcon, /background:\s*var\(--success\)/)
-  assert.doesNotMatch(doneIcon, /112,183,126|#9fcaa7|var\(--success\)/)
-  assert.doesNotMatch(iconDone, /112,183,126|#9fcaa7|var\(--success\)/)
-  assert.doesNotMatch(sidebarDoneDot, /112,183,126|var\(--success\)/)
-  assert.doesNotMatch(stageDoneDot, /45,\s*122,\s*69|var\(--success\)/)
-  assert.match(doneIcon, /background:\s*rgba\(217,111,39,0\.08\)/)
+  assert.doesNotMatch(doneItem, /#9fcaa7/)
+  assert.match(doneIcon, /background:\s*var\(--success-bg\)/)
+  assert.match(doneIcon, /color:\s*var\(--success\)/)
+  assert.match(iconDone, /background:\s*var\(--success-bg\)/)
+  assert.match(sidebarDoneDot, /background:\s*var\(--success\)/)
+  assert.doesNotMatch(stageDoneDot, /#9fcaa7/)
   assert.match(episodeWorkbench, /\.pipe-item\.active\.done \.pipe-icon\s*\{/)
 })

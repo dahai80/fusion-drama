@@ -317,8 +317,8 @@ test('shot design and first-last frame generation are removed from the workbench
 })
 
 test('studio theme exposes the redesigned professional palette hooks', () => {
-  assert.match(studioCss, /--accent:\s*#d96f27/)
-  assert.match(studioCss, /--surface-base:\s*#0f1114/)
+  assert.match(studioCss, /--accent:\s*#4c8dff/)
+  assert.match(studioCss, /--surface-base:\s*#15171a/)
   assert.match(studioCss, /--bg-base:\s*var\(--surface-base\)/)
   assert.match(studioCss, /--radius:\s*6px/)
 })
