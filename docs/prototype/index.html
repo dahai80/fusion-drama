@@ -1,0 +1,1944 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>火宝短剧 · Film Studio Pro · 交互原型 v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink-0:#0a0b0d; --ink-1:#111317; --ink-2:#181b20; --ink-3:#1f2429; --ink-4:#262b32; --ink-5:#2f353d;
+  --line:rgba(255,255,255,.06); --line-2:rgba(255,255,255,.10); --line-3:rgba(255,255,255,.16);
+  --t-0:#f3eee2; --t-1:#d8d2c4; --t-2:#a39c8e; --t-3:#6e6a61; --t-4:#4a4842;
+  --copper-50:#fbe6cf; --copper-100:#f4c896; --copper-300:#e4a066; --copper-500:#c9783a;
+  --copper-600:#a45a26; --copper-700:#7a3f17; --copper-900:#3d1f0a; --copper-glow:rgba(201,120,58,.22);
+  --ok:#7fb069; --warn:#e0a83c; --err:#d36a5e; --info:#6ba0c4; --mute:#4a4842;
+  --f-display:'Playfair Display','Noto Serif SC',Georgia,serif;
+  --f-zh:'Noto Serif SC','Playfair Display',serif;
+  --f-body:'Inter',-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;
+  --f-mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:22px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);
+  --shadow-2:0 8px 24px rgba(0,0,0,.5);
+  --shadow-3:0 24px 60px rgba(0,0,0,.55);
+  --grad-copper:linear-gradient(135deg,#fbe6cf 0%,#e4a066 28%,#c9783a 60%,#7a3f17 100%);
+  --grad-ink:linear-gradient(180deg,#181b20 0%,#0a0b0d 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ink-0);color:var(--t-0);font-family:var(--f-body);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{padding:0 0 80px;background:
+  radial-gradient(1200px 600px at 80% -10%,rgba(201,120,58,.06),transparent 60%),
+  radial-gradient(800px 400px at 0% 30%,rgba(107,160,196,.04),transparent 60%),
+  var(--ink-0)}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,textarea,select{font:inherit;color:inherit;background:transparent;border:0;outline:0}
+img{max-width:100%;display:block}
+
+/* ----- Top-of-doc chrome ----- */
+.doc-head{position:sticky;top:0;z-index:50;background:rgba(10,11,13,.78);backdrop-filter:blur(20px);border-bottom:1px solid var(--line)}
+.doc-head-inner{max-width:1440px;margin:0 auto;padding:14px 32px;display:flex;align-items:center;gap:32px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:36px;height:36px;border-radius:9px;background:var(--grad-copper);display:grid;place-items:center;box-shadow:0 4px 14px var(--copper-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+.brand-mark svg{width:18px;height:18px;color:#1a0e05}
+.brand-name{font-family:var(--f-zh);font-weight:700;letter-spacing:.02em;font-size:17px}
+.brand-name b{color:var(--copper-300);font-style:italic;font-family:var(--f-display);font-weight:500}
+.doc-nav{display:flex;gap:4px;margin-left:8px}
+.doc-nav a{padding:7px 13px;border-radius:8px;font-size:12.5px;color:var(--t-2);font-weight:500;letter-spacing:.01em;transition:.15s}
+.doc-nav a:hover{color:var(--t-0);background:var(--ink-2)}
+.doc-nav a.active{color:var(--copper-100);background:rgba(201,120,58,.10)}
+.doc-meta{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--t-3)}
+.doc-meta .pill{padding:3px 10px;border:1px solid var(--line-2);border-radius:99px;font-family:var(--f-mono);letter-spacing:.04em}
+.doc-meta .pill.live{color:var(--ok);border-color:rgba(127,176,105,.3);background:rgba(127,176,105,.08)}
+
+/* ----- Section frame ----- */
+.section{max-width:1440px;margin:0 auto;padding:64px 32px 32px;scroll-margin-top:80px}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:32px;gap:24px}
+.section-kicker{font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper-300);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.section-kicker::before{content:"";width:18px;height:1px;background:var(--copper-500)}
+.section-title{font-family:var(--f-zh);font-size:34px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.section-title em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-100)}
+.section-sub{color:var(--t-2);max-width:640px;margin-top:10px;font-size:14.5px}
+.section-num{font-family:var(--f-mono);font-size:11px;color:var(--t-4);letter-spacing:.1em}
+
+/* ----- Frame (window chrome around mockups) ----- */
+.frame{border:1px solid var(--line-2);border-radius:var(--r-lg);background:var(--ink-1);overflow:hidden;box-shadow:var(--shadow-3);position:relative}
+.frame-bar{display:flex;align-items:center;gap:14px;padding:11px 16px;background:linear-gradient(180deg,var(--ink-3),var(--ink-2));border-bottom:1px solid var(--line-2)}
+.frame-dots{display:flex;gap:6px}
+.frame-dots i{width:10px;height:10px;border-radius:50%;background:#3a3a3a;display:block}
+.frame-dots i:nth-child(1){background:#d36a5e}
+.frame-dots i:nth-child(2){background:#e0a83c}
+.frame-dots i:nth-child(3){background:#7fb069}
+.frame-url{font-family:var(--f-mono);font-size:11.5px;color:var(--t-3);background:var(--ink-1);padding:4px 12px;border-radius:6px;border:1px solid var(--line)}
+.frame-tag{margin-left:auto;font-size:11px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.04em}
+.frame-body{min-height:560px;position:relative;overflow:hidden}
+.frame-grid{display:grid;gap:18px;margin-top:24px}
+.frame-grid.cols-2{grid-template-columns:1fr 1fr}
+.frame-grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+
+/* ----- Universal button ----- */
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:var(--r-sm);font-size:13px;font-weight:600;letter-spacing:.01em;border:1px solid var(--line-2);background:var(--ink-3);color:var(--t-1);transition:.15s}
+.btn:hover{background:var(--ink-4);color:var(--t-0);border-color:var(--line-3)}
+.btn.primary{background:var(--grad-copper);color:#1a0e05;border-color:transparent;box-shadow:0 4px 14px var(--copper-glow)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.icon{width:34px;padding:0;justify-content:center}
+.btn.sm{height:28px;padding:0 11px;font-size:12px}
+.btn.lg{height:42px;padding:0 18px;font-size:14px}
+
+/* ----- Tags / chips ----- */
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;background:var(--ink-3);color:var(--t-2);font-size:11px;font-weight:500;letter-spacing:.02em}
+.chip.copper{background:rgba(201,120,58,.12);color:var(--copper-100);border:1px solid rgba(201,120,58,.25)}
+.chip.ok{background:rgba(127,176,105,.10);color:var(--ok);border:1px solid rgba(127,176,105,.25)}
+.chip.warn{background:rgba(224,168,60,.10);color:var(--warn);border:1px solid rgba(224,168,60,.25)}
+.chip.err{background:rgba(211,106,94,.10);color:var(--err);border:1px solid rgba(211,106,94,.25)}
+.chip.ghost{background:transparent;border:1px solid var(--line-2)}
+
+/* ----- Section footer note ----- */
+.note{margin-top:16px;padding:12px 16px;border:1px dashed var(--line-2);border-radius:var(--r-md);color:var(--t-2);font-size:12.5px;background:rgba(255,255,255,.01);display:flex;gap:10px;align-items:flex-start}
+.note b{color:var(--t-0);font-weight:600}
+.note svg{flex-shrink:0;color:var(--copper-300);margin-top:2px}
+
+/* ============================================================
+   §1  Design System
+   ============================================================ */
+.ds-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+.ds-card{background:var(--ink-1);border:1px solid var(--line-2);border-radius:var(--r-lg);padding:22px}
+.ds-card h4{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--copper-300);margin-bottom:18px}
+.swatch-row{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.swatch{aspect-ratio:1;border-radius:8px;position:relative;overflow:hidden;border:1px solid var(--line)}
+.swatch span{position:absolute;bottom:6px;left:6px;font-family:var(--f-mono);font-size:9.5px;background:rgba(0,0,0,.5);padding:2px 5px;border-radius:4px;color:#fff}
+.type-ramp{display:flex;flex-direction:column;gap:14px}
+.type-row{display:flex;align-items:baseline;gap:18px;padding:10px 0;border-bottom:1px solid var(--line)}
+.type-row:last-child{border-bottom:0}
+.type-meta{font-family:var(--f-mono);font-size:10.5px;color:var(--t-3);width:130px;flex-shrink:0;letter-spacing:.06em}
+.type-sample{flex:1}
+.t-display{font-family:var(--f-zh);font-weight:700;font-size:36px;letter-spacing:-.01em;line-height:1.1}
+.t-display em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300)}
+.t-h1{font-family:var(--f-zh);font-size:24px;font-weight:700;letter-spacing:-.005em}
+.t-h2{font-family:var(--f-zh);font-size:18px;font-weight:600}
+.t-h3{font-family:var(--f-body);font-size:14px;font-weight:600;letter-spacing:.02em}
+.t-body{font-family:var(--f-body);font-size:14px;color:var(--t-1)}
+.t-cap{font-family:var(--f-mono);font-size:11px;color:var(--t-3);letter-spacing:.08em;text-transform:uppercase}
+.t-mono{font-family:var(--f-mono);font-size:13px;color:var(--t-1)}
+
+/* Buttons showcase */
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* Component: film slate */
+.slate{background:linear-gradient(180deg,#1a1612,#0f0c08);border:1px solid #2a221a;border-radius:var(--r-md);padding:18px;color:#f0d8a8;font-family:var(--f-mono);position:relative;overflow:hidden}
+.slate::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent 0 14px,rgba(255,255,255,.02) 14px 15px);pointer-events:none}
+.slate-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:end;position:relative}
+.slate h3{font-family:var(--f-display);font-style:italic;font-size:30px;font-weight:500;letter-spacing:.02em}
+.slate .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;font-size:10.5px;letter-spacing:.08em}
+.slate .meta div span{display:block;color:#7a6650;margin-bottom:2px}
+.slate .meta div b{color:#f0d8a8;font-weight:500;font-size:13px}
+
+/* shot grid */
+.shot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px}
+.shot{aspect-ratio:16/9;background:#0a0b0d;border:1px solid #2a221a;border-radius:4px;display:grid;place-items:center;font-family:var(--f-mono);font-size:10px;color:#7a6650;position:relative;overflow:hidden}
+.shot::after{content:"";position:absolute;top:4px;left:4px;width:5px;height:5px;border:1px solid #c9783a;border-radius:50%}
+.shot.active{background:linear-gradient(135deg,#3d1f0a,#7a3f17);color:#fbe6cf;border-color:#c9783a}
+
+/* ============================================================
+   §2  Project Launcher
+   ============================================================ */
+.launcher{display:grid;grid-template-columns:240px 1fr;min-height:720px;background:var(--grad-ink)}
+.l-side{padding:22px 16px;border-right:1px solid var(--line);background:linear-gradient(180deg,var(--ink-1),var(--ink-0))}
+.l-side-brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;padding:0 4px}
+.l-side-brand .mark{width:32px;height:32px;border-radius:8px;background:var(--grad-copper);display:grid;place-items:center;color:#1a0e05}
+.l-side-brand b{font-family:var(--f-zh);font-size:15px;font-weight:700}
+.l-side-brand small{font-family:var(--f-mono);font-size:9.5px;color:var(--t-3);letter-spacing:.16em;display:block;margin-top:1px}
+.l-nav{display:flex;flex-direction:column;gap:2px;margin-bottom:28px}
+.l-nav-label{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-4);padding:10px 8px 6px}
+.l-nav a{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;color:var(--t-2);font-size:13px;font-weight:500;transition:.15s}
+.l-nav a:hover{background:var(--ink-2);color:var(--t-0)}
+.l-nav a.active{background:linear-gradient(90deg,rgba(201,120,58,.18),rgba(201,120,58,.04));color:var(--copper-100);box-shadow:inset 2px 0 0 var(--copper-500)}
+.l-nav a svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.l-nav a.active svg{opacity:1;color:var(--copper-300)}
+.l-nav .badge{margin-left:auto;background:var(--ink-3);color:var(--t-2);font-family:var(--f-mono);font-size:10px;padding:1px 6px;border-radius:99px}
+.l-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.l-foot .avatar{width:30px;height:30px;border-radius:50%;background:var(--grad-copper);color:#1a0e05;display:grid;place-items:center;font-weight:700;font-size:12px}
+.l-foot small{font-size:11.5px;color:var(--t-2);line-height:1.3;display:block}
+.l-foot small b{color:var(--t-0);font-weight:600}
+
+.l-main{display:flex;flex-direction:column;overflow:hidden}
+.l-topbar{display:flex;align-items:center;gap:14px;padding:14px 28px;border-bottom:1px solid var(--line);background:rgba(10,11,13,.6)}
+.search{position:relative;flex:1;max-width:480px}
+.search input{width:100%;height:36px;padding:0 14px 0 38px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:8px;font-size:13px;color:var(--t-0)}
+.search input::placeholder{color:var(--t-3)}
+.search svg{position:absolute;top:50%;left:12px;transform:translateY(-50%);color:var(--t-3);width:15px;height:15px}
+.kbd{margin-left:8px;font-family:var(--f-mono);font-size:10px;color:var(--t-3);background:var(--ink-3);padding:2px 5px;border-radius:4px;border:1px solid var(--line-2)}
+.l-topbar .spacer{flex:1}
+.l-topbar .seg{display:flex;background:var(--ink-2);border:1px solid var(--line-2);border-radius:8px;padding:2px}
+.l-topbar .seg button{padding:5px 12px;font-size:12px;color:var(--t-2);border-radius:6px;font-weight:500}
+.l-topbar .seg button.on{background:var(--ink-4);color:var(--t-0);box-shadow:0 1px 2px rgba(0,0,0,.4)}
+
+.l-body{padding:28px 32px;overflow-y:auto;flex:1}
+.l-hero{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:24px}
+.l-hero h1{font-family:var(--f-zh);font-size:30px;font-weight:700;letter-spacing:-.01em}
+.l-hero h1 em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300);margin-right:6px}
+.l-hero p{color:var(--t-2);font-size:13.5px;margin-top:6px}
+.l-hero-actions{display:flex;gap:8px;align-items:center}
+.l-hero-actions .btn.primary{height:40px;padding:0 18px}
+
+.l-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.l-toolbar .chip{cursor:pointer;transition:.15s}
+.l-toolbar .chip:hover{background:var(--ink-4);color:var(--t-1)}
+.l-toolbar .chip.on{background:rgba(201,120,58,.14);color:var(--copper-100);border-color:rgba(201,120,58,.35)}
+.l-toolbar select{height:28px;padding:0 28px 0 10px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:6px;font-size:12px;color:var(--t-1);cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23a39c8e' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 8px center;appearance:none}
+.l-toolbar .spacer{flex:1}
+.l-toolbar .count{font-family:var(--f-mono);font-size:11px;color:var(--t-3);letter-spacing:.04em}
+
+/* Project cards */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.proj{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;transition:.2s;position:relative}
+.proj:hover{transform:translateY(-2px);border-color:var(--line-3);box-shadow:var(--shadow-2)}
+.proj-cover{aspect-ratio:16/9;background:linear-gradient(135deg,#2a1d12,#0a0b0d);position:relative;overflow:hidden}
+.proj-cover::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 30%,rgba(201,120,58,.18),transparent 60%)}
+.proj-cover .title-overlay{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 12px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.85));z-index:2}
+.proj-cover h3{font-family:var(--f-zh);font-size:16px;font-weight:700;line-height:1.25;letter-spacing:-.005em}
+.proj-cover .sub{font-family:var(--f-mono);font-size:10px;color:var(--copper-300);letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px}
+.proj-meta{padding:12px 16px 14px;display:flex;align-items:center;gap:10px}
+.proj-meta .stat{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t-2);font-family:var(--f-mono)}
+.proj-meta .stat b{color:var(--t-0);font-weight:600}
+.proj-meta .spacer{flex:1}
+.proj-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(127,176,105,.18)}
+.proj-meta .dot.idle{background:var(--t-3);box-shadow:0 0 0 3px rgba(110,106,97,.18)}
+.proj-badge{position:absolute;top:10px;right:10px;z-index:3}
+.proj-new{border:1px dashed var(--line-3);background:transparent;display:grid;place-items:center;aspect-ratio:16/9;color:var(--t-3);font-size:13px;transition:.2s}
+.proj-new:hover{color:var(--copper-100);border-color:var(--copper-500);background:rgba(201,120,58,.04)}
+.proj-new .plus{width:40px;height:40px;border-radius:50%;background:var(--ink-3);display:grid;place-items:center;margin-bottom:10px}
+.proj-new:hover .plus{background:var(--grad-copper);color:#1a0e05}
+
+/* Decorative film grain on covers */
+.proj-cover{background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px)}
+
+/* Create dialog overlay (mock) */
+.l-overlay{position:absolute;inset:0;background:rgba(8,9,11,.7);backdrop-filter:blur(8px);display:grid;place-items:center;z-index:10}
+.l-dialog{width:520px;background:linear-gradient(180deg,var(--ink-2),var(--ink-1));border:1px solid var(--line-3);border-radius:var(--r-xl);box-shadow:var(--shadow-3);overflow:hidden}
+.l-dialog-head{padding:24px 24px 0;display:flex;align-items:flex-start;gap:14px}
+.l-dialog-head .badge-icon{width:40px;height:40px;border-radius:9px;background:var(--grad-copper);display:grid;place-items:center;color:#1a0e05;flex-shrink:0}
+.l-dialog-head h2{font-family:var(--f-zh);font-size:20px;font-weight:700}
+.l-dialog-head p{font-size:12.5px;color:var(--t-2);margin-top:4px}
+.l-dialog-body{padding:22px 24px;display:flex;flex-direction:column;gap:14px}
+.l-dialog-body .field{display:flex;flex-direction:column;gap:6px}
+.l-dialog-body .field label{font-size:11.5px;font-weight:600;color:var(--t-1);letter-spacing:.02em;display:flex;gap:5px;align-items:center}
+.l-dialog-body .field label em{color:var(--err);font-style:normal}
+.l-dialog-body .field input,.l-dialog-body .field select,.l-dialog-body .field .sel{height:36px;padding:0 12px;background:var(--ink-3);border:1px solid var(--line-2);border-radius:8px;font-size:13px;color:var(--t-0)}
+.l-dialog-body .field input:focus,.l-dialog-body .field .sel:focus{border-color:var(--copper-500);box-shadow:0 0 0 3px var(--copper-glow)}
+.l-dialog-body .field .sel{position:relative;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.l-dialog-body .field .sel::after{content:"▾";color:var(--t-3);font-size:10px}
+.l-dialog-body .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.l-dialog-body .preview{margin-top:8px;padding:14px;background:var(--ink-0);border:1px solid var(--line-2);border-radius:8px;font-size:12px;color:var(--t-2)}
+.l-dialog-body .preview b{color:var(--t-0)}
+.l-dialog-foot{padding:0 24px 22px;display:flex;justify-content:flex-end;gap:8px}
+
+/* ============================================================
+   §3  Drama Detail (Episode Selection)
+   ============================================================ */
+.detail{display:grid;grid-template-columns:240px 1fr 280px;min-height:720px;background:var(--grad-ink)}
+.d-main{padding:30px 36px;overflow-y:auto}
+.d-topbar{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.d-back{height:32px;padding:0 12px;background:transparent;border:1px solid var(--line-2);border-radius:8px;font-size:12.5px;color:var(--t-2);display:inline-flex;align-items:center;gap:6px}
+.d-back:hover{color:var(--t-0);border-color:var(--line-3)}
+.d-crumb{font-size:12px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.d-crumb b{color:var(--t-1);font-weight:500}
+
+.d-hero{display:grid;grid-template-columns:1fr 320px;gap:36px;margin-bottom:36px;align-items:flex-start}
+.d-hero h1{font-family:var(--f-zh);font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.1;margin-bottom:14px}
+.d-hero h1 em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300)}
+.d-hero .desc{color:var(--t-2);font-size:14px;line-height:1.7;max-width:560px;margin-bottom:18px}
+.d-stats{display:flex;gap:18px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.d-stat{display:flex;flex-direction:column;gap:3px;min-width:80px}
+.d-stat .v{font-family:var(--f-display);font-style:italic;font-weight:500;font-size:26px;color:var(--t-0)}
+.d-stat .k{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.12em;text-transform:uppercase}
+
+.d-cover{aspect-ratio:3/4;background:linear-gradient(135deg,#3d1f0a,#0a0b0d);border-radius:var(--r-md);border:1px solid var(--line-3);position:relative;overflow:hidden;box-shadow:var(--shadow-2)}
+.d-cover::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(201,120,58,.3),transparent 60%)}
+.d-cover .poster-text{position:absolute;bottom:0;left:0;right:0;padding:18px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.92));z-index:2}
+.d-cover .poster-text h3{font-family:var(--f-display);font-style:italic;font-size:28px;font-weight:500;letter-spacing:.01em;line-height:1.05}
+.d-cover .poster-text p{font-family:var(--f-mono);font-size:10.5px;color:var(--copper-300);letter-spacing:.18em;margin-top:4px}
+.d-cover .poster-num{position:absolute;top:14px;left:14px;z-index:2;font-family:var(--f-mono);font-size:10px;color:var(--copper-100);background:rgba(0,0,0,.4);padding:3px 8px;border-radius:4px;letter-spacing:.14em}
+
+.d-section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;margin-top:8px}
+.d-section-head h2{font-family:var(--f-zh);font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.d-section-head h2 .count{font-family:var(--f-mono);font-size:11px;color:var(--t-3);font-weight:400;background:var(--ink-3);padding:2px 8px;border-radius:99px;letter-spacing:.04em;margin-left:4px}
+.d-section-head .actions{display:flex;gap:8px}
+
+.ep-list{display:flex;flex-direction:column;gap:8px}
+.ep{display:grid;grid-template-columns:64px 1fr auto auto;align-items:center;gap:18px;padding:14px 18px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);cursor:pointer;transition:.18s}
+.ep:hover{border-color:var(--copper-500);background:var(--ink-3);transform:translateX(3px)}
+.ep:hover .ep-num{background:var(--copper-500);color:#1a0e05}
+.ep:hover .ep-go{color:var(--copper-300);transform:translateX(3px)}
+.ep-num{width:48px;height:48px;border-radius:var(--r-sm);background:var(--ink-1);border:1px solid var(--line-2);display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;font-weight:600;color:var(--t-1);transition:.18s;flex-shrink:0}
+.ep-body h3{font-family:var(--f-zh);font-size:14.5px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.ep-body .sub{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--t-2);font-family:var(--f-mono)}
+.ep-body .sub .sep{color:var(--t-4)}
+.ep-progress{display:flex;align-items:center;gap:10px;min-width:200px}
+.ep-progress .track{flex:1;height:4px;background:var(--ink-1);border-radius:2px;overflow:hidden}
+.ep-progress .fill{height:100%;background:var(--grad-copper);border-radius:2px}
+.ep-progress .pct{font-family:var(--f-mono);font-size:11px;color:var(--t-2);min-width:32px;text-align:right}
+.ep-go{color:var(--t-3);transition:.18s;display:flex;align-items:center;gap:4px;font-size:11.5px;font-family:var(--f-mono);letter-spacing:.04em}
+.ep-go::after{content:"→";font-size:14px;margin-left:4px}
+.ep-status{display:flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+
+/* Right sidebar in detail */
+.d-right{padding:30px 24px;border-left:1px solid var(--line);background:linear-gradient(180deg,var(--ink-1),var(--ink-0))}
+.d-right h4{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--t-3);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.d-right h4::before{content:"";width:14px;height:1px;background:var(--copper-500)}
+.actor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:22px}
+.actor{aspect-ratio:1;background:linear-gradient(135deg,#2a1d12,#181b20);border:1px solid var(--line-2);border-radius:8px;display:grid;place-items:center;font-size:18px;color:var(--copper-300);position:relative;overflow:hidden}
+.actor::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(201,120,58,.2),transparent 60%)}
+.actor span{position:absolute;bottom:0;left:0;right:0;padding:3px 4px;font-family:var(--f-mono);font-size:9px;background:rgba(0,0,0,.7);color:var(--t-1);text-align:center;letter-spacing:.04em}
+.timeline{position:relative;padding-left:18px;border-left:1px dashed var(--line-3);margin-top:6px}
+.timeline::before{content:"";position:absolute;left:-3px;top:6px;width:5px;height:5px;background:var(--copper-500);border-radius:50%}
+.timeline-item{position:relative;padding-bottom:14px;font-size:12px;color:var(--t-2)}
+.timeline-item::before{content:"";position:absolute;left:-22px;top:4px;width:9px;height:9px;background:var(--ink-2);border:2px solid var(--line-3);border-radius:50%}
+.timeline-item.done::before{background:var(--copper-500);border-color:var(--copper-500)}
+.timeline-item b{color:var(--t-0);font-weight:600;display:block;margin-bottom:2px}
+.timeline-item time{font-family:var(--f-mono);font-size:10.5px;color:var(--t-3);display:block}
+</style>
+</head>
+<body>
+
+<header class="doc-head">
+  <div class="doc-head-inner">
+    <a class="brand" href="#top">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4l16 8L4 20z"/><path d="M4 4v16"/></svg>
+      </div>
+      <div class="brand-name">火宝短剧 <b>Film Studio Pro</b></div>
+    </a>
+    <nav class="doc-nav">
+      <a href="#ds" class="active">§1 设计系统</a>
+      <a href="#launcher">§2 启动台</a>
+      <a href="#detail">§3 剧集详情</a>
+      <a href="#workbench">§4 剧集工作台</a>
+      <a href="#settings">§5 设置中心</a>
+      <a href="#assets">§6 资产 / 详情</a>
+    </nav>
+    <div class="doc-meta">
+      <span class="pill live">● v2.0 prototype</span>
+      <span class="pill">1440 × 900</span>
+    </div>
+  </div>
+</header>
+
+<a id="top"></a>
+
+<!-- ========================================================
+     §1  Design System
+     ======================================================== -->
+<section class="section" id="ds">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§1 · DESIGN SYSTEM</div>
+      <h2 class="section-title">视觉系统 <em>Visual Foundations</em></h2>
+      <p class="section-sub">围绕"制片厂"叙事重做品牌：深墨底 + 铜金调色 + Serif 标题字 + 衬线斜体点缀。所有数字密度较高的界面元素统一用 Mono 字体，凸显专业感。</p>
+    </div>
+    <div class="section-num">01 / 06</div>
+  </div>
+
+  <div class="ds-grid">
+    <!-- Color tokens -->
+    <div class="ds-card">
+      <h4>Color · 调色板</h4>
+      <div class="swatch-row">
+        <div class="swatch" style="background:#0a0b0d"><span>ink-0</span></div>
+        <div class="swatch" style="background:#181b20"><span>ink-2</span></div>
+        <div class="swatch" style="background:#262b32"><span>ink-4</span></div>
+        <div class="swatch" style="background:#c9783a"><span>copper-500</span></div>
+        <div class="swatch" style="background:#e4a066"><span>copper-300</span></div>
+        <div class="swatch" style="background:#fbe6cf"><span>copper-50</span></div>
+        <div class="swatch" style="background:linear-gradient(135deg,#fbe6cf,#7a3f17)"><span>grad</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px">
+        <div class="swatch" style="background:#7fb069;aspect-ratio:2.4"><span>ok</span></div>
+        <div class="swatch" style="background:#e0a83c;aspect-ratio:2.4"><span>warn</span></div>
+        <div class="swatch" style="background:#d36a5e;aspect-ratio:2.4"><span>err</span></div>
+        <div class="swatch" style="background:#6ba0c4;aspect-ratio:2.4"><span>info</span></div>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div class="ds-card">
+      <h4>Typography · 字体阶梯</h4>
+      <div class="type-ramp">
+        <div class="type-row">
+          <div class="type-meta">DISPLAY · 36/44</div>
+          <div class="type-sample t-display">短剧 · <em>Stories</em></div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">H1 · 24/32</div>
+          <div class="type-sample t-h1">剧集工作台</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">H2 · 18/24</div>
+          <div class="type-sample t-h2">分镜序列</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">BODY · 14/22</div>
+          <div class="type-sample t-body">夕阳把整个海面染成铜金色，志远把手里的信折好，塞进漂流瓶。</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">CAPTION · 11</div>
+          <div class="type-sample t-cap">SCENE 03 · INTERIOR · DUSK · 00:12:42:18</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">MONO · 13</div>
+          <div class="type-sample t-mono">take_03_shot_07_seedance-2.0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Components -->
+    <div class="ds-card">
+      <h4>Components · 核心组件</h4>
+      <div class="btn-row" style="margin-bottom:14px">
+        <button class="btn primary">生成视频</button>
+        <button class="btn">取消</button>
+        <button class="btn ghost">查看剧本</button>
+        <button class="btn icon" title="更多">⋯</button>
+        <button class="btn sm">小尺寸</button>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px">
+        <span class="chip">draft</span>
+        <span class="chip copper">processing</span>
+        <span class="chip ok">completed</span>
+        <span class="chip warn">pending review</span>
+        <span class="chip err">failed</span>
+        <span class="chip ghost">agent chat</span>
+      </div>
+      <div class="btn-row">
+        <span class="chip copper">● RECORDING</span>
+        <span class="chip ok">● LIVE</span>
+        <span class="chip err">● ERROR</span>
+      </div>
+    </div>
+
+    <!-- Film slate -->
+    <div class="ds-card" style="padding:18px">
+      <h4>Film Slate · 场记板</h4>
+      <div class="slate">
+        <div class="slate-row">
+          <div>
+            <div class="sub" style="font-size:10px;letter-spacing:.18em;color:#7a6650;margin-bottom:6px">SCENE 03 · TAKE 02</div>
+            <h3>The Lighthouse</h3>
+          </div>
+          <div style="text-align:right">
+            <div class="sub" style="font-size:10px;letter-spacing:.18em;color:#7a6650;margin-bottom:6px">DIRECTOR</div>
+            <div style="font-size:14px;color:#f0d8a8">Connor Wang</div>
+          </div>
+        </div>
+        <div class="meta">
+          <div><span>ROLL</span><b>A07</b></div>
+          <div><span>DATE</span><b>2026-07-14</b></div>
+          <div><span>TIME</span><b>02:48 PM</b></div>
+          <div><span>FPS</span><b>24</b></div>
+        </div>
+        <div class="shot-grid">
+          <div class="shot active">1</div>
+          <div class="shot">2</div>
+          <div class="shot">3</div>
+          <div class="shot">4</div>
+          <div class="shot">5</div>
+          <div class="shot">6</div>
+          <div class="shot">7</div>
+          <div class="shot">8</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>关键设计原则：</b>深色主导降低长时间创作的视觉疲劳；铜金作为唯一品牌色（替换原橙红），提升高级感；Serif 标题字 + Mono 数据字体制造"创意 + 工程"的双重气质；胶片颗粒 / 场记板等电影行业符号做品牌差异化。</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     §2  Project Launcher
+     ======================================================== -->
+<section class="section" id="launcher">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§2 · PROJECT LAUNCHER</div>
+      <h2 class="section-title">项目启动台 <em>The Slate Room</em></h2>
+      <p class="section-sub">以"片库 / Slate Room"为隐喻重构启动台：项目作为可预览的影片条目，每张卡片是一张带电影感封面的项目海报，支持视觉化快速识别。点击卡片进入剧集详情页选集。</p>
+    </div>
+    <div class="section-num">02 / 06</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="frame-dots"><i></i><i></i><i></i></div>
+      <div class="frame-url">huobao://launcher</div>
+      <div class="frame-tag">/  ROUTE  ·  pages/index.vue</div>
+    </div>
+    <div class="frame-body">
+      <div class="launcher">
+        <!-- Left sidebar -->
+        <aside class="l-side">
+          <div class="l-side-brand">
+            <div class="mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4l16 8L4 20z"/></svg></div>
+            <div><b>火宝短剧</b><small>FILM STUDIO PRO</small></div>
+          </div>
+
+          <div class="l-nav-label">主菜单</div>
+          <nav class="l-nav">
+            <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>项目启动台<span class="badge">12</span></a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>角色库<span class="badge">38</span></a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>素材库</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>成片导出</a>
+          </nav>
+
+          <div class="l-nav-label">配置</div>
+          <nav class="l-nav">
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>AI 服务</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Agent 技能</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>提示词模板</a>
+          </nav>
+
+          <div class="l-foot">
+            <div class="avatar">CW</div>
+            <div><b>Connor Wang</b><small>导演 · 12 个项目</small></div>
+          </div>
+        </aside>
+
+        <!-- Main area -->
+        <div class="l-main">
+          <div class="l-topbar">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+              <input placeholder="搜索项目、角色、场景…" />
+              <span class="kbd">⌘K</span>
+            </div>
+            <div class="spacer"></div>
+            <div class="seg">
+              <button class="on">网格</button>
+              <button>列表</button>
+            </div>
+            <button class="btn icon" title="视图设置"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></button>
+          </div>
+
+          <div class="l-body">
+            <div class="l-hero">
+              <div>
+                <h1><em>Slate</em> Room</h1>
+                <p>12 部作品正在制作中 · 3 部等待开场 · 4 部已封镜</p>
+              </div>
+              <div class="l-hero-actions">
+                <button class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1 1 18.36 5.64L23 10"/></svg>同步云端</button>
+                <button class="btn primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新建项目</button>
+              </div>
+            </div>
+
+            <div class="l-toolbar">
+              <span class="chip on">全部 · 12</span>
+              <span class="chip">剧本阶段 · 3</span>
+              <span class="chip">制作中 · 5</span>
+              <span class="chip">合成中 · 2</span>
+              <span class="chip">已完成 · 2</span>
+              <div class="spacer"></div>
+              <span class="count">风格</span>
+              <select><option>全部</option><option>真人写实</option><option>日式动漫</option><option>电影感</option></select>
+              <select><option>最近更新</option><option>创建时间</option><option>名称 A-Z</option></select>
+            </div>
+
+            <div class="proj-grid">
+              <!-- P1 -->
+              <article class="proj">
+                <div class="proj-cover">
+                  <div class="proj-badge"><span class="chip copper">制作中</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">EPISODE 03 / 08</div>
+                    <h3>时光邮局的最后一封信</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>12</b> 角色</span>
+                  <span class="stat"><b>23</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot"></div>
+                  <span class="stat">2 小时前</span>
+                </div>
+              </article>
+              <!-- P2 -->
+              <article class="proj">
+                <div class="proj-cover" style="background:linear-gradient(135deg,#1a2733,#0a0b0d)">
+                  <div class="proj-badge"><span class="chip ok">已封镜</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">SHORT FILM · 04:32</div>
+                    <h3>霓虹末班车</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>7</b> 角色</span>
+                  <span class="stat"><b>14</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot idle"></div>
+                  <span class="stat">3 天前</span>
+                </div>
+              </article>
+              <!-- P3 -->
+              <article class="proj">
+                <div class="proj-cover" style="background:linear-gradient(135deg,#2d2418,#0a0b0d)">
+                  <div class="proj-badge"><span class="chip warn">剧本阶段</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">PILOT</div>
+                    <h3>云上的面包店</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>4</b> 角色</span>
+                  <span class="stat"><b>8</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot"></div>
+                  <span class="stat">昨天</span>
+                </div>
+              </article>
+              <!-- P4 -->
+              <article class="proj">
+                <div class="proj-cover" style="background:linear-gradient(135deg,#3d1f0a,#1a0e05)">
+                  <div class="proj-badge"><span class="chip copper">● 录制中</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">EPISODE 01 / 12</div>
+                    <h3>灯塔守望者的晚餐</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>9</b> 角色</span>
+                  <span class="stat"><b>19</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot"></div>
+                  <span class="stat">5 小时前</span>
+                </div>
+              </article>
+              <!-- P5 -->
+              <article class="proj">
+                <div class="proj-cover" style="background:linear-gradient(135deg,#1a3329,#0a0b0d)">
+                  <div class="proj-badge"><span class="chip">草稿</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">CONCEPT</div>
+                    <h3>山楂树之夏</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>0</b> 角色</span>
+                  <span class="stat"><b>0</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot idle"></div>
+                  <span class="stat">12 分钟前</span>
+                </div>
+              </article>
+              <!-- P6 -->
+              <article class="proj">
+                <div class="proj-cover" style="background:linear-gradient(135deg,#1a1a3d,#0a0b0d)">
+                  <div class="proj-badge"><span class="chip copper">合成中</span></div>
+                  <div class="title-overlay">
+                    <div class="sub">EPISODE 05 / 06</div>
+                    <h3>深海电台</h3>
+                  </div>
+                </div>
+                <div class="proj-meta">
+                  <span class="stat"><b>11</b> 角色</span>
+                  <span class="stat"><b>27</b> 场景</span>
+                  <div class="spacer"></div>
+                  <div class="dot"></div>
+                  <span class="stat">1 天前</span>
+                </div>
+              </article>
+              <!-- New project tile -->
+              <article class="proj-new">
+                <div style="text-align:center">
+                  <div class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+                  空白项目 / 导入小说
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create dialog mock -->
+        <div class="l-overlay">
+          <div class="l-dialog">
+            <div class="l-dialog-head">
+              <div class="badge-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+              <div>
+                <h2>开启新的拍摄</h2>
+                <p>选定风格后，AI 将根据你的输入自动建立首集工作台</p>
+              </div>
+            </div>
+            <div class="l-dialog-body">
+              <div class="field">
+                <label>剧本标题 <em>*</em></label>
+                <input value="灯塔守望者的晚餐" />
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label>计划集数</label>
+                  <div class="sel">12 集</div>
+                </div>
+                <div class="field">
+                  <label>视觉风格</label>
+                  <div class="sel">●  电影感 · 暖色调</div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label>叙事节奏</label>
+                  <div class="sel">慢热 / 抒情</div>
+                </div>
+                <div class="field">
+                  <label>画面比例</label>
+                  <div class="sel">16:9 横屏</div>
+                </div>
+              </div>
+              <div class="preview">
+                <b>预生成配置：</b> 火山引擎 Seedance · OpenAI gpt-image-1 · 自动锁定首集 AI 服务
+              </div>
+            </div>
+            <div class="l-dialog-foot">
+              <button class="btn">取消</button>
+              <button class="btn primary">开拍 · 进入首集</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>交互说明：</b>① 项目卡片 16:9 海报化（替代原表格行），每个项目有独特配色作为视觉锚点 ② 左侧栏从纯路由升级为"制片厂后台"心智模型（主菜单 + 配置 + 用户） ③ ⌘K 全局搜索 + 网格/列表切换 + 风格/排序筛选 ④ "新建项目"对话框用 Serif 标题 + 预生成配置预览，拍摄仪式感更强 ⑤ 卡片点击 → 进入剧集详情页（§3）选集，而非直接进工作台</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     §3  Drama Detail (Episode Selection)
+     ======================================================== -->
+<section class="section" id="detail">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§3 · DRAMA DETAIL</div>
+      <h2 class="section-title">剧集详情 · 选集 <em>Episode Selection</em></h2>
+      <p class="section-sub">点击项目后进入的"片头 / Title Card"页。左侧大幅电影海报 + 剧集统计数据，右侧固定剧集列表（含进度条 + 状态），点哪集进哪集。</p>
+    </div>
+    <div class="section-num">03 / 06</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="frame-dots"><i></i><i></i><i></i></div>
+      <div class="frame-url">huobao://drama/时光邮局的最后一封信</div>
+      <div class="frame-tag">/  ROUTE  ·  pages/drama/[id]/index.vue</div>
+    </div>
+    <div class="frame-body">
+      <div class="detail">
+        <!-- Reuse l-side -->
+        <aside class="l-side">
+          <div class="l-side-brand">
+            <div class="mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4l16 8L4 20z"/></svg></div>
+            <div><b>火宝短剧</b><small>FILM STUDIO PRO</small></div>
+          </div>
+          <div class="l-nav-label">主菜单</div>
+          <nav class="l-nav">
+            <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>项目启动台</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>角色库</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>素材库</a>
+          </nav>
+          <div class="l-nav-label">配置</div>
+          <nav class="l-nav">
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>AI 服务</a>
+            <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Agent 技能</a>
+          </nav>
+          <div class="l-foot">
+            <div class="avatar">CW</div>
+            <div><b>Connor Wang</b><small>导演 · 12 个项目</small></div>
+          </div>
+        </aside>
+
+        <main class="d-main">
+          <div class="d-topbar">
+            <button class="d-back"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>返回启动台</button>
+            <div class="d-crumb">项目启动台 <span>›</span> <b>时光邮局的最后一封信</b></div>
+          </div>
+
+          <div class="d-hero">
+            <div>
+              <h1>时光邮局的<em>最后一封信</em></h1>
+              <p class="desc">1998 年的夏末，刚刚失去母亲的少女小满在一间老邮局里发现了一封寄给未来自己的信。从此她每年夏天都会回到这里，给二十年后的自己写一封信。本剧以四季为结构，讲述一个关于等待、释怀与告别的故事。</p>
+              <div class="d-stats">
+                <div class="d-stat"><span class="v">08</span><span class="k">剧集</span></div>
+                <div class="d-stat"><span class="v">12</span><span class="k">角色</span></div>
+                <div class="d-stat"><span class="v">23</span><span class="k">场景</span></div>
+                <div class="d-stat"><span class="v">86</span><span class="k">分镜</span></div>
+                <div class="d-stat"><span class="v">37%</span><span class="k">总进度</span></div>
+              </div>
+            </div>
+            <div class="d-cover">
+              <div class="poster-num">EP · 01–08</div>
+              <div class="poster-text">
+                <p>FILM STUDIO PRO · 2026</p>
+                <h3>The Last Letter<br>From The Post Office</h3>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-section-head">
+            <h2>剧集 <span class="count">08</span></h2>
+            <div class="actions">
+              <button class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出脚本</button>
+              <button class="btn primary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>添加新集</button>
+            </div>
+          </div>
+
+          <div class="ep-list">
+            <div class="ep">
+              <div class="ep-num">E01</div>
+              <div class="ep-body">
+                <h3>夏末的第一封信 <span class="chip ok">已完成</span></h3>
+                <div class="sub">14 镜头 <span class="sep">·</span> 02:18 <span class="sep">·</span> 6 角色 <span class="sep">·</span> 3 场景</div>
+              </div>
+              <div class="ep-progress"><div class="track"><div class="fill" style="width:100%"></div></div><span class="pct">100%</span></div>
+              <div class="ep-go">进入</div>
+            </div>
+            <div class="ep">
+              <div class="ep-num">E02</div>
+              <div class="ep-body">
+                <h3>秋天的邮差 <span class="chip ok">已完成</span></h3>
+                <div class="sub">11 镜头 <span class="sep">·</span> 01:52 <span class="sep">·</span> 5 角色 <span class="sep">·</span> 3 场景</div>
+              </div>
+              <div class="ep-progress"><div class="track"><div class="fill" style="width:100%"></div></div><span class="pct">100%</span></div>
+              <div class="ep-go">进入</div>
+            </div>
+            <div class="ep" style="border-color:rgba(201,120,58,.4);background:linear-gradient(90deg,rgba(201,120,58,.05),var(--ink-2))">
+              <div class="ep-num" style="background:var(--copper-500);color:#1a0e05;border-color:transparent">E03</div>
+              <div class="ep-body">
+                <h3>雪夜的灯塔 <span class="chip copper">● 制作中</span></h3>
+                <div class="sub">12 镜头 <span class="sep">·</span> 01:48 <span class="sep">·</span> 7 角色 <span class="sep">·</span> 4 场景</div>
+              </div>
+              <div class="ep-progress"><div class="track"><div class="fill" style="width:68%"></div></div><span class="pct">68%</span></div>
+              <div class="ep-go" style="color:var(--copper-300)">继续</div>
+            </div>
+            <div class="ep">
+              <div class="ep-num">E04</div>
+              <div class="ep-body">
+                <h3>春天的回信 <span class="chip warn">剧本已改</span></h3>
+                <div class="sub">13 镜头 <span class="sep">·</span> 02:04 <span class="sep">·</span> 6 角色 <span class="sep">·</span> 3 场景</div>
+              </div>
+              <div class="ep-progress"><div class="track"><div class="fill" style="width:32%"></div></div><span class="pct">32%</span></div>
+              <div class="ep-go">进入</div>
+            </div>
+            <div class="ep">
+              <div class="ep-num">E05</div>
+              <div class="ep-body">
+                <h3>夏至的告别 <span class="chip">分镜待拆</span></h3>
+                <div class="sub">— 镜头 <span class="sep">·</span> — <span class="sep">·</span> — 角色 <span class="sep">·</span> — 场景</div>
+              </div>
+              <div class="ep-progress"><div class="track"><div class="fill" style="width:8%"></div></div><span class="pct">8%</span></div>
+              <div class="ep-go">进入</div>
+            </div>
+            <div class="ep" style="opacity:.45;cursor:default">
+              <div class="ep-num" style="border-style:dashed">E06+</div>
+              <div class="ep-body">
+                <h3 style="color:var(--t-3)">尚未开拍</h3>
+                <div class="sub">点击"添加新集"开始 E06</div>
+              </div>
+              <div class="ep-progress"><div class="track"></div><span class="pct">—</span></div>
+              <div class="ep-go">添加</div>
+            </div>
+          </div>
+        </main>
+
+        <aside class="d-right">
+          <h4>角色</h4>
+          <div class="actor-grid">
+            <div class="actor">小满<span>XIAOMAN</span></div>
+            <div class="actor">老沈<span>LAOSHEN</span></div>
+            <div class="actor">苏阳<span>SUYANG</span></div>
+            <div class="actor">方姨<span>FANGYI</span></div>
+            <div class="actor">小满母<span>MUQIN</span></div>
+            <div class="actor" style="border-style:dashed;color:var(--t-3)">+<span>新增</span></div>
+          </div>
+
+          <h4>制作时间线</h4>
+          <div class="timeline">
+            <div class="timeline-item done">
+              <b>剧本完成</b>
+              <time>2026-07-04 18:42</time>
+              全部 8 集已通过 AI 改写审阅
+            </div>
+            <div class="timeline-item done">
+              <b>角色锁定</b>
+              <time>2026-07-06 11:08</time>
+              12 位角色图像生成完成
+            </div>
+            <div class="timeline-item">
+              <b>分镜序列</b>
+              <time>进行中 · 68%</time>
+              E01-E03 完成，E04 拆解中
+            </div>
+            <div class="timeline-item">
+              <b>分镜视频</b>
+              <time>等待分镜</time>
+              排队生成 86 个镜头
+            </div>
+            <div class="timeline-item">
+              <b>整集合并</b>
+              <time>—</time>
+              全部 8 集 FFmpeg 合成
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>改进点：</b>① 海报式大封面替代原"剧集"小标题，强化项目识别度 ② 顶栏显示完整面包屑 ③ 剧集行增加进度条 + 状态色 + "继续"标识（进行中集用铜金色高亮） ④ 右侧固定栏承载角色头像墙 + 制作时间线（项目级元数据），避免工作台超载 ⑤ 虚线占位"添加新集"消除突兀的"无数据"态</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     §4  Episode Workbench
+     ======================================================== -->
+<style>
+/* §4 Workbench-specific styles appended inline */
+.wb{display:grid;grid-template-columns:240px 280px 1fr 320px;min-height:760px;background:var(--grad-ink);grid-template-rows:56px 1fr;grid-template-areas:"side step main agent" "side step main agent"}
+.wb-side{grid-area:side;border-right:1px solid var(--line);background:linear-gradient(180deg,var(--ink-1),var(--ink-0));padding:18px 14px;display:flex;flex-direction:column;gap:6px}
+.wb-side .crumb{font-size:10.5px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.12em;text-transform:uppercase;padding:0 6px;margin-bottom:8px}
+.wb-side .crumb b{color:var(--t-1);font-weight:500;display:block;font-size:12px;letter-spacing:0;text-transform:none;font-family:var(--f-zh);margin-top:2px}
+.wb-side .back{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:7px;color:var(--t-2);font-size:12.5px;margin-bottom:14px;transition:.15s}
+.wb-side .back:hover{background:var(--ink-2);color:var(--t-0)}
+.wb-side h5{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-4);padding:10px 8px 6px}
+.wb-side .nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:12.5px;color:var(--t-2);cursor:pointer;transition:.15s}
+.wb-side .nav-item:hover{background:var(--ink-2);color:var(--t-0)}
+.wb-side .nav-item.active{background:linear-gradient(90deg,rgba(201,120,58,.16),rgba(201,120,58,.02));color:var(--copper-100)}
+.wb-side .nav-item svg{width:14px;height:14px;flex-shrink:0}
+.wb-side .nav-item .badge{margin-left:auto;font-family:var(--f-mono);font-size:9.5px;background:var(--ink-3);color:var(--t-2);padding:1px 5px;border-radius:99px;letter-spacing:.04em}
+.wb-side .nav-item.active .badge{background:var(--copper-500);color:#1a0e05}
+
+.wb-steps{grid-area:step;background:var(--ink-1);border-right:1px solid var(--line);padding:18px 16px;display:flex;flex-direction:column;gap:0;overflow-y:auto}
+.wb-steps .label{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-4);padding:0 4px 12px;display:flex;align-items:center;justify-content:space-between}
+.wb-steps .label b{color:var(--copper-300);font-family:var(--f-mono);font-weight:500;font-size:10px}
+.pipeline{display:flex;flex-direction:column;gap:0;position:relative}
+.step{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:10px 0 14px;position:relative;cursor:pointer}
+.step::after{content:"";position:absolute;left:11px;top:30px;bottom:-4px;width:1px;background:var(--line-2)}
+.step:last-child::after{display:none}
+.step .dot{position:relative;width:24px;height:24px;border-radius:50%;background:var(--ink-2);border:1.5px solid var(--line-3);display:grid;place-items:center;flex-shrink:0;transition:.2s;z-index:1}
+.step .dot svg{width:11px;height:11px;color:var(--t-3)}
+.step.done .dot{background:var(--copper-500);border-color:var(--copper-500)}
+.step.done .dot svg{color:#1a0e05}
+.step.active .dot{background:var(--ink-1);border-color:var(--copper-500);box-shadow:0 0 0 4px var(--copper-glow)}
+.step.active .dot::after{content:"";position:absolute;inset:5px;background:var(--copper-500);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.step .body h4{font-family:var(--f-zh);font-size:13px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.step .body .sub{font-size:10.5px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.04em;line-height:1.45}
+.step.active .body h4{color:var(--copper-100)}
+.step.done .body h4{color:var(--t-0)}
+.step.active::after,.step.done::after{background:linear-gradient(180deg,var(--copper-500),var(--line-2))}
+
+.wb-main{grid-area:main;display:flex;flex-direction:column;overflow:hidden}
+.wb-topbar{display:flex;align-items:center;gap:12px;padding:0 24px;height:56px;border-bottom:1px solid var(--line);background:rgba(10,11,13,.7);backdrop-filter:blur(20px)}
+.wb-topbar .ep-title{font-family:var(--f-zh);font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.wb-topbar .ep-title em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300);font-size:14px}
+.wb-topbar .ep-title .lock{font-size:10px;color:var(--ok);background:rgba(127,176,105,.10);padding:2px 7px;border-radius:99px;border:1px solid rgba(127,176,105,.25);font-family:var(--f-mono);letter-spacing:.04em;display:flex;align-items:center;gap:4px}
+.wb-topbar .spacer{flex:1}
+.wb-topbar .status{font-family:var(--f-mono);font-size:10.5px;color:var(--t-3);letter-spacing:.04em;display:flex;align-items:center;gap:14px}
+.wb-topbar .status .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(127,176,105,.18);display:inline-block;margin-right:4px}
+.wb-topbar .tabs{display:flex;height:100%;gap:0;margin-left:14px}
+.wb-topbar .tab{height:100%;padding:0 14px;display:flex;align-items:center;font-size:12.5px;color:var(--t-2);border-bottom:2px solid transparent;font-weight:500;cursor:pointer}
+.wb-topbar .tab:hover{color:var(--t-0)}
+.wb-topbar .tab.active{color:var(--copper-100);border-color:var(--copper-500)}
+
+.wb-canvas{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+.wb-step-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:4px}
+.wb-step-head .kicker{font-family:var(--f-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--copper-300);display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wb-step-head .kicker::before{content:"";width:14px;height:1px;background:var(--copper-500)}
+.wb-step-head h2{font-family:var(--f-zh);font-size:24px;font-weight:700;letter-spacing:-.005em}
+.wb-step-head h2 em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300);margin-left:4px}
+.wb-step-head p{color:var(--t-2);font-size:13px;margin-top:4px}
+.wb-step-head .actions{display:flex;gap:8px}
+
+/* Sub-step cards */
+.substep-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.substep{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:16px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.substep:hover{border-color:var(--line-3);transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.substep .num{font-family:var(--f-mono);font-size:10px;letter-spacing:.18em;color:var(--t-3)}
+.substep h3{font-family:var(--f-zh);font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.substep .desc{font-size:11.5px;color:var(--t-2);line-height:1.5;flex:1}
+.substep .meta{display:flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em;margin-top:4px}
+.substep .meta .bar{flex:1;height:3px;background:var(--ink-1);border-radius:2px;overflow:hidden}
+.substep .meta .fill{height:100%;background:var(--grad-copper)}
+.substep.active{border-color:var(--copper-500);background:linear-gradient(180deg,rgba(201,120,58,.08),var(--ink-2))}
+.substep.active h3{color:var(--copper-100)}
+.substep.done::before{content:"";position:absolute;top:12px;right:12px;width:8px;height:8px;background:var(--copper-500);border-radius:50%;box-shadow:0 0 0 3px rgba(201,120,58,.18)}
+
+/* Script editor split */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column;min-height:300px}
+.panel-head{padding:11px 16px;display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--ink-3),var(--ink-2));border-bottom:1px solid var(--line-2)}
+.panel-head .title{font-family:var(--f-zh);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel-head .title .dot{width:5px;height:5px;background:var(--copper-500);border-radius:50%}
+.panel-head .spacer{flex:1}
+.panel-head .meta{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em}
+.panel-body{padding:14px 16px;flex:1;overflow-y:auto}
+.script-raw{font-family:var(--f-mono);font-size:12px;line-height:1.75;color:var(--t-1);white-space:pre-wrap;background:var(--ink-1);padding:14px;border-radius:8px;border:1px solid var(--line-2);max-height:380px;overflow-y:auto}
+.script-raw b{color:var(--copper-100);font-weight:600}
+.script-format{font-family:var(--f-zh);font-size:13.5px;line-height:1.85;color:var(--t-1);max-height:380px;overflow-y:auto;padding:6px 6px 6px 0}
+.script-format .scene-h{display:inline-flex;align-items:center;gap:8px;background:rgba(201,120,58,.10);color:var(--copper-100);font-family:var(--f-mono);font-size:11px;padding:3px 10px;border-radius:6px;margin:14px 0 6px;letter-spacing:.04em}
+.script-format .scene-h:first-child{margin-top:0}
+.script-format .scene-h b{color:var(--copper-50);font-weight:600}
+.script-format .action{color:var(--t-1);margin:6px 0}
+.script-format .dialogue{display:grid;grid-template-columns:80px 1fr;gap:10px;margin:8px 0;padding:6px 0;border-top:1px dashed var(--line-2)}
+.script-format .dialogue:first-of-type{border-top:0}
+.script-format .role{font-family:var(--f-zh);font-weight:700;color:var(--copper-300);font-size:12.5px}
+.script-format .line{color:var(--t-0);font-style:italic}
+.script-format .paren{color:var(--t-3);font-style:italic;font-size:12px}
+
+/* Agent chat sidebar */
+.wb-agent{grid-area:agent;background:linear-gradient(180deg,var(--ink-1),var(--ink-0));border-left:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.agent-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.agent-head .avatar{width:32px;height:32px;border-radius:8px;background:var(--grad-copper);display:grid;place-items:center;color:#1a0e05;font-size:14px}
+.agent-head h4{font-family:var(--f-zh);font-size:13px;font-weight:700}
+.agent-head p{font-size:10.5px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.04em}
+.agent-head .spacer{flex:1}
+.agent-head .rec{font-size:10px;color:var(--err);background:rgba(211,106,94,.10);padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:4px;font-family:var(--f-mono);letter-spacing:.06em}
+.agent-tabs{display:flex;border-bottom:1px solid var(--line);padding:0 14px}
+.agent-tabs button{padding:10px 12px;font-size:11.5px;color:var(--t-2);font-weight:500;position:relative;font-family:var(--f-mono);letter-spacing:.04em}
+.agent-tabs button.on{color:var(--copper-100)}
+.agent-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--copper-500)}
+.agent-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:9px;font-size:12.5px;line-height:1.55}
+.msg .a{flex-shrink:0;width:22px;height:22px;border-radius:6px;background:var(--ink-3);display:grid;place-items:center;color:var(--t-2);font-size:10px;font-weight:700;margin-top:2px}
+.msg.user .a{background:var(--copper-500);color:#1a0e05}
+.msg.assistant .a{background:linear-gradient(135deg,var(--copper-500),var(--copper-700));color:#fff}
+.msg .b{flex:1;color:var(--t-1)}
+.msg .b code{font-family:var(--f-mono);font-size:11.5px;background:var(--ink-2);padding:1px 5px;border-radius:3px;color:var(--copper-100);border:1px solid var(--line-2)}
+.msg .b .tool{background:var(--ink-1);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;margin-top:6px;font-family:var(--f-mono);font-size:11px;color:var(--t-2);display:flex;align-items:center;gap:7px}
+.msg .b .tool svg{color:var(--ok);flex-shrink:0}
+.tool-call{background:var(--ink-2);border:1px solid var(--line-2);border-left:2px solid var(--copper-500);border-radius:6px;padding:7px 10px;font-family:var(--f-mono);font-size:10.5px;color:var(--t-2);margin:6px 0 0;display:flex;align-items:center;gap:6px}
+.tool-call svg{color:var(--copper-300);flex-shrink:0}
+.tool-call b{color:var(--t-0);font-weight:500}
+.agent-input{padding:12px 16px;border-top:1px solid var(--line);background:var(--ink-1)}
+.agent-input textarea{width:100%;background:var(--ink-2);border:1px solid var(--line-2);border-radius:8px;padding:9px 12px;font-size:12.5px;color:var(--t-0);resize:none;height:62px;font-family:var(--f-body);line-height:1.5}
+.agent-input textarea::placeholder{color:var(--t-3)}
+.agent-input .bar{display:flex;align-items:center;gap:6px;margin-top:7px}
+.agent-input .bar .spacer{flex:1}
+.agent-input .hint{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em}
+.quick-actions{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.quick-actions button{padding:5px 9px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:99px;font-size:10.5px;color:var(--t-1);font-family:var(--f-mono);letter-spacing:.02em;transition:.15s}
+.quick-actions button:hover{border-color:var(--copper-500);color:var(--copper-100)}
+
+/* Storyboard grid (production) */
+.sb-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:6px}
+.sb{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;display:flex;flex-direction:column}
+.sb .frames{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-2);aspect-ratio:32/9}
+.sb .frame{background:#0a0b0d;position:relative;display:grid;place-items:center;color:var(--t-4);font-family:var(--f-mono);font-size:10px;letter-spacing:.06em}
+.sb .frame.first-frame::before{content:"";position:absolute;top:0;left:0;right:0;height:14px;background:linear-gradient(180deg,rgba(201,120,58,.16),transparent);pointer-events:none}
+.sb .frame .label{position:absolute;top:6px;left:7px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--copper-300);background:rgba(0,0,0,.5);padding:1px 5px;border-radius:3px}
+.sb .frame.last-frame::before{content:"";position:absolute;bottom:0;left:0;right:0;height:14px;background:linear-gradient(0deg,rgba(107,160,196,.16),transparent);pointer-events:none}
+.sb .body{padding:11px 14px;display:flex;flex-direction:column;gap:5px}
+.sb .body .row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--t-2);font-family:var(--f-mono);letter-spacing:.04em}
+.sb .body .row .n{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300);font-size:18px;letter-spacing:0;min-width:24px}
+.sb .body .row .sep{color:var(--t-4)}
+.sb .body .desc{font-size:12px;color:var(--t-1);line-height:1.5}
+.sb .foot{padding:8px 14px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--line-2);background:rgba(0,0,0,.2)}
+.sb .foot .progress{flex:1;height:3px;background:var(--ink-1);border-radius:2px;overflow:hidden}
+.sb .foot .fill{height:100%;background:var(--grad-copper);border-radius:2px}
+.sb .foot .meta{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em}
+.sb .foot .actions{display:flex;gap:4px}
+.sb .foot .actions button{width:24px;height:24px;display:grid;place-items:center;border-radius:5px;color:var(--t-3);transition:.15s}
+.sb .foot .actions button:hover{background:var(--ink-3);color:var(--copper-300)}
+
+/* Take timeline at top of workbench */
+.timeline-bar{display:flex;align-items:center;gap:3px;padding:9px 14px;background:var(--ink-1);border:1px solid var(--line-2);border-radius:8px;margin-top:4px;overflow-x:auto}
+.tl-take{height:24px;min-width:18px;background:var(--ink-3);border-radius:3px;position:relative;display:grid;place-items:center;font-family:var(--f-mono);font-size:9px;color:var(--t-3);flex-shrink:0;cursor:pointer;transition:.15s}
+.tl-take.done{background:linear-gradient(180deg,var(--copper-700),var(--copper-900));color:var(--copper-100)}
+.tl-take.active{background:var(--copper-500);color:#1a0e05;box-shadow:0 0 0 2px var(--copper-glow);min-width:24px}
+.tl-take:hover{filter:brightness(1.2)}
+.tl-take .dur{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--t-3);white-space:nowrap}
+.tl-rule{flex:1;border-top:1px dashed var(--line-2);margin:0 6px;height:0}
+.tl-label{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em;white-space:nowrap}
+</style>
+
+<section class="section" id="workbench">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§4 · EPISODE WORKBENCH</div>
+      <h2 class="section-title">剧集工作台 <em>The Cutting Room</em></h2>
+      <p class="section-sub">重构 3597 行的巨型工作台：四栏布局（项目导航 / 制作流水线 / 主编辑区 / Agent 协作），主区改为"步骤卡 + 详情面板"两级结构，避免一次显示全部信息导致认知过载。</p>
+    </div>
+    <div class="section-num">04 / 06</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="frame-dots"><i></i><i></i><i></i></div>
+      <div class="frame-url">huobao://drama/12/episode/3 · E03 雪夜的灯塔</div>
+      <div class="frame-tag">/  ROUTE  ·  pages/drama/[id]/episode/[n].vue</div>
+    </div>
+    <div class="frame-body" style="background:var(--ink-0)">
+      <div class="wb">
+        <!-- Sidebar: project context + nav -->
+        <aside class="wb-side">
+          <div class="crumb">当前项目<b>时光邮局的最后一封信</b></div>
+          <button class="back"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>返回剧集</button>
+
+          <h5>工作台</h5>
+          <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>E03 雪夜的灯塔</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>本集素材</div>
+
+          <h5>跳转</h5>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>跳转 E01</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>跳转 E04</div>
+
+          <h5>项目元数据</h5>
+          <div style="padding:6px 8px;font-size:11px;color:var(--t-2);font-family:var(--f-mono);line-height:1.7">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--t-3)">风格</span><span style="color:var(--t-1)">电影感 · 暖色</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--t-3)">比例</span><span style="color:var(--t-1)">16:9</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--t-3)">FPS</span><span style="color:var(--t-1)">24</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--t-3)">时长</span><span style="color:var(--t-1)">01:48</span></div>
+          </div>
+        </aside>
+
+        <!-- Pipeline steps -->
+        <div class="wb-steps">
+          <div class="label">制作流水线 <b>4/7</b></div>
+          <div class="pipeline">
+            <div class="step done">
+              <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="body"><h4>剧本改写</h4><div class="sub">SCRIPT_REWRITER · 完成 02:18</div></div>
+            </div>
+            <div class="step done">
+              <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="body"><h4>角色 &amp; 场景</h4><div class="sub">EXTRACTOR · 7 角色 / 4 场景</div></div>
+            </div>
+            <div class="step done">
+              <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="body"><h4>分镜拆解</h4><div class="sub">STORYBOARD_BREAKER · 12 镜头</div></div>
+            </div>
+            <div class="step done">
+              <div class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="body"><h4>提示词生成</h4><div class="sub">GRID_PROMPT · 12 镜头</div></div>
+            </div>
+            <div class="step active">
+              <div class="dot"></div>
+              <div class="body"><h4>分镜图片</h4><div class="sub">8 / 12 完成 · 进行中</div></div>
+            </div>
+            <div class="step">
+              <div class="dot"></div>
+              <div class="body"><h4>分镜视频</h4><div class="sub">等待图片 · 队列中</div></div>
+            </div>
+            <div class="step">
+              <div class="dot"></div>
+              <div class="body"><h4>合成 &amp; 导出</h4><div class="sub">FFMPEG · 待开始</div></div>
+            </div>
+          </div>
+
+          <div style="margin-top:auto;padding:12px;background:rgba(201,120,58,.06);border:1px solid rgba(201,120,58,.18);border-radius:8px;font-size:11px;color:var(--t-2);line-height:1.55">
+            <div style="font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--copper-300);margin-bottom:5px">当前 AI 服务</div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:var(--t-3)">图片</span><span style="color:var(--t-0)">OpenAI · gpt-image-1</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:var(--t-3)">视频</span><span style="color:var(--t-0)">火山 · Seedance 2.0</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:var(--t-3)">文本</span><span style="color:var(--t-0)">Claude Sonnet 4.8</span></div>
+          </div>
+        </div>
+
+        <!-- Main work area -->
+        <div class="wb-main">
+          <div class="wb-topbar">
+            <div class="ep-title"><em>E03</em> 雪夜的灯塔<span class="lock"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>配置已锁定</span></div>
+            <div class="status"><span><span class="dot"></span>已自动保存 · 02:48</span><span>本地存储 · 246 MB</span></div>
+            <div class="tabs">
+              <div class="tab">剧本</div>
+              <div class="tab">角色</div>
+              <div class="tab">场景</div>
+              <div class="tab active">分镜</div>
+              <div class="tab">合成</div>
+            </div>
+            <div class="spacer"></div>
+            <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导出脚本</button>
+            <button class="btn sm primary"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polygon points="5 3 19 12 5 21 5 3"/></svg>一键生成视频</button>
+          </div>
+
+          <div class="wb-canvas">
+            <div class="wb-step-head">
+              <div>
+                <div class="kicker">STEP 05 · STORYBOARD IMAGES</div>
+                <h2>分镜 <em>图片生成</em></h2>
+                <p>选择参考图模式 · 调整提示词 · 批量生成所有镜头。已生成 8 / 12，剩余 4 个排队中。</p>
+              </div>
+              <div class="actions">
+                <button class="btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M3 12h18"/></svg>全部重生成</button>
+                <button class="btn primary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>批量生成剩余 4</button>
+              </div>
+            </div>
+
+            <!-- Take timeline -->
+            <div class="timeline-bar">
+              <span class="tl-label">12 镜头 · 总时长 01:48</span>
+              <div class="tl-take done">01<div class="dur">14s</div></div>
+              <div class="tl-take done">02<div class="dur">12s</div></div>
+              <div class="tl-take done">03<div class="dur">10s</div></div>
+              <div class="tl-take done">04<div class="dur">11s</div></div>
+              <div class="tl-take done">05<div class="dur">13s</div></div>
+              <div class="tl-take done">06<div class="dur">9s</div></div>
+              <div class="tl-take done">07<div class="dur">10s</div></div>
+              <div class="tl-take done">08<div class="dur">8s</div></div>
+              <div class="tl-take active">09<div class="dur">11s</div></div>
+              <div class="tl-take">10<div class="dur">—</div></div>
+              <div class="tl-take">11<div class="dur">—</div></div>
+              <div class="tl-take">12<div class="dur">—</div></div>
+              <div class="tl-rule"></div>
+              <span class="tl-label">▶ 播放预览</span>
+            </div>
+
+            <!-- Storyboard grid -->
+            <div class="sb-grid">
+              <article class="sb">
+                <div class="frames">
+                  <div class="frame first-frame"><span class="label">FIRST FRAME</span>9</div>
+                  <div class="frame last-frame"><span class="label">LAST FRAME</span>9</div>
+                </div>
+                <div class="body">
+                  <div class="row"><span class="n">09</span> <span>EXT · 灯塔顶</span> <span class="sep">·</span> <span>黄昏</span> <span class="sep">·</span> <span>11s</span></div>
+                  <div class="desc">小满推开吱呀作响的木门，海风扬起她的头发。灯塔的铜灯刚被点亮，暖黄光晕照亮她半张脸。</div>
+                </div>
+                <div class="foot">
+                  <div class="progress"><div class="fill" style="width:75%"></div></div>
+                  <span class="meta">处理中 75%</span>
+                  <div class="actions">
+                    <button title="重生成"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15A9 9 0 1 1 18.36 5.64L23 10"/></svg></button>
+                    <button title="查看"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                  </div>
+                </div>
+              </article>
+              <article class="sb">
+                <div class="frames">
+                  <div class="frame first-frame"><span class="label">FIRST FRAME</span>10</div>
+                  <div class="frame last-frame"><span class="label">LAST FRAME</span>10</div>
+                </div>
+                <div class="body">
+                  <div class="row"><span class="n">10</span> <span>CLOSE-UP · 灯塔铜灯</span> <span class="sep">·</span> <span>黄昏</span> <span class="sep">·</span> <span>8s</span></div>
+                  <div class="desc">铜灯内部的菲涅尔透镜开始缓缓旋转，海面上投射出长长的光柱。小满伸出手，挡住光线。</div>
+                </div>
+                <div class="foot">
+                  <div class="progress"></div>
+                  <span class="meta">队列中</span>
+                  <div class="actions">
+                    <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Script editor split (showing secondary view) -->
+            <div class="wb-step-head" style="margin-top:8px">
+              <div>
+                <div class="kicker">SCRIPT · AI 改写稿</div>
+                <h2>本集 <em>剧本</em></h2>
+              </div>
+              <div class="actions">
+                <button class="btn sm">查看原文</button>
+                <button class="btn sm primary"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>重新改写</button>
+              </div>
+            </div>
+
+            <div class="split">
+              <div class="panel">
+                <div class="panel-head">
+                  <div class="title"><span class="dot"></span>原始内容</div>
+                  <div class="spacer"></div>
+                  <div class="meta">3,242 字 · 来自小说第 28 章</div>
+                </div>
+                <div class="panel-body">
+                  <div class="script-raw"><b>第 28 章 · 灯塔</b>
+
+小满站在灯塔下面,海风把她的头发吹得乱七八糟。她刚刚从老沈那里拿走了那封十九年前的信。
+
+"你妈妈让我转交给你,"老沈说,"她说,如果有一天你来了,就给你。"
+
+小满没有说话。她只是看着那盏灯,看着它慢慢亮起来...</div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-head">
+                  <div class="title"><span class="dot"></span>AI 改写 · 12 场景</div>
+                  <div class="spacer"></div>
+                  <div class="meta">12 SENCE · 01:48 预估</div>
+                </div>
+                <div class="panel-body">
+                  <div class="script-format">
+                    <div class="scene-h"><b>S01</b> · 外景 · 灯塔下 · 黄昏</div>
+                    <div class="action">海风扬起少女的头发，她站在斑驳的灯塔石阶前，手里攥着一封泛黄的信。</div>
+                    <div class="dialogue"><span class="role">老沈</span><span class="line"><span class="paren">(转身望向海面)</span> 你妈妈说，等你来取。</span></div>
+                    <div class="scene-h"><b>S02</b> · 内景 · 灯塔内部 · 黄昏</div>
+                    <div class="action">铜质旋梯吱呀作响，少女拾级而上。夕阳从狭窄的舷窗涌入。</div>
+                    <div class="dialogue"><span class="role">小满</span><span class="line"><span class="paren">(低声)</span> 妈,你在信里都写了什么?</span></div>
+                    <div class="scene-h"><b>S03</b> · 特写 · 铜灯 · 黄昏</div>
+                    <div class="action">菲涅尔透镜开始旋转,长长光柱扫过海面。少女伸手,指缝间漏下细碎的光。</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent chat sidebar -->
+        <aside class="wb-agent">
+          <div class="agent-head">
+            <div class="avatar">✦</div>
+            <div>
+              <h4>Agent 协作</h4>
+              <p>4 agents online · Claude Sonnet 4.8</p>
+            </div>
+            <div class="spacer"></div>
+            <span class="rec">● 录制</span>
+          </div>
+          <div class="agent-tabs">
+            <button class="on">storyboard_breaker</button>
+            <button>grid_prompt</button>
+            <button>extractor</button>
+          </div>
+          <div class="agent-body">
+            <div class="quick-actions">
+              <button>重做第 9 镜</button>
+              <button>改用远景</button>
+              <button>调整光影</button>
+              <button>补充 2 个分镜</button>
+            </div>
+
+            <div class="msg user">
+              <div class="a">CW</div>
+              <div class="b">第 9 镜黄昏感不够,把灯塔铜灯的暖光加到小满脸上,色温 3000K 左右。</div>
+            </div>
+
+            <div class="msg assistant">
+              <div class="a">AI</div>
+              <div class="b">
+                好的,我来调整第 9 镜的提示词,加入色温与光位约束。
+                <div class="tool-call">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <b>read_storyboard_context</b> · episode 3, scene 9
+                </div>
+                <div class="tool-call">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <b>update_storyboard</b> · id=9, lighting=3000K warm
+                </div>
+                已更新第 9 镜提示词:
+                <code>...</code> 并在 <code>atmosphere</code> 字段加入 <code>warm 3000K rim light from Fresnel lens</code>。将在下一轮生成中应用。
+              </div>
+            </div>
+
+            <div class="msg user">
+              <div class="a">CW</div>
+              <div class="b">那第 10 镜也一并调成同样的灯光,但参考图改用铜灯特写。</div>
+            </div>
+
+            <div class="msg assistant">
+              <div class="a">AI</div>
+              <div class="b">
+                收到。第 10 镜将:
+                <br>· 沿用 3000K 暖光氛围
+                <br>· 首帧参考图切换为 <code>character[7] · 灯塔铜灯</code>
+                <br>· 镜头时长保持 8s
+                <div class="tool-call">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <b>排队中</b> · 等待图片生成完成
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="agent-input">
+            <textarea placeholder="描述你的修改… Enter 发送 · ⇧Enter 换行"></textarea>
+            <div class="bar">
+              <span class="hint">/ 唤起指令</span>
+              <div class="spacer"></div>
+              <button class="btn icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+              <button class="btn primary sm">发送 ↵</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>改进点：</b>① <b>四栏布局</b>取代原"边栏 + 主区"两栏：项目导航 / 制作流水线 / 主编辑 / Agent 协作，并行可见 ② <b>顶栏 Tab 切换</b>剧本·角色·场景·分镜·合成五步，避免一次性显示所有面板 ③ <b>Pipeline 步骤</b>用垂直时间线 + 完成/进行中/待办三态视觉化，进度一目了然 ④ <b>Take Timeline</b>水平滚动条呈现所有镜头（与 Premiere 类似的镜头带） ⑤ <b>分镜卡</b>统一首/末帧并排布局 + 进度条 + 快捷操作 ⑥ <b>剧本编辑器</b>左原文右改写对比视图 ⑦ <b>Agent 聊天</b>右侧固定栏：快速指令 + 工具调用轨迹 + 多 Agent 切换，让"AI 在做什么"完全透明</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     §5  Settings Center
+     ======================================================== -->
+<style>
+.set{display:grid;grid-template-columns:240px 1fr;min-height:720px;background:var(--grad-ink)}
+.set-main{padding:30px 36px;overflow-y:auto}
+.set-side{padding:22px 14px;border-right:1px solid var(--line);background:linear-gradient(180deg,var(--ink-1),var(--ink-0))}
+.set-side h4{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-4);padding:8px 8px 6px;margin-top:14px}
+.set-side h4:first-child{margin-top:0}
+.set-side a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:7px;font-size:12.5px;color:var(--t-2);margin-bottom:2px;cursor:pointer;transition:.15s}
+.set-side a:hover{background:var(--ink-2);color:var(--t-0)}
+.set-side a.active{background:linear-gradient(90deg,rgba(201,120,58,.18),rgba(201,120,58,.02));color:var(--copper-100)}
+.set-side a svg{width:14px;height:14px}
+.set-side a .badge{margin-left:auto;font-family:var(--f-mono);font-size:9.5px;background:var(--ink-3);padding:1px 6px;border-radius:99px;color:var(--t-2)}
+.set-side a.active .badge{background:var(--copper-500);color:#1a0e05}
+
+.set-hero{margin-bottom:28px}
+.set-hero h1{font-family:var(--f-zh);font-size:28px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.set-hero h1 em{font-family:var(--f-display);font-style:italic;font-weight:500;color:var(--copper-300)}
+.set-hero p{color:var(--t-2);font-size:13px;margin-top:6px}
+.set-section{margin-bottom:32px}
+.set-section h2{font-family:var(--f-zh);font-size:16px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.set-section h2 .count{font-family:var(--f-mono);font-size:11px;color:var(--t-3);font-weight:400;background:var(--ink-3);padding:1px 7px;border-radius:99px;letter-spacing:.04em}
+
+/* Provider cards */
+.prov{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.prov-card{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:18px;display:flex;flex-direction:column;gap:12px;transition:.18s;position:relative;overflow:hidden}
+.prov-card:hover{border-color:var(--line-3);transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.prov-card.default{border-color:rgba(201,120,58,.35);background:linear-gradient(180deg,rgba(201,120,58,.04),var(--ink-2))}
+.prov-card.default::before{content:"DEFAULT";position:absolute;top:0;right:0;font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:#1a0e05;background:var(--copper-500);padding:3px 9px;border-bottom-left-radius:6px;font-weight:600}
+.prov-head{display:flex;align-items:center;gap:12px}
+.prov-logo{width:38px;height:38px;border-radius:9px;background:var(--ink-3);display:grid;place-items:center;font-family:var(--f-mono);font-weight:600;font-size:13px;color:var(--t-0);flex-shrink:0}
+.prov-card.default .prov-logo{background:var(--grad-copper);color:#1a0e05}
+.prov-card .name{font-family:var(--f-zh);font-size:14.5px;font-weight:700}
+.prov-card .type{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.prov-card .row{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center;font-size:12px}
+.prov-card .row .k{font-family:var(--f-mono);font-size:10.5px;color:var(--t-3);letter-spacing:.04em}
+.prov-card .row .v{font-family:var(--f-mono);font-size:11.5px;color:var(--t-0);background:var(--ink-1);padding:4px 8px;border-radius:5px;border:1px solid var(--line-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prov-actions{display:flex;gap:6px;margin-top:auto;padding-top:6px}
+.prov-actions button{flex:1}
+
+/* Agent config */
+.agent-row{display:grid;grid-template-columns:240px 1fr;gap:16px;padding:18px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);margin-bottom:12px}
+.agent-row .l{display:flex;flex-direction:column;gap:4px}
+.agent-row .l .name{font-family:var(--f-zh);font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.agent-row .l .name .ico{width:26px;height:26px;border-radius:7px;background:var(--grad-copper);display:grid;place-items:center;color:#1a0e05;font-size:13px}
+.agent-row .l .role{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em;text-transform:uppercase}
+.agent-row .l .model{font-family:var(--f-mono);font-size:11px;color:var(--copper-300);margin-top:auto;padding-top:6px;border-top:1px dashed var(--line-2)}
+.agent-row .r{display:flex;flex-direction:column;gap:8px}
+.agent-row .r .field{display:flex;flex-direction:column;gap:4px}
+.agent-row .r .field label{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.06em;text-transform:uppercase}
+.agent-row .r .field textarea,.agent-row .r .field input{background:var(--ink-1);border:1px solid var(--line-2);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--t-0);font-family:var(--f-mono);resize:vertical;min-height:60px;line-height:1.5}
+.agent-row .r .meta-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.agent-row .r .meta-row .mini{background:var(--ink-1);border:1px solid var(--line-2);border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:6px}
+.agent-row .r .meta-row .mini label{font-family:var(--f-mono);font-size:9.5px;color:var(--t-3);letter-spacing:.04em;text-transform:uppercase;flex-shrink:0}
+.agent-row .r .meta-row .mini input,.agent-row .r .meta-row .mini select{flex:1;background:transparent;font-family:var(--f-mono);font-size:12px;color:var(--t-0);padding:0}
+</style>
+
+<section class="section" id="settings">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§5 · SETTINGS CENTER</div>
+      <h2 class="section-title">设置中心 <em>The Booth</em></h2>
+      <p class="section-sub">重新组织设置：左侧"录音棚"式导航分四大类（AI 服务 / Agent / 模板 / 技能），右侧主区提供"实时测试"和"分组折叠"，让配置不再是黑盒。</p>
+    </div>
+    <div class="section-num">05 / 06</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="frame-dots"><i></i><i></i><i></i></div>
+      <div class="frame-url">huobao://settings/providers</div>
+      <div class="frame-tag">/  ROUTE  ·  pages/settings.vue</div>
+    </div>
+    <div class="frame-body">
+      <div class="set">
+        <aside class="set-side">
+          <h4>AI 服务</h4>
+          <a class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>图片服务<span class="badge">4</span></a>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>视频服务<span class="badge">3</span></a>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>文本 / 大模型<span class="badge">2</span></a>
+
+          <h4>Agent</h4>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 10v6M4.22 4.22l4.24 4.24m7.07 7.07l4.24 4.24M1 12h6m10 0h6M4.22 19.78l4.24-4.24m7.07-7.07l4.24-4.24"/></svg>Agent 配置<span class="badge">4</span></a>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>技能管理<span class="badge">5</span></a>
+
+          <h4>工作流</h4>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>提示词模板</a>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>出片预设</a>
+
+          <h4>系统</h4>
+          <a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>导入 / 导出</a>
+        </aside>
+
+        <main class="set-main">
+          <div class="set-hero">
+            <h1>图片 <em>服务</em> · IMAGE PROVIDERS</h1>
+            <p>配置后可被任意剧集选用。点击「测」按钮可立即发送测试请求验证连通性。</p>
+          </div>
+
+          <div class="set-section">
+            <h2>已配置 <span class="count">4</span></h2>
+            <div class="prov">
+              <article class="prov-card default">
+                <div class="prov-head">
+                  <div class="prov-logo">OA</div>
+                  <div>
+                    <div class="name">OpenAI gpt-image-1</div>
+                    <div class="type">IMAGE · 默认服务</div>
+                  </div>
+                </div>
+                <div class="row"><span class="k">Base URL</span><span class="v">https://api.openai.com/v1</span></div>
+                <div class="row"><span class="k">Model</span><span class="v">gpt-image-1</span></div>
+                <div class="row"><span class="k">API Key</span><span class="v">sk-●●●●●●●●●●●●●●</span></div>
+                <div class="row"><span class="k">优先级</span><span class="v">10 / 最高</span></div>
+                <div class="prov-actions">
+                  <button class="btn sm">编辑</button>
+                  <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>测 试</button>
+                </div>
+              </article>
+              <article class="prov-card">
+                <div class="prov-head">
+                  <div class="prov-logo">VO</div>
+                  <div>
+                    <div class="name">火山引擎 doubao-seedream</div>
+                    <div class="type">IMAGE · 备用服务</div>
+                  </div>
+                </div>
+                <div class="row"><span class="k">Base URL</span><span class="v">https://ark.cn-beijing.volces.com/api/v3</span></div>
+                <div class="row"><span class="k">Model</span><span class="v">doubao-seedream-5-0-260128</span></div>
+                <div class="row"><span class="k">API Key</span><span class="v">●●●●●●●●●●●●●●●●</span></div>
+                <div class="row"><span class="k">优先级</span><span class="v">7</span></div>
+                <div class="prov-actions">
+                  <button class="btn sm">编辑</button>
+                  <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>测 试</button>
+                </div>
+              </article>
+              <article class="prov-card">
+                <div class="prov-head">
+                  <div class="prov-logo">GM</div>
+                  <div>
+                    <div class="name">Google Gemini 3 Pro Image</div>
+                    <div class="type">IMAGE · 风格化</div>
+                  </div>
+                </div>
+                <div class="row"><span class="k">Base URL</span><span class="v">https://generativelanguage.googleapis.com/v1beta</span></div>
+                <div class="row"><span class="k">Model</span><span class="v">gemini-3-pro-image-preview</span></div>
+                <div class="row"><span class="k">API Key</span><span class="v">AIzaSy●●●●●●●●●●</span></div>
+                <div class="row"><span class="k">优先级</span><span class="v">5</span></div>
+                <div class="prov-actions">
+                  <button class="btn sm">编辑</button>
+                  <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>测 试</button>
+                </div>
+              </article>
+              <article class="prov-card" style="border-style:dashed;background:transparent;display:grid;place-items:center;text-align:center;color:var(--t-3);min-height:240px;cursor:pointer">
+                <div>
+                  <div style="width:42px;height:42px;border-radius:50%;background:var(--ink-3);display:grid;place-items:center;margin:0 auto 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+                  <div style="font-size:13px;font-weight:600;color:var(--t-1)">添加图片服务</div>
+                  <div style="font-size:11px;margin-top:4px">OpenAI · Gemini · 火山 · 阿里 · 其它</div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div class="set-section">
+            <h2>Agent 配置 <span class="count">4</span></h2>
+            <div>
+              <div class="agent-row">
+                <div class="l">
+                  <div class="name"><div class="ico">S</div>script_rewriter</div>
+                  <div class="role">小说 → 格式化剧本</div>
+                  <div class="model">↳ Claude Sonnet 4.8</div>
+                </div>
+                <div class="r">
+                  <div class="field">
+                    <label>System Prompt · 154 字</label>
+                    <textarea>你是专业编剧，擅长将小说改编为短剧剧本。读取原始内容后输出格式化剧本，使用 ## S编号 场景头、动作段落、角色对白...</textarea>
+                  </div>
+                  <div class="meta-row">
+                    <div class="mini"><label>Temp</label><input value="0.7" /></div>
+                    <div class="mini"><label>Tokens</label><input value="4096" /></div>
+                    <div class="mini"><label>Iter</label><input value="3" /></div>
+                  </div>
+                </div>
+              </div>
+              <div class="agent-row">
+                <div class="l">
+                  <div class="name"><div class="ico">E</div>extractor</div>
+                  <div class="role">角色 + 场景提取去重</div>
+                  <div class="model">↳ Claude Sonnet 4.8</div>
+                </div>
+                <div class="r">
+                  <div class="field">
+                    <label>System Prompt · 187 字</label>
+                    <textarea>你是制片助理，擅长从剧本中提取角色和场景信息，并在提取时与项目已有数据进行智能去重...</textarea>
+                  </div>
+                  <div class="meta-row">
+                    <div class="mini"><label>Temp</label><input value="0.4" /></div>
+                    <div class="mini"><label>Tokens</label><input value="8192" /></div>
+                    <div class="mini"><label>Iter</label><input value="5" /></div>
+                  </div>
+                </div>
+              </div>
+              <div class="agent-row">
+                <div class="l">
+                  <div class="name"><div class="ico">B</div>storyboard_breaker</div>
+                  <div class="role">剧本 → 分镜序列</div>
+                  <div class="model">↳ Claude Sonnet 4.8</div>
+                </div>
+                <div class="r">
+                  <div class="field">
+                    <label>System Prompt · 213 字</label>
+                    <textarea>你是资深影视分镜师，擅长将剧本拆解为 10-15 秒的分镜方案。使用 &lt;location&gt; / &lt;role&gt; / &lt;n&gt; 标记生成 video_prompt...</textarea>
+                  </div>
+                  <div class="meta-row">
+                    <div class="mini"><label>Temp</label><input value="0.6" /></div>
+                    <div class="mini"><label>Tokens</label><input value="8192" /></div>
+                    <div class="mini"><label>Iter</label><input value="8" /></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>改进点：</b>① 左侧分类导航让"在哪里配置"一目了然 ② 厂商卡片：Default 标识 + 优先级条 + 一键测试按钮 ③ Agent 配置左右分栏：左侧元数据 + 模型，右侧完整 system prompt 可直接编辑 ④ 把"测"和"编辑"独立按钮化（而非设置项淹没在表单里）⑤ Agent 默认折叠到 3 行，需要看全 prompt 时再展开</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     §6  Asset Library & Detail Drawer
+     ======================================================== -->
+<style>
+.lib{display:grid;grid-template-columns:1fr;min-height:680px;background:var(--grad-ink)}
+.lib-main{padding:28px 36px;overflow-y:auto}
+.lib-tabs{display:flex;gap:4px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:9px;padding:3px;width:fit-content;margin-bottom:18px}
+.lib-tabs button{padding:6px 14px;font-size:12px;color:var(--t-2);border-radius:6px;font-weight:500;font-family:var(--f-mono);letter-spacing:.04em;display:flex;align-items:center;gap:5px}
+.lib-tabs button.on{background:var(--ink-4);color:var(--t-0);box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.lib-tabs .cnt{font-size:10px;color:var(--t-4);background:var(--ink-1);padding:0 5px;border-radius:99px;font-family:var(--f-mono)}
+
+.lib-filters{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.lib-filters .search{position:relative;width:280px}
+.lib-filters .search input{width:100%;height:32px;padding:0 12px 0 34px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:7px;font-size:12.5px}
+.lib-filters .search svg{position:absolute;top:50%;left:11px;transform:translateY(-50%);color:var(--t-3);width:13px;height:13px}
+.lib-filters select{height:32px;padding:0 26px 0 11px;background:var(--ink-2);border:1px solid var(--line-2);border-radius:7px;font-size:12px;color:var(--t-1);appearance:none;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23a39c8e' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 9px center}
+.lib-filters .spacer{flex:1}
+.lib-filters .view-seg{display:flex;background:var(--ink-2);border:1px solid var(--line-2);border-radius:7px;padding:2px}
+.lib-filters .view-seg button{width:30px;height:26px;display:grid;place-items:center;border-radius:5px;color:var(--t-3)}
+.lib-filters .view-seg button.on{background:var(--ink-4);color:var(--t-0)}
+
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.asset{background:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;cursor:pointer;transition:.18s;position:relative}
+.asset:hover{border-color:var(--copper-500);transform:translateY(-2px);box-shadow:var(--shadow-2)}
+.asset.selected{border-color:var(--copper-500);box-shadow:0 0 0 2px var(--copper-glow)}
+.asset .thumb{aspect-ratio:16/9;background:linear-gradient(135deg,#2a1d12,#0a0b0d);position:relative;overflow:hidden}
+.asset .thumb::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(201,120,58,.15),transparent 60%)}
+.asset .type-badge{position:absolute;top:8px;left:8px;font-family:var(--f-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;background:rgba(0,0,0,.6);color:var(--t-0);padding:2px 7px;border-radius:4px;backdrop-filter:blur(8px);z-index:2}
+.asset .dur-badge{position:absolute;bottom:8px;right:8px;font-family:var(--f-mono);font-size:10px;background:rgba(0,0,0,.6);color:var(--t-0);padding:2px 6px;border-radius:3px;backdrop-filter:blur(8px);z-index:2;letter-spacing:.04em}
+.asset .fav{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.4);display:grid;place-items:center;color:var(--t-3);transition:.15s;z-index:2;backdrop-filter:blur(8px)}
+.asset .fav.on,.asset .fav:hover{color:#e0a83c}
+.asset .fav.on{background:rgba(224,168,60,.2)}
+.asset .body{padding:10px 12px}
+.asset .body h4{font-family:var(--f-zh);font-size:12.5px;font-weight:600;margin-bottom:4px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asset .body .meta{font-family:var(--f-mono);font-size:10px;color:var(--t-3);letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.asset .body .meta .dot{width:4px;height:4px;background:var(--t-4);border-radius:50%}
+
+/* Drawer */
+.drawer-mask{position:absolute;inset:0;background:rgba(8,9,11,.6);backdrop-filter:blur(4px);z-index:10;display:flex;justify-content:flex-end}
+.drawer{width:520px;background:linear-gradient(180deg,var(--ink-2),var(--ink-1));border-left:1px solid var(--line-3);box-shadow:-20px 0 60px rgba(0,0,0,.6);display:flex;flex-direction:column;animation:slideIn .3s var(--ease-out)}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+.drawer-head{padding:18px 22px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.drawer-head h3{font-family:var(--f-zh);font-size:16px;font-weight:700}
+.drawer-head p{font-size:11px;color:var(--t-3);font-family:var(--f-mono);letter-spacing:.04em}
+.drawer-head .spacer{flex:1}
+.drawer-head .close{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--t-2);background:var(--ink-3)}
+.drawer-head .close:hover{background:var(--ink-4);color:var(--t-0)}
+.drawer-preview{aspect-ratio:16/9;background:linear-gradient(135deg,#3d1f0a,#0a0b0d);position:relative;overflow:hidden}
+.drawer-preview::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(201,120,58,.25),transparent 60%)}
+.drawer-preview .play{position:absolute;inset:0;display:grid;place-items:center;cursor:pointer}
+.drawer-preview .play div{width:62px;height:62px;border-radius:50%;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);display:grid;place-items:center;color:var(--t-0);border:2px solid rgba(255,255,255,.18);transition:.15s}
+.drawer-preview .play:hover div{background:var(--copper-500);color:#1a0e05;border-color:transparent;transform:scale(1.05)}
+.drawer-preview .scrubber{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.7));display:flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:10.5px;color:var(--t-1)}
+.drawer-preview .scrubber .bar{flex:1;height:3px;background:rgba(255,255,255,.15);border-radius:2px;position:relative}
+.drawer-preview .scrubber .played{position:absolute;left:0;top:0;bottom:0;width:42%;background:var(--copper-500);border-radius:2px}
+.drawer-preview .scrubber .head{position:absolute;left:42%;top:-3px;width:9px;height:9px;background:var(--copper-500);border-radius:50%;transform:translateX(-50%)}
+.drawer-body{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px}
+.drawer-section h4{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t-3);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.drawer-section h4::before{content:"";width:14px;height:1px;background:var(--copper-500)}
+.kv{display:grid;grid-template-columns:100px 1fr;gap:8px 14px;font-size:12px}
+.kv .k{color:var(--t-3);font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;padding-top:2px}
+.kv .v{color:var(--t-0);font-family:var(--f-mono);font-size:11.5px}
+.kv .v.tag{color:var(--copper-100)}
+.prompt-box{background:var(--ink-0);border:1px solid var(--line-2);border-radius:8px;padding:12px 14px;font-family:var(--f-mono);font-size:11.5px;line-height:1.65;color:var(--t-1);max-height:140px;overflow-y:auto}
+.drawer-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;background:rgba(0,0,0,.2)}
+.drawer-foot .spacer{flex:1}
+</style>
+
+<section class="section" id="assets">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">§6 · ASSET LIBRARY</div>
+      <h2 class="section-title">资产库 & 详情抽屉 <em>The Vault</em></h2>
+      <p class="section-sub">项目级 + 全局双层资产库，支持类型/时间/收藏多维筛选。点击任意资产从右侧滑出详情抽屉：内嵌播放器 + 完整元数据 + 视频提示词 + 同镜头其他版本对比。</p>
+    </div>
+    <div class="section-num">06 / 06</div>
+  </div>
+
+  <div class="frame">
+    <div class="frame-bar">
+      <div class="frame-dots"><i></i><i></i><i></i></div>
+      <div class="frame-url">huobao://assets?project=时光邮局 · E03</div>
+      <div class="frame-tag">/  ROUTE  ·  asset library + detail drawer</div>
+    </div>
+    <div class="frame-body" style="position:relative">
+      <div class="lib">
+        <main class="lib-main">
+          <div class="lib-tabs">
+            <button class="on">全部 <span class="cnt">248</span></button>
+            <button>图片 <span class="cnt">186</span></button>
+            <button>视频 <span class="cnt">52</span></button>
+            <button>音频 <span class="cnt">10</span></button>
+            <button>收藏 <span class="cnt">14</span></button>
+          </div>
+
+          <div class="lib-filters">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+              <input placeholder="搜索文件、镜头、关键词…" />
+            </div>
+            <select><option>全部项目</option><option>时光邮局</option><option>霓虹末班车</option></select>
+            <select><option>全部剧集</option><option>E01 · 夏末的第一封信</option><option>E02 · 秋天的邮差</option><option>E03 · 雪夜的灯塔</option></select>
+            <select><option>最近 7 天</option><option>今天</option><option>本月</option><option>全部</option></select>
+            <div class="spacer"></div>
+            <div class="view-seg">
+              <button class="on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
+              <button><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+            </div>
+          </div>
+
+          <div class="asset-grid">
+            <article class="asset selected">
+              <div class="thumb">
+                <div class="type-badge">VIDEO · 4K</div>
+                <div class="dur-badge">00:11</div>
+                <div class="fav on"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              </div>
+              <div class="body">
+                <h4>E03 · S09 · 灯塔铜灯</h4>
+                <div class="meta"><span>seedance-2-0</span><span class="dot"></span><span>2 小时前</span><span class="dot"></span><span>4096×2160</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb">
+                <div class="type-badge">VIDEO</div>
+                <div class="dur-badge">00:13</div>
+                <div class="fav"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              </div>
+              <div class="body">
+                <h4>E03 · S05 · 海面泛光</h4>
+                <div class="meta"><span>viduq3-turbo</span><span class="dot"></span><span>3 小时前</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb" style="background:linear-gradient(135deg,#1a2733,#0a0b0d)">
+                <div class="type-badge">IMAGE</div>
+                <div class="fav"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              </div>
+              <div class="body">
+                <h4>E03 · S09 · 小满半身像</h4>
+                <div class="meta"><span>openai-image-1</span><span class="dot"></span><span>5 小时前</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb" style="background:linear-gradient(135deg,#2d2418,#0a0b0d)">
+                <div class="type-badge">IMAGE</div>
+                <div class="fav on"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+              </div>
+              <div class="body">
+                <h4>E03 · 场景 · 灯塔下</h4>
+                <div class="meta"><span>doubao-seedream</span><span class="dot"></span><span>昨天</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb">
+                <div class="type-badge">VIDEO</div>
+                <div class="dur-badge">00:09</div>
+              </div>
+              <div class="body">
+                <h4>E03 · S06 · 灯塔旋梯</h4>
+                <div class="meta"><span>seedance-2-0</span><span class="dot"></span><span>昨天</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb" style="background:linear-gradient(135deg,#1a3329,#0a0b0d)">
+                <div class="type-badge">AUDIO</div>
+                <div class="dur-badge">00:24</div>
+              </div>
+              <div class="body">
+                <h4>E03 · 海浪环境音</h4>
+                <div class="meta"><span>waveform-v2</span><span class="dot"></span><span>2 天前</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb">
+                <div class="type-badge">VIDEO</div>
+                <div class="dur-badge">00:08</div>
+              </div>
+              <div class="body">
+                <h4>E02 · S11 · 邮筒特写</h4>
+                <div class="meta"><span>ali-wan2.6</span><span class="dot"></span><span>3 天前</span></div>
+              </div>
+            </article>
+            <article class="asset">
+              <div class="thumb" style="background:linear-gradient(135deg,#1a1a3d,#0a0b0d)">
+                <div class="type-badge">IMAGE</div>
+              </div>
+              <div class="body">
+                <h4>E01 · S02 · 老沈近景</h4>
+                <div class="meta"><span>gemini-3-pro</span><span class="dot"></span><span>5 天前</span></div>
+              </div>
+            </article>
+          </div>
+        </main>
+      </div>
+
+      <!-- Drawer overlay -->
+      <div class="drawer-mask">
+        <aside class="drawer">
+          <div class="drawer-head">
+            <div>
+              <h3>E03 · S09 · 灯塔铜灯</h3>
+              <p>VIDEO · 4096×2160 · 11s · seedance-2-0</p>
+            </div>
+            <div class="spacer"></div>
+            <button class="close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <div class="drawer-preview">
+            <div class="play"><div><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div></div>
+            <div class="scrubber">
+              <span>00:04</span>
+              <div class="bar"><div class="played"></div><div class="head"></div></div>
+              <span>00:11</span>
+            </div>
+          </div>
+          <div class="drawer-body">
+            <div class="drawer-section">
+              <h4>资产元数据</h4>
+              <div class="kv">
+                <div class="k">镜头号</div><div class="v">E03 · S09</div>
+                <div class="k">视频 ID</div><div class="v">#202</div>
+                <div class="k">生成时间</div><div class="v">2026-07-14 02:18:42</div>
+                <div class="k">耗时</div><div class="v">3m 18s</div>
+                <div class="k">参考模式</div><div class="v tag">first_last_frame</div>
+                <div class="k">seed</div><div class="v">4278913</div>
+                <div class="k">本地路径</div><div class="v">static/videos/9c1f...mp4</div>
+                <div class="k">大小</div><div class="v">8.4 MB</div>
+              </div>
+            </div>
+
+            <div class="drawer-section">
+              <h4>video_prompt</h4>
+              <div class="prompt-box">0-3秒:&lt;location&gt;灯塔内部&lt;/location&gt;暖白菲涅尔透镜开始缓慢旋转,光柱扫过铜质墙壁。&lt;n&gt;3-6秒:&lt;role&gt;小满&lt;/role&gt;伸手挡住光,指缝间漏下细碎光斑。&lt;n&gt;6-9秒:镜头缓推,她的侧脸被3000K暖光照亮,海风轻扬发丝。&lt;n&gt;9-11秒:她放下手,光打在瞳孔上,泛起铜色微光。</div>
+            </div>
+
+            <div class="drawer-section">
+              <h4>同镜头其他版本</h4>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <div class="thumb" style="aspect-ratio:16/9;background:linear-gradient(135deg,#3d1f0a,#0a0b0d);border-radius:6px;position:relative;cursor:pointer"><div class="dur-badge" style="top:auto;bottom:4px;right:4px">v2 · 11s</div></div>
+                <div class="thumb" style="aspect-ratio:16/9;background:linear-gradient(135deg,#1a2733,#0a0b0d);border-radius:6px;position:relative;cursor:pointer"><div class="dur-badge" style="top:auto;bottom:4px;right:4px">v1 · 11s</div></div>
+                <div class="thumb" style="aspect-ratio:16/9;background:linear-gradient(135deg,#2d2418,#0a0b0d);border-radius:6px;position:relative;cursor:pointer;display:grid;place-items:center;color:var(--t-3);font-size:10px">+ 重生成</div>
+              </div>
+            </div>
+          </div>
+          <div class="drawer-foot">
+            <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>收藏</button>
+            <button class="btn sm"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载</button>
+            <div class="spacer"></div>
+            <button class="btn sm">重生成</button>
+            <button class="btn sm primary">用于合成</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><b>改进点：</b>① 顶部 Tabs 分类（图片/视频/音频/收藏）替代平铺列表 ② 资产卡含类型徽章 + 时长 + 收藏星标 + 模型来源 ③ 详情抽屉右滑入：内嵌播放器 + 自定义进度条 + 完整元数据（KV 表）+ 视频提示词（高亮语法）+ 同镜头历史版本对比 ④ 抽屉底部操作栏："用于合成"是核心 CTA——把资产送回 FFmpeg 流水线 ⑤ 收藏置顶作为常用资产的快速访问</div>
+  </div>
+</section>
+
+<!-- ========================================================
+     Footer summary
+     ======================================================== -->
+<section class="section" id="summary">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">FULL PICTURE · 6/6</div>
+      <h2 class="section-title">设计系统 <em>总览</em></h2>
+      <p class="section-sub">所有页面共享同一组设计 token：深墨底 + 铜金渐变 + Serif 标题 + Mono 数据字体 + 状态点 + 场记板等电影符号。</p>
+    </div>
+  </div>
+
+  <div class="ds-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="ds-card">
+      <h4>布局原则</h4>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--t-1);line-height:1.7">
+        <li>· <b>240px 左侧栏</b>承载项目/导航/设置入口</li>
+        <li>· <b>主区 56px 顶栏</b>承载面包屑 + 状态 + Tab 切换</li>
+        <li>· <b>主区滚动</b>，侧栏固定（永不消失的上下文）</li>
+        <li>· <b>右侧 Agent 栏</b>仅工作台出现（创作时永远在线）</li>
+        <li>· <b>详情用抽屉</b>而非新页面（保留上下文）</li>
+        <li>· <b>宽 1440 / 100%</b>响应式，主断点 1080 / 860</li>
+      </ul>
+    </div>
+    <div class="ds-card">
+      <h4>关键组件</h4>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--t-1);line-height:1.7">
+        <li>· <b>Project Card</b> · 16:9 海报 + 状态徽章 + 进度</li>
+        <li>· <b>Episode Row</b> · 集号 + 标题 + 进度条 + 状态</li>
+        <li>· <b>Pipeline Step</b> · 垂直时间线 + 三态视觉</li>
+        <li>· <b>Take Timeline</b> · 水平滚动镜头带（Premiere 风格）</li>
+        <li>· <b>Storyboard Card</b> · 首/末帧并排 + 进度 + 快捷</li>
+        <li>· <b>Agent Message</b> · 用户/AI 对话 + 工具调用轨迹</li>
+        <li>· <b>Provider Card</b> · Logo + 优先级 + 一键测</li>
+        <li>· <b>Asset Drawer</b> · 右滑详情 + 内嵌播放</li>
+      </ul>
+    </div>
+    <div class="ds-card">
+      <h4>交互模式</h4>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--t-1);line-height:1.7">
+        <li>· <b>⌘K 全局搜索</b> · 项目 / 角色 / 场景统一入口</li>
+        <li>· <b>Enter / Space</b> · 卡片键盘可达性</li>
+        <li>· <b>/ 唤起指令</b> · Agent 聊天快捷操作</li>
+        <li>· <b>悬停预览</b> · 视频 hover 静音播放 2s</li>
+        <li>· <b>拖拽排序</b> · 镜头重排 / 角色重排</li>
+        <li>· <b>批量操作</b> · 多选资产 → 批量导出 / 删除</li>
+        <li>· <b>离线感知</b> · 网络断开时显示 banner + 本地草稿</li>
+        <li>· <b>实时协作</b> · 同时显示其他协作者头像</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:24px;background:rgba(201,120,58,.04);border:1px solid rgba(201,120,58,.2)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    <div><b>下一步：</b>这个原型可直接在浏览器打开 <code>docs/prototype/index.html</code> 查看。点击顶部导航在不同 section 间跳转，每个 section 都是一个完整的页面级 mockup。后续实施可分阶段：① 重构 launcher/detail/settings（1-2 周）② 重构 workbench 主区（2-3 周，分 Tab 迭代）③ 抽出共享组件（design system 工程化，1 周）④ 视觉细节打磨（1 周）</div>
+  </div>
+</section>
+
+<footer style="max-width:1440px;margin:60px auto 0;padding:30px 32px;border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;color:var(--t-3);font-size:12px">
+  <div class="brand-mark" style="width:28px;height:28px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 4l16 8L4 20z"/></svg></div>
+  <div>
+    <b style="color:var(--t-0)">火宝短剧 · Film Studio Pro</b> · 交互原型 v2
+    <div style="margin-top:3px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em">docs/prototype/index.html · 1440 × 900 · 6 SECTIONS · DESIGN SYSTEM INCLUDED</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <span class="chip copper">PROTOTYPE</span>
+    <span class="chip">v 2.0</span>
+  </div>
+</footer>
+
+</body>
+</html>
