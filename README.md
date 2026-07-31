@@ -457,20 +457,6 @@ cd ../frontend && npm run build
 
 ---
 
-## API 配置站点
-
-2 分钟完成配置：[API 聚合站点](https://api.chatfire.site/models)
-
----
-
-## 👨‍💻 关于我们
-
-**AI 火宝 - AI 工作室创业中**
-
-- 🏠 **位置**: 中国南京
-- 🚀 **状态**: 创业中
-- 📧 **Email**: [18550175439@163.com](mailto:18550175439@163.com)
-- 🐙 **GitHub**: [https://github.com/chatfire-AI/huobao-drama](https://github.com/chatfire-AI/huobao-drama)
 
 > _"让 AI 帮我们做更有创造力的事"_
 
@@ -479,13 +465,6 @@ cd ../frontend && npm run build
 本项目已获得 [LINUX DO](https://linux.do/) 社区链接认可。
 
 - [LINUX DO](https://linux.do/) — 真正的开源精神，共建共享的技术社区
-
-## 项目交流群
-
-![项目交流群](drama.png)
-
-- 提交 [Issue](../../issues)
-- 发送邮件至项目维护者
 
 ---
 
