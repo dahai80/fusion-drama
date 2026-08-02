@@ -10,7 +10,20 @@ const app = new Hono()
 // POST /videos — Generate video
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.prompt) return badRequest(c, 'prompt is required')
+
+  // 生成模式只保留多模态参考：校验素材上限与必填项
+  const imgs = body.reference_image_urls?.length || 0
+  const vids = body.reference_video_urls?.length || 0
+  const auds = body.reference_audio_urls?.length || 0
+  if (imgs > 9 || vids > 3 || auds > 3) {
+    return badRequest(c, '参考素材超限：图片≤9、视频≤3、音频≤3')
+  }
+  if (auds > 0 && imgs + vids === 0) {
+    return badRequest(c, '参考音频需要至少 1 个参考图片或视频')
+  }
+  if (imgs + vids + auds === 0 && !body.prompt) {
+    return badRequest(c, '多模态参考模式需要至少一个参考素材或 prompt')
+  }
 
   try {
     let configId: number | undefined = body.config_id
@@ -25,7 +38,7 @@ app.post('/', async (c) => {
     logTaskStart('VideoAPI', 'generate', {
       storyboardId: body.storyboard_id,
       dramaId: body.drama_id,
-      referenceMode: body.reference_mode,
+      referenceMode: 'reference',
       duration: body.duration,
     })
     logTaskPayload('VideoAPI', 'request body', body)
@@ -34,11 +47,11 @@ app.post('/', async (c) => {
       dramaId: body.drama_id,
       prompt: body.prompt,
       model: body.model,
-      referenceMode: body.reference_mode,
-      imageUrl: body.image_url,
-      firstFrameUrl: body.first_frame_url,
-      lastFrameUrl: body.last_frame_url,
+      referenceMode: 'reference',
       referenceImageUrls: body.reference_image_urls,
+      referenceVideoUrls: body.reference_video_urls,
+      referenceAudioUrls: body.reference_audio_urls,
+      generateAudio: body.generate_audio,
       duration: body.duration,
       aspectRatio: body.aspect_ratio,
       configId,

@@ -7,7 +7,7 @@ const studioCss = readFileSync(new URL('../app/assets/studio.css', import.meta.u
 const apiSource = readFileSync(new URL('../app/composables/useApi.ts', import.meta.url), 'utf8')
 
 test('episode workbench uses the approved storyboard-first video flow', () => {
-  assert.match(page, /角色与场景/)
+  assert.match(page, /资产/)
   assert.match(page, /分镜拆分/)
   assert.match(page, /视频生成/)
   assert.match(page, /pipelineTotal/)
@@ -45,7 +45,7 @@ test('production includes the role and scene workspace before storyboard split',
   assert.ok(assetsIdx > -1, 'role and scene workspace is in production')
   assert.ok(storyboardIdx > assetsIdx, 'storyboard split follows role and scene workspace')
   assert.ok(videosIdx > storyboardIdx, 'video generation follows storyboard split')
-  assert.match(productionSection, /label: '角色与场景'/)
+  assert.match(productionSection, /label: '资产'/)
   assert.match(productionSection, /label: '分镜拆分'/)
   assert.doesNotMatch(productionSection, /镜头设计/)
 })
@@ -82,7 +82,8 @@ test('storyboard split exposes the generated shot information and prompt editor'
   assert.match(storyboardBlock, /分镜列表/)
   assert.match(storyboardBlock, /class="storyboard-shot-card"/)
   assert.match(storyboardBlock, /class="storyboard-editor-main"/)
-  assert.match(storyboardBlock, /class="storyboard-summary-strip"/)
+  assert.match(storyboardBlock, /class="sb-header-top"/)
+  assert.match(storyboardBlock, /class="sb-header-fields"/)
   assert.match(storyboardBlock, /开始拆分/)
   assert.match(storyboardBlock, /重新拆分/)
   assert.match(storyboardBlock, /selectedSb/)
@@ -91,10 +92,13 @@ test('storyboard split exposes the generated shot information and prompt editor'
   assert.match(storyboardBlock, /画面描述/)
   assert.match(storyboardBlock, /对白 \/ 旁白/)
   assert.match(storyboardBlock, /氛围/)
-  assert.match(storyboardBlock, /视频提示词/)
-  assert.match(storyboardBlock, /updateField\(selectedSb, 'video_prompt'/)
-  assert.match(storyboardBlock, /绑定角色/)
-  assert.match(storyboardBlock, /绑定场景/)
+  // 视频提示词已移至视频生成阶段，分镜拆分界面不再出现
+  assert.doesNotMatch(storyboardBlock, /视频提示词/)
+  assert.doesNotMatch(storyboardBlock, /updateField\(selectedSb, 'video_prompt'/)
+  assert.match(storyboardBlock, /role-pill/)
+  assert.match(storyboardBlock, /toggleStoryboardCharacter/)
+  assert.match(storyboardBlock, /sceneOptions/)
+  assert.match(storyboardBlock, /updateField\(selectedSb, 'scene_id'/)
   assert.doesNotMatch(storyboardBlock, /基础信息/)
   assert.doesNotMatch(storyboardBlock, /标题/)
   assert.doesNotMatch(storyboardBlock, /景别/)
@@ -112,7 +116,7 @@ test('storyboard breaker prompt only requires production fields used by the UI',
   assert.match(page, /绑定角色/)
   const agentSource = readFileSync(new URL('../../backend/src/agents/index.ts', import.meta.url), 'utf8')
   const storyboardPromptStart = agentSource.indexOf('storyboard_breaker')
-  const gridPromptStart = agentSource.indexOf('grid_prompt_generator', storyboardPromptStart)
+  const gridPromptStart = agentSource.indexOf('image_prompt_generator', storyboardPromptStart)
   const storyboardPrompt = agentSource.slice(storyboardPromptStart, gridPromptStart)
 
   assert.match(storyboardPrompt, /character_ids/)
@@ -145,11 +149,12 @@ test('storyboard split shows a right-side reference asset rail', () => {
   assert.match(page, /function getStoryboardCharacters\(sb\)/)
 })
 
-test('storyboard split uses dark dense list styling instead of bright note cards', () => {
-  assert.match(page, /\.storyboard-workbench\s*\{[\s\S]*?grid-template-columns:\s*300px minmax\(0,\s*1fr\) 280px/)
-  assert.match(page, /\.storyboard-shot-card\s*\{[\s\S]*?background:\s*var\(--surface-muted\)/)
-  assert.match(page, /\.storyboard-shot-card\.active\s*\{[\s\S]*?border-left-color:\s*var\(--accent\)/)
-  assert.doesNotMatch(page, /\.storyboard-shot-card\s*\{[\s\S]*?background:\s*#fff/)
+test('storyboard split uses quiet white cards with a system-blue selection ring', () => {
+  assert.match(page, /\.storyboard-workbench\s*\{[\s\S]*?grid-template-columns:\s*232px minmax\(0,\s*1fr\) 280px/)
+  assert.match(page, /\.storyboard-shot-card\s*\{[\s\S]*?background:\s*#fff/)
+  assert.match(page, /\.storyboard-shot-card\.active\s*\{[\s\S]*?border-color:\s*var\(--accent\)/)
+  assert.match(page, /\.storyboard-shot-card\.active\s*\{[\s\S]*?box-shadow:\s*0 0 0 3px rgba\(0,113,227,0\.15\)/)
+  assert.doesNotMatch(page, /\.storyboard-shot-card\.active\s*\{[\s\S]*?border-left-color:\s*var\(--accent\)/)
   assert.match(page, /\.storyboard-reference-panel\s*\{[\s\S]*?background:\s*var\(--surface-muted\)/)
 })
 
@@ -174,14 +179,105 @@ test('video generation exposes a referenced task list from storyboard split', ()
   assert.doesNotMatch(videoBlock, /goSubStep\('script:storyboard'\)/)
 })
 
-test('video generation sends character and scene images as multiple references', () => {
+test('video generation sends character and scene images as multimodal references', () => {
   assert.match(page, /function getShotReferenceImages\(sb\)/)
   assert.match(page, /getStoryboardCharacterIds\(sb\)/)
   assert.match(page, /scene\?\.image_url \|\| scene\?\.imageUrl/)
   assert.match(page, /char\?\.image_url \|\| char\?\.imageUrl/)
-  assert.match(page, /reference_mode: referenceImages\.length \? 'multiple' : 'none'/)
-  assert.match(page, /reference_image_urls: referenceImages/)
+  assert.match(page, /reference_image_urls = referenceImages|reference_image_urls: referenceImages/)
+  assert.doesNotMatch(page, /reference_mode: videoGenMode/)
+  assert.doesNotMatch(page, /reference_mode: referenceImages\.length \? 'multiple' : 'none'/)
   assert.doesNotMatch(page, /reference_mode: 'none'/)
+})
+
+test('video generation panel keeps only reference mode with audio toggle', () => {
+  const videoStart = page.indexOf("prodTab === 'videos'")
+  const videoEnd = page.indexOf('<!-- Production Navigator -->', videoStart)
+  const videoBlock = page.slice(videoStart, videoEnd)
+
+  // 其他模式入口已清理
+  assert.doesNotMatch(videoBlock, /videoGenMode/)
+  assert.doesNotMatch(videoBlock, /文生视频/)
+  assert.doesNotMatch(videoBlock, /首帧/)
+  assert.doesNotMatch(videoBlock, /首尾帧/)
+  assert.doesNotMatch(videoBlock, /video-frame-picker/)
+  assert.doesNotMatch(page, /const videoGenMode = ref\(/)
+  assert.doesNotMatch(page, /readyShotAssets|effectiveFirstFrame|uploadFrameImage/)
+
+  // 视频提示词为面板主元素（突出展示），支持 @名字 引用参考素材，可按需 AI 生成
+  assert.match(videoBlock, /video-inspector-label-hero/)
+  assert.match(videoBlock, /genVideoPrompt\(selectedSb\)/)
+  assert.match(videoBlock, /rows="9"/)
+  assert.match(videoBlock, /用 @角色名 \/ @场景名 引用参考素材/)
+  assert.match(videoBlock, /@志远、@电子厂车间/)
+  assert.doesNotMatch(videoBlock, /<location>/)
+  assert.doesNotMatch(videoBlock, /<role>/)
+
+  // 多模态参考面板：参考图片/视频/音频上传 + 生成时长
+  assert.match(videoBlock, /参考图片 \/ 视频 \/ 音频/)
+  assert.match(videoBlock, /videoDuration/)
+  assert.match(videoBlock, /生成参数/)
+  assert.doesNotMatch(videoBlock, /画面比例/)
+  assert.doesNotMatch(videoBlock, /生成音频/)
+  assert.doesNotMatch(videoBlock, /生成模型/)
+  assert.doesNotMatch(videoBlock, /videoRatio/)
+  assert.doesNotMatch(videoBlock, /videoGenerateAudio/)
+  assert.match(videoBlock, /uploadRefMedia\('image'\)/)
+  assert.match(videoBlock, /uploadRefMedia\('video'\)/)
+  assert.match(videoBlock, /uploadRefMedia\('audio'\)/)
+  assert.match(videoBlock, /refImageFull/)
+  assert.match(videoBlock, /\{\{ refImageUsedCount \}\}\/9/)
+  assert.match(videoBlock, /videoRefVideoUrls\.length >= 3/)
+  assert.match(videoBlock, /videoRefAudioUrls\.length >= 3/)
+
+  assert.match(page, /const dramaAspectRatio = computed/)
+  assert.match(page, /function genVideoPrompt\(sb\)/)
+  assert.match(page, /只更新 video_prompt 字段/)
+  assert.match(page, /aspect_ratio: dramaAspectRatio\.value/)
+  assert.match(page, /generate_audio: true/)
+  assert.match(page, /drama\.value\?\.aspect_ratio \|\| drama\.value\?\.aspectRatio \|\| '16:9'/)
+  assert.match(page, /reference_video_urls: videoRefVideoUrls/)
+  assert.match(page, /reference_audio_urls: videoRefAudioUrls/)
+  assert.match(page, /uploadAPI\.video\(file\)/)
+  assert.match(page, /uploadAPI\.audio\(file\)/)
+})
+
+test('video generation supports manual reference images up to 9 merged with scene/character images', () => {
+  // 手动上传的参考图片追加到尾部（场景/角色图在前），总计 ≤9
+  assert.match(page, /function getShotReferenceImages\(sb\)/)
+  assert.match(page, /for \(const url of videoRefImageUrls\.value\) pushRef\(url\)/)
+  assert.match(page, /refs\.length >= 9/)
+  // 场景/角色素材占用额度，展示为已用数 n/9，达上限禁用
+  assert.match(page, /const autoReferenceImageCount = computed/)
+  assert.match(page, /const refImageUsedCount = computed/)
+  assert.match(page, /const refImageFull = computed/)
+  assert.match(page, /autoReferenceImageCount\.value \+ videoRefImageUrls\.value\.length/)
+  assert.match(page, /refImageUsedCount\.value >= 9/)
+  assert.match(page, /参考图片已达上限（含场景\/角色素材）/)
+  // 参考图片状态与上传/删除逻辑
+  assert.match(page, /const videoRefImageUrls = ref\(\[\]\)/)
+  assert.match(page, /uploadAPI\.image\(file\)/)
+  assert.match(page, /kind === 'image' \? videoRefImageUrls/)
+  // 切换分镜时重置
+  assert.match(page, /videoRefImageUrls\.value = \[\]/)
+  // 生成时携带（reference_image_urls 由 getShotReferenceImages 提供）
+  assert.match(page, /reference_image_urls: referenceImages/)
+})
+
+test('video prompt resolves @name references to numbered reference images at generation time', () => {
+  // 索引映射：场景图在前、角色图在后，与 reference_image_urls 顺序一致
+  assert.match(page, /function getShotReferenceIndexMap/)
+  assert.match(page, /scene\?\.image_url \|\| scene\?\.imageUrl/)
+  assert.match(page, /char\.name \|\| '', char\?\.image_url \|\| char\?\.imageUrl/)
+  assert.match(page, /ordered\.length >= 9/)
+
+  // @名字 → @图片N名字（N 为参考图序号）
+  assert.match(page, /function resolveVideoPromptRefs/)
+  assert.match(page, /@图片\$\{map\[name\]\}\$\{name\}/)
+  assert.match(page, /Object\.keys\(map\)\.sort\(\(a, b\) => b\.length - a\.length\)/)
+
+  // 生成时替换
+  assert.match(page, /prompt: resolveVideoPromptRefs\(sb\)/)
 })
 
 test('production exposes the previous role and scene card workbench', () => {
@@ -190,7 +286,7 @@ test('production exposes the previous role and scene card workbench', () => {
   assert.ok(assetStart > -1 && storyboardStart > assetStart, 'role and scene workbench appears before storyboard split')
   const assetBlock = page.slice(assetStart, storyboardStart)
 
-  assert.match(assetBlock, /角色资产/)
+  assert.match(assetBlock, /角色资产|角色/)
   assert.match(assetBlock, /场景图片/)
   assert.match(assetBlock, /class="character-asset-grid"/)
   assert.match(assetBlock, /class="card character-asset-card"/)
@@ -198,9 +294,15 @@ test('production exposes the previous role and scene card workbench', () => {
   assert.match(assetBlock, /doExtract/)
   assert.match(assetBlock, /开始提取/)
   assert.match(assetBlock, /重新提取/)
-  assert.match(assetBlock, /角色和场景会在提取后显示在这里/)
+  assert.match(assetBlock, /角色、场景和道具会在提取后显示在这里/)
   assert.match(assetBlock, /batchCharImages/)
   assert.match(assetBlock, /batchSceneImages/)
+  // 卡片展示 Agent 生成的最终提示词（角色三视图 / 场景固定视角）
+  assert.match(assetBlock, /class="asset-final-prompt"/)
+  assert.match(assetBlock, /最终提示词 · 三视图/)
+  assert.match(assetBlock, /最终提示词 · 固定视角/)
+  assert.match(assetBlock, /c\.final_prompt \|\| c\.finalPrompt/)
+  assert.match(assetBlock, /s\.final_prompt \|\| s\.finalPrompt/)
   assert.match(page, /prodTab\.value = 'assets'/)
   assert.match(page, /openAssetDetail\('character'/)
 
@@ -265,8 +367,8 @@ test('character asset detail gives appearance and styling full-width editors', (
   assert.match(detailBlock, /asset-detail-edit-grid--\$\{assetDetail\.type\}/)
   assert.match(detailBlock, /assetDetailDraft\.appearance[\s\S]*rows="6"/)
   assert.match(detailBlock, /assetDetailDraft\.styling[\s\S]*rows="6"/)
-  assert.match(page, /\.asset-detail-edit-grid--character\s*\{[\s\S]*?grid-template-columns:\s*1fr/)
-  assert.match(page, /\.asset-detail-edit-grid--character \.asset-detail-textarea\s*\{[\s\S]*?min-height:\s*164px/)
+  assert.match(page, /\.asset-detail-edit-grid--character[^{]*\{[\s\S]*?grid-template-columns:\s*1fr/)
+  assert.match(page, /\.asset-detail-edit-grid--character \.asset-detail-textarea[^{]*\{[\s\S]*?min-height:\s*164px/)
 })
 
 test('script flow no longer exposes a role and scene review screen', () => {
@@ -316,11 +418,11 @@ test('shot design and first-last frame generation are removed from the workbench
   assert.doesNotMatch(page, /prodTab === 'shots'/)
 })
 
-test('studio theme exposes the redesigned professional palette hooks', () => {
-  assert.match(studioCss, /--accent:\s*#4c8dff/)
-  assert.match(studioCss, /--surface-base:\s*#15171a/)
+test('studio theme exposes the apple light palette hooks', () => {
+  assert.match(studioCss, /--accent:\s*#0071e3/)
+  assert.match(studioCss, /--surface-base:\s*#f5f5f7/)
   assert.match(studioCss, /--bg-base:\s*var\(--surface-base\)/)
-  assert.match(studioCss, /--radius:\s*6px/)
+  assert.match(studioCss, /--radius:\s*10px/)
 })
 
 test('episode workbench keeps the desktop rail at medium widths', () => {

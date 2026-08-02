@@ -16,9 +16,9 @@ export interface AIConfig {
 }
 
 export const officialProviders: Record<ServiceType, readonly string[]> = {
-  text: ['openai', 'gemini', 'deepseek'],
-  image: ['openai', 'gemini', 'volcengine', 'ali'],
-  video: ['volcengine', 'vidu', 'ali'],
+  text: ['openai', 'gemini', 'volcengine'],
+  image: ['openai', 'gemini', 'volcengine'],
+  video: ['volcengine'],
 }
 
 export function isOfficialProvider(serviceType?: string | null, provider?: string | null): boolean {
@@ -29,7 +29,7 @@ export function isOfficialProvider(serviceType?: string | null, provider?: strin
 export function getTextProviderBaseUrl(config: AIConfig) {
   const provider = config.provider.toLowerCase()
 
-  if (provider === 'openai' || provider === 'deepseek') {
+  if (provider === 'openai') {
     return joinProviderUrl(config.baseUrl, '/v1', '')
   }
 
@@ -39,10 +39,6 @@ export function getTextProviderBaseUrl(config: AIConfig) {
 
   if (provider === 'volcengine') {
     return joinProviderUrl(config.baseUrl, '/api/v3', '')
-  }
-
-  if (provider === 'ali') {
-    return joinProviderUrl(config.baseUrl, '/api/v1', '')
   }
 
   return config.baseUrl
@@ -81,6 +77,18 @@ export async function getTextConfig(): Promise<AIConfig> {
   const config = await getActiveConfig('text')
   if (!config) throw new Error('No active text AI config')
   return config
+}
+
+/**
+ * 取某服务类型当前启用且优先级最高的官方配置 ID（创建集时自动锁定用）
+ */
+export async function getActiveConfigId(serviceType: ServiceType): Promise<number | null> {
+  const rows = (await db.select().from(schema.aiServiceConfigs)
+    .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
+  )
+    .filter(r => r.isActive && isOfficialProvider(serviceType, r.provider))
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+  return rows[0]?.id ?? null
 }
 
 export async function getConfigById(id: number): Promise<AIConfig | null> {

@@ -25,13 +25,6 @@ function geminiHeaders(apiKey?: string, withJson = false) {
   return headers
 }
 
-function viduHeaders(apiKey?: string, withJson = false) {
-  const headers: Record<string, string> = {}
-  if (apiKey) headers.Authorization = `Token ${apiKey}`
-  if (withJson) headers['Content-Type'] = 'application/json'
-  return headers
-}
-
 function buildProbe(serviceType: string, provider: string, baseUrl: string, model?: string, apiKey?: string) {
   const p = provider.toLowerCase()
   const m = model || ''
@@ -53,7 +46,7 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     return { method: 'POST', url: url.toString(), headers: geminiHeaders(apiKey, true), body: {} }
   }
 
-  if (p === 'openai' || p === 'deepseek') {
+  if (p === 'openai') {
     return {
       method: 'GET',
       url: joinProviderUrl(baseUrl, '/v1', '/models'),
@@ -62,34 +55,16 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     }
   }
 
-  if (p === 'ali') {
-    return {
-      method: 'POST',
-      url: joinProviderUrl(baseUrl, '/api/v1', serviceType === 'video'
-        ? '/services/aigc/video-generation/video-synthesis'
-        : '/services/aigc/image-generation/generation'),
-      headers: bearerHeaders(apiKey, true),
-      body: {},
-    }
-  }
-
   if (p === 'volcengine') {
     const path = serviceType === 'video'
       ? '/contents/generations/tasks'
-      : '/images/generations'
+      : serviceType === 'text'
+        ? '/chat/completions'
+        : '/images/generations'
     return {
       method: 'POST',
       url: joinProviderUrl(baseUrl, '/api/v3', path),
       headers: bearerHeaders(apiKey, true),
-      body: {},
-    }
-  }
-
-  if (p === 'vidu') {
-    return {
-      method: 'POST',
-      url: joinProviderUrl(baseUrl, '', '/ent/v2/img2video'),
-      headers: viduHeaders(apiKey, true),
       body: {},
     }
   }

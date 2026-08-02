@@ -1,9 +1,14 @@
 <template>
   <div class="page">
-    <div class="page-head">
+    <div class="launcher-hero">
       <div class="head-left">
-        <h1 class="page-title">短剧项目</h1>
-        <p class="page-desc">项目启动台 · 点击项目选择集后再进入工作台</p>
+        <h1 class="launcher-title">项目启动台</h1>
+        <p class="launcher-sub">从一个创意到一部短剧，AI 全流程为你代工</p>
+        <div class="hero-stats">
+          <span class="tag">{{ dramas.length }} 个项目</span>
+          <span class="tag tag-success">{{ dramas.filter(d => currentStatus(d) === 'active').length }} 进行中</span>
+          <span class="tag tag-accent">{{ stylePresets.length }} 种视觉风格</span>
+        </div>
       </div>
       <button class="btn btn-primary" @click="showCreate = true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -14,19 +19,19 @@
     </div>
 
     <div class="toolbar">
-      <label class="search">
+      <label class="search-box">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input v-model.trim="searchKeyword" class="input" placeholder="搜索项目" />
       </label>
-      <div class="filters">
+      <div class="chip-row">
         <button
           v-for="f in filters"
           :key="f.value"
           type="button"
           class="filter-chip"
-          :class="{ active: statusFilter === f.value }"
+          :class="{ on: statusFilter === f.value }"
           @click="statusFilter = f.value"
         >
           {{ f.label }}
@@ -38,76 +43,70 @@
       </select>
     </div>
 
-    <div v-if="loading" class="launcher">
-      <div v-for="i in 3" :key="i" class="launcher-skeleton"></div>
+    <div v-if="loading" class="project-grid">
+      <div v-for="i in 6" :key="i" class="card skeleton-card">
+        <div class="skeleton-cover"></div>
+        <div class="skeleton-body">
+          <div class="skeleton-line w-60"></div>
+          <div class="skeleton-line w-40"></div>
+        </div>
+      </div>
     </div>
 
-    <div v-else-if="filteredDramas.length" class="launcher launcher-board">
-      <div class="launcher-head" aria-hidden="true">
-        <span>项目</span>
-        <span>状态</span>
-        <span>最新集</span>
-        <span>更新</span>
-        <span></span>
-        <span></span>
-      </div>
-
+    <div v-else-if="filteredDramas.length" class="project-grid">
       <article
         v-for="(d, i) in filteredDramas"
         :key="d.id"
-        class="project-row"
+        class="card project-card"
         :style="{ animationDelay: `${i * 0.04}s` }"
         tabindex="0"
         role="button"
-        :aria-label="`进入 ${d.title} 工作台`"
+        :aria-label="`打开项目 ${d.title}`"
         @click="openDrama(d)"
         @keydown.enter.prevent="openDrama(d)"
         @keydown.space.prevent="openDrama(d)"
       >
-        <div class="project-main">
-          <div class="project-thumb" aria-hidden="true">
-            <FolderOpen :size="22" :stroke-width="1.6" />
+        <div class="project-thumb" aria-hidden="true">
+          <Film :size="34" :stroke-width="1.4" />
+          <div class="status-wrap" @click.stop>
+            <button type="button" class="cover-badge tag status-badge" title="点击标记项目状态" @click="statusMenuId = statusMenuId === d.id ? null : d.id">
+              <span class="status-dot" :class="statusDotClass(d)"></span>
+              {{ projectStatus(d) }}
+            </button>
+            <div v-if="statusMenuId === d.id" class="more-menu status-menu">
+              <button
+                v-for="s in statusOptions"
+                :key="s.value"
+                type="button"
+                class="menu-item"
+                :class="{ on: currentStatus(d) === s.value }"
+                @click="setDramaStatus(d, s.value)"
+              >{{ s.label }}</button>
+            </div>
           </div>
-          <div class="project-copy">
-            <h2 class="project-title">{{ d.title }}</h2>
-            <p class="project-meta">
-              <span v-if="d.style">{{ d.style }}</span>
-              <span>{{ d.characters?.length || 0 }} 角色</span>
-              <span>{{ d.scenes?.length || 0 }} 场景</span>
-            </p>
+          <div class="more-wrap">
+            <button class="btn btn-icon btn-sm cover-more" type="button" title="更多" @click.stop="toggleMenu(d.id)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
+              </svg>
+            </button>
+            <div v-if="activeMenuId === d.id" class="more-menu" @click.stop>
+              <button type="button" class="menu-item" @click="openDrama(d)">打开项目</button>
+              <button type="button" class="menu-item is-danger" @click="activeMenuId = null; dramaToDelete = d">删除项目</button>
+            </div>
           </div>
         </div>
-
-        <div class="status-cell">
-          <span class="status-dot"></span>
-          <span>{{ projectStatus(d) }}</span>
-        </div>
-
-        <div class="progress-cell">
-          <div class="progress-label">{{ latestEpisodeLabel(d) }}</div>
-          <div class="progress-track">
-            <div class="progress-fill" :style="{ width: getProgress(d) + '%' }"></div>
+        <div class="project-body">
+          <h2 class="project-name truncate">{{ d.title }}</h2>
+          <div class="project-meta">
+            <span v-if="d.style" class="tag tag-accent">{{ styleLabel(d.style) }}</span>
+            <span>{{ d.characters?.length || 0 }} 角色 · {{ d.scenes?.length || 0 }} 场景 · {{ d.episodes?.length || 0 }} 集</span>
           </div>
-        </div>
-
-        <div class="date-cell">{{ fmtDate(d.updated_at || d.updatedAt) }}</div>
-
-        <button class="btn btn-primary btn-sm row-action" type="button" @click.stop="openDrama(d)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M5 12h14"/><path d="m13 5 7 7-7 7"/>
-          </svg>
-          打开项目
-        </button>
-
-        <div class="more-wrap">
-          <button class="btn btn-ghost btn-icon" type="button" title="更多" @click.stop="toggleMenu(d.id)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
-            </svg>
-          </button>
-          <div v-if="activeMenuId === d.id" class="more-menu" @click.stop>
-            <button type="button" class="menu-item" @click="openDrama(d)">打开项目</button>
-            <button type="button" class="menu-item is-danger" @click="delDrama(d)">删除项目</button>
+          <div class="project-foot">
+            <span class="updated">
+              <Clock :size="11" :stroke-width="1.8" />
+              {{ fmtDate(d.updated_at || d.updatedAt) }}
+            </span>
           </div>
         </div>
       </article>
@@ -127,33 +126,37 @@
     </div>
 
     <div v-if="showCreate" class="overlay" @click.self="showCreate = false">
-      <div class="modal card">
-        <div class="modal-header">
+      <div class="dialog create-dialog">
+        <div class="dialog-head">
           <div class="modal-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
               <rect x="3" y="3" width="18" height="18" rx="3"/>
               <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
             </svg>
           </div>
-          <h2 class="modal-title">新建短剧项目</h2>
-          <p class="modal-desc">创建后进入项目页选择集</p>
+          <div class="dialog-head-copy">
+            <h2 class="dialog-title">新建项目</h2>
+            <p class="dialog-desc">创建后进入项目页选择集</p>
+          </div>
         </div>
-        <form @submit.prevent="create" class="modal-form">
-          <label class="field">
-            <span class="field-label">项目名称 <span class="required">*</span></span>
-            <input v-model="form.title" class="input" placeholder="例如：都市情感短剧《时光邮局》" required autofocus />
-          </label>
-          <div class="field-row">
+        <form @submit.prevent="create" class="dialog-form">
+          <div class="dialog-body">
             <label class="field">
-              <span class="field-label">计划集数</span>
-              <input v-model.number="form.total_episodes" class="input" type="number" min="1" max="100" />
+              <span class="field-label">项目名称 <span class="required">*</span></span>
+              <input v-model="form.title" class="input" placeholder="例如：都市情感短剧《时光邮局》" required autofocus />
             </label>
             <label class="field">
               <span class="field-label">视觉风格</span>
               <BaseSelect v-model="form.style" :options="styleSelectOptions" placeholder="选择风格" searchable />
+              <span v-if="selectedStyleDesc" class="field-hint">{{ selectedStyleDesc }}</span>
+            </label>
+            <label class="field">
+              <span class="field-label">画面比例</span>
+              <BaseSelect v-model="form.aspect_ratio" :options="aspectRatioOptions" placeholder="选择画面比例" />
+              <span class="field-hint">创建后固定，视频生成将统一使用该比例</span>
             </label>
           </div>
-          <div class="modal-actions">
+          <div class="dialog-foot">
             <button type="button" class="btn" @click="showCreate = false">取消</button>
             <button type="submit" class="btn btn-primary">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -165,13 +168,21 @@
         </form>
       </div>
     </div>
+    <ConfirmDialog
+      :open="!!dramaToDelete"
+      title="删除项目"
+      :message="`确定删除「${dramaToDelete?.title}」？项目下的剧集、分镜与生成记录将一并删除，此操作不可恢复。`"
+      :loading="deletingDrama"
+      @confirm="confirmDelDrama"
+      @cancel="dramaToDelete = null"
+    />
   </div>
 </template>
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { FolderOpen } from 'lucide-vue-next'
-import { dramaAPI } from '~/composables/useApi'
+import { Film, Clock } from 'lucide-vue-next'
+import { dramaAPI, stylePresetAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
 const dramas = ref([])
@@ -181,20 +192,59 @@ const searchKeyword = ref('')
 const statusFilter = ref('all')
 const sortMode = ref('updated')
 const activeMenuId = ref(null)
-const form = ref({ title: '', total_episodes: 1, style: '' })
-const styles = ['realistic', 'anime', 'ghibli', 'cinematic', 'comic', 'watercolor']
-const styleSelectOptions = computed(() => styles.map(s => ({ label: s, value: s })))
+const dramaToDelete = ref(null)
+const deletingDrama = ref(false)
+const form = ref({ title: '', style: '', aspect_ratio: '16:9' })
+const stylePresets = ref([])
+const styleSelectOptions = computed(() => stylePresets.value.map(p => ({ label: p.name, value: p.value })))
+const selectedStyleDesc = computed(() => stylePresets.value.find(p => p.value === form.value.style)?.description || '')
+const aspectRatioOptions = [
+  { label: '16:9 · 横屏', value: '16:9' },
+  { label: '9:16 · 竖屏', value: '9:16' },
+  { label: '1:1 · 方形', value: '1:1' },
+  { label: '自适应', value: 'adaptive' },
+]
 const filters = [
   { label: '全部', value: 'all' },
+  { label: '待开始', value: 'draft' },
   { label: '进行中', value: 'active' },
+  { label: '已完成', value: 'completed' },
 ]
+// 项目状态由用户手动标记（持久化到 dramas.status），不再按内容自动推算
+const statusOptions = [
+  { label: '待开始', value: 'draft' },
+  { label: '进行中', value: 'active' },
+  { label: '已完成', value: 'completed' },
+]
+const statusMenuId = ref(null)
+
+function currentStatus(d) { return d.status || 'draft' }
+function projectStatus(d) { return statusOptions.find(s => s.value === currentStatus(d))?.label || '待开始' }
+function statusDotClass(d) { return currentStatus(d) === 'active' ? 'on' : currentStatus(d) === 'completed' ? 'done' : '' }
+
+async function setDramaStatus(d, status) {
+  statusMenuId.value = null
+  if (currentStatus(d) === status) return
+  const prev = d.status
+  d.status = status
+  try {
+    await dramaAPI.update(d.id, { status })
+  } catch (e) {
+    d.status = prev
+    toast.error(e.message)
+  }
+}
+
+function styleLabel(key) {
+  return stylePresets.value.find(p => p.value === key)?.name || key || ''
+}
 
 const filteredDramas = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
   const items = dramas.value.filter((d) => {
-    const text = [d.title, d.style, projectStatus(d)].filter(Boolean).join(' ').toLowerCase()
+    const text = [d.title, d.style, styleLabel(d.style), projectStatus(d)].filter(Boolean).join(' ').toLowerCase()
     const matchesSearch = !keyword || text.includes(keyword)
-    const matchesStatus = statusFilter.value === 'all' || statusFilter.value === 'active'
+    const matchesStatus = statusFilter.value === 'all' || currentStatus(d) === statusFilter.value
     return matchesSearch && matchesStatus
   })
 
@@ -207,8 +257,12 @@ const filteredDramas = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const res = await dramaAPI.list()
+    const [res, presets] = await Promise.all([dramaAPI.list(), stylePresetAPI.list()])
     dramas.value = res.items || []
+    stylePresets.value = presets || []
+    if (!form.value.style && stylePresets.value.length) {
+      form.value.style = stylePresets.value[0].value
+    }
   } catch (e) {
     toast.error(e.message)
   } finally {
@@ -227,24 +281,24 @@ async function create() {
   }
 }
 
-async function delDrama(d) {
-  activeMenuId.value = null
-  if (!confirm(`确定删除「${d.title}」？此操作不可恢复。`)) return
+async function confirmDelDrama() {
+  const d = dramaToDelete.value
+  if (!d) return
   try {
+    deletingDrama.value = true
     await dramaAPI.del(d.id)
     toast.success('已删除')
+    dramaToDelete.value = null
     load()
   } catch (e) {
     toast.error(e.message)
+  } finally {
+    deletingDrama.value = false
   }
 }
 
 function toggleMenu(id) {
   activeMenuId.value = activeMenuId.value === id ? null : id
-}
-
-function projectStatus(d) {
-  return d.episodes?.length ? '进行中' : '待开始'
 }
 
 function getEpisodeNumber(d) {
@@ -280,50 +334,43 @@ function fmtDate(s) {
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
-function getProgress(d) {
-  if (!d.episodes?.length) return 0
-  const scripted = d.episodes.filter(e => e.script_content || e.scriptContent).length
-  return Math.max(12, Math.round((scripted / d.episodes.length) * 100))
-}
-
 onMounted(load)
 </script>
 
 <style scoped>
 .page {
-  padding: 34px 48px 48px;
+  padding: 40px 48px 64px;
   overflow-y: auto;
   height: 100%;
   animation: fadeUp 0.35s var(--ease-out) both;
   background: var(--surface-base);
 }
 
-.page-head {
+.launcher-hero {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 24px;
-  gap: 24px;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding: var(--sp-4) 0 var(--sp-6);
 }
-.head-left { display: flex; flex-direction: column; gap: 6px; }
-.page-title {
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 650;
-  letter-spacing: 0;
+.head-left { display: flex; flex-direction: column; }
+.launcher-title {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--text-0);
 }
-.page-desc { font-size: 13px; color: var(--text-2); font-weight: 400; }
+.launcher-sub { color: var(--text-2); font-size: 14px; margin-top: 4px; }
+.hero-stats { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
 
 .toolbar {
-  display: grid;
-  grid-template-columns: minmax(240px, 390px) minmax(0, 1fr) auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
-  margin-bottom: 22px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
 }
-.search { position: relative; }
-.search svg {
+.search-box { position: relative; width: 260px; flex: 0 0 auto; }
+.search-box svg {
   position: absolute;
   left: 12px;
   top: 50%;
@@ -331,175 +378,125 @@ onMounted(load)
   color: var(--text-3);
   pointer-events: none;
 }
-.search .input { padding-left: 38px; }
-.filters { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 1px; }
+.search-box .input {
+  padding-left: 34px;
+  border-radius: var(--radius-pill);
+  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.04);
+}
+.search-box .input:focus { background: #fff; }
+.chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 1px; }
 .filter-chip {
-  min-height: var(--button-height-sm);
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--button-border);
-  border-radius: var(--button-radius);
-  background: var(--button-bg);
-  color: var(--button-text);
-  padding: 0 11px;
+  appearance: none;
+  cursor: pointer;
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-2);
   font-size: 12px;
-  font-weight: 650;
-  line-height: 1;
+  font-weight: 600;
   white-space: nowrap;
-  transition: all 0.18s var(--ease-out);
-  box-shadow: var(--button-shadow);
+  transition: all 0.16s var(--ease-out);
 }
-.filter-chip:hover {
-  color: var(--button-text-hover);
-  background: var(--button-bg-hover);
-  border-color: var(--button-border-hover);
-  box-shadow: var(--button-shadow-hover);
-}
+.filter-chip:hover { color: var(--text-0); background: rgba(0, 0, 0, 0.08); }
 .filter-chip:focus-visible {
   outline: none;
-  border-color: var(--action-primary);
-  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
-.filter-chip.active {
-  color: var(--accent-text);
-  border-color: var(--accent-glow);
-  background: var(--accent-bg);
+.filter-chip.on { background: var(--text-0); color: #fff; }
+.sort-select {
+  margin-left: auto;
+  width: auto;
+  min-width: 132px;
+  min-height: 36px;
+  border-radius: var(--radius-pill);
+  border-color: var(--border);
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-1);
 }
-.sort-select { min-height: 36px; min-width: 132px; color: var(--text-1); }
+.sort-select:focus { background: #fff; }
 
-.launcher {
+.project-grid {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
+  gap: var(--sp-5);
 }
-.launcher-board {
-  padding: 0;
-  border: 1px solid var(--surface-outline);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: none;
-}
-.launcher-head {
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) 116px 170px 106px 146px 42px;
-  align-items: center;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--surface-outline);
-  color: var(--text-3);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.project-row {
+.project-card {
   position: relative;
-  width: 100%;
-  min-height: 104px;
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) 116px 170px 106px 146px 42px;
-  align-items: center;
-  gap: 14px;
-  border: 0;
-  border-bottom: 1px solid var(--surface-outline);
-  border-radius: 0;
-  background: var(--surface-raised);
-  color: inherit;
-  padding: 14px;
-  text-align: left;
-  box-shadow: none;
+  overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.18s var(--ease-out), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), background 0.18s var(--ease-out);
   animation: fadeUp 0.32s var(--ease-out) both;
 }
-.project-row::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  border-radius: 0;
-  background: var(--accent);
-}
-.project-row:hover,
-.project-row:focus-visible {
+.project-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+.project-card:focus-visible {
   outline: none;
-  border-color: var(--surface-outline);
-  background: var(--bg-hover);
-  box-shadow: none;
-  transform: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
-
-.project-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .project-thumb {
-  width: 78px;
-  height: 56px;
-  flex: 0 0 auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-hover);
-  color: var(--accent-text);
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #e3edff;
+  color: #4a6fb5;
 }
-.project-copy { min-width: 0; display: grid; gap: 6px; }
-.project-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: 0;
-  color: var(--text-0);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.project-meta {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  flex-wrap: wrap;
-  color: var(--text-2);
-  font-size: 13px;
-}
-.project-meta span + span::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: 3px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: var(--text-3);
-  vertical-align: middle;
-}
-.status-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--success);
-  font-size: 12px;
-  font-weight: 700;
+.cover-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  color: var(--text-1);
 }
 .status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: currentColor;
+  background: var(--text-3);
 }
-.progress-cell { display: grid; gap: 7px; min-width: 0; }
-.progress-label { color: var(--text-2); font-size: 12px; }
-.progress-track { height: 4px; border-radius: 99px; background: var(--bg-3); overflow: hidden; }
-.progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 0.6s var(--ease-out);
+.status-dot.on { background: var(--success); }
+.status-dot.done { background: var(--accent); }
+.status-wrap { position: absolute; top: 10px; left: 10px; }
+.status-wrap .cover-badge { position: static; }
+.status-badge { cursor: pointer; border: none; font: inherit; }
+.status-menu {
+  top: calc(100% + 6px);
+  left: 0;
+  right: auto;
+  width: 108px;
 }
-.date-cell { color: var(--text-2); font-size: 13px; white-space: nowrap; }
-.row-action { justify-self: end; }
-.more-wrap { position: relative; justify-self: end; }
+.status-menu .menu-item.on { color: var(--accent); background: var(--accent-bg); }
+.more-wrap {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.cover-more {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+.cover-more:hover { background: #fff; }
+.project-card:hover .cover-more,
+.more-wrap:focus-within .cover-more { opacity: 1; }
 .more-menu {
   position: absolute;
-  top: 38px;
+  top: 36px;
   right: 0;
   width: 138px;
   display: grid;
@@ -514,8 +511,8 @@ onMounted(load)
   min-height: var(--button-height-sm);
   display: flex;
   align-items: center;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-1);
   padding: 0 9px;
@@ -525,27 +522,63 @@ onMounted(load)
   cursor: pointer;
   transition: all 0.14s var(--ease-out);
 }
-.menu-item:hover { background: var(--bg-hover); border-color: var(--button-border); color: var(--text-0); }
+.menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
 .menu-item:focus-visible {
   outline: none;
   background: var(--bg-hover);
-  border-color: var(--action-primary);
   box-shadow: 0 0 0 2px var(--button-focus);
 }
 .menu-item.is-danger { color: var(--action-danger); }
-.menu-item.is-danger:hover {
-  background: var(--action-danger-bg);
-  border-color: rgba(213,111,111,0.28);
-  color: #ffd0d0;
+.menu-item.is-danger:hover { background: var(--action-danger-bg); color: var(--action-danger); }
+
+.project-body { padding: var(--sp-4); }
+.project-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-0);
+}
+.project-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+  flex-wrap: wrap;
+}
+.project-foot {
+  margin-top: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.project-foot .updated {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
 }
 
-.launcher-skeleton {
-  height: 104px;
-  border-radius: var(--radius-lg);
+.skeleton-card { overflow: hidden; }
+.skeleton-cover {
+  aspect-ratio: 16 / 9;
   background: var(--bg-2);
   animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
 }
-@keyframes skeleton-pulse { to { opacity: 0.6; } }
+.skeleton-body { padding: var(--sp-4); display: grid; gap: 10px; }
+.skeleton-line {
+  height: 12px;
+  border-radius: 99px;
+  background: var(--bg-2);
+  animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+}
+.skeleton-line.w-60 { width: 60%; }
+.skeleton-line.w-40 { width: 40%; }
+@keyframes skeleton-pulse { to { opacity: 0.55; } }
 
 .empty-state {
   min-height: 280px;
@@ -556,6 +589,7 @@ onMounted(load)
   gap: 10px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
+  background: var(--surface-raised);
   text-align: center;
 }
 .empty-icon {
@@ -572,82 +606,46 @@ onMounted(load)
 .empty-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
 .empty-desc { font-size: 12px; color: var(--text-3); max-width: 240px; line-height: 1.6; }
 
-.modal { padding: 32px; width: 460px; box-shadow: var(--shadow-elevated); animation: scaleIn 0.2s var(--ease-out); }
-.modal-header { margin-bottom: 24px; display: flex; flex-direction: column; gap: 6px; }
+.create-dialog { width: 460px; max-width: calc(100vw - 32px); }
+.dialog-head-copy { display: flex; flex-direction: column; gap: 2px; }
+.dialog-desc { font-size: 12.5px; color: var(--text-3); }
 .modal-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
   border-radius: var(--radius);
   background: var(--accent-bg);
   color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 4px;
 }
-.modal-title { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
-.modal-desc { font-size: 13px; color: var(--text-3); }
-.modal-form { display: flex; flex-direction: column; gap: 16px; }
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dialog-body { display: flex; flex-direction: column; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; font-weight: 600; color: var(--text-1); }
 .required { color: var(--error); }
+.field-hint { font-size: 11px; color: var(--text-3); line-height: 1.5; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 6px; }
-
-@media (max-width: 980px) {
-  .launcher-head { display: none; }
-  .project-row {
-    grid-template-columns: minmax(0, 1fr) 42px;
-    align-items: start;
-  }
-  .project-main,
-  .status-cell,
-  .progress-cell,
-  .date-cell,
-  .row-action { grid-column: 1 / 2; }
-  .more-wrap { grid-column: 2 / 3; grid-row: 1; }
-  .row-action { justify-self: stretch; }
-  .row-action.btn { width: 100%; }
-}
 
 @media (max-width: 760px) {
-  .page {
-    padding: 24px 16px 32px;
+  .page { padding: 24px 16px 40px; }
+  .launcher-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-4);
   }
-  .page-head {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-  }
-  .page-head .btn { width: 100%; }
-  .toolbar { grid-template-columns: 1fr; }
-  .project-row {
-    grid-template-columns: 1fr;
-    overflow: hidden;
-    padding: 14px 14px 16px;
-    gap: 12px;
-  }
-  .project-main,
-  .status-cell,
-  .progress-cell,
-  .date-cell,
-  .row-action { grid-column: 1; }
-  .project-main { align-items: flex-start; padding-right: 42px; }
-  .more-wrap {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    grid-column: auto;
-    grid-row: auto;
-  }
-  .project-thumb { width: 62px; height: 48px; }
-  .project-title { font-size: 20px; }
-  .row-action.btn { width: 100%; }
-  .modal {
-    width: calc(100vw - 32px);
-    padding: 24px;
-  }
+  .launcher-hero .btn { width: 100%; }
+  .toolbar { flex-wrap: wrap; }
+  .search-box { width: 100%; flex: 1 1 100%; }
+  .sort-select { margin-left: 0; flex: 1; }
   .field-row { grid-template-columns: 1fr; }
-  .modal-actions { display: grid; grid-template-columns: 1fr; }
+  .dialog-foot { flex-direction: column-reverse; }
+  .dialog-foot .btn { width: 100%; }
 }
 </style>

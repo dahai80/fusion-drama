@@ -4,8 +4,8 @@ FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-COPY frontend/ ./
-RUN npm run generate
+    COPY frontend/ ./
+    RUN npm run generate
 
 # ── Stage 2: Build backend native modules ────────────────────
 FROM node:20-slim AS backend-build
@@ -42,7 +42,7 @@ COPY backend/tsconfig.json ./backend/
 COPY --from=frontend-build /app/frontend/.output/public ./frontend/dist
 
 # Skills
-COPY skills/ ./backend/skills/
+COPY backend/workspace/skills/ ./backend/workspace/skills/
 
 # Config
 COPY configs/config.example.yaml ./configs/config.yaml

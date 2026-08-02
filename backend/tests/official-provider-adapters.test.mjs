@@ -56,9 +56,12 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   const route = read('src/routes/aiConfigs.ts')
 
   assert.match(ai, /officialProviders/)
-  assert.match(ai, /text:\s*\[\s*'openai',\s*'gemini',\s*'deepseek'\s*\]/)
-  assert.match(ai, /image:\s*\[\s*'openai',\s*'gemini',\s*'volcengine',\s*'ali'\s*\]/)
-  assert.match(ai, /video:\s*\[\s*'volcengine',\s*'vidu',\s*'ali'\s*\]/)
+  assert.match(ai, /text:\s*\[\s*'openai',\s*'gemini',\s*'volcengine'\s*\]/)
+  assert.match(ai, /image:\s*\[\s*'openai',\s*'gemini',\s*'volcengine'\s*\]/)
+  assert.match(ai, /video:\s*\[\s*'volcengine'\s*\]/)
+  assert.doesNotMatch(ai, /'deepseek'/)
+  assert.doesNotMatch(ai, /'ali'/)
+  assert.doesNotMatch(ai, /'vidu'/)
   assert.doesNotMatch(ai, /audio:\s*\[/)
   assert.match(ai, /isOfficialProvider/)
   assert.match(ai, /isOfficialProvider\(serviceType,\s*r\.provider\)/)
@@ -104,18 +107,30 @@ test('AI config update route persists service type changes after validation', ()
 test('AI config probe uses provider-specific auth schemes', () => {
   const route = read('src/routes/aiConfigs.ts')
   const geminiHeadersStart = route.indexOf('function geminiHeaders')
-  const viduHeadersStart = route.indexOf('function viduHeaders')
   const buildProbeStart = route.indexOf('function buildProbe')
-  const geminiHeaders = route.slice(geminiHeadersStart, viduHeadersStart)
-  const viduHeaders = route.slice(viduHeadersStart, buildProbeStart)
+  const geminiHeaders = route.slice(geminiHeadersStart, buildProbeStart)
 
   assert.match(geminiHeaders, /x-goog-api-key/)
   assert.doesNotMatch(geminiHeaders, /Authorization\s*=\s*`Bearer/)
   assert.match(route, /modelName\.startsWith\('gemini-3'\)/)
   assert.match(route, /'\/interactions'/)
-  assert.match(viduHeaders, /Authorization\s*=\s*`Token/)
   assert.match(route, /function bearerHeaders/)
-  assert.match(route, /p === 'openai' \|\| p === 'deepseek'/)
+  assert.match(route, /p === 'openai'/)
+  assert.match(route, /p === 'volcengine'/)
+  assert.match(route, /'\/chat\/completions'/)
+  assert.doesNotMatch(route, /viduHeaders/)
+  assert.doesNotMatch(route, /p === 'deepseek'/)
+  assert.doesNotMatch(route, /p === 'ali'/)
+  assert.doesNotMatch(route, /p === 'vidu'/)
+})
+
+test('removed providers no longer ship adapters or webhook routes', () => {
+  const registry = read('src/services/adapters/registry.ts')
+  const index = read('src/index.ts')
+
+  assert.doesNotMatch(registry, /ali-image|ali-video|vidu-video/)
+  assert.doesNotMatch(registry, /AliImageAdapter|AliVideoAdapter|ViduVideoAdapter/)
+  assert.doesNotMatch(index, /webhooks/)
 })
 
 test('adapter registry fails closed for unsupported providers', () => {
@@ -131,7 +146,7 @@ test('adapter registry fails closed for unsupported providers', () => {
 test('OpenAI image adapter defaults to GPT Image instead of legacy DALL-E', () => {
   const adapter = read('src/services/adapters/openai-image.ts')
 
-  assert.match(adapter, /record\.model\s*\|\|\s*config\.model\s*\|\|\s*'gpt-image-1'/)
+  assert.match(adapter, /record\.model\s*\|\|\s*config\.model\s*\|\|\s*'gpt-image-2'/)
   assert.doesNotMatch(adapter, /record\.model\s*\|\|\s*'dall-e-3'/)
 })
 
@@ -159,4 +174,10 @@ test('new image and video models use their current API shapes', () => {
   assert.match(geminiImage, /response_format/)
   assert.doesNotMatch(geminiImage, /Authorization': `Bearer/)
   assert.match(volcVideo, /doubao-seedance-2-0-260128/)
+  // Seedance 2.0 多模态能力
+  assert.match(volcVideo, /SEEDANCE2_MODEL_PREFIX/)
+  assert.match(volcVideo, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
+  assert.match(volcVideo, /reference_video/)
+  assert.match(volcVideo, /reference_audio/)
+  assert.match(volcVideo, /generate_audio:\s*record\.generateAudio/)
 })

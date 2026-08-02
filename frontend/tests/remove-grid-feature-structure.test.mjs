@@ -30,7 +30,7 @@ test('episode workbench removes the grid image tool and history UI', () => {
 })
 
 test('settings image prompt agent copy only describes role and scene prompts', () => {
-  assert.match(settingsPage, /grid_prompt_generator/)
+  assert.match(settingsPage, /image_prompt_generator/)
   assert.doesNotMatch(settingsPage, /宫格图/)
   assert.doesNotMatch(settingsPage, /read_shots_for_grid/)
   assert.doesNotMatch(settingsPage, /generate_grid_prompt/)

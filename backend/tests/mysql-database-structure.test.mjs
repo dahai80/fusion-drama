@@ -70,6 +70,28 @@ test('mysql startup schema is present and sqlite migration artifacts are removed
   assert.match(mysqlSchema, /ensureMySqlColumn/)
   assert.match(mysqlSchema, /ALTER TABLE `characters` ADD COLUMN `styling` TEXT/)
   assert.match(mysqlSchema, /ALTER TABLE `scenes` ADD COLUMN `lighting` TEXT/)
+  // 项目级画面比例：创建时固定，视频生成统一使用
+  assert.match(mysqlSchema, /aspect_ratio VARCHAR\(16\) DEFAULT '16:9'/)
+  assert.match(mysqlSchema, /ALTER TABLE `dramas` ADD COLUMN `aspect_ratio` VARCHAR\(16\) DEFAULT '16:9'/)
   assert.equal(pkg.scripts['db:migrate:sqlite-to-mysql'], undefined)
   assert.equal(existsSync(new URL('scripts/migrate-sqlite-to-mysql.ts', root)), false)
+})
+
+test('style_presets table and idempotent seed statements are present', () => {
+  const mysqlSchema = read('src/db/mysql-schema.ts')
+  const schema = read('src/db/schema.ts')
+
+  assert.match(schema, /stylePresets = mysqlTable\('style_presets'/)
+  assert.match(mysqlSchema, /CREATE TABLE IF NOT EXISTS style_presets/)
+  assert.match(mysqlSchema, /UNIQUE KEY uk_style_presets_value/)
+  assert.match(mysqlSchema, /mysqlDataSeedStatements/)
+  assert.match(mysqlSchema, /INSERT INTO `style_presets`/)
+  assert.match(mysqlSchema, /WHERE NOT EXISTS \(SELECT 1 FROM `style_presets` WHERE `value` = \?\)/)
+  assert.match(mysqlSchema, /stylePresetSeeds/)
+  // 六种内置风格
+  for (const v of ['3d', 'anime', 'realistic', 'ghibli', 'watercolor', 'comic']) {
+    assert.match(mysqlSchema, new RegExp(`value: '${v}'`))
+  }
+  // seed 在 init 中执行
+  assert.match(mysqlSchema, /for \(const seed of mysqlDataSeedStatements\)/)
 })

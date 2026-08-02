@@ -27,30 +27,31 @@ function cssBlock(source, selector) {
   throw new Error(`unterminated block for ${selector}`)
 }
 
-test('theme exposes a professional dark material system', () => {
-  assert.match(studioCss, /--surface-base:\s*#15171a/)
-  assert.match(studioCss, /--surface-raised:\s*#1c1f23/)
-  assert.match(studioCss, /--surface-muted:\s*#20242a/)
-  assert.match(studioCss, /--surface-outline:\s*#30343a/)
-  assert.match(studioCss, /--accent:\s*#4c8dff/)
+test('theme exposes an apple-inspired light material system', () => {
+  assert.match(studioCss, /--surface-base:\s*#f5f5f7/)
+  assert.match(studioCss, /--surface-raised:\s*#ffffff/)
+  assert.match(studioCss, /--surface-muted:\s*#f5f5f7/)
+  assert.match(studioCss, /--surface-outline:\s*rgba\(0,0,0,0\.08\)/)
+  assert.match(studioCss, /--accent:\s*#0071e3/)
 })
 
-test('project entry is redesigned as a focused launcher board', () => {
-  assert.match(indexPage, /class="launcher launcher-board"/)
+test('project entry is redesigned as a poster card grid', () => {
+  assert.match(indexPage, /class="project-grid"/)
+  assert.match(indexPage, /class="card project-card"/)
   assert.match(indexPage, /class="project-thumb"/)
-  assert.match(indexPage, /background:\s*var\(--surface-raised\)/)
-  assert.match(indexPage, /box-shadow:\s*none/)
+  assert.match(indexPage, /repeat\(auto-fill,\s*minmax\(258px,\s*1fr\)\)/)
+  assert.match(indexPage, /box-shadow:\s*var\(--shadow-lift\)/)
 })
 
-test('global header uses the same dark console material', () => {
-  assert.match(defaultLayout, /background:\s*var\(--surface-raised\)/)
-  assert.match(defaultLayout, /border-bottom:\s*1px solid var\(--surface-outline\)/)
+test('global header uses the frosted glass material', () => {
+  assert.match(defaultLayout, /background:\s*rgba\(251,251,253,0\.72\)/)
+  assert.match(defaultLayout, /backdrop-filter:\s*blur\(20px\)\s*saturate\(180%\)/)
+  assert.match(defaultLayout, /border-bottom:\s*1px solid var\(--border\)/)
 })
 
 test('workbench removes legacy light panels from the main production surface', () => {
   assert.match(episodeWorkbench, /background:\s*var\(--surface-raised\)/)
   assert.match(episodeWorkbench, /background:\s*var\(--surface-muted\)/)
-  assert.doesNotMatch(episodeWorkbench, /rgba\(255,255,255,0\.(56|66|68|72|74|78|86|90|92|96)\)/)
   assert.doesNotMatch(episodeWorkbench, /rgba\(246,\s*248,\s*252,\s*0\.92\)/)
   assert.doesNotMatch(episodeWorkbench, /rgba\(27,\s*41,\s*64,\s*0\.08\)/)
 })
@@ -65,25 +66,24 @@ test('settings page removes the legacy quick setup recommendation cards', () => 
   assert.doesNotMatch(settingsPage, /background:\s*rgba\(255,255,255,0\.72\)/)
 })
 
-test('project episode dialog follows the graphite brand system', () => {
+test('project episode dialog follows the light brand system', () => {
   assert.doesNotMatch(dramaDetail, /rgba\(122,167,255/)
   assert.doesNotMatch(dramaDetail, /rgba\(76,125,255/)
-  assert.doesNotMatch(dramaDetail, /rgba\(255,255,255,0\.(72|78|98)\)/)
   assert.doesNotMatch(dramaDetail, /rgba\(242,247,255,0\.92\)/)
   assert.doesNotMatch(dramaDetail, /rgba\(244,248,255,0\.96\)/)
 })
 
-test('workbench active navigation uses restrained blue accents', () => {
+test('workbench active navigation uses quiet system-blue accents', () => {
   const pipeActive = cssBlock(episodeWorkbench, '.pipe-item.active')
   const iconActive = cssBlock(episodeWorkbench, '.icon-active')
 
-  assert.doesNotMatch(pipeActive, /var\(--accent-bg\)/)
-  assert.doesNotMatch(iconActive, /background:\s*var\(--accent\)/)
-  assert.match(pipeActive, /inset 3px 0 0 var\(--accent\)/)
-  assert.match(iconActive, /background:\s*var\(--bg-2\)/)
+  assert.match(pipeActive, /background:\s*var\(--accent-bg\)/)
+  assert.match(pipeActive, /color:\s*var\(--accent-text\)/)
+  assert.doesNotMatch(pipeActive, /inset 3px 0 0 var\(--accent\)/)
+  assert.match(iconActive, /background:\s*var\(--accent\)/)
 })
 
-test('workbench completed navigation uses restrained success states', () => {
+test('workbench completed navigation uses quiet success states', () => {
   const doneItem = cssBlock(episodeWorkbench, '.pipe-item.done')
   const doneIcon = cssBlock(episodeWorkbench, '.pipe-item.done .pipe-icon')
   const iconDone = cssBlock(episodeWorkbench, '.icon-done')

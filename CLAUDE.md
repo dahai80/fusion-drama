@@ -8,10 +8,11 @@ Huobao Drama — AI-powered drama/video production tool. Full TypeScript stack.
 
 ```
 backend/   — Hono + Drizzle ORM + Mastra (AI agents) + mysql2
+backend/workspace/ — Agent 工作目录（Mastra Workspace jail 根）
+backend/workspace/skills/ — Agent SKILL.md definitions
 frontend/  — Nuxt 3 + Vue 3 + TypeScript (pure CSS, no UI framework)
 configs/   — config.yaml
 data/      — generated static files
-skills/    — Agent SKILL.md definitions
 ```
 
 ## Commands

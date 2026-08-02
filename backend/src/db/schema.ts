@@ -9,6 +9,7 @@ export const dramas = mysqlTable('dramas', {
   description: text('description'),
   genre: text('genre'),
   style: varchar('style', { length: 64 }).default('realistic'),
+  aspectRatio: varchar('aspect_ratio', { length: 16 }).default('16:9'),
   totalEpisodes: int('total_episodes').default(1),
   totalDuration: int('total_duration').default(0),
   status: varchar('status', { length: 64 }).notNull().default('draft'),
@@ -47,6 +48,7 @@ export const characters = mysqlTable('characters', {
   description: text('description'),
   appearance: text('appearance'),
   styling: text('styling'),
+  finalPrompt: text('final_prompt'),
   personality: text('personality'),
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
@@ -74,6 +76,14 @@ export const episodeScenes = mysqlTable('episode_scenes', {
   createdAt: varchar('created_at', { length: 64 }).notNull(),
 })
 
+// Episode-Prop many-to-many
+export const episodeProps = mysqlTable('episode_props', {
+  id: int('id').primaryKey().autoincrement(),
+  episodeId: int('episode_id').notNull(),
+  propId: int('prop_id').notNull(),
+  createdAt: varchar('created_at', { length: 64 }).notNull(),
+})
+
 export const scenes = mysqlTable('scenes', {
   id: int('id').primaryKey().autoincrement(),
   dramaId: int('drama_id').notNull(),
@@ -82,6 +92,7 @@ export const scenes = mysqlTable('scenes', {
   time: varchar('time', { length: 64 }).notNull(),
   prompt: text('prompt').notNull(),
   lighting: text('lighting'),
+  finalPrompt: text('final_prompt'),
   storyboardCount: int('storyboard_count').default(1),
   imageUrl: text('image_url'),
   status: varchar('status', { length: 64 }).default('pending'),
@@ -165,6 +176,19 @@ export const aiServiceProviders = mysqlTable('ai_service_providers', {
   updatedAt: varchar('updated_at', { length: 64 }).notNull(),
 })
 
+export const stylePresets = mysqlTable('style_presets', {
+  id: int('id').primaryKey().autoincrement(),
+  name: varchar('name', { length: 64 }).notNull(),
+  value: varchar('value', { length: 64 }).notNull(),
+  prompt: text('prompt').notNull(),
+  description: text('description'),
+  sortOrder: int('sort_order').default(0),
+  isActive: boolean('is_active').default(true),
+  createdAt: varchar('created_at', { length: 64 }).notNull(),
+  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
+  // 注意: 此表无 deleted_at（硬删除），value 列有唯一索引（见 DDL）
+})
+
 export const agentConfigs = mysqlTable('agent_configs', {
   id: int('id').primaryKey().autoincrement(),
   agentType: varchar('agent_type', { length: 64 }).notNull(),
@@ -227,6 +251,9 @@ export const videoGenerations = mysqlTable('video_generations', {
   firstFrameUrl: text('first_frame_url'),
   lastFrameUrl: text('last_frame_url'),
   referenceImageUrls: text('reference_image_urls'),
+  referenceVideoUrls: text('reference_video_urls'),
+  referenceAudioUrls: text('reference_audio_urls'),
+  generateAudio: int('generate_audio').default(1),
   duration: int('duration'),
   fps: int('fps'),
   resolution: text('resolution'),
@@ -274,6 +301,7 @@ export const props = mysqlTable('props', {
   type: text('type'),
   description: text('description'),
   prompt: text('prompt'),
+  finalPrompt: text('final_prompt'),
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
   localPath: text('local_path'),

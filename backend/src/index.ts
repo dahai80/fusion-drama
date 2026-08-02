@@ -15,11 +15,12 @@ import images from './routes/images.js'
 import videos from './routes/videos.js'
 import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
+import stylePresets from './routes/stylePresets.js'
 import agentConfigs from './routes/agentConfigs.js'
 import agent from './routes/agent.js'
 import merge from './routes/merge.js'
 import skills from './routes/skills.js'
-import webhooks from './routes/webhooks.js'
+import props from './routes/props.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -50,15 +51,14 @@ api.route('/videos', videos)
 api.route('/upload', upload)
 api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
+api.route('/style-presets', stylePresets)
 api.route('/agent-configs', agentConfigs)
 api.route('/agent', agent)
 api.route('/merge', merge)
 api.route('/skills', skills)
+api.route('/props', props)
 
 app.route('/api/v1', api)
-
-// Webhook callbacks (Vidu, etc.) - outside /api/v1
-app.route('/webhooks', webhooks)
 
 // Serve static files (storage)
 app.use('/static/*', serveStatic({ root: path.join(projectRoot, 'data') }))

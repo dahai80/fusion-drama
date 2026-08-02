@@ -19,8 +19,8 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   provider = 'gemini'
 
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
-    // Gemini 模型名格式: "models/gemini-3-pro-image-preview" 或直接 "gemini-3-pro-image-preview"
-    const modelName = record.model || config.model || 'gemini-3-pro-image-preview'
+    // Gemini 模型名格式: "models/gemini-3-pro-image" 或直接 "gemini-3-pro-image"
+    const modelName = record.model || config.model || 'gemini-3-pro-image'
     const isGemini3Image = /gemini-3.*image/.test(modelName)
 
     if (isGemini3Image) {

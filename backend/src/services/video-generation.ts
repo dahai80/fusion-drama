@@ -17,6 +17,9 @@ interface GenerateVideoParams {
   firstFrameUrl?: string
   lastFrameUrl?: string
   referenceImageUrls?: string[]
+  referenceVideoUrls?: string[]
+  referenceAudioUrls?: string[]
+  generateAudio?: boolean
   duration?: number
   aspectRatio?: string
   configId?: number
@@ -35,11 +38,14 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     prompt: params.prompt,
     model: params.model || config.model,
     provider: config.provider,
-    referenceMode: params.referenceMode || 'none',
+    referenceMode: params.referenceMode || 'reference',
     imageUrl: params.imageUrl,
     firstFrameUrl: params.firstFrameUrl,
     lastFrameUrl: params.lastFrameUrl,
     referenceImageUrls: params.referenceImageUrls ? JSON.stringify(params.referenceImageUrls) : null,
+    referenceVideoUrls: params.referenceVideoUrls ? JSON.stringify(params.referenceVideoUrls) : null,
+    referenceAudioUrls: params.referenceAudioUrls ? JSON.stringify(params.referenceAudioUrls) : null,
+    generateAudio: params.generateAudio === false ? 0 : 1,
     duration: params.duration || 5,
     aspectRatio: params.aspectRatio || '16:9',
     status: 'processing',
@@ -53,7 +59,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     provider: config.provider,
     storyboardId: params.storyboardId,
     dramaId: params.dramaId,
-    referenceMode: params.referenceMode || 'none',
+    referenceMode: params.referenceMode || 'reference',
     duration: params.duration || 5,
   })
   logTaskPayload('VideoTask', 'enqueue params', {
@@ -90,6 +96,9 @@ async function processVideoGeneration(id: number, config: AIConfig) {
     const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(record.firstFrameUrl)
     const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(record.lastFrameUrl)
     const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(record.referenceImageUrls)
+    // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
+    const resolvedReferenceVideoUrls = resolvePublicMediaUrls(record.referenceVideoUrls, 'video')
+    const resolvedReferenceAudioUrls = resolvePublicMediaUrls(record.referenceAudioUrls, 'audio')
 
     // 使用 Adapter 构建请求
     const { url, method, headers, body } = adapter.buildGenerateRequest(config, {
@@ -100,7 +109,10 @@ async function processVideoGeneration(id: number, config: AIConfig) {
       imageUrl: resolvedImageUrl,
       firstFrameUrl: resolvedFirstFrameUrl,
       lastFrameUrl: resolvedLastFrameUrl,
-      referenceImageUrls: resolvedReferenceImageUrls ? JSON.stringify(resolvedReferenceImageUrls) : null,
+      referenceImageUrls: resolvedReferenceImageUrls.length ? JSON.stringify(resolvedReferenceImageUrls) : null,
+      referenceVideoUrls: resolvedReferenceVideoUrls.length ? JSON.stringify(resolvedReferenceVideoUrls) : null,
+      referenceAudioUrls: resolvedReferenceAudioUrls.length ? JSON.stringify(resolvedReferenceAudioUrls) : null,
+      generateAudio: record.generateAudio,
       duration: record.duration,
       aspectRatio: record.aspectRatio,
     })
@@ -145,12 +157,6 @@ async function processVideoGeneration(id: number, config: AIConfig) {
 
     logTaskProgress('VideoTask', 'poll-start', { id, taskId, provider: config.provider })
 
-    // Vidu 没有轮询端点，跳过轮询（依赖 Webhook 回调）
-    if (adapter.provider === 'vidu') {
-      logTaskProgress('VideoTask', 'webhook-wait', { id, taskId, provider: adapter.provider })
-      return
-    }
-
     pollVideoTask(id, config, taskId!, record.storyboardId)
   } catch (err: any) {
     logTaskError('VideoTask', 'process', { id, provider: config.provider, error: err.message })
@@ -193,6 +199,42 @@ async function normalizeVideoReferenceUrls(raw: string | null | undefined): Prom
     Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean))).map((item) => normalizeVideoReferenceUrl(item)),
   )
   return normalized.filter((item): item is string => !!item)
+}
+
+/**
+ * 将参考视频/音频解析为 Seedance API 可访问的 URL。
+ * http(s)/dataURL 直通；本地 static 路径需要 PUBLIC_BASE_URL 拼成公网地址，
+ * 未配置时抛出可操作的中文错误（落入 catch 写入 error_msg 供前端展示）。
+ */
+function resolvePublicMediaUrl(value: string | null | undefined, kind: 'video' | 'audio'): string | null {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
+  if (raw.startsWith('static/') || raw.startsWith('/static/')) {
+    const base = (process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
+    if (!base) {
+      const label = kind === 'video' ? '视频' : '音频'
+      throw new Error(
+        `参考${label}为本地路径 ${raw}，但后端未配置 PUBLIC_BASE_URL，Seedance API 无法访问内网地址。` +
+        `请在 backend/.env 配置 PUBLIC_BASE_URL（如 https://your-domain.com）后重试，或改用公网 URL。`,
+      )
+    }
+    const p = raw.startsWith('/') ? raw : `/${raw}`
+    return `${base}${p}`
+  }
+  return raw
+}
+
+function resolvePublicMediaUrls(raw: string | null | undefined, kind: 'video' | 'audio'): string[] {
+  if (!raw) return []
+  let refs: string[] = []
+  try {
+    refs = JSON.parse(raw)
+  } catch {
+    refs = []
+  }
+  const items = Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean)))
+  return items.map((item) => resolvePublicMediaUrl(item, kind)).filter((item): item is string => !!item)
 }
 
 async function pollVideoTask(id: number, config: AIConfig, taskId: string, storyboardId?: number | null) {

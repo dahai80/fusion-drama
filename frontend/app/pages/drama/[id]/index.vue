@@ -1,33 +1,40 @@
 <template>
   <div class="page" v-if="drama">
     <!-- Header -->
-    <div class="page-head">
-      <div class="head-left">
-        <button class="back-btn" @click="navigateTo('/')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-          返回
-        </button>
-        <div class="head-info">
+    <div class="page-head card">
+      <button class="back-btn" title="返回" @click="navigateTo('/')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+      </button>
+      <div class="head-info">
+        <div class="head-title-row">
           <h1 class="page-title">{{ drama.title }}</h1>
-          <div class="page-meta">
-            <span v-if="drama.style" class="style-chip">{{ drama.style }}</span>
-            <span v-if="drama.style" class="meta-divider"></span>
-            <span class="meta-item">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              {{ drama.characters?.length || 0 }} 角色
-            </span>
-            <span class="meta-divider"></span>
-            <span class="meta-item">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
-              {{ drama.scenes?.length || 0 }} 场景
-            </span>
-          </div>
+          <span v-if="drama.style" class="tag tag-accent">{{ drama.style }}</span>
+        </div>
+        <div class="page-meta">
+          <span class="meta-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            {{ drama.characters?.length || 0 }} 角色
+          </span>
+          <span class="meta-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
+            {{ drama.scenes?.length || 0 }} 场景
+          </span>
+          <span class="meta-item">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+            {{ drama.episodes?.length || 0 }} 集
+          </span>
         </div>
       </div>
-      <button class="btn btn-primary" @click="openAddEpisode">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <button class="btn head-assets" @click="navigateTo(`/drama/${drama.id}/assets`)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+        </svg>
+        素材库
+      </button>
+      <button class="btn btn-primary head-action" @click="openAddEpisode">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
         添加集
@@ -54,16 +61,41 @@
         :style="{ animationDelay: `${i * 0.05}s` }"
         @click="navigateTo(`/drama/${drama.id}/episode/${ep.episode_number || ep.episodeNumber}`)"
       >
-        <div class="ep-number">E{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</div>
+        <div class="ep-number">
+          <span>EP</span>
+          <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
+        </div>
         <div class="ep-body">
           <span class="ep-title">{{ ep.title }}</span>
-          <div class="ep-status">
-            <span :class="['status-dot', hasScript(ep) ? 'dot-ready' : 'dot-pending']"></span>
-            <span class="status-text">{{ hasScript(ep) ? '已完成剧本' : '待编写' }}</span>
-            <span v-if="ep.duration" class="ep-duration">{{ ep.duration }}s</span>
+          <div class="ep-status-wrap" @click.stop>
+            <button type="button" :class="['tag', 'ep-status-btn']" title="点击标记本集状态" @click="epStatusMenuId = epStatusMenuId === ep.id ? null : ep.id">
+              <span :class="['status-dot', epStatusDotClass(ep)]"></span>
+              {{ epStatusLabel(ep) }}
+            </button>
+            <div v-if="epStatusMenuId === ep.id" class="status-menu">
+              <button
+                v-for="s in epStatusOptions"
+                :key="s.value"
+                type="button"
+                class="status-menu-item"
+                :class="{ on: epStatus(ep) === s.value }"
+                @click="setEpisodeStatus(ep, s.value)"
+              >{{ s.label }}</button>
+            </div>
           </div>
+          <span v-if="ep.duration" class="ep-duration">{{ ep.duration }}s</span>
         </div>
         <div class="ep-arrow">
+          <button
+            class="btn btn-icon btn-sm ep-delete"
+            type="button"
+            title="删除本集"
+            @click.stop="episodeToDelete = ep"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
@@ -83,69 +115,44 @@
       </div>
     </div>
 
-    <div v-if="addDialog" class="dialog-mask" @click.self="addDialog = false">
-      <div class="card dialog">
+    <div v-if="addDialog" class="overlay" @click.self="addDialog = false">
+      <div class="dialog ep-dialog">
         <div class="dialog-head">
-          <div class="dialog-head-copy">
-            <div class="dialog-kicker">Episode Setup</div>
-            <div class="dialog-title-row">
-              <div class="dialog-title">创建新集</div>
-              <span class="dialog-badge">配置将锁定</span>
-            </div>
-            <div class="dialog-sub">为这一集预先锁定图片和视频生成服务。创建后，这些生成链路将始终跟随当前集配置。</div>
-          </div>
-          <button class="back-btn" @click="addDialog = false">取消</button>
-        </div>
-        <div class="dialog-summary">
-          <div class="summary-chip">图片 · {{ imageConfigs.length }} 可选</div>
-          <div class="summary-chip">视频 · {{ videoConfigs.length }} 可选</div>
+          <div class="dialog-title">创建新集</div>
+          <button class="btn btn-icon btn-sm btn-ghost ml-auto dialog-close" @click="addDialog = false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
         <div class="dialog-body">
-          <div class="dialog-section">
-            <div class="dialog-section-head">
-              <span class="dialog-section-title">基础信息</span>
-              <span class="dialog-section-copy">这一项只影响显示名称，不影响生成配置</span>
-            </div>
-            <label class="field">
-              <span class="field-label">标题</span>
-              <input v-model="newEpisodeTitle" class="input" placeholder="默认按集数自动命名" />
-              <span class="field-hint">留空时会自动按集数命名，例如“第 3 集”。</span>
-            </label>
-          </div>
-
-          <div class="dialog-section">
-            <div class="dialog-section-head">
-              <span class="dialog-section-title">生成配置</span>
-              <span class="dialog-section-copy">创建后不可更改，建议在这里一次性选对</span>
-            </div>
-            <div class="config-grid">
-              <label class="config-card">
-                <span class="config-card-kicker">IMAGE</span>
-                <span class="field-label">图片配置</span>
-                <BaseSelect v-model="newEpisodeImageConfigId" :options="imageConfigOptions" placeholder="选择图片服务" searchable />
-              </label>
-              <label class="config-card">
-                <span class="config-card-kicker">VIDEO</span>
-                <span class="field-label">视频配置</span>
-                <BaseSelect v-model="newEpisodeVideoConfigId" :options="videoConfigOptions" placeholder="选择视频服务" searchable />
-              </label>
-            </div>
-          </div>
+          <label class="field">
+            <span class="field-label">标题</span>
+            <input v-model="newEpisodeTitle" class="input" placeholder="默认按集数自动命名" />
+            <span class="field-hint">留空时会自动按集数命名，例如“第 3 集”。</span>
+          </label>
         </div>
         <div class="dialog-foot">
-          <div class="dialog-foot-copy">创建后，工作台中的图片和视频生成入口都会锁定到当前集。</div>
-          <button class="btn btn-primary" :disabled="creatingEpisode || !canCreateEpisode" @click="addEpisode">
-            {{ creatingEpisode ? '创建中...' : '创建并锁定配置' }}
+          <span class="dialog-foot-copy">创建后自动锁定当前启用的图片与视频生成能力。</span>
+          <button class="btn" @click="addDialog = false">取消</button>
+          <button class="btn btn-primary" :disabled="creatingEpisode" @click="addEpisode">
+            {{ creatingEpisode ? '创建中...' : '创建' }}
           </button>
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      :open="!!episodeToDelete"
+      title="删除本集"
+      :message="`确定删除「${episodeToDelete?.title || `第 ${episodeToDelete?.episode_number || episodeToDelete?.episodeNumber} 集`}」？删除后不可在列表中查看，其分镜与生成记录将不再可访问。`"
+      :loading="deletingEpisode"
+      @confirm="confirmDelEpisode"
+      @cancel="episodeToDelete = null"
+    />
   </div>
 </template>
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { aiConfigAPI, dramaAPI, episodeAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI } from '~/composables/useApi'
 
 const route = useRoute()
 const drama = ref(null)
@@ -153,42 +160,37 @@ const dramaId = Number(route.params.id)
 const addDialog = ref(false)
 const creatingEpisode = ref(false)
 const newEpisodeTitle = ref('')
-const imageConfigs = ref([])
-const videoConfigs = ref([])
-const newEpisodeImageConfigId = ref(null)
-const newEpisodeVideoConfigId = ref(null)
+const episodeToDelete = ref(null)
+const deletingEpisode = ref(false)
 
-function hasScript(ep) { return !!(ep.script_content || ep.scriptContent) }
+// 集状态由用户手动标记（持久化到 episodes.status），不再按剧本内容自动推算
+const epStatusOptions = [
+  { label: '待开始', value: 'draft' },
+  { label: '进行中', value: 'active' },
+  { label: '已完成', value: 'completed' },
+]
+const epStatusMenuId = ref(null)
 
-function configLabel(config) {
-  if (!config) return ''
-  let modelName = ''
-  try { const m = JSON.parse(config.model || '[]'); modelName = Array.isArray(m) ? (m[0] || '') : (m || '') } catch { modelName = config.model || '' }
-  return modelName ? `${config.name} · ${modelName} (${config.provider})` : `${config.name} (${config.provider})`
-}
+function epStatus(ep) { return ep.status || 'draft' }
+function epStatusLabel(ep) { return epStatusOptions.find(s => s.value === epStatus(ep))?.label || '待开始' }
+function epStatusDotClass(ep) { return epStatus(ep) === 'active' ? 'dot-active' : epStatus(ep) === 'completed' ? 'dot-done' : 'dot-pending' }
 
-const imageConfigOptions = computed(() => imageConfigs.value.map(c => ({ label: configLabel(c), value: c.id })))
-const videoConfigOptions = computed(() => videoConfigs.value.map(c => ({ label: configLabel(c), value: c.id })))
-const canCreateEpisode = computed(() => !!(newEpisodeImageConfigId.value && newEpisodeVideoConfigId.value))
-
-async function load() {
+async function setEpisodeStatus(ep, status) {
+  epStatusMenuId.value = null
+  if (epStatus(ep) === status) return
+  const prev = ep.status
+  ep.status = status
   try {
-    drama.value = await dramaAPI.get(dramaId)
+    await episodeAPI.update(ep.id, { status })
   } catch (e) {
+    ep.status = prev
     toast.error(e.message)
   }
 }
 
-async function loadConfigs() {
+async function load() {
   try {
-    const [imgs, vids] = await Promise.all([
-      aiConfigAPI.list('image'),
-      aiConfigAPI.list('video'),
-    ])
-    imageConfigs.value = imgs || []
-    videoConfigs.value = vids || []
-    if (!newEpisodeImageConfigId.value && imageConfigs.value.length) newEpisodeImageConfigId.value = imageConfigs.value[0].id
-    if (!newEpisodeVideoConfigId.value && videoConfigs.value.length) newEpisodeVideoConfigId.value = videoConfigs.value[0].id
+    drama.value = await dramaAPI.get(dramaId)
   } catch (e) {
     toast.error(e.message)
   }
@@ -202,11 +204,10 @@ function openAddEpisode() {
 async function addEpisode() {
   try {
     creatingEpisode.value = true
+    // 图片/视频生成配置由后端自动锁定为当前启用的最高优先级配置
     await episodeAPI.create({
       drama_id: dramaId,
       title: newEpisodeTitle.value || undefined,
-      image_config_id: newEpisodeImageConfigId.value,
-      video_config_id: newEpisodeVideoConfigId.value,
     })
     toast.success('已添加新集')
     addDialog.value = false
@@ -218,7 +219,23 @@ async function addEpisode() {
   }
 }
 
-onMounted(() => { load(); loadConfigs() })
+async function confirmDelEpisode() {
+  const ep = episodeToDelete.value
+  if (!ep) return
+  try {
+    deletingEpisode.value = true
+    await episodeAPI.del(ep.id)
+    toast.success('已删除')
+    episodeToDelete.value = null
+    load()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    deletingEpisode.value = false
+  }
+}
+
+onMounted(load)
 </script>
 
 <style scoped>
@@ -229,57 +246,44 @@ onMounted(() => { load(); loadConfigs() })
   animation: fadeUp 0.35s var(--ease-out) both;
 }
 
+/* Header card */
 .page-head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  border-radius: var(--radius-xl);
   margin-bottom: 24px;
-  gap: 20px;
 }
-.head-left { display: flex; align-items: flex-start; gap: 12px; }
-.head-info { display: flex; flex-direction: column; gap: 8px; }
+.head-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.head-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.head-action { flex-shrink: 0; }
+.head-assets { flex-shrink: 0; }
 
 .back-btn {
-  display: flex; align-items: center; gap: 6px;
-  min-height: var(--button-height);
-  padding: 0 12px; font-size: 13px; font-weight: 650;
-  border: 1px solid var(--button-border); border-radius: var(--button-radius);
-  background: var(--button-bg); color: var(--button-text);
-  cursor: pointer; transition: all 0.18s var(--ease-out);
-  box-shadow: var(--button-shadow);
-  line-height: 1;
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 50%;
+  background: rgba(0,0,0,0.05); color: var(--text-1);
+  cursor: pointer;
+  transition: background 0.16s var(--ease-out), color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
 }
-.back-btn:hover {
-  background: var(--button-bg-hover);
-  border-color: var(--button-border-hover);
-  color: var(--button-text-hover);
-  box-shadow: var(--button-shadow-hover);
-  transform: translateY(-1px);
-}
+.back-btn:hover { background: rgba(0,0,0,0.09); color: var(--text-0); }
 .back-btn:focus-visible {
   outline: none;
-  border-color: var(--action-primary);
-  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
 .page-title {
-  font-family: var(--font-display);
-  font-size: 26px; font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 22px; font-weight: 800;
+  letter-spacing: -0.03em;
   line-height: 1.2;
 }
 
-.page-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.style-chip {
-  font-size: 11px; font-weight: 500;
-  padding: 2px 8px;
-  background: var(--accent-bg); color: var(--accent-text);
-  border-radius: 99px; border: 1px solid rgba(184,120,20,0.12);
-}
-.meta-divider { width: 3px; height: 3px; border-radius: 50%; background: var(--text-3); }
+.page-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .meta-item {
   display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--text-2);
+  font-size: 12.5px; color: var(--text-2);
 }
 
 /* Section label */
@@ -291,53 +295,83 @@ onMounted(() => { load(); loadConfigs() })
   margin-bottom: 12px;
 }
 
-/* Episode Grid */
-.ep-grid { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+/* Episode List */
+.ep-grid { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
 
 .ep-card {
   display: flex; align-items: center; gap: 16px;
-  padding: 14px 16px;
+  padding: 16px 20px;
   cursor: pointer;
   animation: fadeUp 0.35s var(--ease-out) both;
-  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s;
 }
 .ep-card:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-  box-shadow: none;
-  transform: none;
+  transform: translateX(3px);
+  box-shadow: var(--shadow-lift);
 }
 
 .ep-number {
-  width: 44px; height: 44px; flex-shrink: 0;
-  border-radius: var(--radius);
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 12px; font-weight: 700;
-  color: var(--text-2);
-  transition: all 0.18s;
-}
-.ep-card:hover .ep-number {
+  width: 52px; height: 52px; flex-shrink: 0;
+  border-radius: var(--radius-lg);
   background: var(--accent-bg);
-  border-color: var(--accent-glow);
-  color: var(--accent);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  color: var(--accent-text);
 }
+.ep-number span { font-size: 9px; letter-spacing: 0.12em; opacity: 0.65; }
+.ep-number b { font-size: 16px; font-weight: 700; line-height: 1.1; }
 
-.ep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.ep-title { font-size: 14px; font-weight: 600; color: var(--text-0); }
-.ep-status { display: flex; align-items: center; gap: 6px; }
+.ep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ep-title { font-size: 14.5px; font-weight: 650; color: var(--text-0); }
+.ep-status-wrap { position: relative; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; }
+.ep-status-btn { cursor: pointer; border: none; font: inherit; display: inline-flex; align-items: center; gap: 6px; }
 .status-dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
 }
-.dot-ready { background: var(--success); }
+.dot-active { background: var(--success); }
+.dot-done { background: var(--accent); }
 .dot-pending { background: var(--text-3); }
-.status-text { font-size: 11px; color: var(--text-3); }
-.ep-duration { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); margin-left: 4px; }
+.status-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 108px;
+  display: grid;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+}
+.status-menu-item {
+  min-height: var(--button-height-sm);
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-1);
+  padding: 0 9px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s var(--ease-out);
+}
+.status-menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
+.status-menu-item.on { color: var(--accent); background: var(--accent-bg); }
+.ep-duration { font-size: 12px; color: var(--text-2); font-family: var(--font-mono); }
 
-.ep-arrow { color: var(--text-3); flex-shrink: 0; transition: transform 0.18s; }
+.ep-arrow { color: var(--text-3); flex-shrink: 0; transition: transform 0.18s var(--ease-out), color 0.18s var(--ease-out); display: flex; align-items: center; gap: 6px; }
 .ep-card:hover .ep-arrow { transform: translateX(3px); color: var(--accent); }
+.ep-delete {
+  opacity: 0;
+  color: var(--text-3);
+  transition: opacity 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+.ep-card:hover .ep-delete { opacity: 1; }
+.ep-delete:hover { color: var(--action-danger); }
+.ep-card:hover .ep-arrow:has(.ep-delete:hover) { transform: none; color: var(--text-3); }
 
 /* Empty */
 .ep-empty {
@@ -347,153 +381,30 @@ onMounted(() => { load(); loadConfigs() })
 }
 .ep-empty-icon {
   width: 48px; height: 48px; border-radius: 50%;
-  background: var(--bg-2); display: flex; align-items: center; justify-content: center;
+  background: var(--accent-bg); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center;
 }
 
-.dialog-mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 10, 12, 0.62);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.dialog {
-  width: min(760px, 100%);
-  max-height: min(860px, calc(100vh - 48px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 26px 26px 22px;
-  border-radius: var(--radius-xl);
-  background: var(--surface-raised);
-  overflow: hidden;
-  border: 1px solid var(--surface-outline);
-  box-shadow: var(--shadow-elevated);
-}
-.dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.dialog-head-copy { display: flex; flex-direction: column; gap: 8px; max-width: 520px; }
-.dialog-kicker {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.dialog-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dialog-title { font-size: 28px; font-weight: 800; color: var(--text-0); letter-spacing: -0.03em; }
-.dialog-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--accent-bg);
-  color: var(--accent-text);
-  font-size: 12px;
-  font-weight: 700;
-}
-.dialog-sub { font-size: 14px; line-height: 1.7; color: var(--text-2); }
-.dialog-summary {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.summary-chip {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: var(--surface-muted);
-  border: 1px solid var(--surface-outline);
-  font-size: 12px;
-  color: var(--text-2);
-}
-.dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.dialog-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-muted);
-  border: 1px solid var(--surface-outline);
-}
-.dialog-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.dialog-section-title { font-size: 14px; font-weight: 700; color: var(--text-0); }
-.dialog-section-copy { font-size: 12px; color: var(--text-3); }
-.config-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-.config-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-muted);
-  border: 1px solid var(--surface-outline);
-}
-.config-card-kicker {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.dialog-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-top: 2px;
-}
+/* Create Episode Dialog (on top of global .dialog skeleton) */
+.ep-dialog { width: min(480px, 100%); }
+.dialog-close { flex-shrink: 0; color: var(--text-2); }
+.dialog-body { display: flex; flex-direction: column; gap: 20px; }
+
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field-label { font-size: 12.5px; font-weight: 600; color: var(--text-1); }
+.field-hint { font-size: 12px; color: var(--text-3); }
+
 .dialog-foot-copy {
-  flex: 1;
+  margin-right: auto;
   font-size: 12px;
   line-height: 1.6;
   color: var(--text-3);
 }
-.field { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--text-1); }
-.field-hint { font-size: 12px; color: var(--text-3); }
 
 @media (max-width: 860px) {
-  .dialog {
-    width: 100%;
-    max-height: calc(100vh - 24px);
-    padding: 18px;
-    border-radius: 22px;
-  }
-
-  .dialog-title {
-    font-size: 24px;
-  }
-
-  .config-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dialog-foot {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  .page { padding: 20px 20px 32px; }
+  .page-head { flex-wrap: wrap; }
+  .dialog-foot { flex-wrap: wrap; gap: 10px; }
+  .dialog-foot-copy { display: none; }
 }
 </style>

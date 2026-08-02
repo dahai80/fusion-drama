@@ -46,8 +46,10 @@ export const dramaAPI = {
 export const episodeAPI = {
   create: (data: any) => api.post('/episodes', data),
   update: (id: number, data: any) => api.put(`/episodes/${id}`, data),
+  del: (id: number) => api.del(`/episodes/${id}`),
   characters: (id: number) => api.get(`/episodes/${id}/characters`),
   scenes: (id: number) => api.get(`/episodes/${id}/scenes`),
+  props: (id: number) => api.get(`/episodes/${id}/props`),
   storyboards: (id: number) => api.get(`/episodes/${id}/storyboards`),
   pipelineStatus: (id: number) => api.get(`/episodes/${id}/pipeline-status`),
 }
@@ -60,13 +62,21 @@ export const storyboardAPI = {
 
 export const characterAPI = {
   update: (id: number, data: any) => api.put(`/characters/${id}`, data),
-  generateImage: (id: number, episodeId: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId }),
-  batchImages: (ids: number[], episodeId: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId }),
+  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/characters/${id}/generate-prompt`, { episode_id: episodeId, force }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
+  batchImages: (ids: number[], episodeId: number, model?: string, configId?: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
 }
 
 export const sceneAPI = {
   update: (id: number, data: any) => api.put(`/scenes/${id}`, data),
-  generateImage: (id: number, episodeId: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId }),
+  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/scenes/${id}/generate-prompt`, { episode_id: episodeId, force }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
+}
+
+export const propAPI = {
+  update: (id: number, data: any) => api.put(`/props/${id}`, data),
+  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/props/${id}/generate-prompt`, { episode_id: episodeId, force }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/props/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
 }
 
 export const imageAPI = {
@@ -81,6 +91,25 @@ export const imageAPI = {
 export const videoAPI = {
   generate: (d: any) => api.post('/videos', d),
   get: (id: number) => api.get(`/videos/${id}`),
+}
+
+async function uploadReq<T = any>(path: string, file: File): Promise<T> {
+  const fd = new FormData()
+  fd.append('file', file)
+  console.log(`%c[API] %cPOST %c${path} %c${file.name}`, 'color:#888', 'color:#4fc3f7;font-weight:bold', 'color:#ccc', 'color:#888')
+  const resp = await fetch(`${BASE}${path}`, { method: 'POST', body: fd })
+  const json = await resp.json()
+  if (!resp.ok || (json.code && json.code >= 400)) {
+    console.log(`%c[API] %cPOST ${path} %c${resp.status}`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold')
+    throw new Error(json.message || `${resp.status}`)
+  }
+  return json.data ?? json
+}
+
+export const uploadAPI = {
+  image: (f: File) => uploadReq<{ url: string; path: string }>('/upload/image', f),
+  video: (f: File) => uploadReq<{ url: string; path: string }>('/upload/video', f),
+  audio: (f: File) => uploadReq<{ url: string; path: string }>('/upload/audio', f),
 }
 export const mergeAPI = {
   merge: (epId: number) => api.post(`/merge/episodes/${epId}/merge`),
@@ -108,4 +137,11 @@ export const skillsAPI = {
   create: (data: { id: string; name: string; description?: string }) => api.post('/skills', data),
   update: (id: string, content: string) => api.put(`/skills/${id}`, { content }),
   del: (id: string) => api.del(`/skills/${id}`),
+}
+
+export const stylePresetAPI = {
+  list: (all = false) => api.get(`/style-presets${all ? '?all=1' : ''}`),
+  create: (d: any) => api.post('/style-presets', d),
+  update: (id: number, d: any) => api.put(`/style-presets/${id}`, d),
+  del: (id: number) => api.del(`/style-presets/${id}`),
 }

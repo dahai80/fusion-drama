@@ -51,36 +51,33 @@ const showBrandImage = ref(true)
 /* === Header === */
 .header {
   display: flex; align-items: center;
-  height: 56px; flex-shrink: 0;
+  height: 60px; flex-shrink: 0;
   padding: 0 24px;
-  background: var(--surface-raised);
-  border-bottom: 1px solid var(--surface-outline);
   gap: 32px;
-  box-shadow: none;
+  background: rgba(251,251,253,0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  position: relative; z-index: 10;
 }
 
 .header-left { display: flex; align-items: center; }
 
 .brand {
-  display: flex; align-items: center; gap: 10px;
-  background: transparent; border: 1px solid transparent; cursor: pointer; padding: 3px 5px 3px 3px;
+  display: flex; align-items: center; gap: 11px;
+  background: transparent; border: none; cursor: pointer; padding: 4px 8px 4px 4px;
   text-decoration: none; border-radius: var(--radius);
-  transition: background 0.18s var(--ease-out), border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+  transition: background 0.18s var(--ease-out);
 }
-.brand:hover {
-  background: var(--bg-hover);
-  border-color: var(--button-border);
-}
+.brand:hover { background: var(--bg-hover); }
 .brand:focus-visible {
   outline: none;
-  border-color: var(--action-primary);
-  box-shadow: 0 0 0 3px var(--button-focus);
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 .brand-mark {
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg-2); border-radius: var(--radius);
-  border: 1px solid var(--border);
+  background: var(--text-0); border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
@@ -90,12 +87,12 @@ const showBrandImage = ref(true)
   display: block;
 }
 .brand-fallback {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--accent-text);
+  color: #fff;
   line-height: 1;
 }
-.brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .brand-name {
   font-size: 15px; font-weight: 700;
   color: var(--text-0);
@@ -107,34 +104,32 @@ const showBrandImage = ref(true)
   letter-spacing: 0.04em;
 }
 
-/* Nav */
-.header-nav { display: flex; gap: 4px; flex: 1; }
+/* Nav — pill segmented group */
+.header-nav {
+  display: flex; gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: rgba(0,0,0,0.05);
+}
 .nav-link {
-  display: flex; align-items: center; gap: 7px;
-  min-height: var(--button-height);
-  padding: 0 14px; border-radius: var(--button-radius);
-  font-size: 13px; font-weight: 650;
+  display: flex; align-items: center; gap: 6px;
+  min-height: 32px;
+  padding: 0 16px; border-radius: var(--radius-pill);
+  font-size: 13px; font-weight: 600;
   color: var(--text-2); text-decoration: none;
   transition: all 0.18s var(--ease-out);
-  border: 1px solid transparent;
+  border: none;
   line-height: 1;
 }
-.nav-link:hover {
-  background: var(--bg-hover); color: var(--text-0);
-  border-color: var(--button-border);
-  box-shadow: none;
-}
+.nav-link:hover { color: var(--text-0); }
 .nav-link.active {
-  background: var(--accent-bg);
-  color: var(--accent-text);
-  border-color: var(--accent-glow);
-  font-weight: 600;
-  box-shadow: none;
+  background: #fff;
+  color: var(--text-0);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 .nav-link:focus-visible {
   outline: none;
-  border-color: var(--action-primary);
-  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow);
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
 /* Content */

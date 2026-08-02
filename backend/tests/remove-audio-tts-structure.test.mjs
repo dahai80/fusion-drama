@@ -14,7 +14,7 @@ test('backend removes the voice assignment agent and tools', () => {
   assert.doesNotMatch(agents, /createVoiceTools/)
   assert.doesNotMatch(skills, /voice_assigner/)
   assert.equal(exists('src/agents/tools/voice-tools.ts'), false)
-  assert.equal(exists('../skills/voice_assigner/SKILL.md'), false)
+  assert.equal(exists('workspace/skills/voice_assigner/SKILL.md'), false)
 })
 
 test('backend removes audio service providers, TTS adapters, and voice routes', () => {
@@ -32,7 +32,8 @@ test('backend removes audio service providers, TTS adapters, and voice routes', 
   assert.equal(exists('src/routes/aiVoices.ts'), false)
   assert.equal(exists('src/services/tts-generation.ts'), false)
   assert.equal(exists('src/services/adapters/minimax-tts.ts'), false)
-  assert.match(read('src/services/adapters/volcengine-video.ts'), /generate_audio:\s*false/)
+  assert.match(read('src/services/adapters/volcengine-video.ts'), /generate_audio:\s*record\.generateAudio/)
+  assert.doesNotMatch(read('src/services/adapters/volcengine-video.ts'), /generate_audio:\s*false/)
 })
 
 test('backend removes TTS endpoints and audio-specific schema fields', () => {

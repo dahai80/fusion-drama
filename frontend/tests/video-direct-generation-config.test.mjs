@@ -21,6 +21,6 @@ test('video presets use official provider endpoints', () => {
   const providerPresets = settingsPage.slice(presetsStart, quickStart)
   assert.doesNotMatch(providerPresets, /api\.chatfire\.site/)
   assert.match(settingsPage, /https:\/\/ark\.cn-beijing\.volces\.com/)
-  assert.match(settingsPage, /https:\/\/dashscope\.aliyuncs\.com/)
-  assert.match(settingsPage, /https:\/\/api\.vidu\.com/)
+  assert.doesNotMatch(settingsPage, /https:\/\/dashscope\.aliyuncs\.com/)
+  assert.doesNotMatch(settingsPage, /https:\/\/api\.vidu\.com/)
 })

@@ -13,8 +13,10 @@ test('global button system exposes complete button tokens and states', () => {
   assert.match(studioCss, /--button-height:\s*36px/)
   assert.match(studioCss, /--button-height-sm:\s*30px/)
   assert.match(studioCss, /--button-height-icon:\s*36px/)
-  assert.match(studioCss, /--button-border:\s*#30343a/)
-  assert.match(studioCss, /--button-focus:\s*rgba\(76,141,255,0\.24\)/)
+  assert.match(studioCss, /--button-border:\s*transparent/)
+  assert.match(studioCss, /--button-focus:\s*rgba\(0,113,227,0\.18\)/)
+  assert.match(studioCss, /--radius-pill:\s*980px/)
+  assert.match(studioCss, /\.btn\s*\{[\s\S]*?border-radius:\s*var\(--button-radius\)/)
   assert.match(studioCss, /\.btn:focus-visible\s*\{/)
   assert.match(studioCss, /\.btn-danger\s*\{/)
   assert.match(studioCss, /\.btn-danger:hover\s*\{/)
@@ -29,11 +31,9 @@ test('button-like controls share focus-visible and active hooks', () => {
   assert.match(baseSelect, /\.base-select-option:focus-visible\s*\{/)
 })
 
-test('custom return buttons use the unified button token surface', () => {
-  assert.match(dramaDetail, /background:\s*var\(--button-bg\)/)
-  assert.match(dramaDetail, /box-shadow:\s*var\(--button-shadow\)/)
+test('custom return buttons use the unified quiet circular surface', () => {
+  assert.match(dramaDetail, /\.back-btn\s*\{[\s\S]*?background:\s*rgba\(0,0,0,0\.05\)/)
   assert.match(dramaDetail, /\.back-btn:focus-visible\s*\{/)
-  assert.match(episodeWorkbench, /background:\s*var\(--button-bg\)/)
-  assert.match(episodeWorkbench, /box-shadow:\s*var\(--button-shadow\)/)
+  assert.match(episodeWorkbench, /\.back-btn\s*\{[\s\S]*?background:\s*rgba\(0,0,0,0\.05\)/)
   assert.match(episodeWorkbench, /\.back-btn:focus-visible\s*\{/)
 })

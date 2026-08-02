@@ -1,8 +1,10 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
+import { getActiveConfigId } from '../services/ai.js'
+import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 
 const app = new Hono()
 
@@ -10,14 +12,17 @@ const app = new Hono()
 app.post('/', async (c) => {
   const body = await c.req.json()
   if (!body.drama_id) return badRequest(c, 'drama_id required')
-  if (!body.image_config_id || !body.video_config_id) {
-    return badRequest(c, 'image_config_id and video_config_id are required')
-  }
+
+  // 图片/视频配置：显式传入优先，缺省时自动锁定当前启用的最高优先级官方配置
+  const imageConfigId = body.image_config_id ?? await getActiveConfigId('image')
+  const videoConfigId = body.video_config_id ?? await getActiveConfigId('video')
+  if (!imageConfigId) return badRequest(c, '未找到启用的图片生成配置，请先在设置中心添加')
+  if (!videoConfigId) return badRequest(c, '未找到启用的视频生成配置，请先在设置中心添加')
   const ts = now()
 
-  // Get next episode number
+  // Get next episode number（忽略已软删的集，删除中间集后新集号可复用空位之后的最大值）
   const existing = await db.select().from(schema.episodes)
-    .where(eq(schema.episodes.dramaId, body.drama_id))
+    .where(and(eq(schema.episodes.dramaId, body.drama_id), isNull(schema.episodes.deletedAt)))
     .orderBy(schema.episodes.episodeNumber)
   const nextNum = existing.length ? Math.max(...existing.map(e => e.episodeNumber)) + 1 : 1
 
@@ -25,8 +30,8 @@ app.post('/', async (c) => {
     dramaId: body.drama_id,
     episodeNumber: nextNum,
     title: body.title || `第${nextNum}集`,
-    imageConfigId: body.image_config_id,
-    videoConfigId: body.video_config_id,
+    imageConfigId,
+    videoConfigId,
     createdAt: ts,
     updatedAt: ts,
   })
@@ -66,6 +71,16 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
+// DELETE /episodes/:id - Soft delete episode（其分镜/生成记录保留但不可达）
+app.delete('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return notFound(c, '剧集不存在')
+  await db.update(schema.episodes).set({ deletedAt: now(), updatedAt: now() })
+    .where(eq(schema.episodes.id, id))
+  return success(c)
+})
+
 // GET /episodes/:id/characters — characters linked to this episode
 app.get('/:id/characters', async (c) => {
   const episodeId = Number(c.req.param('id'))
@@ -88,6 +103,36 @@ app.get('/:id/scenes', async (c) => {
   const allScenes = await db.select().from(schema.scenes)
   const result = allScenes.filter(sc => sceneIds.includes(sc.id) && !sc.deletedAt)
   return success(c, toSnakeCaseArray(result))
+})
+
+// GET /episodes/:id/props — props linked to this episode
+app.get('/:id/props', async (c) => {
+  const episodeId = Number(c.req.param('id'))
+  const links = await db.select().from(schema.episodeProps)
+    .where(eq(schema.episodeProps.episodeId, episodeId))
+  const propIds = links.map(l => l.propId)
+  if (!propIds.length) return success(c, [])
+  const allProps = await db.select().from(schema.props)
+  const result = allProps.filter(p => propIds.includes(p.id) && !p.deletedAt)
+  return success(c, toSnakeCaseArray(result))
+})
+
+// POST /episodes/:id/extract — 异步提取资产（target: characters | scenes | props），立即返回，前端轮询状态
+app.post('/:id/extract', async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json()
+  const target = body.target as ExtractTarget
+  if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target 必须是 characters / scenes / props')
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return notFound(c, '剧集不存在')
+  const started = startExtraction(ep.id, ep.dramaId, target)
+  return success(c, { target, status: 'running', already_running: !started })
+})
+
+// GET /episodes/:id/extract-status — 查询三类资产提取任务状态
+app.get('/:id/extract-status', async (c) => {
+  const id = Number(c.req.param('id'))
+  return success(c, getExtractionStatus(id))
 })
 
 // GET /episodes/:episode_id/storyboards
