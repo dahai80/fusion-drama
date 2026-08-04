@@ -37,14 +37,14 @@ test('character and scene image generation pass the selected model through', () 
   assert.ok(cfgPasses.length >= 2, `expected >=2 config overrides in characters route, got ${cfgPasses.length}`)
   assert.match(scenes, /configId: body\.config_id \?\? ep\.imageConfigId \?\? undefined/)
   // 服务层已有 params.model 优先于配置默认
-  const service = read('src/services/image-generation.ts')
+  const service = read('src/services/generation.ts')
   assert.match(service, /model: params\.model \|\| config\.model/)
 })
 
 test('video generation route passes the selected model through', () => {
-  const videos = read('src/routes/videos.ts')
-  const service = read('src/services/video-generation.ts')
+  const tasks = read('src/routes/tasks.ts')
+  const service = read('src/services/generation.ts')
 
-  assert.match(videos, /model: body\.model/)
+  assert.match(tasks, /model: body\.model/)
   assert.match(service, /model: params\.model \|\| config\.model/)
 })

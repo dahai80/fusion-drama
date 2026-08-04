@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
-import { db, schema } from '../db/index.js'
-import { success, badRequest, now } from '../utils/response.js'
-import { generateImage } from '../services/image-generation.js'
+import { and, eq } from 'drizzle-orm'
+import { db, getInsertId, schema } from '../db/index.js'
+import { success, created, badRequest, now } from '../utils/response.js'
+import { toSnakeCase } from '../utils/transform.js'
+import { generateImage } from '../services/generation.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { ensureCharacterFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
@@ -10,8 +11,37 @@ import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger
 const app = new Hono()
 const CHARACTER_IMAGE_SIZE = '1920x1080'
 
+// POST /characters — 手动新增角色（传入 episode_id 时关联到该集）
+app.post('/', async (c) => {
+  const body = await c.req.json()
+  if (!body.drama_id) return badRequest(c, 'drama_id required')
+  if (!body.name?.trim()) return badRequest(c, 'name required')
+  const ts = now()
+  const res = await db.insert(schema.characters).values({
+    name: body.name.trim(),
+    role: body.role || '',
+    description: body.description || '',
+    appearance: body.appearance || '',
+    styling: body.styling || '',
+    dramaId: body.drama_id,
+    createdAt: ts,
+    updatedAt: ts,
+  })
+  const charId = getInsertId(res)
+  if (body.episode_id) {
+    const existing = await db.select().from(schema.episodeCharacters)
+      .where(and(eq(schema.episodeCharacters.episodeId, Number(body.episode_id)), eq(schema.episodeCharacters.characterId, charId)))
+    if (!existing.length) {
+      await db.insert(schema.episodeCharacters).values({ episodeId: Number(body.episode_id), characterId: charId, createdAt: ts })
+    }
+  }
+  const [row] = await db.select().from(schema.characters).where(eq(schema.characters.id, charId))
+  return created(c, toSnakeCase(row))
+})
+
 function characterImagePrompt(char: typeof schema.characters.$inferSelect, stylePrompt = '') {
   return [
+    stylePrompt || '',
     char.name,
     char.appearance || char.description || '人物立绘',
     char.styling || '',
@@ -20,7 +50,6 @@ function characterImagePrompt(char: typeof schema.characters.$inferSelect, style
     '正面',
     '高质量',
     '白色背景',
-    stylePrompt || '',
   ].filter(Boolean).join(', ')
 }
 
@@ -62,7 +91,7 @@ app.post('/:id/generate-image', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   const stylePrompt = await getDramaStylePrompt(char.dramaId)
-  const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id)
+  const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
   const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
   try {
     logTaskStart('CharacterImage', 'generate', { characterId: id, episodeId: ep.id, dramaId: char.dramaId })
@@ -87,7 +116,7 @@ app.post('/:id/generate-prompt', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   logTaskStart('FinalPrompt', 'character-generate', { characterId: id, episodeId: ep.id, force: !!body.force })
-  const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, !!body.force)
+  const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'character-generate', { characterId: id, error: 'agent returned empty prompt' })
     return badRequest(c, '最终提示词生成失败，请重试')
@@ -108,7 +137,7 @@ app.post('/batch-generate-images', async (c) => {
   for (const cid of ids) {
     const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, cid))
     if (!char) continue
-    const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id)
+    const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
     const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
     try {
       const genId = await generateImage({ characterId: cid, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })

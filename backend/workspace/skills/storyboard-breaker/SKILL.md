@@ -28,12 +28,13 @@ description: 分镜拆解专业规范
 15. **音效提示词**：`sound_effect`，描述该镜头关键环境音/动作音
 16. **场景关联**：若能匹配已有场景，必须填写 `scene_id`
 17. **角色关联**：填写 `character_ids`，绑定当前镜头涉及的 0 到多个角色
+18. **道具关联**：填写 `prop_ids`，绑定当前镜头出现的关键道具（0 到多个）
 
 ## 使用步骤
 
-1. 调用 `read_storyboard_context` 读取剧本、角色、场景、已有分镜摘要
+1. 调用 `read_storyboard_context` 读取剧本、角色、场景、道具、已有分镜摘要
 2. 先基于剧本完成镜头拆解，确保总时长和叙事连续性合理
-3. 为每个镜头补全完整字段：`title / shot_type / angle / movement / location / time / character_ids / action / dialogue / description / result / atmosphere / image_prompt / bgm_prompt / sound_effect / duration / scene_id`（不含 `video_prompt`）
+3. 为每个镜头补全完整字段：`title / shot_type / angle / movement / location / time / character_ids / prop_ids / action / dialogue / description / result / atmosphere / image_prompt / bgm_prompt / sound_effect / duration / scene_id`（不含 `video_prompt`）
 4. 调用 `save_storyboards` 一次性保存完整分镜
 5. 如需调整，调用 `update_storyboard` 修改具体镜头
 
@@ -50,6 +51,14 @@ description: 分镜拆解专业规范
 - 一个镜头可以没有角色，也可以绑定多个角色
 - 只要镜头里有明确出场、被看见、发生动作或说话的角色，都应绑定进去
 - 纯环境镜头、空镜头、物件镜头可以传空数组
+
+## 道具绑定规则
+
+- `prop_ids` 必须从 `read_storyboard_context` 返回的道具列表（`props`）中选择
+- 道具被角色使用、交接、特写，或在画面中明显可见且对叙事有意义时，必须绑定到该镜头
+- 道具特写镜头（无角色）也应绑定道具，`character_ids` 可为空
+- 与剧情无关的背景物品、场景陈设不要绑定；没有道具出现的镜头传空数组
+- 绑定的道具会作为视频生成的参考图（白底单品图），保证道具外观跨镜头一致
 
 ## 质量要求
 

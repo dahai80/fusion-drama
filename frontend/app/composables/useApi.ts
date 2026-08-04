@@ -52,6 +52,10 @@ export const episodeAPI = {
   props: (id: number) => api.get(`/episodes/${id}/props`),
   storyboards: (id: number) => api.get(`/episodes/${id}/storyboards`),
   pipelineStatus: (id: number) => api.get(`/episodes/${id}/pipeline-status`),
+  extract: (id: number, target: string, model?: string, configId?: number) => api.post(`/episodes/${id}/extract`, { target, model: model || undefined, config_id: configId || undefined }),
+  extractStatus: (id: number) => api.get(`/episodes/${id}/extract-status`),
+  generateVideoPrompts: (id: number, model?: string, configId?: number, storyboardIds?: number[]) => api.post(`/episodes/${id}/generate-video-prompts`, { model: model || undefined, config_id: configId || undefined, storyboard_ids: storyboardIds?.length ? storyboardIds : undefined }),
+  videoPromptsStatus: (id: number) => api.get(`/episodes/${id}/video-prompts-status`),
 }
 
 export const storyboardAPI = {
@@ -61,36 +65,42 @@ export const storyboardAPI = {
 }
 
 export const characterAPI = {
+  create: (data: any) => api.post('/characters', data),
   update: (id: number, data: any) => api.put(`/characters/${id}`, data),
-  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/characters/${id}/generate-prompt`, { episode_id: episodeId, force }),
-  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
-  batchImages: (ids: number[], episodeId: number, model?: string, configId?: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
+  del: (id: number) => api.del(`/characters/${id}`),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/characters/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/characters/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  batchImages: (ids: number[], episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post('/characters/batch-generate-images', { character_ids: ids, episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 
 export const sceneAPI = {
+  create: (data: any) => api.post('/scenes', data),
   update: (id: number, data: any) => api.put(`/scenes/${id}`, data),
-  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/scenes/${id}/generate-prompt`, { episode_id: episodeId, force }),
-  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
+  del: (id: number) => api.del(`/scenes/${id}`),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/scenes/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/scenes/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 
 export const propAPI = {
+  create: (data: any) => api.post('/props', data),
   update: (id: number, data: any) => api.put(`/props/${id}`, data),
-  generatePrompt: (id: number, episodeId: number, force = false) => api.post(`/props/${id}/generate-prompt`, { episode_id: episodeId, force }),
-  generateImage: (id: number, episodeId: number, model?: string, configId?: number) => api.post(`/props/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined }),
+  del: (id: number) => api.del(`/props/${id}`),
+  generatePrompt: (id: number, episodeId: number, force = false, textModel?: string, textConfigId?: number) => api.post(`/props/${id}/generate-prompt`, { episode_id: episodeId, force, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
+  generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/props/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 
-export const imageAPI = {
-  generate: (d: any) => api.post('/images', d),
-  list: (params?: { drama_id?: number; storyboard_id?: number }) => {
+// 统一生成任务（图片/视频）：POST 带 type 字段，列表按 type 过滤
+export const taskAPI = {
+  generate: (d: any) => api.post('/tasks', d),
+  get: (id: number) => api.get(`/tasks/${id}`),
+  del: (id: number) => api.del(`/tasks/${id}`),
+  list: (params?: { type?: 'image' | 'video'; drama_id?: number; storyboard_id?: number }) => {
     const query = new URLSearchParams()
+    if (params?.type) query.set('type', params.type)
     if (params?.drama_id) query.set('drama_id', String(params.drama_id))
     if (params?.storyboard_id) query.set('storyboard_id', String(params.storyboard_id))
-    return api.get(`/images${query.size ? `?${query.toString()}` : ''}`)
+    return api.get(`/tasks${query.size ? `?${query.toString()}` : ''}`)
   },
-}
-export const videoAPI = {
-  generate: (d: any) => api.post('/videos', d),
-  get: (id: number) => api.get(`/videos/${id}`),
 }
 
 async function uploadReq<T = any>(path: string, file: File): Promise<T> {

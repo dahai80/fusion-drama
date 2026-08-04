@@ -5,6 +5,7 @@ import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
+import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
 
 const app = new Hono()
 
@@ -32,6 +33,8 @@ app.post('/', async (c) => {
     title: body.title || `第${nextNum}集`,
     imageConfigId,
     videoConfigId,
+    // 视频分辨率在创建集时固定（480p/720p），后续可通过 PUT 修改
+    resolution: body.resolution === '480p' ? '480p' : '720p',
     createdAt: ts,
     updatedAt: ts,
   })
@@ -44,6 +47,7 @@ app.post('/', async (c) => {
     title: ep.title,
     image_config_id: ep.imageConfigId,
     video_config_id: ep.videoConfigId,
+    resolution: ep.resolution,
   })
 })
 
@@ -52,12 +56,15 @@ app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
 
-  const allowed = ['content', 'script_content', 'title', 'description', 'status']
+  const allowed = ['content', 'script_content', 'title', 'description', 'status', 'resolution']
   const updates: Record<string, any> = {}
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
   }
   if (Object.keys(updates).length === 0) return badRequest(c, 'no valid fields')
+  if ('resolution' in updates && !['480p', '720p'].includes(updates.resolution)) {
+    return badRequest(c, 'resolution 只支持 480p / 720p')
+  }
 
   // Map snake_case to camelCase for drizzle
   const drizzleUpdates: Record<string, any> = { updatedAt: now() }
@@ -66,6 +73,7 @@ app.put('/:id', async (c) => {
   if ('title' in updates) drizzleUpdates.title = updates.title
   if ('description' in updates) drizzleUpdates.description = updates.description
   if ('status' in updates) drizzleUpdates.status = updates.status
+  if ('resolution' in updates) drizzleUpdates.resolution = updates.resolution
 
   await db.update(schema.episodes).set(drizzleUpdates).where(eq(schema.episodes.id, id))
   return success(c)
@@ -125,7 +133,7 @@ app.post('/:id/extract', async (c) => {
   if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target 必须是 characters / scenes / props')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
   if (!ep) return notFound(c, '剧集不存在')
-  const started = startExtraction(ep.id, ep.dramaId, target)
+  const started = startExtraction(ep.id, ep.dramaId, target, { model: body.model || undefined, configId: body.config_id ?? undefined })
   return success(c, { target, status: 'running', already_running: !started })
 })
 
@@ -133,6 +141,27 @@ app.post('/:id/extract', async (c) => {
 app.get('/:id/extract-status', async (c) => {
   const id = Number(c.req.param('id'))
   return success(c, getExtractionStatus(id))
+})
+
+// POST /episodes/:id/generate-video-prompts — 异步批量为缺少视频提示词的分镜生成（立即返回，前端轮询状态）
+app.post('/:id/generate-video-prompts', async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json().catch(() => ({}))
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return notFound(c, '剧集不存在')
+  const storyboardIds = Array.isArray(body.storyboard_ids)
+    ? body.storyboard_ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0)
+    : undefined
+  const result = await startVideoPromptBatch(ep.id, ep.dramaId, { model: body.model || undefined, configId: body.config_id ?? undefined }, storyboardIds)
+  if (result.total === -1) return success(c, { status: 'running', already_running: true })
+  if (!result.started) return success(c, { status: 'idle', total: 0 })
+  return success(c, { status: 'running', total: result.total })
+})
+
+// GET /episodes/:id/video-prompts-status — 查询批量视频提示词任务状态
+app.get('/:id/video-prompts-status', async (c) => {
+  const id = Number(c.req.param('id'))
+  return success(c, getVideoPromptBatchStatus(id))
 })
 
 // GET /episodes/:episode_id/storyboards
@@ -150,18 +179,36 @@ app.get('/:episode_id/storyboards', async (c) => {
     charIdsByStoryboard.set(link.storyboardId, arr)
   }
 
+  const propLinks = await db.select().from(schema.storyboardProps)
+  const propIdsByStoryboard = new Map<number, number[]>()
+  for (const link of propLinks) {
+    const arr = propIdsByStoryboard.get(link.storyboardId) || []
+    arr.push(link.propId)
+    propIdsByStoryboard.set(link.storyboardId, arr)
+  }
+
   const episodeCharLinks = await db.select().from(schema.episodeCharacters)
     .where(eq(schema.episodeCharacters.episodeId, episodeId))
   const episodeCharIds = episodeCharLinks.map(link => link.characterId)
   const allChars = (await db.select().from(schema.characters))
     .filter(ch => episodeCharIds.includes(ch.id) && !ch.deletedAt)
 
+  const episodePropLinks = await db.select().from(schema.episodeProps)
+    .where(eq(schema.episodeProps.episodeId, episodeId))
+  const episodePropIds = episodePropLinks.map(link => link.propId)
+  const allProps = (await db.select().from(schema.props))
+    .filter(p => episodePropIds.includes(p.id) && !p.deletedAt)
+
   return success(c, rows.map((row) => ({
     ...toSnakeCase(row),
     character_ids: charIdsByStoryboard.get(row.id) || [],
+    prop_ids: propIdsByStoryboard.get(row.id) || [],
     characters: allChars
       .filter(ch => (charIdsByStoryboard.get(row.id) || []).includes(ch.id))
       .map(ch => toSnakeCase(ch)),
+    props: allProps
+      .filter(p => (propIdsByStoryboard.get(row.id) || []).includes(p.id))
+      .map(p => toSnakeCase(p)),
   })))
 })
 

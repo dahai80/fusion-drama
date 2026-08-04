@@ -27,6 +27,21 @@ async function syncStoryboardCharacters(storyboardId: number, characterIds: numb
   }
 }
 
+async function syncStoryboardProps(storyboardId: number, propIds: number[]) {
+  await db.delete(schema.storyboardProps)
+    .where(eq(schema.storyboardProps.storyboardId, storyboardId))
+
+  const uniqueIds = [...new Set(propIds.filter(Boolean))]
+  if (!uniqueIds.length) return
+
+  for (const propId of uniqueIds) {
+    await db.insert(schema.storyboardProps).values({
+      storyboardId,
+      propId,
+    })
+  }
+}
+
 async function getEpisodeSceneIds(episodeId: number) {
   const links = await db.select().from(schema.episodeScenes)
     .where(eq(schema.episodeScenes.episodeId, episodeId))
@@ -39,11 +54,18 @@ async function getEpisodeCharacterIds(episodeId: number) {
   return new Set(links.map(link => link.characterId))
 }
 
-async function validateStoryboardBindings(episodeId: number, dramaId: number, sceneId: number | null | undefined, characterIds: number[] | undefined) {
+async function getEpisodePropIds(episodeId: number) {
+  const links = await db.select().from(schema.episodeProps)
+    .where(eq(schema.episodeProps.episodeId, episodeId))
+  return new Set(links.map(link => link.propId))
+}
+
+async function validateStoryboardBindings(episodeId: number, dramaId: number, sceneId: number | null | undefined, characterIds: number[] | undefined, propIds?: number[] | undefined) {
   const episodeSceneIds = await getEpisodeSceneIds(episodeId)
   const episodeCharacterIds = await getEpisodeCharacterIds(episodeId)
+  const episodePropIds = await getEpisodePropIds(episodeId)
 
-  // 场景/角色属于本剧但尚未关联到当前集时，自动补关联（拆分时即完成绑定）
+  // 场景/角色/道具属于本剧但尚未关联到当前集时，自动补关联（拆分时即完成绑定）
   if (sceneId != null && !episodeSceneIds.has(sceneId)) {
     const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, sceneId))
     if (!scene || scene.dramaId !== dramaId || scene.deletedAt) {
@@ -61,6 +83,16 @@ async function validateStoryboardBindings(episodeId: number, dramaId: number, sc
     }
     await db.insert(schema.episodeCharacters).values({ episodeId, characterId, createdAt: now() })
   }
+
+  const uniquePropIds = [...new Set((propIds || []).filter(Boolean))]
+  for (const propId of uniquePropIds) {
+    if (episodePropIds.has(propId)) continue
+    const [prop] = await db.select().from(schema.props).where(eq(schema.props.id, propId))
+    if (!prop || prop.dramaId !== dramaId || prop.deletedAt) {
+      throw new Error(`prop_id ${propId} 不属于当前项目`)
+    }
+    await db.insert(schema.episodeProps).values({ episodeId, propId, createdAt: now() })
+  }
 }
 
 type ToolContext = ToolExecutionContext | undefined
@@ -74,7 +106,7 @@ function requireIds(context: ToolContext): { episodeId: number; dramaId: number 
 
 const readStoryboardContext = createTool({
   id: 'read_storyboard_context',
-  description: 'Read the screenplay, characters, and scenes for storyboard breakdown.',
+  description: 'Read the screenplay, characters, scenes, and props for storyboard breakdown.',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const ids = requireIds(context)
@@ -90,14 +122,19 @@ const readStoryboardContext = createTool({
       .where(eq(schema.episodeCharacters.episodeId, episodeId))
     const sceneLinks = await db.select().from(schema.episodeScenes)
       .where(eq(schema.episodeScenes.episodeId, episodeId))
+    const propLinks = await db.select().from(schema.episodeProps)
+      .where(eq(schema.episodeProps.episodeId, episodeId))
 
     const linkedCharacterIds = new Set(charLinks.map(link => link.characterId))
     const linkedSceneIds = new Set(sceneLinks.map(link => link.sceneId))
+    const linkedPropIds = new Set(propLinks.map(link => link.propId))
 
     const chars = await db.select().from(schema.characters)
       .where(eq(schema.characters.dramaId, dramaId))
     const scns = await db.select().from(schema.scenes)
       .where(eq(schema.scenes.dramaId, dramaId))
+    const prps = await db.select().from(schema.props)
+      .where(eq(schema.props.dramaId, dramaId))
     const existingStoryboards = await db.select().from(schema.storyboards)
       .where(eq(schema.storyboards.episodeId, episodeId))
 
@@ -128,17 +165,31 @@ const readStoryboardContext = createTool({
         storyboard_count: s.storyboardCount || 0,
       }))
 
+    const props = prps
+      .filter(p => !p.deletedAt)
+      .filter(p => !linkedPropIds.size || linkedPropIds.has(p.id))
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        type: p.type || '',
+        description: p.description || '',
+        image_url: p.imageUrl || '',
+      }))
+
     const existingStoryboardPayload = await Promise.all(existingStoryboards
       .filter(sb => !sb.deletedAt)
       .map(async (sb) => {
         const links = await db.select().from(schema.storyboardCharacters)
           .where(eq(schema.storyboardCharacters.storyboardId, sb.id))
+        const sbPropLinks = await db.select().from(schema.storyboardProps)
+          .where(eq(schema.storyboardProps.storyboardId, sb.id))
         return {
           id: sb.id,
           shot_number: sb.storyboardNumber,
           title: sb.title || '',
           scene_id: sb.sceneId,
           character_ids: links.map(link => link.characterId),
+          prop_ids: sbPropLinks.map(link => link.propId),
           shot_type: sb.shotType || '',
           duration: sb.duration || 0,
           action: sb.action || '',
@@ -159,6 +210,7 @@ const readStoryboardContext = createTool({
       script,
       characters,
       scenes,
+      props,
       existing_storyboards: existingStoryboardPayload,
     }
     logTaskSuccess('StoryboardTool', 'read-context', {
@@ -166,6 +218,7 @@ const readStoryboardContext = createTool({
       dramaId,
       characters: characters.length,
       scenes: scenes.length,
+      props: props.length,
       existingStoryboards: payload.existing_storyboards.length,
       scriptLength: script.length,
     })
@@ -197,6 +250,7 @@ const saveStoryboards = createTool({
       duration: z.number().optional(),
       scene_id: z.number().nullable().optional(),
       character_ids: z.array(z.number()).optional(),
+      prop_ids: z.array(z.number()).optional(),
     })),
   }),
   execute: async ({ storyboards }, context) => {
@@ -216,13 +270,14 @@ const saveStoryboards = createTool({
     for (const storyboardId of existingStoryboardIds) {
       await db.delete(schema.storyboardCharacters)
         .where(eq(schema.storyboardCharacters.storyboardId, storyboardId))
-
+      await db.delete(schema.storyboardProps)
+        .where(eq(schema.storyboardProps.storyboardId, storyboardId))
     }
     await db.delete(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
 
     let totalDuration = 0
     for (const sb of storyboards) {
-      await validateStoryboardBindings(episodeId, dramaId, sb.scene_id, sb.character_ids)
+      await validateStoryboardBindings(episodeId, dramaId, sb.scene_id, sb.character_ids, sb.prop_ids)
       const res = await db.insert(schema.storyboards).values({
         episodeId,
         storyboardNumber: sb.shot_number,
@@ -238,6 +293,7 @@ const saveStoryboards = createTool({
         createdAt: ts, updatedAt: ts,
       })
       await syncStoryboardCharacters(getInsertId(res), sb.character_ids || [])
+      await syncStoryboardProps(getInsertId(res), sb.prop_ids || [])
       totalDuration += sb.duration || 10
     }
 
@@ -276,6 +332,7 @@ const updateStoryboard = createTool({
     dialogue: z.string().optional(),
     scene_id: z.number().nullable().optional(),
     character_ids: z.array(z.number()).optional(),
+    prop_ids: z.array(z.number()).optional(),
     duration: z.number().optional(),
   }),
   execute: async ({ storyboard_id, ...fields }, context) => {
@@ -296,11 +353,18 @@ const updateStoryboard = createTool({
           .where(eq(schema.storyboardCharacters.storyboardId, storyboard_id)))
           .map(link => link.characterId)
 
+    const currentPropIds = 'prop_ids' in fields
+      ? fields.prop_ids
+      : (await db.select().from(schema.storyboardProps)
+          .where(eq(schema.storyboardProps.storyboardId, storyboard_id)))
+          .map(link => link.propId)
+
     await validateStoryboardBindings(
       episodeId,
       dramaId,
       'scene_id' in fields ? fields.scene_id : storyboard.sceneId,
       currentCharacterIds,
+      currentPropIds,
     )
 
     const updates: Record<string, any> = { updatedAt: now() }
@@ -323,11 +387,13 @@ const updateStoryboard = createTool({
     if ('duration' in fields) updates.duration = fields.duration
     await db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, storyboard_id))
     if ('character_ids' in fields) await syncStoryboardCharacters(storyboard_id, fields.character_ids || [])
+    if ('prop_ids' in fields) await syncStoryboardProps(storyboard_id, fields.prop_ids || [])
     logTaskSuccess('StoryboardTool', 'update-complete', {
       episodeId,
       storyboardId: storyboard_id,
       updatedFields: Object.keys(updates),
       characterIds: 'character_ids' in fields ? (fields.character_ids || []).join(',') : undefined,
+      propIds: 'prop_ids' in fields ? (fields.prop_ids || []).join(',') : undefined,
     })
     return { message: `Storyboard ${storyboard_id} updated` }
   },

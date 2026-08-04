@@ -20,10 +20,10 @@ test('image prompt agent keeps role and scene prompts but removes grid prompt mo
   const skills = read('src/agents/skills.ts')
   const imagePromptTools = read('src/agents/tools/image-prompt-tools.ts')
   const storyboardTools = read('src/agents/tools/storyboard-tools.ts')
-  const skill = read('workspace/skills/image-prompt-generator/SKILL.md')
+  const skill = read('workspace/skills/prompt-generator/prop-prompt/SKILL.md')
 
-  assert.match(agents, /image_prompt_generator/)
-  assert.match(skills, /image_prompt_generator/)
+  assert.match(agents, /prompt_generator/)
+  assert.match(skills, /prompt_generator/)
   assert.match(imagePromptTools, /save_character_final_prompt/)
   assert.match(imagePromptTools, /save_scene_final_prompt/)
   assert.doesNotMatch(agents, /宫格图/)

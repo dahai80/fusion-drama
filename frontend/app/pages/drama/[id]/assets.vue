@@ -84,7 +84,7 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { dramaAPI, imageAPI } from '~/composables/useApi'
+import { dramaAPI, taskAPI } from '~/composables/useApi'
 
 const route = useRoute()
 const dramaId = Number(route.params.id)
@@ -140,7 +140,7 @@ async function load() {
   try {
     const [d, gens] = await Promise.all([
       dramaAPI.get(dramaId),
-      imageAPI.list({ drama_id: dramaId }),
+      taskAPI.list({ type: 'image', drama_id: dramaId }),
     ])
     drama.value = d
     generations.value = gens || []

@@ -1,30 +1,40 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, created, badRequest, now } from '../utils/response.js'
-import { generateImage } from '../services/image-generation.js'
+import { generateImage } from '../services/generation.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { ensureSceneFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
 
-// POST /scenes
+// POST /scenes — 手动新增场景（传入 episode_id 时关联到该集）
 app.post('/', async (c) => {
   const body = await c.req.json()
+  if (!body.drama_id) return badRequest(c, 'drama_id required')
+  if (!body.location?.trim()) return badRequest(c, 'location required')
   const ts = now()
   const res = await db.insert(schema.scenes).values({
     dramaId: body.drama_id,
     episodeId: body.episode_id,
-    location: body.location,
+    location: body.location.trim(),
     time: body.time || '',
     prompt: body.prompt || body.description || body.location,
     lighting: body.lighting || '',
     createdAt: ts,
     updatedAt: ts,
   })
+  const sceneId = getInsertId(res)
+  if (body.episode_id) {
+    const existing = await db.select().from(schema.episodeScenes)
+      .where(and(eq(schema.episodeScenes.episodeId, Number(body.episode_id)), eq(schema.episodeScenes.sceneId, sceneId)))
+    if (!existing.length) {
+      await db.insert(schema.episodeScenes).values({ episodeId: Number(body.episode_id), sceneId, createdAt: ts })
+    }
+  }
   const [result] = await db.select().from(schema.scenes)
-    .where(eq(schema.scenes.id, getInsertId(res)))
+    .where(eq(schema.scenes.id, sceneId))
   return created(c, result)
 })
 
@@ -58,13 +68,13 @@ app.post('/:id/generate-image', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   const stylePrompt = await getDramaStylePrompt(scene.dramaId)
-  const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id)
+  const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
   const prompt = finalPrompt || [
+    stylePrompt || '',
     scene.location,
     scene.time || '',
     scene.prompt || '高质量场景',
     scene.lighting || '电影感光影',
-    stylePrompt || '',
   ].filter(Boolean).join(', ')
   try {
     logTaskStart('SceneImage', 'generate', { sceneId: id, episodeId: ep.id, dramaId: scene.dramaId, location: scene.location })
@@ -91,7 +101,7 @@ app.post('/:id/generate-prompt', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   logTaskStart('FinalPrompt', 'scene-generate', { sceneId: id, episodeId: ep.id, force: !!body.force })
-  const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, !!body.force)
+  const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'scene-generate', { sceneId: id, error: 'agent returned empty prompt' })
     return badRequest(c, '最终提示词生成失败，请重试')
@@ -100,10 +110,10 @@ app.post('/:id/generate-prompt', async (c) => {
   return success(c, { final_prompt: finalPrompt })
 })
 
-// DELETE /scenes/:id
+// DELETE /scenes/:id — 软删除（保留历史生成记录）
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  await db.delete(schema.scenes).where(eq(schema.scenes.id, id))
+  await db.update(schema.scenes).set({ deletedAt: now(), updatedAt: now() }).where(eq(schema.scenes.id, id))
   return success(c)
 })
 

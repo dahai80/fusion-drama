@@ -5,9 +5,9 @@ import assert from 'node:assert/strict'
 const root = new URL('..', import.meta.url)
 const read = (path) => readFileSync(new URL(path, root), 'utf8')
 
-test('storyboard_breaker video prompt format uses @name references instead of XML tags', () => {
+test('prompt_generator video prompt format uses @name references instead of XML tags', () => {
   const agents = read('src/agents/index.ts')
-  const skill = read('workspace/skills/storyboard-breaker/SKILL.md')
+  const skill = read('workspace/skills/prompt-generator/video-prompt/SKILL.md')
   const settings = read('../frontend/app/pages/settings.vue')
 
   // 场景/角色用 @名字 引用（名字必须与场景/角色列表完全一致）

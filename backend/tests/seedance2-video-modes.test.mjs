@@ -30,13 +30,14 @@ test('volcengine video adapter only supports Seedance 2.0 models and reference m
   assert.match(adapter, /参考音频需要至少 1 个参考图片或视频/)
   assert.match(adapter, /多模态参考模式需要至少一个参考素材或 prompt/)
 
-  // generate_audio 可配置（默认开），时长支持 4-15 秒
+  // generate_audio 可配置（默认开），时长支持 4-15 秒；分辨率随集固定（480p/720p，默认 720p）
   assert.match(adapter, /generate_audio:\s*record\.generateAudio/)
   assert.match(adapter, /Math\.min\(15, Math\.max\(4, parsed\)\)/)
+  assert.match(adapter, /resolution: record\.resolution === '480p' \? '480p' : '720p'/)
 })
 
 test('video generation service resolves reference media and persists new fields', () => {
-  const service = read('src/services/video-generation.ts')
+  const service = read('src/services/generation.ts')
 
   assert.match(service, /PUBLIC_BASE_URL/)
   assert.match(service, /resolvePublicMediaUrl/)
@@ -47,6 +48,24 @@ test('video generation service resolves reference media and persists new fields'
   assert.match(service, /referenceMode: params\.referenceMode \|\| 'reference'/)
   assert.doesNotMatch(service, /referenceMode: params\.referenceMode \|\| 'text'/)
   assert.doesNotMatch(service, /referenceMode: params\.referenceMode \|\| 'none'/)
+})
+
+test('video resolution is fixed per episode, editable, and locked into video tasks', () => {
+  const episodes = read('src/routes/episodes.ts')
+  const tasks = read('src/routes/tasks.ts')
+  const service = read('src/services/generation.ts')
+
+  // 创建集时固定（默认 720p，仅接受 480p/720p）
+  assert.match(episodes, /resolution: body\.resolution === '480p' \? '480p' : '720p'/)
+  // PUT 可修改，白名单校验
+  assert.match(episodes, /'status', 'resolution'\]/)
+  assert.match(episodes, /resolution 只支持 480p \/ 720p/)
+  // 视频任务锁定集的分辨率（优先于请求体）
+  assert.match(tasks, /episodeResolution = ep\.resolution/)
+  assert.match(tasks, /resolution: episodeResolution \|\| body\.resolution/)
+  // 服务落入 params 并传给适配器
+  assert.match(service, /resolution: params\.resolution === '480p' \? '480p' : '720p'/)
+  assert.match(service, /resolution: params\.resolution,/)
 })
 
 test('upload route exposes validated video and audio endpoints', () => {
@@ -60,8 +79,13 @@ test('upload route exposes validated video and audio endpoints', () => {
   assert.match(route, /20 \* 1024 \* 1024/)
 })
 
-test('videos route validates reference-mode requirements only', () => {
-  const route = read('src/routes/videos.ts')
+test('tasks route validates reference-mode requirements for video tasks', () => {
+  const route = read('src/routes/tasks.ts')
+
+  // 统一任务入口：type 分派 image/video
+  assert.match(route, /type 必须为 image 或 video/)
+  assert.match(route, /generateImage\(\{/)
+  assert.match(route, /generateVideo\(\{/)
 
   // 其他模式的校验已清理
   assert.doesNotMatch(route, /文生视频模式必须提供 prompt/)
@@ -80,21 +104,39 @@ test('videos route validates reference-mode requirements only', () => {
   assert.match(route, /generateAudio: body\.generate_audio/)
 })
 
-test('video_generations table gains reference media and generate_audio columns', () => {
+test('image/video generation tasks are unified into a single sys_task table', () => {
   const schema = read('src/db/schema.ts')
   const mysqlSchema = read('src/db/mysql-schema.ts')
   const envExample = read('.env.example')
 
-  assert.match(schema, /referenceVideoUrls: text\('reference_video_urls'\)/)
-  assert.match(schema, /referenceAudioUrls: text\('reference_audio_urls'\)/)
-  assert.match(schema, /generateAudio: int\('generate_audio'\)/)
+  // sys_task：type 区分 image/video，生成参数收进 params(JSON)
+  assert.match(schema, /export const sysTask = mysqlTable\('sys_task'/)
+  assert.match(schema, /type: varchar\('type', \{ length: 16 \}\)\.notNull\(\)/)
+  assert.match(schema, /params: text\('params'\)/)
+  assert.match(schema, /resultUrl: text\('result_url'\)/)
+  assert.match(schema, /localPath: text\('local_path'\)/)
 
-  assert.match(mysqlSchema, /reference_video_urls TEXT/)
-  assert.match(mysqlSchema, /reference_audio_urls TEXT/)
-  assert.match(mysqlSchema, /generate_audio TINYINT\(1\) DEFAULT 1/)
-  assert.match(mysqlSchema, /column: 'reference_video_urls'/)
-  assert.match(mysqlSchema, /column: 'reference_audio_urls'/)
-  assert.match(mysqlSchema, /column: 'generate_audio'/)
+  // 旧的 image_generations / video_generations 表定义与回填已移除
+  assert.doesNotMatch(schema, /imageGenerations/)
+  assert.doesNotMatch(schema, /videoGenerations/)
+  assert.doesNotMatch(mysqlSchema, /CREATE TABLE IF NOT EXISTS image_generations/)
+  assert.doesNotMatch(mysqlSchema, /CREATE TABLE IF NOT EXISTS video_generations/)
+  assert.doesNotMatch(mysqlSchema, /column: 'reference_video_urls'/)
+
+  // DDL 与旧表清理（不迁移历史）
+  assert.match(mysqlSchema, /CREATE TABLE IF NOT EXISTS sys_task \(/)
+  assert.match(mysqlSchema, /type VARCHAR\(16\) NOT NULL/)
+  assert.match(mysqlSchema, /params TEXT/)
+  assert.match(mysqlSchema, /result_url TEXT/)
+  assert.match(mysqlSchema, /DROP TABLE IF EXISTS `image_generations`/)
+  assert.match(mysqlSchema, /DROP TABLE IF EXISTS `video_generations`/)
+
+  // 路由与服务只操作 sys_task（统一 /tasks 入口，type 过滤）
+  const tasksRoute = read('src/routes/tasks.ts')
+  const service = read('src/services/generation.ts')
+  assert.match(tasksRoute, /schema\.sysTask/)
+  assert.match(tasksRoute, /r\.type === type/)
+  assert.match(service, /db\.insert\(schema\.sysTask\)/)
 
   assert.match(envExample, /PUBLIC_BASE_URL/)
 })

@@ -35,6 +35,7 @@ export const episodes = mysqlTable('episodes', {
   thumbnail: text('thumbnail'),
   imageConfigId: int('image_config_id'),
   videoConfigId: int('video_config_id'),
+  resolution: varchar('resolution', { length: 16 }).default('720p'),
   createdAt: varchar('created_at', { length: 64 }).notNull(),
   updatedAt: varchar('updated_at', { length: 64 }).notNull(),
   deletedAt: varchar('deleted_at', { length: 64 }),
@@ -143,6 +144,13 @@ export const storyboardCharacters = mysqlTable('storyboard_characters', {
   pk: primaryKey({ columns: [table.storyboardId, table.characterId] }),
 }))
 
+export const storyboardProps = mysqlTable('storyboard_props', {
+  storyboardId: int('storyboard_id').notNull(),
+  propId: int('prop_id').notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.storyboardId, table.propId] }),
+}))
+
 export const aiServiceConfigs = mysqlTable('ai_service_configs', {
   id: int('id').primaryKey().autoincrement(),
   serviceType: varchar('service_type', { length: 64 }).notNull(),
@@ -205,75 +213,29 @@ export const agentConfigs = mysqlTable('agent_configs', {
   deletedAt: varchar('deleted_at', { length: 64 }),
 })
 
-export const imageGenerations = mysqlTable('image_generations', {
+// 统一生成任务表：图片/视频生成共用，type 区分，生成参数存 params(JSON)
+export const sysTask = mysqlTable('sys_task', {
   id: int('id').primaryKey().autoincrement(),
+  type: varchar('type', { length: 16 }).notNull(), // image | video
   storyboardId: int('storyboard_id'),
   dramaId: int('drama_id'),
   sceneId: int('scene_id'),
   characterId: int('character_id'),
   propId: int('prop_id'),
-  imageType: text('image_type'),
-  frameType: text('frame_type'),
-  provider: varchar('provider', { length: 64 }),
-  prompt: text('prompt'),
-  negativePrompt: text('negative_prompt'),
-  model: text('model'),
-  size: text('size'),
-  quality: text('quality'),
-  style: varchar('style', { length: 64 }),
-  steps: int('steps'),
-  cfgScale: double('cfg_scale'),
-  seed: int('seed'),
-  imageUrl: text('image_url'),
-  minioUrl: text('minio_url'),
-  localPath: text('local_path'),
-  status: varchar('status', { length: 64 }).default('pending'),
-  taskId: text('task_id'),
-  errorMsg: text('error_msg'),
-  width: int('width'),
-  height: int('height'),
-  referenceImages: text('reference_images'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  completedAt: varchar('completed_at', { length: 64 }),
-})
-
-export const videoGenerations = mysqlTable('video_generations', {
-  id: int('id').primaryKey().autoincrement(),
-  storyboardId: int('storyboard_id'),
-  dramaId: int('drama_id'),
   provider: varchar('provider', { length: 64 }),
   prompt: text('prompt'),
   model: text('model'),
-  imageGenId: int('image_gen_id'),
-  referenceMode: text('reference_mode'),
-  imageUrl: text('image_url'),
-  firstFrameUrl: text('first_frame_url'),
-  lastFrameUrl: text('last_frame_url'),
-  referenceImageUrls: text('reference_image_urls'),
-  referenceVideoUrls: text('reference_video_urls'),
-  referenceAudioUrls: text('reference_audio_urls'),
-  generateAudio: int('generate_audio').default(1),
-  duration: int('duration'),
-  fps: int('fps'),
-  resolution: text('resolution'),
-  aspectRatio: text('aspect_ratio'),
-  style: varchar('style', { length: 64 }),
-  motionLevel: int('motion_level'),
-  cameraMotion: text('camera_motion'),
-  seed: int('seed'),
-  videoUrl: text('video_url'),
-  minioUrl: text('minio_url'),
-  localPath: text('local_path'),
-  status: varchar('status', { length: 64 }).default('pending'),
+  // image: {size, frameType, referenceImages[]}
+  // video: {referenceMode, referenceImageUrls[], referenceVideoUrls[], referenceAudioUrls[], generateAudio, duration, aspectRatio}
+  params: text('params'),
   taskId: text('task_id'),
+  resultUrl: text('result_url'),
+  localPath: text('local_path'),
+  status: varchar('status', { length: 64 }).default('processing'),
   errorMsg: text('error_msg'),
-  width: int('width'),
-  height: int('height'),
   createdAt: varchar('created_at', { length: 64 }).notNull(),
   updatedAt: varchar('updated_at', { length: 64 }).notNull(),
   completedAt: varchar('completed_at', { length: 64 }),
-  deletedAt: varchar('deleted_at', { length: 64 }),
 })
 
 export const videoMerges = mysqlTable('video_merges', {

@@ -73,6 +73,9 @@ test('mysql startup schema is present and sqlite migration artifacts are removed
   // 项目级画面比例：创建时固定，视频生成统一使用
   assert.match(mysqlSchema, /aspect_ratio VARCHAR\(16\) DEFAULT '16:9'/)
   assert.match(mysqlSchema, /ALTER TABLE `dramas` ADD COLUMN `aspect_ratio` VARCHAR\(16\) DEFAULT '16:9'/)
+  // 集级视频分辨率：创建集时固定（480p/720p），视频生成统一使用
+  assert.match(mysqlSchema, /resolution VARCHAR\(16\) DEFAULT '720p'/)
+  assert.match(mysqlSchema, /ALTER TABLE `episodes` ADD COLUMN `resolution` VARCHAR\(16\) DEFAULT '720p'/)
   assert.equal(pkg.scripts['db:migrate:sqlite-to-mysql'], undefined)
   assert.equal(existsSync(new URL('scripts/migrate-sqlite-to-mysql.ts', root)), false)
 })

@@ -47,6 +47,23 @@ async function linkPropToEpisode(episodeId: number, propId: number) {
   }
 }
 
+// ─── 名字归一化（近名去重） ───────────────────────────────────
+// 提取时同一角色/道具可能出现不同书写形式（如「林小雨」与「林小雨（主角）」、
+// 「林小雨(女主)」、「林小雨 」）。归一化后做精确比较，命中即复用已有，不重复创建。
+function normalizeName(name: string): string {
+  return (name || '')
+    .replace(/[（(][^（()）]*[）)]/g, '') // 去掉成对的中/英文括号内容（角色定位/别名）
+    .replace(/[（(].*$/, '')              // 兜底：未闭合括号从首个括号截断
+    .replace(/[\s　]+/g, '')          // 去空白与全角空格
+    .toLowerCase()
+    .trim()
+}
+
+// 场景地点只做空白归一化（不删括号：如「火车站（候车厅）」与「火车站（站台）」是不同场景）
+function normalizeLocation(loc: string): string {
+  return (loc || '').replace(/[\s　]+/g, '').toLowerCase().trim()
+}
+
 type ToolContext = ToolExecutionContext | undefined
 
 function requireIds(context: ToolContext): { episodeId: number; dramaId: number } | { error: string } {
@@ -96,6 +113,7 @@ const readExistingCharacters = createTool({
       role: c.role || '',
       appearance: c.appearance || '',
       styling: c.styling || '',
+      normalized_name: normalizeName(c.name), // 用于判断近名复用：括号定位/别名视为同名
     }))
     const payload = {
       count: visibleChars.length,
@@ -133,6 +151,7 @@ const readExistingScenes = createTool({
       time: s.time || '',
       prompt: s.prompt || '',
       lighting: s.lighting || '',
+      normalized_location: normalizeLocation(s.location), // 用于判断近名复用（仅空白/大小写）
     }))
     const payload = {
       count: visibleScenes.length,
@@ -175,12 +194,17 @@ const saveDedupCharacters = createTool({
     })
 
     for (const char of characters) {
-      const existing = (await db.select().from(schema.characters)
+      const charsInProject = (await db.select().from(schema.characters)
         .where(eq(schema.characters.dramaId, dramaId)))
         .filter(c => !c.deletedAt)
-        .find(c => c.name === char.name)
+      const exact = charsInProject.find(c => c.name === char.name)
+      const normName = normalizeName(char.name)
+      const existing = exact || (normName ? charsInProject.find(c => c.name && normalizeName(c.name) === normName) : undefined)
+      const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
+        // 归一化命中：括号定位/别名等近名视作同一角色复用，避免重复创建
+        if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-characters-reuse', { episodeId, dramaId, extracted: char.name, reused: existing.name })
         // 已存在：合并信息，保留 ID
         await db.update(schema.characters).set({
           role: char.role || existing.role,
@@ -244,11 +268,13 @@ const saveDedupScenes = createTool({
     })
 
     for (const scene of scenes) {
-      // 按地点+时间段精确匹配
-      const existing = (await db.select().from(schema.scenes)
+      // 按地点+时间段精确匹配；地点仅做空白/大小写归一化（不删括号，避免误合并）
+      const scenesInProject = (await db.select().from(schema.scenes)
         .where(eq(schema.scenes.dramaId, dramaId)))
         .filter(s => !s.deletedAt)
-        .find(s => s.location === scene.location && s.time === (scene.time || ''))
+      const normLocation = normalizeLocation(scene.location)
+      const existing = scenesInProject.find(s => s.location === scene.location && s.time === (scene.time || ''))
+        || (normLocation ? scenesInProject.find(s => normalizeLocation(s.location) === normLocation && s.time === (scene.time || '')) : undefined)
 
       if (existing) {
         // 已存在完全匹配的场景：关联并补齐描述/光影
@@ -304,6 +330,7 @@ const readExistingProps = createTool({
       name: p.name,
       type: p.type || '',
       description: p.description || '',
+      normalized_name: normalizeName(p.name), // 用于判断近名复用：括号定位/别名视为同名
     }))
     const payload = {
       count: visibleProps.length,
@@ -344,12 +371,17 @@ const saveDedupProps = createTool({
     })
 
     for (const prop of props) {
-      const existing = (await db.select().from(schema.props)
+      const propsInProject = (await db.select().from(schema.props)
         .where(eq(schema.props.dramaId, dramaId)))
         .filter(p => !p.deletedAt)
-        .find(p => p.name === prop.name)
+      const exact = propsInProject.find(p => p.name === prop.name)
+      const normName = normalizeName(prop.name)
+      const existing = exact || (normName ? propsInProject.find(p => p.name && normalizeName(p.name) === normName) : undefined)
+      const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
+        // 归一化命中：括号定位/别名等近名视作同一道具复用
+        if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-props-reuse', { episodeId, dramaId, extracted: prop.name, reused: existing.name })
         // 已存在：合并信息，保留 ID；物品外貌变更后旧的最终提示词失效
         await db.update(schema.props).set({
           type: prop.type || existing.type,

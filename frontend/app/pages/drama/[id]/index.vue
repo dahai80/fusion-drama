@@ -83,6 +83,21 @@
               >{{ s.label }}</button>
             </div>
           </div>
+          <div class="ep-status-wrap" @click.stop>
+            <button type="button" :class="['tag', 'ep-status-btn']" title="点击修改本集视频分辨率" @click="epResMenuId = epResMenuId === ep.id ? null : ep.id">
+              {{ epResolution(ep) }}
+            </button>
+            <div v-if="epResMenuId === ep.id" class="status-menu">
+              <button
+                v-for="r in resolutionOptions"
+                :key="r.value"
+                type="button"
+                class="status-menu-item"
+                :class="{ on: epResolution(ep) === r.value }"
+                @click="setEpisodeResolution(ep, r.value)"
+              >{{ r.label }}</button>
+            </div>
+          </div>
           <span v-if="ep.duration" class="ep-duration">{{ ep.duration }}s</span>
         </div>
         <div class="ep-arrow">
@@ -129,6 +144,11 @@
             <input v-model="newEpisodeTitle" class="input" placeholder="默认按集数自动命名" />
             <span class="field-hint">留空时会自动按集数命名，例如“第 3 集”。</span>
           </label>
+          <label class="field">
+            <span class="field-label">视频分辨率</span>
+            <BaseSelect v-model="newEpisodeResolution" :options="resolutionOptions" placeholder="选择分辨率" />
+            <span class="field-hint">创建后本集视频按此分辨率生成，之后仍可在集卡片上修改。</span>
+          </label>
         </div>
         <div class="dialog-foot">
           <span class="dialog-foot-copy">创建后自动锁定当前启用的图片与视频生成能力。</span>
@@ -153,6 +173,7 @@
 <script setup>
 import { toast } from 'vue-sonner'
 import { dramaAPI, episodeAPI } from '~/composables/useApi'
+import BaseSelect from '~/components/BaseSelect.vue'
 
 const route = useRoute()
 const drama = ref(null)
@@ -162,6 +183,30 @@ const creatingEpisode = ref(false)
 const newEpisodeTitle = ref('')
 const episodeToDelete = ref(null)
 const deletingEpisode = ref(false)
+
+// 视频分辨率：创建集时固定（持久化到 episodes.resolution），集卡片上可修改
+const resolutionOptions = [
+  { label: '720p · 高清', value: '720p' },
+  { label: '480p · 流畅', value: '480p' },
+]
+const newEpisodeResolution = ref('720p')
+const epResMenuId = ref(null)
+
+function epResolution(ep) { return ep.resolution === '480p' ? '480p' : '720p' }
+
+async function setEpisodeResolution(ep, resolution) {
+  epResMenuId.value = null
+  if (epResolution(ep) === resolution) return
+  const prev = ep.resolution
+  ep.resolution = resolution
+  try {
+    await episodeAPI.update(ep.id, { resolution })
+    toast.success(`本集视频分辨率已切换为 ${resolution}`)
+  } catch (e) {
+    ep.resolution = prev
+    toast.error(e.message)
+  }
+}
 
 // 集状态由用户手动标记（持久化到 episodes.status），不再按剧本内容自动推算
 const epStatusOptions = [
@@ -198,16 +243,18 @@ async function load() {
 
 function openAddEpisode() {
   newEpisodeTitle.value = ''
+  newEpisodeResolution.value = '720p'
   addDialog.value = true
 }
 
 async function addEpisode() {
   try {
     creatingEpisode.value = true
-    // 图片/视频生成配置由后端自动锁定为当前启用的最高优先级配置
+    // 图片/视频生成配置由后端自动锁定为当前启用的最高优先级配置；分辨率随集固定
     await episodeAPI.create({
       drama_id: dramaId,
       title: newEpisodeTitle.value || undefined,
+      resolution: newEpisodeResolution.value,
     })
     toast.success('已添加新集')
     addDialog.value = false

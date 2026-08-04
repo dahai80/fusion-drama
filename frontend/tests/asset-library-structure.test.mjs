@@ -45,7 +45,7 @@ test('asset library page lists character and scene images', () => {
   const page = read('app/pages/drama/[id]/assets.vue')
 
   // 数据源：项目全部图片生成记录 + 项目详情（名称解析）
-  assert.match(page, /imageAPI\.list\(\{ drama_id: dramaId \}\)/)
+  assert.match(page, /taskAPI\.list\(\{ type: 'image', drama_id: dramaId \}\)/)
   assert.match(page, /dramaAPI\.get\(dramaId\)/)
   // 只收录完成的角色/场景图
   assert.match(page, /r\.status === 'completed' && \(r\.characterId \|\| r\.sceneId\)/)

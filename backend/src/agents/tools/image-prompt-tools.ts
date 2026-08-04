@@ -2,7 +2,7 @@
  * 提示词生成 Agent 工具
  * 模块级单例 — dramaId 通过 RequestContext 按请求注入
  *
- * Agent 负责创作最终提示词（英文）：
+ * Agent 负责创作最终提示词：
  * 1. 角色 → 三视图（character turnaround：正面/侧面/背面）
  * 2. 场景 → 固定视角 + 前景/中景/后景分层构图
  * 3. 道具 → 白底单品静物（single product shot on pure white background）
@@ -44,10 +44,10 @@ const readCharacters = createTool({
 
 const saveCharacterFinalPrompt = createTool({
   id: 'save_character_final_prompt',
-  description: '保存为角色创作的三视图最终提示词（英文）。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: '保存为角色创作的三视图最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     character_id: z.number(),
-    prompt: z.string().describe('角色三视图最终提示词（英文，不含风格词）'),
+    prompt: z.string().describe('角色三视图最终提示词（纯中文，不含风格词）'),
   }),
   execute: async ({ character_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -57,7 +57,7 @@ const saveCharacterFinalPrompt = createTool({
     if (!c) return { error: 'Character not found' }
 
     const stylePrompt = await getDramaStylePrompt(dramaId)
-    const finalPrompt = stylePrompt ? `${prompt}, ${stylePrompt}` : prompt
+    const finalPrompt = stylePrompt ? `${stylePrompt}, ${prompt}` : prompt
     await db.update(schema.characters)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.characters.id, character_id))
@@ -98,10 +98,10 @@ const readScenes = createTool({
 
 const saveSceneFinalPrompt = createTool({
   id: 'save_scene_final_prompt',
-  description: '保存为场景创作的固定视角（前景/中景/后景）最终提示词（英文）。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: '保存为场景创作的固定视角（前景/中景/后景）最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     scene_id: z.number(),
-    prompt: z.string().describe('场景固定视角最终提示词（英文，不含风格词）'),
+    prompt: z.string().describe('场景固定视角最终提示词（纯中文，不含风格词）'),
   }),
   execute: async ({ scene_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -111,7 +111,7 @@ const saveSceneFinalPrompt = createTool({
     if (!s) return { error: 'Scene not found' }
 
     const stylePrompt = await getDramaStylePrompt(dramaId)
-    const finalPrompt = stylePrompt ? `${prompt}, ${stylePrompt}` : prompt
+    const finalPrompt = stylePrompt ? `${stylePrompt}, ${prompt}` : prompt
     await db.update(schema.scenes)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.scenes.id, scene_id))
@@ -151,10 +151,10 @@ const readProps = createTool({
 
 const savePropFinalPrompt = createTool({
   id: 'save_prop_final_prompt',
-  description: '保存为道具创作的白底单品最终提示词（英文）。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: '保存为道具创作的白底单品最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     prop_id: z.number(),
-    prompt: z.string().describe('道具白底单品最终提示词（英文，不含风格词）'),
+    prompt: z.string().describe('道具白底单品最终提示词（纯中文，不含风格词）'),
   }),
   execute: async ({ prop_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -164,7 +164,7 @@ const savePropFinalPrompt = createTool({
     if (!p) return { error: 'Prop not found' }
 
     const stylePrompt = await getDramaStylePrompt(dramaId)
-    const finalPrompt = stylePrompt ? `${prompt}, ${stylePrompt}` : prompt
+    const finalPrompt = stylePrompt ? `${stylePrompt}, ${prompt}` : prompt
     await db.update(schema.props)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.props.id, prop_id))

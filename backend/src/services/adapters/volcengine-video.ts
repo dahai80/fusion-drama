@@ -76,6 +76,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
       generate_audio: record.generateAudio !== 0 && record.generateAudio !== false,
       ratio: record.aspectRatio || 'adaptive',
       duration: this.normalizeDuration(record.duration),
+      resolution: record.resolution === '480p' ? '480p' : '720p',
       watermark: false,
     }
 

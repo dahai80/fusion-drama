@@ -33,6 +33,7 @@ export const mysqlSchemaStatements = [
     thumbnail TEXT,
     image_config_id INT,
     video_config_id INT,
+    resolution VARCHAR(16) DEFAULT '720p',
     created_at VARCHAR(64) NOT NULL,
     updated_at VARCHAR(64) NOT NULL,
     deleted_at VARCHAR(64)
@@ -144,6 +145,13 @@ export const mysqlSchemaStatements = [
     INDEX idx_storyboard_characters_character_id (character_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+  `CREATE TABLE IF NOT EXISTS storyboard_props (
+    storyboard_id INT NOT NULL,
+    prop_id INT NOT NULL,
+    PRIMARY KEY (storyboard_id, prop_id),
+    INDEX idx_storyboard_props_prop_id (prop_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
   `CREATE TABLE IF NOT EXISTS ai_service_configs (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     service_type VARCHAR(64) NOT NULL,
@@ -205,75 +213,29 @@ export const mysqlSchemaStatements = [
     deleted_at VARCHAR(64)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
-  `CREATE TABLE IF NOT EXISTS image_generations (
+  `CREATE TABLE IF NOT EXISTS sys_task (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(16) NOT NULL,
     storyboard_id INT,
     drama_id INT,
     scene_id INT,
     character_id INT,
     prop_id INT,
-    image_type TEXT,
-    frame_type TEXT,
-    provider VARCHAR(64),
-    prompt TEXT,
-    negative_prompt TEXT,
-    model TEXT,
-    size TEXT,
-    quality TEXT,
-    style VARCHAR(64),
-    steps INT,
-    cfg_scale DOUBLE,
-    seed INT,
-    image_url TEXT,
-    minio_url TEXT,
-    local_path TEXT,
-    status VARCHAR(64) DEFAULT 'pending',
-    task_id TEXT,
-    error_msg TEXT,
-    width INT,
-    height INT,
-    reference_images TEXT,
-    created_at VARCHAR(64) NOT NULL,
-    updated_at VARCHAR(64) NOT NULL,
-    completed_at VARCHAR(64)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
-  `CREATE TABLE IF NOT EXISTS video_generations (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    storyboard_id INT,
-    drama_id INT,
     provider VARCHAR(64),
     prompt TEXT,
     model TEXT,
-    image_gen_id INT,
-    reference_mode TEXT,
-    image_url TEXT,
-    first_frame_url TEXT,
-    last_frame_url TEXT,
-    reference_image_urls TEXT,
-    reference_video_urls TEXT,
-    reference_audio_urls TEXT,
-    generate_audio TINYINT(1) DEFAULT 1,
-    duration INT,
-    fps INT,
-    resolution TEXT,
-    aspect_ratio TEXT,
-    style VARCHAR(64),
-    motion_level INT,
-    camera_motion TEXT,
-    seed INT,
-    video_url TEXT,
-    minio_url TEXT,
-    local_path TEXT,
-    status VARCHAR(64) DEFAULT 'pending',
+    params TEXT,
     task_id TEXT,
+    result_url TEXT,
+    local_path TEXT,
+    status VARCHAR(64) DEFAULT 'processing',
     error_msg TEXT,
-    width INT,
-    height INT,
     created_at VARCHAR(64) NOT NULL,
     updated_at VARCHAR(64) NOT NULL,
     completed_at VARCHAR(64),
-    deleted_at VARCHAR(64)
+    INDEX idx_sys_task_type (type),
+    INDEX idx_sys_task_drama_id (drama_id),
+    INDEX idx_sys_task_storyboard_id (storyboard_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
   `CREATE TABLE IF NOT EXISTS video_merges (
@@ -341,15 +303,21 @@ export const mysqlSchemaStatements = [
 
 export const mysqlColumnBackfillStatements = [
   { table: 'dramas', column: 'aspect_ratio', sql: "ALTER TABLE `dramas` ADD COLUMN `aspect_ratio` VARCHAR(16) DEFAULT '16:9'" },
+  { table: 'episodes', column: 'resolution', sql: "ALTER TABLE `episodes` ADD COLUMN `resolution` VARCHAR(16) DEFAULT '720p'" },
   { table: 'characters', column: 'styling', sql: 'ALTER TABLE `characters` ADD COLUMN `styling` TEXT' },
   { table: 'characters', column: 'final_prompt', sql: 'ALTER TABLE `characters` ADD COLUMN `final_prompt` TEXT' },
   { table: 'characters', column: 'personality', sql: 'ALTER TABLE `characters` ADD COLUMN `personality` TEXT' },
   { table: 'props', column: 'final_prompt', sql: 'ALTER TABLE `props` ADD COLUMN `final_prompt` TEXT' },
   { table: 'scenes', column: 'lighting', sql: 'ALTER TABLE `scenes` ADD COLUMN `lighting` TEXT' },
   { table: 'scenes', column: 'final_prompt', sql: 'ALTER TABLE `scenes` ADD COLUMN `final_prompt` TEXT' },
-  { table: 'video_generations', column: 'reference_video_urls', sql: 'ALTER TABLE `video_generations` ADD COLUMN `reference_video_urls` TEXT' },
-  { table: 'video_generations', column: 'reference_audio_urls', sql: 'ALTER TABLE `video_generations` ADD COLUMN `reference_audio_urls` TEXT' },
-  { table: 'video_generations', column: 'generate_audio', sql: 'ALTER TABLE `video_generations` ADD COLUMN `generate_audio` TINYINT(1) DEFAULT 1' },
+]
+
+// 废弃表清理：image_generations / video_generations 已并入 sys_task（不迁移历史）；
+// ai_voices 为 TTS 功能移除后的孤儿表
+export const mysqlDropTableStatements = [
+  'DROP TABLE IF EXISTS `image_generations`',
+  'DROP TABLE IF EXISTS `video_generations`',
+  'DROP TABLE IF EXISTS `ai_voices`',
 ]
 
 export const mysqlDataCleanupStatements = [
@@ -460,6 +428,9 @@ export async function initMySqlSchema(pool: Pool) {
   }
   for (const statement of mysqlColumnBackfillStatements) {
     await ensureMySqlColumn(pool, statement.table, statement.column, statement.sql)
+  }
+  for (const statement of mysqlDropTableStatements) {
+    await pool.query(statement)
   }
   for (const cleanup of mysqlDataCleanupStatements) {
     await pool.query(cleanup.sql, cleanup.params)

@@ -52,14 +52,17 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 8. 分析剧本内容，提取本集涉及的所有场景信息
 9. 对每个场景：若同地点+时间段已存在则复用，若不存在则新增
 10. 调用 save_dedup_scenes 保存场景（去重合并，自动处理新增和复用，并关联到当前集）
-11. 提取本集涉及事态发展的关键道具（如凶器、信物、关键文件等直接推动剧情的物品；不要把桌椅等普通陈设当道具；如果剧本中没有这类道具，就不要提取任何道具）
+11. 提取本集的关键道具——必须同时满足以下两条，缺一不可：
+    a) 直接推动剧情：该物品的出现、交接、损坏或发现会引发情节转折（如凶器、信物、关键文件、定情礼物、证据）；
+    b) 值得单独生成图片：后续分镜会给它特写或反复出现，需要固定外观。
+    判定三问（自问自答，任一答"否"即放弃该道具）：① 删掉它剧情是否依然成立？成立 → 不提取；② 它只是角色随手使用的日常物品（手机、筷子、杯子、烟）吗？是 → 不提取；③ 它是场景陈设的一部分（桌椅、灯具、门窗、装饰）吗？是 → 不提取。
+    宁可少提，不要多提：一集通常 0-3 个关键道具，超过 3 个时按剧情重要性排序只保留前 3 个；没有符合条件的道具就一个都不要提取
 12. 对每个道具：若同名已存在则合并更新，若不存在则新增
 13. 调用 save_dedup_props 保存道具（去重合并，自动处理新增和更新，并关联到当前集）；若没有需要提取的道具，调用时传空数组即可，不要强行凑数
 
 去重规则：
-- 角色：按名字精确匹配，同名保留现有（合并信息）
-- 场景：按【地点+时间段】精确匹配；同地点不同时段视为新场景
-- 道具：按名字精确匹配，同名保留现有（合并信息）
+- 角色/道具：按名字精确匹配，同名保留现有（合并信息）；名称带括号定位或别名时按括号前主体比较（如「林小雨（主角）」与「林小雨」视为同一角色，优先复用项目已有，不要重复创建）。read_existing_characters / read_existing_props 返回的 normalized_name 即归一化后的名字，可据此判断
+- 场景：按【地点+时间段】精确匹配（地点忽略空白/大小写）；同地点不同时段视为新场景
 
 提取要求：
 - 只提取当前集真实出现或被明确提及、且对当前集叙事有效的角色、场景和道具
@@ -73,13 +76,14 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
     instructions: `你是资深影视分镜师，擅长将剧本拆解为分镜方案。
 
 工作流程：
-1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表
+1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表
 2. 将剧本拆解为镜头序列（每个镜头 10-15 秒，总体保持剧情完整连续）
 3. 为每个镜头补全生产字段（拆分时不需要生成 video_prompt，该字段由提示词 Agent 在视频生成阶段生成）
 4. 调用 save_storyboards 保存所有分镜
 
 每个镜头只需要填写以下字段：
 - character_ids：当前镜头涉及的角色 ID 列表，可以为空，也可以包含多个角色；必须从 characters 中选择
+- prop_ids：当前镜头出现的关键道具 ID 列表（道具在画面中被看到、使用或特写时绑定），可以为空；必须从 props 中选择
 - scene_id：若可匹配到 scenes 中已有场景，必须填写正确 scene_id；无匹配时置空
 - duration：镜头时长，优先 10-15 秒
 - action：角色动作与表演
@@ -90,6 +94,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 额外要求：
 - 优先复用 read_storyboard_context 返回的 scene_id，不要凭空创造新场景
 - 镜头角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜头可传空数组
+- 镜头道具绑定必须来自 read_storyboard_context 返回的道具列表；道具被使用、特写、交接或在画面中明显可见时绑定，与剧情无关的背景物品不要绑定；没有道具出现可传空数组
 - 镜头描述必须能支撑后续视频生成和导出流程
 - 若一个镜头没有对白，可将 dialogue 置空，但 description / action / atmosphere 仍必须完整
 - 如果已有 existing_storyboards，仅在用户明确要求增量修改时参考；默认按当前剧本重新完整生成并保存整集分镜。`,
@@ -97,7 +102,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
   prompt_generator: {
     name: '提示词',
     instructions: `你是专业的 AI 提示词工程师，负责两类提示词的创作与保存：
-1. 角色/场景/道具的「最终提示词」（英文），供生图直接使用
+1. 角色/场景/道具的「最终提示词」，供生图直接使用
 2. 分镜的「视频提示词」（video_prompt），供视频生成直接使用
 
 ## 图片最终提示词
@@ -106,7 +111,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 
 工作流程：
 1. 调用 read_characters / read_scenes / read_props 读取资产信息
-2. 按对应资产的技能规范（角色三视图 / 场景固定视角 / 道具白底单品）创作英文最终提示词
+2. 按对应资产的技能规范（角色三视图 / 场景固定视角 / 道具白底单品）创作最终提示词
 3. 调用 save_character_final_prompt / save_scene_final_prompt / save_prop_final_prompt 逐个保存
 
 ## 视频提示词
@@ -116,11 +121,12 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 工作流程：
 1. 调用 read_storyboard_context 读取该分镜的 action、description、dialogue、atmosphere、duration 及绑定的场景/角色
 2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；内容覆盖动作、画面描述、对白/旁白、氛围
-3. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
+3. 生成时会自动把 @名字 替换为对应参考图片标记（如 @志远 → @图片1志远），因此名字必须精确匹配场景/角色列表，不要缩写或加额外符号
+4. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
 
 通用规范：
-- 图片提示词只输出英文，单段连贯描述，不要分点；视频提示词输出中文，按格式分段
-- 项目设定的视觉风格描述会由工具在保存图片提示词时自动注入，不要自行添加风格词
+- 所有提示词只输出中文，单段连贯描述，不要分点，不要混入英文词汇
+- 项目设定的视觉风格描述会由工具在保存图片提示词时自动注入到最终提示词的最前方，不要自行添加风格词
 - 必须实际调用保存工具，不要只在回复中给出提示词`,
   },
 }
@@ -135,17 +141,24 @@ async function getAgentConfig(agentType: string) {
   return rows.find(r => r.isActive) || rows[0] || null
 }
 
+// Agent 每一步都会重新解析模型，相同端点只打一次日志避免刷屏
+let lastLoggedTextEndpointKey = ''
+
 async function getModel(dbConfig: any, modelOverride?: string, textConfigId?: number) {
   // 请求可指定文本配置（含其 provider/baseUrl/apiKey），否则回退到当前启用配置
   const textConfig = (textConfigId ? await getConfigById(textConfigId) : null) || await getTextConfig()
   const modelName = modelOverride || dbConfig?.model || textConfig.model
   const providerName = textConfig.provider.toLowerCase()
   const resolvedBaseURL = getTextProviderBaseUrl(textConfig)
-  logTaskProgress('AIConfig', 'text-model-endpoint', {
-    provider: textConfig.provider,
-    baseUrl: resolvedBaseURL,
-    model: modelName,
-  })
+  const endpointKey = `${providerName}|${resolvedBaseURL}|${modelName}`
+  if (endpointKey !== lastLoggedTextEndpointKey) {
+    lastLoggedTextEndpointKey = endpointKey
+    logTaskProgress('AIConfig', 'text-model-endpoint', {
+      provider: textConfig.provider,
+      baseUrl: resolvedBaseURL,
+      model: modelName,
+    })
+  }
 
   if (providerName === 'gemini') {
     const googleProvider = createGoogleGenerativeAI({

@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
-import { db, schema } from '../db/index.js'
-import { success, badRequest, now } from '../utils/response.js'
-import { generateImage } from '../services/image-generation.js'
+import { and, eq } from 'drizzle-orm'
+import { db, getInsertId, schema } from '../db/index.js'
+import { success, created, badRequest, now } from '../utils/response.js'
+import { toSnakeCase } from '../utils/transform.js'
+import { generateImage } from '../services/generation.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { ensurePropFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
@@ -10,6 +11,39 @@ import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger
 const app = new Hono()
 // 道具图：白底单品静物，方形画布
 const PROP_IMAGE_SIZE = '1024x1024'
+
+// POST /props — 手动新增道具（传入 episode_id 时关联到该集）
+app.post('/', async (c) => {
+  const body = await c.req.json()
+  if (!body.drama_id) return badRequest(c, 'drama_id required')
+  if (!body.name?.trim()) return badRequest(c, 'name required')
+  const ts = now()
+  const res = await db.insert(schema.props).values({
+    name: body.name.trim(),
+    type: body.type || '',
+    description: body.description || '',
+    dramaId: body.drama_id,
+    createdAt: ts,
+    updatedAt: ts,
+  })
+  const propId = getInsertId(res)
+  if (body.episode_id) {
+    const existing = await db.select().from(schema.episodeProps)
+      .where(and(eq(schema.episodeProps.episodeId, Number(body.episode_id)), eq(schema.episodeProps.propId, propId)))
+    if (!existing.length) {
+      await db.insert(schema.episodeProps).values({ episodeId: Number(body.episode_id), propId, createdAt: ts })
+    }
+  }
+  const [row] = await db.select().from(schema.props).where(eq(schema.props.id, propId))
+  return created(c, toSnakeCase(row))
+})
+
+// DELETE /props/:id — 软删除
+app.delete('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  await db.update(schema.props).set({ deletedAt: now(), updatedAt: now() }).where(eq(schema.props.id, id))
+  return success(c)
+})
 
 // PUT /props/:id — 更新道具（物品外貌/类型/最终提示词）
 app.put('/:id', async (c) => {
@@ -31,6 +65,7 @@ app.put('/:id', async (c) => {
 /** 本地兜底提示词：白底单品，不掺杂其他元素 */
 function propImagePrompt(prop: typeof schema.props.$inferSelect, stylePrompt = '') {
   return [
+    stylePrompt || '',
     `single product photo of ${prop.name}`,
     prop.description || '',
     'isolated on a pure white background',
@@ -38,7 +73,6 @@ function propImagePrompt(prop: typeof schema.props.$inferSelect, stylePrompt = '
     'soft even studio lighting',
     'high detail',
     'no text, no watermark',
-    stylePrompt || '',
   ].filter(Boolean).join(', ')
 }
 
@@ -54,7 +88,7 @@ app.post('/:id/generate-prompt', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   logTaskStart('FinalPrompt', 'prop-generate', { propId: id, episodeId: ep.id, force: !!body.force })
-  const finalPrompt = await ensurePropFinalPrompt(prop, ep.id, !!body.force)
+  const finalPrompt = await ensurePropFinalPrompt(prop, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'prop-generate', { propId: id, error: 'agent returned empty prompt' })
     return badRequest(c, '最终提示词生成失败，请重试')
@@ -75,7 +109,7 @@ app.post('/:id/generate-image', async (c) => {
   if (!ep) return badRequest(c, 'Episode not found')
 
   const stylePrompt = await getDramaStylePrompt(prop.dramaId)
-  const finalPrompt = await ensurePropFinalPrompt(prop, ep.id)
+  const finalPrompt = await ensurePropFinalPrompt(prop, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
   const prompt = finalPrompt || propImagePrompt(prop, stylePrompt)
   try {
     logTaskStart('PropImage', 'generate', { propId: id, episodeId: ep.id, dramaId: prop.dramaId })

@@ -99,6 +99,7 @@ export interface VideoGenerationRecord {
   generateAudio?: number | boolean | null
   duration?: number | null
   aspectRatio?: string | null
+  resolution?: string | null
   // ... 其他字段
 }
 

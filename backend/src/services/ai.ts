@@ -44,6 +44,10 @@ export function getTextProviderBaseUrl(config: AIConfig) {
   return config.baseUrl
 }
 
+// Agent 多步循环会逐步重复解析同一配置，相同配置只打一次日志避免刷屏
+const lastLoggedActiveConfigKey = new Map<string, string>()
+const lastLoggedConfigByIdKey = new Map<number, string>()
+
 export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfig | null> {
   const rows = (await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
@@ -58,13 +62,17 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
   }
 
   const models = active.model ? JSON.parse(active.model) : []
-  logTaskProgress('AIConfig', 'active-config-selected', {
-    serviceType,
-    configId: active.id,
-    provider: active.provider,
-    model: models[0] || '',
-    priority: active.priority,
-  })
+  const logKey = `${active.id}:${models[0] || ''}`
+  if (lastLoggedActiveConfigKey.get(serviceType) !== logKey) {
+    lastLoggedActiveConfigKey.set(serviceType, logKey)
+    logTaskProgress('AIConfig', 'active-config-selected', {
+      serviceType,
+      configId: active.id,
+      provider: active.provider,
+      model: models[0] || '',
+      priority: active.priority,
+    })
+  }
   return {
     provider: active.provider || '',
     baseUrl: active.baseUrl,
@@ -107,12 +115,16 @@ export async function getConfigById(id: number): Promise<AIConfig | null> {
     return null
   }
   const models = row.model ? JSON.parse(row.model) : []
-  logTaskProgress('AIConfig', 'config-by-id-selected', {
-    configId: id,
-    provider: row.provider,
-    model: models[0] || '',
-    serviceType: row.serviceType,
-  })
+  const logKey = `${row.provider}:${models[0] || ''}:${row.serviceType}`
+  if (lastLoggedConfigByIdKey.get(id) !== logKey) {
+    lastLoggedConfigByIdKey.set(id, logKey)
+    logTaskProgress('AIConfig', 'config-by-id-selected', {
+      configId: id,
+      provider: row.provider,
+      model: models[0] || '',
+      serviceType: row.serviceType,
+    })
+  }
   return {
     provider: row.provider || '',
     baseUrl: row.baseUrl,
