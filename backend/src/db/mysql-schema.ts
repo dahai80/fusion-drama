@@ -321,6 +321,15 @@ export const mysqlDropTableStatements = [
 ]
 
 export const mysqlDataCleanupStatements = [
+  // 悬空配置引用清理：集锁定的 image/video 配置已被删除时置空，让生成回退到当前启用配置
+  {
+    sql: 'UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE e.`image_config_id` IS NOT NULL AND c.`id` IS NULL',
+    params: [],
+  },
+  {
+    sql: 'UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE e.`video_config_id` IS NOT NULL AND c.`id` IS NULL',
+    params: [],
+  },
   // 厂商收敛：彻底移除 minimax（含历史遗留的 audio 配置，按 provider 全量清理）
   {
     sql: 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` = ?',

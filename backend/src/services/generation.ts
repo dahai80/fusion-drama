@@ -55,8 +55,9 @@ interface GenerateVideoParams {
 }
 
 export async function generateImage(params: GenerateImageParams): Promise<number> {
+  // 指定配置（集锁定）可能已停用/删除/厂商收敛，失效时回退到当前启用配置，避免生成被旧引用卡死
   const config = params.configId
-    ? await getConfigById(params.configId)
+    ? (await getConfigById(params.configId)) ?? await getActiveConfig('image')
     : await getActiveConfig('image')
   if (!config) throw new Error('No active image AI config')
 
@@ -92,8 +93,9 @@ export async function generateImage(params: GenerateImageParams): Promise<number
 }
 
 export async function generateVideo(params: GenerateVideoParams): Promise<number> {
+  // 指定配置（集锁定）可能已停用/删除/厂商收敛，失效时回退到当前启用配置
   const config = params.configId
-    ? await getConfigById(params.configId)
+    ? (await getConfigById(params.configId)) ?? await getActiveConfig('video')
     : await getActiveConfig('video')
   if (!config) throw new Error('No active video AI config')
 

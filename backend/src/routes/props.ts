@@ -53,9 +53,7 @@ app.put('/:id', async (c) => {
   if (body.name !== undefined) updates.name = body.name
   if (body.type !== undefined) updates.type = body.type
   if (body.description !== undefined) updates.description = body.description
-  // 物品外貌变更后，旧的白底单品最终提示词失效，下次生图时由提示词 Agent 重新生成
-  if (body.description !== undefined) updates.finalPrompt = null
-  // 手动编辑最终提示词时以传入值为准（覆盖上面的失效置空）
+  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
   await db.update(schema.props).set(updates).where(eq(schema.props.id, id))

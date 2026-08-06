@@ -48,9 +48,7 @@ app.put('/:id', async (c) => {
   if (body.prompt !== undefined) updates.prompt = body.prompt
   if (body.description !== undefined) updates.prompt = body.description
   if (body.lighting !== undefined) updates.lighting = body.lighting
-  // 描述/光影变更后，旧的固定视角最终提示词失效，下次生图时由提示词 Agent 重新生成
-  if (body.prompt !== undefined || body.description !== undefined || body.lighting !== undefined) updates.finalPrompt = null
-  // 手动编辑最终提示词时以传入值为准（覆盖上面的失效置空）
+  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
   await db.update(schema.scenes).set(updates).where(eq(schema.scenes.id, id))

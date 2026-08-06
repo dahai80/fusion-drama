@@ -63,9 +63,7 @@ app.put('/:id', async (c) => {
     if (snakeKey in body) updates[key] = body[snakeKey]
     else if (key in body) updates[key] = body[key]
   }
-  // 描述字段变更后，旧的三视图最终提示词失效，下次生图时由提示词 Agent 重新生成
-  if ('description' in updates || 'appearance' in updates || 'styling' in updates) updates.finalPrompt = null
-  // 手动编辑最终提示词时以传入值为准（覆盖上面的失效置空）
+  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
   await db.update(schema.characters).set(updates).where(eq(schema.characters.id, id))

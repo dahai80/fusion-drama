@@ -16,34 +16,40 @@
       @click="closeMention"
       @scroll="onScroll"
     />
-    <div v-if="mention.open" class="mention-dropdown" :style="mentionStyle">
-      <template v-if="groupedFiltered.length">
-        <template v-for="(group, gi) in groupedFiltered" :key="group.group">
-          <div class="mention-group-label">{{ group.group }}</div>
-          <button
-            v-for="(opt, oi) in group.options"
-            :key="group.group + '-' + opt.value"
-            type="button"
-            :class="['mention-option', { highlighted: flatIndex(gi, oi) === highlightIdx }]"
-            @mousedown.prevent="pick(opt)"
-            @mousemove="highlightIdx = flatIndex(gi, oi)"
-          >
-            <span class="mention-avatar">
-              <img v-if="opt.image" :src="opt.image" alt="" />
-              <template v-else>{{ opt.group === '场景' ? '景' : (opt.value || '?').slice(0, 1) }}</template>
-            </span>
-            <span class="mention-name">@{{ opt.label }}</span>
-            <span class="mention-type">{{ opt.group }}</span>
-          </button>
+    <Teleport to="body">
+      <div v-if="mention.open" ref="dropdownEl" class="mention-dropdown" :style="mentionStyle">
+        <template v-if="groupedFiltered.length">
+          <template v-for="(group, gi) in groupedFiltered" :key="group.group">
+            <div class="mention-group-label">{{ group.group }}</div>
+            <button
+              v-for="(opt, oi) in group.options"
+              :key="group.group + '-' + opt.value"
+              type="button"
+              :class="['mention-option', { highlighted: flatIndex(gi, oi) === highlightIdx }]"
+              @mousedown.prevent="pick(opt)"
+              @mousemove="highlightIdx = flatIndex(gi, oi)"
+            >
+              <span :class="['mention-avatar', `mention-avatar-${opt.group === '场景' ? 'scene' : (opt.group === '道具' ? 'prop' : 'role')}`]">
+                <img v-if="opt.image" :src="opt.image" alt="" />
+                <component v-else :is="groupIcon(opt.group)" :size="12" :stroke-width="2" />
+              </span>
+              <span class="mention-name">@{{ opt.label }}</span>
+              <span class="mention-type">{{ opt.group }}</span>
+            </button>
+          </template>
         </template>
-      </template>
-      <div v-else class="mention-empty">无匹配的参考</div>
-    </div>
+        <div v-else class="mention-empty">无匹配的参考</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { User, MapPin, Package } from 'lucide-vue-next'
+
+// 无图资产在下拉中显示分组图标兜底（场景=定位、道具=包裹、角色=人物）
+const groupIcon = (group) => (group === '场景' ? MapPin : group === '道具' ? Package : User)
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -61,8 +67,32 @@ const backdropEl = ref(null)
 const text = ref(props.modelValue)
 const mention = ref({ open: false, start: 0, query: '', top: 0, left: 0 })
 const highlightIdx = ref(0)
+const dropdownEl = ref(null)
+
+// 键盘上下移动高亮时，让高亮项自动滚动进下拉可视区（鼠标 mousemove 触发的跳转也保持可见）
+watch(highlightIdx, () => {
+  nextTick(() => {
+    dropdownEl.value
+      ?.querySelector('.mention-option.highlighted')
+      ?.scrollIntoView({ block: 'nearest' })
+  })
+})
 
 const DROPDOWN_WIDTH = 240
+const DROPDOWN_MAX_HEIGHT = 220
+
+// 下拉 Teleport 到 body 后用 fixed 定位，任何外层滚动/窗口变化都会使其错位 → 直接关闭
+function closeOnOuterScroll(e) {
+  if (mention.value.open && e?.target !== taEl.value) closeMention()
+}
+onMounted(() => {
+  window.addEventListener('scroll', closeOnOuterScroll, true)
+  window.addEventListener('resize', closeOnOuterScroll)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', closeOnOuterScroll, true)
+  window.removeEventListener('resize', closeOnOuterScroll)
+})
 
 watch(() => props.modelValue, (v) => {
   if (v !== text.value) text.value = v
@@ -162,7 +192,10 @@ function flatIndex(gi, oi) {
   return idx + oi
 }
 
-const mentionStyle = computed(() => ({ top: `${mention.value.top}px`, left: `${mention.value.left}px` }))
+// 下拉为 fixed 定位（Teleport 到 body），坐标基于视口；下方空间不足时翻到光标上方
+const mentionStyle = computed(() => mention.value.above
+  ? { left: `${mention.value.left}px`, bottom: `${window.innerHeight - mention.value.top}px` }
+  : { left: `${mention.value.left}px`, top: `${mention.value.top}px` })
 
 // 镜像 div 测量 textarea 光标坐标
 function getCaretCoordinates(textarea, position) {
@@ -201,13 +234,18 @@ function updateMentionState() {
   }
   const ta = taEl.value
   const caret = getCaretCoordinates(ta, ta.selectionStart)
+  const rect = ta.getBoundingClientRect()
   const maxLeft = Math.max(0, (wrapEl.value?.clientWidth || DROPDOWN_WIDTH) - DROPDOWN_WIDTH)
+  const belowTop = rect.top + caret.top + caret.lineHeight - ta.scrollTop + 4
+  // 下方放不下时下拉翻到光标上方（top 记为光标行的视口上沿）
+  const above = belowTop + DROPDOWN_MAX_HEIGHT > window.innerHeight - 8 && caret.top > DROPDOWN_MAX_HEIGHT
   mention.value = {
     open: true,
     start: active.start,
     query: active.query,
-    top: caret.top + caret.lineHeight - ta.scrollTop,
-    left: Math.min(caret.left, maxLeft),
+    top: above ? rect.top + caret.top - ta.scrollTop - 4 : belowTop,
+    left: rect.left + Math.min(caret.left, maxLeft),
+    above,
   }
   highlightIdx.value = 0
 }
@@ -297,6 +335,8 @@ function onBlur(e) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 /* 高亮镜像层：与 textarea 同款类名保证排版一致，仅背景/边框透明 */
 .mention-backdrop {
@@ -318,6 +358,10 @@ function onBlur(e) {
 .mention-input {
   position: relative;
   z-index: 1;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  resize: none;
   background: transparent;
   color: transparent;
   caret-color: var(--text-0);
@@ -339,8 +383,8 @@ function onBlur(e) {
   background: var(--success-bg);
 }
 .mention-dropdown {
-  position: absolute;
-  z-index: 40;
+  position: fixed;
+  z-index: 1000;
   width: 240px;
   max-height: 220px;
   overflow-y: auto;
@@ -392,6 +436,10 @@ function onBlur(e) {
   object-fit: cover;
   display: block;
 }
+/* 无图时按分组着色图标底色 */
+.mention-avatar-role { color: var(--accent-text); background: var(--accent-bg); }
+.mention-avatar-scene { color: #248a3d; background: var(--success-bg); }
+.mention-avatar-prop { color: var(--text-2); background: var(--bg-2); }
 .mention-name {
   flex: 1;
   min-width: 0;

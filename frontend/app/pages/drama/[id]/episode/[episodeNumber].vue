@@ -116,18 +116,6 @@
 
     <!-- ========== MAIN CONTENT ========== -->
     <main class="main">
-      <div v-if="activeSubSteps.length" class="stage-subnav seg">
-        <button
-          v-for="sub in activeSubSteps"
-          :key="sub.key"
-          :class="['stage-subnav-item seg-item', { active: activeSubStepKey === sub.key, done: sub.done }]"
-          @click="goSubStep(sub.key)"
-        >
-          <span>{{ sub.label }}</span>
-          <span v-if="sub.done" class="stage-subnav-dot"></span>
-        </button>
-      </div>
-
       <!-- ===== SCRIPT PANEL ===== -->
       <div v-if="panel === 'script'" class="content-panel">
         <!-- Step 0: Raw Content -->
@@ -217,27 +205,7 @@
         </div>
 
         <template v-else>
-          <div class="step-toolbar prod-toolbar">
-            <div class="toolbar-left">
-              <div class="step-indicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                <span class="step-name">制作工作台</span>
-              </div>
-            </div>
-            <div class="prod-tabs">
-              <button
-                v-for="t in prodTabDefs"
-                :key="t.id"
-                :class="['prod-tab', { active: prodTab === t.id }]"
-                @click="prodTab = t.id"
-              >
-                <component :is="t.icon" :size="11" />
-                {{ t.label }}
-                <span v-if="t.badge" class="prod-tab-badge">{{ t.badge }}</span>
-              </button>
-            </div>
-          </div>
-
+          <!-- 制作子步骤导航（资产/分镜拆分/视频生成）由左侧栏承担，顶部不再重复展示 -->
           <!-- Sub: Assets -->
           <div v-if="prodTab === 'assets'" class="prod-content">
             <div class="prod-section-bar">
@@ -576,41 +544,7 @@
                     <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60" @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
                     <span class="sb-duration-unit">s</span>
                   </span>
-                  <span class="sb-field-label">场景</span>
-                  <BaseSelect
-                    class="sb-scene-select"
-                    :model-value="selectedSb.scene_id || selectedSb.sceneId || ''"
-                    :options="sceneOptions"
-                    placeholder="未绑定场景"
-                    :searchable="false"
-                    @update:model-value="updateField(selectedSb, 'scene_id', $event === '' ? null : Number($event))"
-                  />
-                  <span class="sb-field-label">角色</span>
-                  <div class="role-pills">
-                    <button
-                      v-for="char in visualChars"
-                      :key="char.id"
-                      type="button"
-                      :class="['role-pill', { active: isStoryboardCharacterSelected(selectedSb, char.id) }]"
-                      @click="toggleStoryboardCharacter(selectedSb, char.id)"
-                    >
-                      {{ char.name }}
-                    </button>
-                    <span v-if="!visualChars.length" class="dim" style="font-size:12px">当前集还没有角色</span>
-                  </div>
-                  <span class="sb-field-label">道具</span>
-                  <div class="role-pills">
-                    <button
-                      v-for="prop in propItems"
-                      :key="prop.id"
-                      type="button"
-                      :class="['role-pill', { active: isStoryboardPropSelected(selectedSb, prop.id) }]"
-                      @click="toggleStoryboardProp(selectedSb, prop.id)"
-                    >
-                      {{ prop.name }}
-                    </button>
-                    <span v-if="!propItems.length" class="dim" style="font-size:12px">当前集还没有道具</span>
-                  </div>
+                  <!-- 角色/场景/道具绑定已移至右侧参考素材面板 -->
                 </div>
 
                 <div class="storyboard-editor-scroll">
@@ -674,18 +608,20 @@
                 <div class="storyboard-ref-head">
                   <div>
                     <div class="storyboard-ref-title">参考素材</div>
-                    <div class="storyboard-ref-copy">将作为视频参考图</div>
+                    <div class="storyboard-ref-copy">绑定角色 / 场景 / 道具作为视频参考</div>
                   </div>
-                  <span class="tag mono">{{ getShotReferenceAssets(selectedSb).filter(item => item.ready).length }}/{{ getShotReferenceAssets(selectedSb).length }}</span>
+                  <span class="tag mono">{{ refBindableAssets.filter(a => a.bound).length }}/{{ refBindableAssets.length }} 已绑定</span>
                 </div>
                 <div class="storyboard-ref-list">
                   <template v-for="group in ['角色', '场景', '道具']" :key="group">
-                    <div v-if="getShotReferenceAssets(selectedSb).filter(a => a.type === group).length" class="storyboard-ref-group">
+                    <div v-if="refBindableAssets.filter(a => a.type === group).length" class="storyboard-ref-group">
                       <div class="storyboard-ref-group-label">{{ group }}</div>
                       <div
-                        v-for="asset in getShotReferenceAssets(selectedSb).filter(a => a.type === group)"
+                        v-for="asset in refBindableAssets.filter(a => a.type === group)"
                         :key="asset.key"
-                        :class="['storyboard-ref-item', { ready: asset.ready }]"
+                        :class="['storyboard-ref-item', { bound: asset.bound }]"
+                        :title="asset.bound ? '点击移出参考' : '点击添加为参考'"
+                        @click="toggleShotBind(selectedSb, asset)"
                       >
                         <button
                           type="button"
@@ -699,16 +635,18 @@
                         <div class="storyboard-ref-main">
                           <div class="storyboard-ref-line">
                             <span class="storyboard-ref-name">{{ asset.name }}</span>
-                            <span :class="['storyboard-ref-state', asset.ready ? 'is-ready' : '']">{{ asset.ready ? '可参考' : '未生成' }}</span>
+                            <span :class="['storyboard-ref-state', asset.bound && asset.ready ? 'is-ready' : '']">
+                              {{ asset.bound ? (asset.ready ? '可参考' : '未生成') : '未绑定' }}
+                            </span>
                           </div>
                           <div class="storyboard-ref-meta">{{ asset.type }} · {{ asset.meta }}</div>
-                          <button v-if="!asset.ready" type="button" class="storyboard-ref-goto" @click.stop="prodTab = 'assets'">去生成 →</button>
+                          <button v-if="asset.bound && !asset.ready" type="button" class="storyboard-ref-goto" @click.stop="prodTab = 'assets'">去生成 →</button>
                         </div>
                       </div>
                     </div>
                   </template>
-                  <div v-if="!getShotReferenceAssets(selectedSb).length" class="storyboard-ref-empty">
-                    当前分镜还没有绑定角色、场景或道具。
+                  <div v-if="!refBindableAssets.length" class="storyboard-ref-empty">
+                    当前集还没有场景、角色或道具，先到「资产」提取素材后即可绑定。
                   </div>
                 </div>
               </aside>
@@ -1957,33 +1895,6 @@ function goMainStage(stageId) {
   panel.value = 'export'
 }
 
-const activeSubSteps = computed(() => {
-  if (activeMainStage.value === 'script') {
-    return [
-      { key: 'script:raw', label: '原始内容', done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', done: !!scriptContent.value },
-    ]
-  }
-  if (activeMainStage.value === 'assets') {
-    return [
-      { key: 'prod:assets', label: '资产', done: prodStepDone('assets') },
-    ]
-  }
-  if (activeMainStage.value === 'videos') {
-    return [
-      { key: 'prod:videos', label: '视频生成', done: !!sbs.value.length && shotVidCount.value === sbs.value.length },
-    ]
-  }
-  if (activeMainStage.value === 'storyboard') {
-    return [
-      { key: 'prod:storyboard', label: '分镜拆分', done: !!sbs.value.length },
-    ]
-  }
-  return [
-    { key: 'export:merge', label: '拼接导出', done: !!mergeUrl.value },
-  ]
-})
-
 const activeSubStepKey = computed(() => {
   if (panel.value === 'script') {
     if (scriptStep.value === 0) return 'script:raw'
@@ -2064,10 +1975,7 @@ const currentMainStageLabel = computed(() => {
   return current?.label || '工作台'
 })
 
-const currentSubStageLabel = computed(() => {
-  const current = activeSubSteps.value.find(step => step.key === activeSubStepKey.value)
-  return current?.label || currentStageLabel.value
-})
+const currentSubStageLabel = computed(() => currentStageLabel.value)
 
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
 const selectedSb = ref(null)
@@ -2577,6 +2485,72 @@ function getShotReferenceAssets(sb) {
   return assets.slice(0, 6)
 }
 
+// 右侧参考素材面板：本集全部可绑定素材（场景单选、角色/道具多选），bound 标记是否已绑定
+function shotBindableAssets(sb) {
+  const out = []
+  for (const char of visualChars.value) {
+    const imageUrl = char.image_url || char.imageUrl || ''
+    out.push({
+      key: `character-${char.id}`,
+      id: char.id,
+      type: '角色',
+      name: char.name || '未命名角色',
+      meta: char.role || '角色形象',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: getStoryboardCharacterIds(sb).includes(char.id),
+    })
+  }
+  for (const scene of scenes.value) {
+    const imageUrl = scene.image_url || scene.imageUrl || ''
+    out.push({
+      key: `scene-${scene.id}`,
+      id: scene.id,
+      type: '场景',
+      name: `${scene.location} · ${scene.time || '未设时间'}`,
+      meta: scene.time || '场景图',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: (sb?.scene_id || sb?.sceneId) === scene.id,
+    })
+  }
+  for (const prop of propItems.value) {
+    const imageUrl = prop.image_url || prop.imageUrl || ''
+    out.push({
+      key: `prop-${prop.id}`,
+      id: prop.id,
+      type: '道具',
+      name: prop.name || '未命名道具',
+      meta: prop.type || '道具单品图',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: getStoryboardPropIds(sb).includes(prop.id),
+    })
+  }
+  // 固定顺序（角色→场景→道具，按资产原顺序）：点击绑定/解绑不重排，避免跳动
+  return out
+}
+
+// 右侧参考素材面板渲染用：当前分镜可绑定的全部素材
+const refBindableAssets = computed(() => {
+  const sb = selectedSb.value
+  return sb ? shotBindableAssets(sb) : []
+})
+
+// 右侧面板切换绑定：场景单选（切换/解绑），角色/道具多选
+function toggleShotBind(sb, asset) {
+  if (asset.type === '场景') {
+    const current = sb?.scene_id || sb?.sceneId
+    updateField(sb, 'scene_id', current === asset.id ? null : asset.id)
+    return
+  }
+  if (asset.type === '角色') {
+    toggleStoryboardCharacter(sb, asset.id)
+    return
+  }
+  toggleStoryboardProp(sb, asset.id)
+}
+
 // 场景/角色/道具自动绑定占用的参考图片槽位（按素材卡片数，最多 9）
 const autoReferenceImageCount = computed(() => {
   const sb = selectedSb.value
@@ -2593,27 +2567,32 @@ const refImageUsedCount = computed(() => Math.min(9, autoReferenceImageCount.val
 // 是否已达 9 张上限（禁用继续上传）
 const refImageFull = computed(() => refImageUsedCount.value >= 9)
 
-// 视频提示词 @ 引用候选：当前集已有场景（按地点引用）、角色（按名字引用）与道具（按名字引用）
-const mentionOptions = computed(() => [
-  ...scenes.value.map(s => ({
-    label: `${s.location} · ${s.time || '未设时间'}`,
-    value: s.location,
-    group: '场景',
-    image: assetImageSrc(s),
-  })),
-  ...visualChars.value.map(c => ({
-    label: c.name,
-    value: c.name,
-    group: '角色',
-    image: assetImageSrc(c),
-  })),
-  ...propItems.value.map(p => ({
-    label: p.name,
-    value: p.name,
-    group: '道具',
-    image: assetImageSrc(p),
-  })),
-])
+// 视频提示词 @ 引用候选：仅当前分镜已绑定的角色与道具（按名字引用）、场景（按地点引用），展示顺序：角色 → 场景 → 道具
+const mentionOptions = computed(() => {
+  const sb = selectedSb.value
+  if (!sb) return []
+  const scene = getStoryboardScene(sb)
+  return [
+    ...getStoryboardCharacters(sb).map(c => ({
+      label: c.name,
+      value: c.name,
+      group: '角色',
+      image: assetImageSrc(c),
+    })),
+    ...(scene ? [{
+      label: `${scene.location} · ${scene.time || '未设时间'}`,
+      value: scene.location,
+      group: '场景',
+      image: assetImageSrc(scene),
+    }] : []),
+    ...getStoryboardProps(sb).map(p => ({
+      label: p.name,
+      value: p.name,
+      group: '道具',
+      image: assetImageSrc(p),
+    })),
+  ]
+})
 
 // 按参考图顺序（场景图在前、角色图居中、道具图在后）为 @名字 建立索引映射，供视频提示词引用替换
 function getShotReferenceIndexMap(sb) {
@@ -2846,8 +2825,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   justify-content: space-between;
   gap: 8px;
   flex-shrink: 0;
-  min-height: 48px;
-  padding: 6px 10px;
+  min-height: 40px;
+  padding: 4px 10px;
   border-radius: var(--radius-lg);
   background: rgba(251,251,253,0.72);
   border: 1px solid var(--border);
@@ -2876,7 +2855,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   min-width: 0;
 }
 
-.topbar-back {
+/* 用更高特异性压过后面的 .back-btn{height:40px}，保持顶栏紧凑 */
+.studio-topbar .topbar-back {
   width: auto;
   min-width: 72px;
   padding: 0 12px;
@@ -3179,7 +3159,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .content-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-height: 0; }
 .stage-subnav {
   align-self: flex-start;
-  margin: 10px 12px 0;
+  margin: 4px 12px 0;
   max-width: calc(100% - 24px);
   overflow-x: auto;
   flex-shrink: 0;
@@ -3189,6 +3169,9 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+  /* 压过全局 .seg-item{padding:7px 16px}，收紧子导航高度 */
+  padding: 4px 13px;
+  font-size: 12px;
 }
 .stage-subnav-item.active {
   background: #fff;
@@ -3417,10 +3400,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .sb-duration-input { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .sb-duration-input .input { width: 56px; height: 30px; padding: 4px 8px; font-size: 12.5px; }
 .sb-duration-unit { font-size: 11px; color: var(--text-3); }
-.sb-scene-select { min-width: 180px; max-width: 260px; flex-shrink: 0; }
-.sb-scene-select .base-select-trigger { min-height: 30px; }
-.sb-header-fields .role-pills { min-width: 0; }
 .storyboard-editor-scroll {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -3465,7 +3446,6 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   flex: 1;
   min-height: 0;
 }
-.storyboard-editor-scroll .sb-split .mention-input { flex: 1; min-height: 120px; resize: vertical; }
 @media (max-width: 1200px) {
   .storyboard-editor-scroll .sb-split { grid-template-columns: 1fr; }
   .storyboard-editor-scroll .sb-split .detail-section:first-child {
@@ -3550,7 +3530,22 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-out), opacity 0.15s var(--ease-out);
 }
+.storyboard-ref-item:hover { border-color: var(--accent); }
+.storyboard-ref-item:not(.bound) {
+  background: transparent;
+  border-color: var(--border);
+  opacity: 0.72;
+}
+.storyboard-ref-item:not(.bound):hover { opacity: 1; border-color: var(--accent); }
+.storyboard-ref-item:not(.bound) .storyboard-ref-main .storyboard-ref-name { color: var(--text-2); }
+.storyboard-ref-item.bound {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(0,113,227,0.06));
+}
+.storyboard-ref-item.bound:hover { border-color: var(--accent); }
 .storyboard-ref-thumb {
   width: 48px;
   aspect-ratio: 1;
@@ -3779,38 +3774,6 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   margin-bottom: 8px;
   font-size: 12px;
   color: var(--text-2);
-}
-.role-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.role-pill {
-  min-height: var(--button-height-sm);
-  padding: 0 12px;
-  border-radius: var(--button-radius);
-  border: 1px solid var(--button-border);
-  background: var(--button-bg);
-  color: var(--button-text);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 0.18s var(--ease-out);
-  box-shadow: var(--button-shadow);
-}
-.role-pill:hover {
-  border-color: var(--button-border-hover);
-  background: var(--button-bg-hover);
-  color: var(--button-text-hover);
-  box-shadow: var(--button-shadow-hover);
-}
-.role-pill.active {
-  border-color: var(--accent-glow);
-  background: var(--accent-bg);
-  color: var(--accent-text);
-  box-shadow: var(--button-shadow);
-}
-.role-pill:focus-visible {
-  outline: none;
-  border-color: var(--action-primary);
-  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
 }
 
 /* Production tabs */
@@ -4510,7 +4473,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   justify-content: space-between;
   gap: 8px;
 }
-.video-inspector-prompt {
+/* MentionTextarea 内部元素需 :deep 穿透（scoped 样式默认到不了子组件内部） */
+:deep(.video-inspector-prompt) {
   min-height: 176px;
   font-size: 13px;
   line-height: 1.6;

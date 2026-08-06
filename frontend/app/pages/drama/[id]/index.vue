@@ -27,12 +27,6 @@
           </span>
         </div>
       </div>
-      <button class="btn head-assets" @click="navigateTo(`/drama/${drama.id}/assets`)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-        </svg>
-        素材库
-      </button>
       <button class="btn btn-primary head-action" @click="openAddEpisode">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -41,34 +35,36 @@
       </button>
     </div>
 
-    <!-- Episode List -->
-    <div class="section-label">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <rect x="2" y="2" width="20" height="20" rx="2.5"/>
-        <line x1="7" y1="8" x2="7" y2="16"/>
-        <line x1="10" y1="8" x2="10" y2="16"/>
-        <line x1="13" y1="8" x2="13" y2="16"/>
-        <line x1="16" y1="8" x2="16" y2="16"/>
-      </svg>
-      剧集列表
-    </div>
+    <!-- 主 Tab：剧集列表 / 素材库 -->
+    <nav class="page-tabs">
+      <button type="button" :class="['tab-btn', { on: activeTab === 'episodes' }]" @click="activeTab = 'episodes'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+        剧集列表
+        <span class="tab-count">{{ drama.episodes?.length || 0 }}</span>
+      </button>
+      <button type="button" :class="['tab-btn', { on: activeTab === 'assets' }]" @click="switchToAssets">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        素材库
+        <span v-if="assetTotal > 0" class="tab-count">{{ assetTotal }}</span>
+      </button>
+    </nav>
 
-    <div class="ep-grid">
+    <div v-if="activeTab === 'episodes'" class="ep-grid">
       <div
         v-for="(ep, i) in drama.episodes"
         :key="ep.id"
-        class="card ep-card"
+        :class="['card', 'ep-card', `ep-card-${epStatus(ep)}`]"
         :style="{ animationDelay: `${i * 0.05}s` }"
         @click="navigateTo(`/drama/${drama.id}/episode/${ep.episode_number || ep.episodeNumber}`)"
       >
-        <div class="ep-number">
-          <span>EP</span>
-          <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
-        </div>
-        <div class="ep-body">
-          <span class="ep-title">{{ ep.title }}</span>
-          <div class="ep-status-wrap" @click.stop>
-            <button type="button" :class="['tag', 'ep-status-btn']" title="点击标记本集状态" @click="epStatusMenuId = epStatusMenuId === ep.id ? null : ep.id">
+        <!-- 卡片顶部：编号 + 状态 + 操作 -->
+        <div class="ep-header">
+          <div :class="['ep-number', `ep-num-${epStatus(ep)}`]">
+            <span class="ep-num-label">EP</span>
+            <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
+          </div>
+          <div class="ep-badges" @click.stop>
+            <button type="button" :class="['tag', 'ep-status-btn', `ep-status-${epStatus(ep)}`]" title="点击标记本集状态" @click="epStatusMenuId = epStatusMenuId === ep.id ? null : ep.id">
               <span :class="['status-dot', epStatusDotClass(ep)]"></span>
               {{ epStatusLabel(ep) }}
             </button>
@@ -83,8 +79,8 @@
               >{{ s.label }}</button>
             </div>
           </div>
-          <div class="ep-status-wrap" @click.stop>
-            <button type="button" :class="['tag', 'ep-status-btn']" title="点击修改本集视频分辨率" @click="epResMenuId = epResMenuId === ep.id ? null : ep.id">
+          <div class="ep-actions" @click.stop>
+            <button type="button" :class="['tag', 'ep-res-btn']" title="点击修改本集视频分辨率" @click="epResMenuId = epResMenuId === ep.id ? null : ep.id">
               {{ epResolution(ep) }}
             </button>
             <div v-if="epResMenuId === ep.id" class="status-menu">
@@ -97,21 +93,42 @@
                 @click="setEpisodeResolution(ep, r.value)"
               >{{ r.label }}</button>
             </div>
+            <button
+              class="btn btn-icon btn-sm ep-delete"
+              type="button"
+              title="删除本集"
+              @click="episodeToDelete = ep"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
           </div>
-          <span v-if="ep.duration" class="ep-duration">{{ ep.duration }}s</span>
         </div>
-        <div class="ep-arrow">
-          <button
-            class="btn btn-icon btn-sm ep-delete"
-            type="button"
-            title="删除本集"
-            @click.stop="episodeToDelete = ep"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-          </button>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+
+        <!-- 标题 -->
+        <h3 class="ep-title">{{ ep.title }}</h3>
+
+        <!-- 元数据行 -->
+        <div class="ep-meta-row">
+          <span v-if="ep.duration" class="ep-meta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{ ep.duration }}s
+          </span>
+          <span v-if="ep.scriptContent || ep.script_content" class="ep-meta ep-meta-ok">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            剧本已录入
+          </span>
+          <span v-if="ep.videoUrl || ep.video_url" class="ep-meta ep-meta-ok">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            已合成
+          </span>
+        </div>
+
+        <!-- 底部：更新时间 + 进入箭头 -->
+        <div class="ep-footer">
+          <span v-if="ep.updatedAt || ep.updated_at" class="ep-time">{{ formatEpTime(ep.updatedAt || ep.updated_at) }}</span>
+          <svg class="ep-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </div>
@@ -127,6 +144,337 @@
           </svg>
         </div>
         <p>点击上方「添加集」创建第一集</p>
+      </div>
+    </div>
+
+    <!-- 素材库 -->
+    <div v-else-if="activeTab === 'assets'" class="assets-wrap">
+      <div class="seg asset-filter">
+        <button
+          v-for="t in assetTabs"
+          :key="t.value"
+          type="button"
+          class="seg-item"
+          :class="{ on: assetTab === t.value }"
+          @click="assetTab = t.value"
+        >{{ t.label }}</button>
+      </div>
+
+      <!-- 全部素材为空 -->
+      <div v-if="!materials.length" class="empty-state">
+        <div class="empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <p class="empty-title">还没有任何素材</p>
+        <p class="empty-desc">在剧情工作台中通过「提取资产」生成角色、场景与道具后，会自动收录到这里，并可直接生成素材图。</p>
+      </div>
+
+      <div v-else-if="materials.length" class="asset-groups">
+        <template v-for="g in assetGroups" :key="g.kindKey">
+          <template v-if="g.items.length">
+            <div v-if="assetTab === 'all'" class="asset-group-head" :class="tagClass(g.kindKey)">
+              <span class="group-icon">
+                <svg v-if="g.kindKey === 'character'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <svg v-else-if="g.kindKey === 'scene'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.27 6.96 12 12l8.73-5.04M12 22.08V12"/></svg>
+              </span>
+              <span class="group-label">{{ g.label }}</span>
+              <span class="group-count">{{ g.items.length }}</span>
+            </div>
+
+            <!-- 角色：横向布局卡片（头像 + 样貌/妆造 + 三视图提示词） -->
+            <div v-if="g.kindKey === 'character'" class="character-asset-grid">
+              <article
+                v-for="m in g.items"
+                :key="'character-' + m.id"
+                class="card character-asset-card"
+                tabindex="0"
+                role="button"
+                @click="openEdit(m)"
+                @keydown.enter.prevent="openEdit(m)"
+                @keydown.space.prevent="openEdit(m)"
+              >
+                <div class="character-asset-main">
+                  <div class="character-asset-overview">
+                    <div class="character-portrait">
+                      <img v-if="matHasImage(m)" :src="assetSrc(m)" class="previewable-image" @click.stop="openAssetViewer(m)" />
+                      <div v-else class="character-portrait-empty">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </div>
+                      <span class="asset-cover-badge" :class="matHasImage(m) ? 'is-ready' : (isPending(m) ? 'is-pending' : '')">
+                        {{ matHasImage(m) ? '形象已生成' : (isPending(m) ? '形象生成中' : '形象待生成') }}
+                      </span>
+                    </div>
+                    <div class="character-asset-head">
+                      <div class="character-title-block">
+                        <div class="character-name-row">
+                          <strong class="character-name">{{ m.name }}</strong>
+                          <span class="tag">{{ m.role || '角色' }}</span>
+                        </div>
+                        <div class="character-visual-summary" :title="matDesc(m)">
+                          <span>样貌：{{ m.appearance || '待补充' }}</span>
+                          <span>妆造：{{ m.styling || '待补充' }}</span>
+                        </div>
+                      </div>
+                      <button class="btn btn-sm character-gen-btn" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
+                        <span v-if="isPending(m)" class="ring-spinner sm"></span>
+                        {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
+                      </button>
+                    </div>
+                  </div>
+                  <div class="asset-final-prompt" :title="m.finalPrompt || ''">
+                    <span class="afp-label">最终提示词 · 三视图</span>
+                    <span :class="['afp-text', !m.finalPrompt && 'dim']">{{ m.finalPrompt || '首次生成形象时由提示词 Agent 自动生成' }}</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- 场景 / 道具：竖向布局卡片（封面 + 描述/光影/类型 + 最终提示词 + 底部状态） -->
+            <div v-else class="asset-grid">
+              <div
+                v-for="m in g.items"
+                :key="g.kindKey + '-' + m.id"
+                :class="['card', 'asset-card', 'asset-click-card', g.kindKey === 'prop' ? 'prop-card' : '']"
+                tabindex="0"
+                role="button"
+                @click="openEdit(m)"
+                @keydown.enter.prevent="openEdit(m)"
+                @keydown.space.prevent="openEdit(m)"
+              >
+                <div class="asset-cover wide">
+                  <img v-if="matHasImage(m)" :src="assetSrc(m)" class="previewable-image" @click.stop="openAssetViewer(m)" />
+                  <div v-else class="asset-cover-empty">
+                    <svg v-if="g.kindKey === 'scene'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                  </div>
+                  <span class="asset-cover-badge" :class="matHasImage(m) ? 'is-ready' : (isPending(m) ? 'is-pending' : '')">
+                    {{ matHasImage(m) ? '已生成' : (isPending(m) ? '生成中' : '待生成') }}
+                  </span>
+                </div>
+                <div class="asset-body">
+                  <template v-if="g.kindKey === 'scene'">
+                    <div class="asset-name" :title="m.location">{{ m.location }}</div>
+                    <div class="asset-meta asset-desc dim" :title="matDesc(m)">{{ matDesc(m) || '场景描述待补充' }}</div>
+                    <div v-if="m.lighting" class="asset-meta asset-light dim" :title="m.lighting">光照 · {{ m.lighting }}</div>
+                  </template>
+                  <template v-else>
+                    <div class="prop-name-row">
+                      <span class="asset-name" :title="m.name">{{ m.name }}</span>
+                      <span class="tag">{{ m.type || '道具' }}</span>
+                    </div>
+                    <div class="asset-meta asset-desc dim" :title="m.description || ''">{{ m.description || '暂无描述' }}</div>
+                  </template>
+                  <div class="asset-meta asset-final" :class="{ dim: !m.finalPrompt }" :title="m.finalPrompt || ''">
+                    <span class="afp-label">{{ g.kindKey === 'scene' ? '最终提示词 · 固定视角' : '最终提示词 · 白底单品' }}</span>
+                    {{ m.finalPrompt || (g.kindKey === 'scene' ? '首次生成图片时由提示词 Agent 自动生成（前景/中景/后景）' : '首次生成图片时由提示词 Agent 自动生成（白底单品）') }}
+                  </div>
+                </div>
+                <div class="asset-foot">
+                  <span :class="['dot', matHasImage(m) && 'ok', isPending(m) && 'pending']" />
+                  <button class="btn btn-sm ml-auto" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
+                    <span v-if="isPending(m)" class="ring-spinner sm"></span>
+                    {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </template>
+
+        <!-- 筛选某一类但该类暂无素材 -->
+        <div v-if="assetTab !== 'all' && !visibleAssets.length" class="empty-state">
+          <div class="empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+          <p class="empty-title">暂无{{ tabLabel(assetTab) }}素材</p>
+          <p class="empty-desc">在剧情工作台中提取并生成{{ tabLabel(assetTab) }}后，会显示在这里。</p>
+        </div>
+      </div>
+
+      <!-- 素材详情 / 编辑对话框（与工作台资产卡片同款布局） -->
+      <div v-if="editDialog && editTarget" class="overlay mat-detail-overlay" @click.self="closeEdit">
+        <section class="dialog mat-detail-dialog" aria-label="素材详情">
+          <header class="dialog-head mat-detail-head">
+            <div class="mat-detail-title-block">
+              <span class="mat-detail-kicker">{{ editTarget.kind === '角色' ? '角色资产' : editTarget.kind === '场景' ? '场景资产' : '道具资产' }}</span>
+              <h2 class="mat-detail-title">{{ editTarget.name || '未命名' }}</h2>
+            </div>
+            <div class="mat-detail-head-actions">
+              <span v-if="editTarget.kindKey === 'character'" class="tag">{{ editTarget.role || '角色' }}</span>
+              <span v-else-if="editTarget.kindKey === 'prop'" class="tag">{{ editTarget.type || '道具' }}</span>
+              <span v-else class="tag">{{ editTarget.time || '未设时间' }}</span>
+              <button class="btn btn-ghost btn-icon" @click="closeEdit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </header>
+
+          <div class="dialog-body mat-detail-body">
+            <div class="mat-detail-shell">
+              <!-- 左侧：视觉预览 -->
+              <aside class="mat-detail-preview-panel">
+                <div class="mat-detail-section-title">
+                  <span>视觉预览</span>
+                  <span :class="['mat-detail-state', matHasImage(editTarget) ? 'is-ready' : '']">
+                    {{ matHasImage(editTarget) ? '已生成' : '待生成' }}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  class="mat-detail-media-frame"
+                  :disabled="!matHasImage(editTarget)"
+                  @click.stop="openAssetViewer(editTarget)"
+                >
+                  <img v-if="matHasImage(editTarget)" :src="assetSrc(editTarget)" />
+                  <span v-else class="mat-detail-media-empty">
+                    <svg v-if="editTarget.kindKey === 'character'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <svg v-else-if="editTarget.kindKey === 'prop'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  </span>
+                </button>
+
+                <div class="mat-detail-meta-row">
+                  <div class="mat-detail-meta-item">
+                    <span>类型</span>
+                    <strong>{{ editTarget.kind === '角色' ? '角色形象' : editTarget.kind === '道具' ? '道具' : '场景图片' }}</strong>
+                  </div>
+                  <div class="mat-detail-meta-item">
+                    <span>{{ editTarget.kindKey === 'character' ? '定位' : editTarget.kindKey === 'prop' ? '道具类型' : '时间' }}</span>
+                    <strong>{{ editTarget.kindKey === 'character' ? (editTarget.role || '角色') : editTarget.kindKey === 'prop' ? (editTarget.type || '道具') : (editTarget.time || '未设时间') }}</strong>
+                  </div>
+                </div>
+              </aside>
+
+              <!-- 右侧：编辑信息 -->
+              <section class="mat-detail-editor-panel">
+                <div class="mat-detail-section-title">
+                  <span>编辑信息</span>
+                  <span class="dim">{{ editTarget.kindKey === 'character' ? '样貌与妆造会影响角色形象' : editTarget.kindKey === 'prop' ? '物品外貌会影响道具图' : '空间与光影会影响场景图' }}</span>
+                </div>
+
+                <!-- 道具：单列物品外貌 -->
+                <div v-if="editTarget.kindKey === 'prop'" class="mat-detail-edit-grid mat-detail-edit-grid--prop">
+                  <label class="mat-detail-edit-field">
+                    <span>名称</span>
+                    <input v-model="editDraft.name" class="input" placeholder="道具名称" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>类型</span>
+                    <input v-model="editDraft.type" class="input" placeholder="如：武器 / 信物" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>物品外貌</span>
+                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="6" placeholder="材质、颜色、形状、大小、新旧程度、磨损痕迹等" />
+                  </label>
+                </div>
+
+                <!-- 角色：样貌 + 妆造 -->
+                <div v-else-if="editTarget.kindKey === 'character'" class="mat-detail-edit-grid mat-detail-edit-grid--character">
+                  <label class="mat-detail-edit-field">
+                    <span>名称</span>
+                    <input v-model="editDraft.name" class="input" placeholder="角色名" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>定位</span>
+                    <input v-model="editDraft.role" class="input" placeholder="主角 / 反派 / 配角…" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>样貌</span>
+                    <textarea v-model="editDraft.appearance" class="textarea mat-detail-textarea" rows="5" placeholder="年龄感、五官、体态、气质等" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>妆造</span>
+                    <textarea v-model="editDraft.styling" class="textarea mat-detail-textarea" rows="5" placeholder="发型、服装、妆面、配饰等" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>人物设定</span>
+                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="4" placeholder="性格、背景、动机…" />
+                  </label>
+                </div>
+
+                <!-- 场景：描述 + 光影 -->
+                <div v-else class="mat-detail-edit-grid mat-detail-edit-grid--scene">
+                  <label class="mat-detail-edit-field">
+                    <span>地点</span>
+                    <input v-model="editDraft.location" class="input" placeholder="如：故宫太和殿" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>时间</span>
+                    <input v-model="editDraft.time" class="input" placeholder="如：黄昏 / 深夜" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>场景描述</span>
+                    <textarea v-model="editDraft.prompt" class="textarea mat-detail-textarea" rows="5" placeholder="空间、陈设、年代质感、关键视觉元素等" />
+                  </label>
+                  <label class="mat-detail-edit-field">
+                    <span>场景光影</span>
+                    <textarea v-model="editDraft.lighting" class="textarea mat-detail-textarea" rows="5" placeholder="光源、色调、明暗、氛围等" />
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <!-- 最终提示词：可生成 / 重新生成 / 手动编辑 -->
+            <section class="mat-detail-prompt-panel">
+              <div class="mat-detail-section-title">
+                <span>最终提示词</span>
+                <span class="dim">由 AI 根据信息生成，可手动修改后保存</span>
+                <button
+                  class="btn btn-sm mat-detail-prompt-gen"
+                  :disabled="finalPromptGen || !firstEpisodeId"
+                  :title="firstEpisodeId ? '由 AI 生成最终提示词' : '请先在「剧集列表」创建至少一集'"
+                  @click="generateFinalPrompt(editTarget)"
+                >
+                  <svg v-if="!finalPromptGen" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3m9-9h-3M6 12H3m13.5-6.5L14 8m-4 8-2.5 2.5m11 0L16 16M8 8 5.5 5.5"/><circle cx="12" cy="12" r="3"/></svg>
+                  {{ finalPromptGen ? '生成中…' : (editDraft.finalPrompt ? '重新生成' : '生成提示词') }}
+                </button>
+              </div>
+              <textarea
+                v-model="editDraft.finalPrompt"
+                class="textarea mat-detail-prompt-text"
+                rows="5"
+                placeholder="点击「生成提示词」由 AI 根据信息生成，或在此手动填写。手动修改并保存后，下次生成图片将使用此提示词。"
+              ></textarea>
+            </section>
+          </div>
+
+          <footer class="dialog-foot mat-detail-foot">
+            <div class="mat-detail-secondary-actions">
+              <button class="btn" @click="closeEdit">关闭</button>
+            </div>
+            <div class="mat-detail-primary-actions">
+              <button
+                class="btn"
+                :disabled="isPending(editTarget)"
+                @click="generateMaterial(editTarget)"
+              >
+                {{ matHasImage(editTarget) ? '重新生成' : (isPending(editTarget) ? '生成中…' : '生成图片') }}
+              </button>
+              <button class="btn btn-primary" :disabled="editSaving" @click="saveEdit">
+                {{ editSaving ? '保存中…' : '保存修改' }}
+              </button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <!-- 图片查看器 -->
+      <div v-if="assetViewer.open" class="overlay viewer-overlay" @click.self="closeAssetViewer">
+        <div class="dialog viewer-dialog">
+          <div class="viewer-head">
+            <span class="viewer-title">{{ assetViewer.title }}</span>
+            <button class="btn btn-icon btn-sm btn-ghost" @click="closeAssetViewer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <img :src="assetViewer.src" :alt="assetViewer.title" class="viewer-img" />
+        </div>
       </div>
     </div>
 
@@ -172,7 +520,7 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { dramaAPI, episodeAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
 const route = useRoute()
@@ -219,6 +567,17 @@ const epStatusMenuId = ref(null)
 function epStatus(ep) { return ep.status || 'draft' }
 function epStatusLabel(ep) { return epStatusOptions.find(s => s.value === epStatus(ep))?.label || '待开始' }
 function epStatusDotClass(ep) { return epStatus(ep) === 'active' ? 'dot-active' : epStatus(ep) === 'completed' ? 'dot-done' : 'dot-pending' }
+
+function formatEpTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const diff = now - d
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3600_000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400_000) return `${Math.floor(diff / 3600000)} 小时前`
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
 
 async function setEpisodeStatus(ep, status) {
   epStatusMenuId.value = null
@@ -282,6 +641,195 @@ async function confirmDelEpisode() {
   }
 }
 
+/* ===== 素材库 Tab ===== */
+const activeTab = ref('episodes')
+const assetTab = ref('all')
+const assetViewer = ref({ open: false, src: '', title: '' })
+const pendingMaterials = ref(new Set())
+const assetTabs = [
+  { label: '全部', value: 'all' },
+  { label: '角色', value: 'character' },
+  { label: '场景', value: 'scene' },
+  { label: '道具', value: 'prop' },
+]
+const KIND_ORDER = { character: 0, scene: 1, prop: 2 }
+
+// 素材库以 characters / scenes / props 三张资产表为源（后端生图会写回其 imageUrl）
+function matImage(m) { return m.image_url || m.imageUrl || m.localPath || m.local_path || '' }
+function matHasImage(m) { return !!matImage(m) }
+function assetSrc(m) {
+  const raw = matImage(m)
+  if (!raw) return ''
+  return /^https?:\/\//i.test(raw) || raw.startsWith('/') ? raw : `/${raw}`
+}
+function matCreatedAt(m) { return m.created_at || m.updated_at || m.createdAt || m.updatedAt }
+function matDesc(m) {
+  if (m.kindKey === 'character') return m.appearance || m.description || ''
+  if (m.kindKey === 'scene') return m.prompt || m.description || ''
+  return m.description || ''
+}
+function tagClass(kindKey) {
+  return kindKey === 'character' ? 'is-character' : kindKey === 'scene' ? 'is-scene' : 'is-prop'
+}
+function tabLabel(v) { return assetTabs.find(t => t.value === v)?.label || '' }
+
+const materials = computed(() => {
+  const d = drama.value
+  if (!d) return []
+  const list = []
+  for (const c of d.characters || []) list.push({ ...c, kind: '角色', kindKey: 'character' })
+  for (const s of d.scenes || []) list.push({ ...s, kind: '场景', kindKey: 'scene' })
+  for (const p of d.props || []) list.push({ ...p, kind: '道具', kindKey: 'prop' })
+  return list.sort((a, b) => (KIND_ORDER[a.kindKey] - KIND_ORDER[b.kindKey]) || (a.id - b.id))
+})
+const visibleAssets = computed(() =>
+  assetTab.value === 'all' ? materials.value : materials.value.filter(m => m.kindKey === assetTab.value),
+)
+const assetTotal = computed(() => materials.value.length)
+// 按类型分组：全部模式下分成 角色 / 场景 / 道具 三个分区；筛选单类时只保留该类
+const assetGroups = computed(() => {
+  const groups = [
+    { kindKey: 'character', label: '角色', items: materials.value.filter(m => m.kindKey === 'character') },
+    { kindKey: 'scene', label: '场景', items: materials.value.filter(m => m.kindKey === 'scene') },
+    { kindKey: 'prop', label: '道具', items: materials.value.filter(m => m.kindKey === 'prop') },
+  ]
+  return assetTab.value === 'all'
+    ? groups
+    : groups.filter(g => g.kindKey === assetTab.value)
+})
+
+function pendingKey(m) { return `${m.kindKey}:${m.id}` }
+function isPending(m) { return pendingMaterials.value.has(pendingKey(m)) }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+async function generateMaterial(m) {
+  const epId = drama.value?.episodes?.[0]?.id
+  if (!epId) { toast.error('请先在「剧集列表」创建至少一集，才能生成素材图'); return }
+  const key = pendingKey(m)
+  if (pendingMaterials.value.has(key)) return
+  pendingMaterials.value = new Set(pendingMaterials.value).add(key)
+  try {
+    if (m.kindKey === 'character') await characterAPI.generateImage(m.id, epId)
+    else if (m.kindKey === 'scene') await sceneAPI.generateImage(m.id, epId)
+    else await propAPI.generateImage(m.id, epId)
+    toast.success(`${m.kind}「${m.name}」图片生成中`)
+    pollMaterial(m)
+  } catch (e) {
+    pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+    toast.error(e.message)
+  }
+}
+
+// 生图为异步任务：轮询重新加载 drama，直到该素材 imageUrl 出现
+async function pollMaterial(m) {
+  const key = pendingKey(m)
+  for (let i = 0; i < 40; i++) {
+    await sleep(2500)
+    await load()
+    const d = drama.value
+    const list = m.kindKey === 'character' ? d?.characters : m.kindKey === 'scene' ? d?.scenes : d?.props
+    const rec = list?.find(x => x.id === m.id)
+    if (rec && matImage(rec)) {
+      pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+      return
+    }
+  }
+  pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
+  toast.info(`${m.kind}「${m.name}」生成超时，可稍后刷新查看`)
+}
+
+function switchToAssets() {
+  activeTab.value = 'assets'
+}
+
+function openAssetViewer(m) {
+  assetViewer.value = { open: true, src: assetSrc(m), title: `${m.kind} · ${m.name}` }
+}
+function closeAssetViewer() {
+  assetViewer.value = { open: false, src: '', title: '' }
+}
+
+function fmtDate(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+/* ===== 素材信息编辑 ===== */
+const editDialog = ref(false)
+const editSaving = ref(false)
+const editTarget = ref(null)
+const editDraft = reactive({})
+
+function openEdit(m) {
+  editTarget.value = m
+  // 按类型初始化 draft
+  Object.keys(editDraft).forEach(k => delete editDraft[k])
+  if (m.kindKey === 'character') {
+    Object.assign(editDraft, { name: m.name || '', role: m.role || '', appearance: m.appearance || '', description: m.description || '', styling: m.styling || '' })
+  } else if (m.kindKey === 'scene') {
+    Object.assign(editDraft, { location: m.location || '', time: m.time || '', prompt: m.prompt || '', lighting: m.lighting || '' })
+  } else {
+    Object.assign(editDraft, { name: m.name || '', type: m.type || '', description: m.description || '' })
+  }
+  editDraft.finalPrompt = m.finalPrompt || m.final_prompt || ''
+  editDialog.value = true
+}
+
+// 生成/重新生成最终提示词（不生图）：调用各类型 generate-prompt 接口，结果写回 draft
+const finalPromptGen = ref(false)
+const firstEpisodeId = computed(() => drama.value?.episodes?.[0]?.id || null)
+async function generateFinalPrompt(m) {
+  const epId = firstEpisodeId.value
+  if (!epId) { toast.error('请先在「剧集列表」创建至少一集，才能生成最终提示词'); return }
+  finalPromptGen.value = true
+  try {
+    let res
+    if (m.kindKey === 'character') res = await characterAPI.generatePrompt(m.id, epId, true)
+    else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true)
+    else res = await propAPI.generatePrompt(m.id, epId, true)
+    const fp = res?.final_prompt || res?.finalPrompt
+    if (!fp) throw new Error('最终提示词生成失败，请重试')
+    editTarget.value = { ...m, finalPrompt: fp }
+    editDraft.finalPrompt = fp
+    toast.success('最终提示词已生成')
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    finalPromptGen.value = false
+  }
+}
+
+function closeEdit() {
+  editDialog.value = false
+  editTarget.value = null
+}
+
+async function saveEdit() {
+  const t = editTarget.value
+  if (!t) return
+  // 必填校验
+  if (t.kindKey === 'character' && !String(editDraft.name ?? '').trim()) { toast.error('请填写名称'); return }
+  if (t.kindKey === 'scene' && !String(editDraft.location ?? '').trim()) { toast.error('请填写地点'); return }
+  if (t.kindKey === 'prop' && !String(editDraft.name ?? '').trim()) { toast.error('请填写名称'); return }
+  editSaving.value = true
+  try {
+    const fp = editDraft.finalPrompt || null
+    if (t.kindKey === 'character') await characterAPI.update(t.id, { name: editDraft.name, role: editDraft.role, appearance: editDraft.appearance, description: editDraft.description, styling: editDraft.styling, finalPrompt: fp })
+    else if (t.kindKey === 'scene') await sceneAPI.update(t.id, { location: editDraft.location, time: editDraft.time, prompt: editDraft.prompt, lighting: editDraft.lighting, finalPrompt: fp })
+    else await propAPI.update(t.id, { name: editDraft.name, type: editDraft.type, description: editDraft.description, finalPrompt: fp })
+    toast.success('已保存')
+    closeEdit()
+    load()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    editSaving.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -305,7 +853,6 @@ onMounted(load)
 .head-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .head-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .head-action { flex-shrink: 0; }
-.head-assets { flex-shrink: 0; }
 
 .back-btn {
   width: 36px; height: 36px; flex-shrink: 0;
@@ -333,57 +880,177 @@ onMounted(load)
   font-size: 12.5px; color: var(--text-2);
 }
 
-/* Section label */
-.section-label {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 11px; font-weight: 700;
-  color: var(--text-3); letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 12px;
+/* 主 Tab 导航 */
+.page-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  padding: 10px 4px 12px;
+  margin-right: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: color 0.16s var(--ease-out);
+}
+.tab-btn svg { opacity: 0.75; }
+.tab-btn::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.16s var(--ease-out);
+}
+.tab-btn:hover { color: var(--text-0); }
+.tab-btn.on { color: var(--text-0); font-weight: 700; }
+.tab-btn.on::after { background: var(--accent); }
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--bg-2);
+  color: var(--text-2);
+}
+.tab-btn.on .tab-count { background: var(--accent-bg); color: var(--accent-text); }
+
+/* Episode Grid — auto-fill 多列卡片 */
+.ep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
 }
 
-/* Episode List */
-.ep-grid { display: flex; flex-direction: column; gap: 12px; max-width: 760px; }
-
+/* 卡片主体 — 垂直面板 */
 .ep-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
   cursor: pointer;
+  border-top: 3px solid transparent;
   animation: fadeUp 0.35s var(--ease-out) both;
+  transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), transform 0.15s var(--ease-out);
 }
 .ep-card:hover {
-  transform: translateX(3px);
   box-shadow: var(--shadow-lift);
+  transform: translateY(-2px);
 }
+/* 顶部状态色条 */
+.ep-card-draft { border-top-color: var(--text-3); }
+.ep-card-active { border-top-color: var(--success); }
+.ep-card-completed { border-top-color: var(--accent); }
+
+/* ---- 卡片头部：编号 / 状态 / 操作 ---- */
+.ep-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 
 .ep-number {
-  width: 52px; height: 52px; flex-shrink: 0;
-  border-radius: var(--radius-lg);
-  background: var(--accent-bg);
+  width: 46px; height: 46px; flex-shrink: 0;
+  border-radius: var(--radius);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--font-mono);
-  color: var(--accent-text);
+  background: var(--accent-bg); color: var(--accent-text);
+  transition: background 0.16s, color 0.16s;
 }
-.ep-number span { font-size: 9px; letter-spacing: 0.12em; opacity: 0.65; }
-.ep-number b { font-size: 16px; font-weight: 700; line-height: 1.1; }
+.ep-num-label {
+  font-size: 8px; letter-spacing: 0.18em; font-weight: 700;
+  opacity: 0.75; line-height: 1; margin-bottom: 1px;
+}
+.ep-number b {
+  font-size: 17px; font-weight: 800; line-height: 1;
+}
+.ep-num-active { background: var(--success-bg); color: var(--success); }
+.ep-num-completed { background: var(--accent-bg); color: var(--accent-text); }
+.ep-num-draft { background: var(--bg-2); color: var(--text-1); }
 
-.ep-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.ep-title { font-size: 14.5px; font-weight: 650; color: var(--text-0); }
-.ep-status-wrap { position: relative; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; }
-.ep-status-btn { cursor: pointer; border: none; font: inherit; display: inline-flex; align-items: center; gap: 6px; }
-.status-dot {
-  width: 5px; height: 5px; border-radius: 50%;
+.ep-badges { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.ep-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.18s; }
+.ep-card:hover .ep-actions { opacity: 1; }
+
+/* 标题 */
+.ep-title {
+  font-size: 15px; font-weight: 700; color: var(--text-0);
+  line-height: 1.3; margin: 0 0 10px 0;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
-.dot-active { background: var(--success); }
+
+/* 元数据行 */
+.ep-meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: auto; }
+.ep-meta {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; color: var(--text-3);
+}
+.ep-meta svg { opacity: 0.7; flex-shrink: 0; }
+.ep-meta-ok { color: var(--success); }
+.ep-meta-ok svg { opacity: 1; }
+
+/* 底部栏 */
+.ep-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.ep-time { font-size: 11px; color: var(--text-3); opacity: 0.6; }
+.ep-arrow { color: var(--text-3); transition: transform 0.18s var(--ease-out), color 0.18s; }
+.ep-card:hover .ep-arrow { transform: translateX(2px); color: var(--accent); }
+
+/* 状态胶囊 */
+.ep-status-btn {
+  cursor: pointer; border: none; font: inherit;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  transition: background 0.14s, color 0.14s;
+}
+.ep-status-draft { background: var(--bg-2); color: var(--text-2); }
+.ep-status-active { background: rgba(34,197,94,0.1); color: #16a34a; }
+.ep-status-completed { background: var(--accent-bg); color: var(--accent-text); }
+
+/* 分辨率标签 */
+.ep-res-btn {
+  cursor: pointer; border: none; font: inherit;
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  background: var(--bg-2); color: var(--text-2);
+  transition: background 0.14s, color 0.14s;
+}
+.ep-res-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+
+/* 状态圆点 */
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-active { background: var(--success); box-shadow: 0 0 4px rgba(34,197,94,0.35); }
 .dot-done { background: var(--accent); }
 .dot-pending { background: var(--text-3); }
+
+/* 下拉菜单 */
 .status-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 5px);
   left: 0;
-  width: 108px;
+  width: 110px;
   display: grid;
-  padding: 6px;
+  padding: 5px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-raised);
@@ -392,33 +1059,22 @@ onMounted(load)
 }
 .status-menu-item {
   min-height: var(--button-height-sm);
-  display: flex;
-  align-items: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-1);
-  padding: 0 9px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.14s var(--ease-out);
+  display: flex; align-items: center;
+  border: none; border-radius: 6px;
+  background: transparent; color: var(--text-1);
+  padding: 0 9px; text-align: left;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.14s var(--ease-out);
 }
 .status-menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
 .status-menu-item.on { color: var(--accent); background: var(--accent-bg); }
-.ep-duration { font-size: 12px; color: var(--text-2); font-family: var(--font-mono); }
 
-.ep-arrow { color: var(--text-3); flex-shrink: 0; transition: transform 0.18s var(--ease-out), color 0.18s var(--ease-out); display: flex; align-items: center; gap: 6px; }
-.ep-card:hover .ep-arrow { transform: translateX(3px); color: var(--accent); }
+/* 删除按钮 */
 .ep-delete {
-  opacity: 0;
   color: var(--text-3);
-  transition: opacity 0.15s var(--ease-out), color 0.15s var(--ease-out);
+  transition: color 0.15s;
 }
-.ep-card:hover .ep-delete { opacity: 1; }
 .ep-delete:hover { color: var(--action-danger); }
-.ep-card:hover .ep-arrow:has(.ep-delete:hover) { transform: none; color: var(--text-3); }
 
 /* Empty */
 .ep-empty {
@@ -448,9 +1104,447 @@ onMounted(load)
   color: var(--text-3);
 }
 
+/* ===== 素材库 ===== */
+.asset-filter { margin-bottom: 16px; }
+
+.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; align-items: stretch; }
+.character-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 260px));
+  justify-content: start;
+  gap: 10px;
+}
+/* 分组标题：角色 / 场景 / 道具，彩色左条 + 图标 + 数量 */
+.asset-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  margin: 4px 0 14px;
+  border-radius: var(--radius);
+  border-left: 3px solid var(--text-3);
+  background: var(--bg-1);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.asset-group-head .group-icon { display: inline-flex; color: var(--text-2); }
+.asset-group-head .group-label { letter-spacing: 0.02em; }
+.asset-group-head .group-count {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--bg-2);
+  border-radius: 99px;
+  padding: 1px 9px;
+}
+.asset-group-head.is-character { border-left-color: var(--accent); background: var(--accent-bg); color: var(--accent-text); }
+.asset-group-head.is-character .group-icon { color: var(--accent-text); }
+.asset-group-head.is-scene { border-left-color: #16a34a; background: rgba(34,197,94,0.1); color: #15803d; }
+.asset-group-head.is-scene .group-icon { color: #15803d; }
+.asset-group-head.is-prop { border-left-color: #b45309; background: rgba(180,83,9,0.1); color: #b45309; }
+.asset-group-head.is-prop .group-icon { color: #b45309; }
+.asset-card {
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
+}
+.asset-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.asset-click-card,
+.character-asset-card {
+  cursor: pointer;
+}
+.asset-click-card:focus-visible,
+.character-asset-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--shadow-panel);
+}
+.character-asset-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
+}
+.character-asset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+  border-color: var(--border-strong);
+}
+.character-portrait {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-self: start;
+  margin: 0;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.character-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.character-portrait-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.character-asset-main {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-asset-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-asset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.character-title-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.character-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.character-name {
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-0);
+}
+.character-gen-btn { flex-shrink: 0; align-self: center; }
+.asset-final-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.afp-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+.afp-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  color: var(--text-2);
+}
+.afp-text.dim { color: var(--text-3); }
+.asset-final {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  color: var(--text-2);
+}
+.asset-final .afp-label { margin-right: 4px; }
+.character-visual-summary {
+  max-width: 100%;
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+.character-visual-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-cover { position: relative; aspect-ratio: 1; background: var(--bg-2); overflow: hidden; }
+.asset-cover.wide { aspect-ratio: 16/9; }
+.asset-cover img { width: 100%; height: 100%; object-fit: cover; }
+.previewable-image { cursor: zoom-in; transition: transform 0.18s var(--ease-out), filter 0.18s var(--ease-out); }
+.previewable-image:hover { transform: scale(1.015); filter: saturate(1.04); }
+.asset-cover-badge {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  color: var(--text-2);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.asset-cover-badge.is-ready {
+  background: var(--success-bg);
+  color: #248a3d;
+}
+.asset-cover-badge.is-pending {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+.asset-cover-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.asset-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px 8px;
+  min-width: 0;
+}
+.asset-name {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-meta { font-size: 11px; line-height: 1.5; }
+.asset-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+.asset-light {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-foot { display: flex; align-items: center; gap: 4px; padding: 7px 11px; border-top: 1px solid var(--border); }
+.prop-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.prop-name-row .asset-name { min-width: 0; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bg-3); flex-shrink: 0; }
+.dot.ok { background: var(--success); }
+.dot.pending { background: var(--accent); }
+.ring-spinner {
+  width: 22px; height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.ring-spinner.sm { width: 13px; height: 13px; border-width: 2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  text-align: center;
+}
+.empty-icon {
+  width: 56px; height: 56px; border-radius: var(--radius-lg);
+  background: var(--bg-2); color: var(--text-3);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.empty-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
+.empty-desc { font-size: 12px; color: var(--text-3); max-width: 260px; line-height: 1.6; }
+
+.viewer-overlay { align-items: center; }
+.viewer-dialog { width: min(960px, calc(100vw - 48px)); padding: 14px; }
+.viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.viewer-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.viewer-img { width: 100%; max-height: 76vh; object-fit: contain; border-radius: var(--radius); background: var(--bg-2); display: block; }
+
+/* ===== 素材详情 / 编辑对话框（与工作台资产卡片同款布局） ===== */
+.mat-detail-overlay { z-index: 118; padding: 28px; }
+.mat-detail-dialog {
+  width: min(1040px, calc(100vw - 56px));
+  max-height: calc(100vh - 56px);
+}
+.mat-detail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.mat-detail-title-block { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mat-detail-kicker {
+  color: var(--text-3); font-size: 10px; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.mat-detail-title {
+  margin: 0; color: var(--text-0); font-size: 18px;
+  line-height: 1.2; font-family: var(--font-display);
+}
+.mat-detail-head-actions {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.mat-detail-body { min-height: 0; overflow: auto; padding: 16px; }
+.mat-detail-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 14px; align-items: start;
+}
+.mat-detail-preview-panel,
+.mat-detail-editor-panel {
+  min-width: 0; display: flex; flex-direction: column; gap: 12px;
+}
+.mat-detail-preview-panel { position: sticky; top: 0; }
+
+.mat-detail-section-title {
+  min-height: 24px; display: flex; align-items: center;
+  justify-content: space-between; gap: 10px;
+  color: var(--text-1); font-size: 12px; font-weight: 820; letter-spacing: 0.02em;
+}
+.mat-detail-section-title .dim {
+  font-size: 11px; font-weight: 560; letter-spacing: 0; text-align: right;
+}
+
+/* 最终提示词面板 */
+.mat-detail-prompt-panel {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.mat-detail-prompt-gen {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mat-detail-prompt-text {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-0);
+  font-size: 12.5px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 112px;
+  font-family: inherit;
+}
+.mat-detail-prompt-text:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.mat-detail-prompt-text::placeholder { color: var(--text-3); }
+
+/* 状态标签 */
+.mat-detail-state {
+  min-height: 20px; display: inline-flex; align-items: center;
+  padding: 0 7px; border-radius: 999px;
+  background: rgba(0,0,0,0.05); color: var(--text-3);
+  font-size: 10px; font-weight: 760; white-space: nowrap;
+}
+.mat-detail-state.is-ready { color: var(--success); background: var(--success-bg); }
+
+/* 图片预览框 */
+.mat-detail-media-frame {
+  position: relative; width: 100%; aspect-ratio: 16/9;
+  display: block; padding: 0;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius); background: var(--bg-2);
+  color: var(--text-3); overflow: hidden; cursor: zoom-in;
+}
+.mat-detail-media-frame:disabled { cursor: default; opacity: 1; }
+.mat-detail-media-frame:focus-visible {
+  outline: none; border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
+.mat-detail-media-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.mat-detail-media-empty {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+}
+
+/* 元数据行（类型 + 定位） */
+.mat-detail-meta-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+}
+.mat-detail-meta-item {
+  min-width: 0; padding: 9px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius); background: var(--surface-muted);
+}
+.mat-detail-meta-item span {
+  display: block; color: var(--text-3);
+  font-size: 10px; font-weight: 780; letter-spacing: 0.04em;
+}
+.mat-detail-meta-item strong {
+  display: block; margin-top: 4px; min-width: 0;
+  color: var(--text-0); font-size: 12px;
+  line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 编辑区域 */
+.mat-detail-edit-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.mat-detail-edit-grid--character,
+.mat-detail-edit-grid--scene { grid-template-columns: 1fr; }
+.mat-detail-edit-field {
+  min-width: 0; display: flex; flex-direction: column; gap: 7px;
+}
+.mat-detail-edit-field > span,
+.mat-detail-edit-field > input::placeholder,
+.mat-detail-textarea::placeholder {
+  color: var(--text-3); font-size: 10px; font-weight: 780; letter-spacing: 0.04em;
+}
+.mat-detail-textarea { min-height: 138px; resize: vertical; }
+.mat-detail-edit-grid--character .mat-detail-textarea,
+.mat-detail-edit-grid--scene .mat-detail-textarea { min-height: 164px; }
+
+/* 底部操作栏 */
+.mat-detail-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 12px 16px;
+  border-top: 1px solid var(--surface-outline);
+}
+.mat-detail-secondary-actions,
+.mat-detail-primary-actions { display: flex; align-items: center; gap: 8px; }
+
 @media (max-width: 860px) {
   .page { padding: 20px 20px 32px; }
   .page-head { flex-wrap: wrap; }
+  .ep-grid { grid-template-columns: 1fr; }
+  .ep-actions { opacity: 1; } /* 移动端始终显示操作按钮 */
   .dialog-foot { flex-wrap: wrap; gap: 10px; }
   .dialog-foot-copy { display: none; }
 }
