@@ -3,7 +3,7 @@
  */
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegPath from 'ffmpeg-static'
-import ffprobeStatic from 'ffprobe-static'
+import { createRequire } from 'module'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -12,6 +12,9 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+
+// ffprobe-static 无类型声明,用 createRequire 引入(仓库 .gitignore 忽略 *.d.ts)
+const ffprobeStatic = createRequire(import.meta.url)('ffprobe-static') as { path: string }
 
 // 系统未安装 ffmpeg 时使用项目内置二进制
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
