@@ -2,6 +2,8 @@
  * FFmpeg 多镜头拼接 — 将所有生成后的镜头视频拼接为一集
  */
 import ffmpeg from 'fluent-ffmpeg'
+import ffmpegPath from 'ffmpeg-static'
+import ffprobeStatic from 'ffprobe-static'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -10,6 +12,10 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+
+// 系统未安装 ffmpeg 时使用项目内置二进制
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
+if (ffprobeStatic?.path) ffmpeg.setFfprobePath(ffprobeStatic.path)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../../data/static')
@@ -22,24 +28,26 @@ function toAbsPath(relativePath: string): string {
 }
 
 /**
- * 拼接一集的所有镜头视频。
+ * 拼接一集的镜头视频。
  * 优先使用视频生成产物，兼容历史的 composedVideoUrl 数据。
+ * 传入 storyboardIds 时只拼接所选镜头（仍按镜号顺序）。
  */
-export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Promise<number> {
-  const storyboards = await db.select().from(schema.storyboards)
+export async function mergeEpisodeVideos(episodeId: number, dramaId: number, storyboardIds?: number[]): Promise<number> {
+  let storyboards = await db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
 
+  if (storyboardIds?.length) {
+    const allow = new Set(storyboardIds.map(Number))
+    storyboards = storyboards.filter(sb => allow.has(sb.id))
+  }
 
-  const readyVideos = storyboards
+  // 允许部分拼接:按镜号顺序拼接已生成的镜头,未生成的跳过
+  const videos = storyboards
     .map(sb => sb.videoUrl || sb.composedVideoUrl)
     .filter(Boolean) as string[]
-  if (readyVideos.length !== storyboards.length) {
-    throw new Error(`Only generated storyboards can be merged (${readyVideos.length}/${storyboards.length} ready)`)
-  }
-  const videos = readyVideos
 
-  if (videos.length === 0) throw new Error('No videos to merge')
+  if (videos.length === 0) throw new Error('所选镜头还没有可拼接的视频')
 
   logTaskStart('MergeTask', 'episode-merge', { episodeId, dramaId, clips: videos.length })
 
@@ -103,6 +111,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
       .output(outputPath)
       .on('end', () => resolve())
       .on('error', (err) => reject(err))
+      .run()
 
   })
 

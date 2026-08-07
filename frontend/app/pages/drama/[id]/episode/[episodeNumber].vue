@@ -51,6 +51,11 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             刷新
           </button>
+          <button class="btn task-drawer-trigger" @click="openTaskDrawer">
+            <ListTodo :size="12" />
+            任务
+            <span v-if="genTaskActiveCount" class="task-drawer-badge">{{ genTaskActiveCount }}</span>
+          </button>
           <button class="btn btn-primary" @click="panel = mergeUrl ? 'export' : (sbs.length ? 'production' : 'script')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             {{ mergeUrl ? '查看成片' : (sbs.length ? '继续制作' : '开始制作') }}
@@ -66,17 +71,30 @@
         <div
           v-for="section in sidebarSections"
           :key="section.id"
-          class="pipe-section"
+          :class="['pipe-section', 'is-' + sectionState(section.id)]"
         >
-          <div class="pipe-section-label">{{ section.label }}</div>
+          <div class="pipe-section-label">
+            <span v-if="sectionState(section.id) !== 'none'" class="pipe-section-state">
+              <svg v-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-else-if="sectionState(section.id) === 'active'" class="pipe-section-pulse" />
+              <span v-else class="pipe-section-dot" />
+            </span>
+            <span>{{ section.label }}</span>
+            <span v-if="sectionState(section.id) === 'active'" class="pipe-section-tag">进行中</span>
+          </div>
           <button
             v-for="item in section.items"
             :key="item.key"
-            :class="['pipe-item pipe-item-sub', { active: activeSubStepKey === item.key, done: item.done }]"
+            :class="['pipe-item pipe-item-sub', {
+              active: activeSubStepKey === item.key,
+              done: sectionState(section.id) === 'done',
+              doing: sectionState(section.id) === 'active',
+            }]"
             @click="goSubStep(item.key)"
           >
-            <span class="pipe-icon" :class="item.done ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
-              <svg v-if="item.done" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="pipe-icon" :class="sectionState(section.id) === 'done' ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
+              <svg v-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-else-if="sectionState(section.id) === 'active'" class="pipe-item-pulse" />
               <component v-else :is="item.icon" :size="11" />
             </span>
             <span class="pipe-copy">
@@ -87,22 +105,13 @@
         </div>
       </nav>
 
-      <!-- Bottom: Progress + Refresh -->
+      <!-- Bottom: Refresh -->
       <div class="sidebar-bottom">
-        <div class="progress-wrap">
-          <div class="progress-head">
-            <span class="progress-label">制作进度</span>
-            <span class="progress-val">{{ pipelineProgress }}/{{ pipelineTotal }}</span>
-          </div>
-          <div class="progress-track">
-            <div class="progress-fill" :style="{ width: (pipelineProgress / pipelineTotal * 100) + '%' }"></div>
-          </div>
-        </div>
         <div class="sidebar-jumper" v-if="sidebarJumpSteps.length">
           <button
             v-for="step in sidebarJumpSteps"
             :key="step.key"
-            :class="['sidebar-jump-dot', { active: activeSubStepKey === step.key, done: step.done }]"
+            :class="['sidebar-jump-dot', { active: activeSubStepKey === step.key }]"
             @click="goSubStep(step.key)"
             :title="step.label"
           ></button>
@@ -701,7 +710,7 @@
                 AI 生成分镜
               </button>
             </div>
-            <div v-else class="video-task-workbench">
+            <div v-else class="video-task-workbench has-player">
               <section class="video-task-list">
                 <div class="video-task-head">
                 <div>
@@ -729,9 +738,10 @@
                     <video
                       v-if="hasVid(task.storyboard)"
                       :src="'/' + getVideoUrl(task.storyboard)"
-                      controls
                       preload="metadata"
                       playsinline
+                      muted
+                      tabindex="-1"
                     />
                     <div v-else class="video-task-empty">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -767,18 +777,84 @@
                 </div>
               </section>
 
-              <aside v-if="selectedSb" class="video-task-inspector">
-                <div class="video-inspector-head">
-                  <div>
-                    <div class="video-inspector-title">分镜 {{ String(selectedVideoTaskNumber).padStart(2, '0') }}</div>
-                    <div class="video-inspector-sub">详细信息</div>
+              <div v-if="selectedSb" class="video-task-side">
+              <aside class="video-task-player">
+                <div class="video-player-head">
+                  <div class="video-player-head-info">
+                    <div class="video-player-title">分镜 {{ String(selectedVideoTaskNumber).padStart(2, '0') }}</div>
+                    <span :class="['video-task-status', 'is-' + videoTaskState(selectedSb)]">
+                      <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
+                      {{ videoTaskStatusLabel(selectedSb) }}
+                    </span>
+                    <span v-if="selectedSb.duration" class="video-player-sub">{{ selectedSb.duration }}s</span>
                   </div>
-                  <span :class="['video-task-status', 'is-' + videoTaskState(selectedSb)]">
-                    <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
-                    {{ videoTaskStatusLabel(selectedSb) }}
-                  </span>
+                  <button
+                    v-if="previewVideoUrl"
+                    class="btn btn-sm btn-primary"
+                    @click="setAsMainVideo"
+                  >
+                    设为主视频
+                  </button>
+                  <a
+                    v-if="previewVideoUrl || hasVid(selectedSb)"
+                    :href="'/' + (previewVideoUrl || getVideoUrl(selectedSb))"
+                    download
+                    class="btn btn-sm"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下载
+                  </a>
                 </div>
+                <div class="video-player-stage">
+                  <video
+                    v-if="previewVideoUrl || hasVid(selectedSb)"
+                    :key="previewVideoUrl || getVideoUrl(selectedSb)"
+                    :src="'/' + (previewVideoUrl || getVideoUrl(selectedSb))"
+                    controls
+                    preload="metadata"
+                    playsinline
+                    class="video-player-video"
+                  />
+                  <div v-else class="video-player-empty">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    <div class="video-player-empty-title">{{ videoTaskState(selectedSb) === 'pending' ? '视频生成中…' : '尚未生成视频' }}</div>
+                    <div class="video-player-empty-desc">{{ videoTaskState(selectedSb) === 'pending' ? '生成完成后可在此播放预览' : '点击下方按钮为当前分镜生成视频' }}</div>
+                    <button
+                      v-if="videoTaskState(selectedSb) !== 'pending'"
+                      class="btn btn-primary btn-sm"
+                      style="margin-top:4px"
+                      @click="genVid(selectedSb)"
+                    >
+                      生成视频
+                    </button>
+                  </div>
+                </div>
+              </aside>
 
+              <div v-if="sbVideoHistory.length" class="video-player-history">
+                <div class="video-player-history-head">
+                  <span>历史视频</span>
+                  <span class="video-player-history-count">{{ sbVideoHistory.length }}</span>
+                </div>
+                <div class="video-player-history-list">
+                  <div
+                    v-for="t in sbVideoHistory"
+                    :key="t.id"
+                    :class="['video-history-item', { current: isCurrentVideo(t), viewing: !!previewVideoUrl && previewVideoUrl === taskVideoPath(t) }]"
+                    role="button"
+                    tabindex="0"
+                    @click="previewHistoryVideo(t)"
+                    @keydown.enter.prevent="previewHistoryVideo(t)"
+                  >
+                    <video :src="'/' + taskVideoPath(t)" preload="metadata" muted playsinline tabindex="-1" />
+                    <span class="video-history-time">{{ formatHistoryTime(taskCreatedAt(t)) }}</span>
+                    <span v-if="isCurrentVideo(t)" class="video-history-badge">当前</span>
+                    <button v-else type="button" class="video-history-del" title="删除该记录" @click.stop="removeHistoryVideo(t)">×</button>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="video-task-inspector">
                 <div class="video-inspector-body">
                   <section class="video-inspector-section">
                     <div class="video-inspector-prompt-head">
@@ -875,6 +951,7 @@
                   </button>
                 </div>
               </aside>
+              </div>
             </div>
           </div>
 
@@ -894,44 +971,196 @@
         </div>
         <div v-else class="export-split">
           <div class="export-main">
-            <template v-if="mergeUrl">
-              <div class="export-player">
-                <video :src="'/' + mergeUrl" controls class="export-video" />
-              </div>
-              <div class="export-bar">
-                <span class="tag tag-success">拼接完成</span>
-                <span class="dim" style="font-size:12px">{{ sbs.length }} 镜头 · {{ totalDuration }}s</span>
-                <a :href="'/' + mergeUrl" download class="btn btn-primary ml-auto">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  下载视频
-                </a>
-              </div>
-            </template>
-            <template v-else>
-              <div class="step-empty">
-                <div class="empty-visual">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                </div>
-                <div class="empty-title">拼接全集视频</div>
-                <div class="empty-desc">将 {{ shotVidCount }} 个已生成镜头视频拼接为完整视频</div>
-                <button class="btn btn-primary" :disabled="shotVidCount === 0" @click="doMerge" style="margin-top:12px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  开始拼接
+            <!-- 上方:成片列表 -->
+            <div class="export-section">
+              <div class="export-section-head">
+                <span class="export-section-title">成片列表</span>
+                <span class="dim" style="font-size:11px">{{ exportMerges.length }} 个</span>
+                <button class="btn btn-sm ml-auto" @click="loadExportMerges">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  刷新
                 </button>
               </div>
-            </template>
-          </div>
-          <div class="export-list">
-            <div class="export-list-head">镜头概览</div>
-            <div class="export-list-body">
-              <div v-for="(sb, i) in sbs" :key="sb.id" class="exp-row">
-                <span class="mono dim" style="font-size:10px">#{{ String(i+1).padStart(2,'0') }}</span>
-                <span class="truncate" style="flex:1;font-size:11px">{{ sb.description || sb.title || '—' }}</span>
-                <span :class="['dot', hasVid(sb) && 'ok']" />
+              <div v-if="exportMerges.length" class="export-merge-strip">
+                <div
+                  v-for="m in exportMerges"
+                  :key="m.id"
+                  :class="['merge-card', m.status === 'completed' && m.merged_url && 'playable']"
+                  :role="m.status === 'completed' && m.merged_url ? 'button' : undefined"
+                  :tabindex="m.status === 'completed' && m.merged_url ? 0 : undefined"
+                  @click="m.status === 'completed' && m.merged_url && (activeMerge = m)"
+                  @keydown.enter.prevent="m.status === 'completed' && m.merged_url && (activeMerge = m)"
+                >
+                  <div class="merge-card-thumb">
+                    <video
+                      v-if="m.status === 'completed' && m.merged_url"
+                      :src="'/' + m.merged_url"
+                      preload="metadata"
+                      muted
+                      playsinline
+                      tabindex="-1"
+                    />
+                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']">
+                      {{ m.status === 'failed' ? (m.error_msg || '拼接失败') : '拼接中…' }}
+                    </div>
+                    <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    </span>
+                  </div>
+                  <div class="merge-card-meta">
+                    <span class="mono">{{ formatHistoryTime(m.created_at) }}</span>
+                    <span v-if="m.duration">· {{ m.duration }}s</span>
+                    <a
+                      v-if="m.status === 'completed' && m.merged_url"
+                      :href="'/' + m.merged_url"
+                      download
+                      class="btn btn-sm"
+                      @click.stop
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      下载
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="export-merge-empty">暂无成片，在下方勾选镜头后点击「拼接所选」</div>
+            </div>
+
+            <!-- 下方:镜头素材(可勾选) -->
+            <div class="export-section export-section-grow">
+              <div class="export-section-head">
+                <span class="export-section-title">镜头素材</span>
+                <span class="dim" style="font-size:11px">{{ shotVidCount }}/{{ sbs.length }} 已生成 · 已选 {{ exportSelectedReadyIds.length }}</span>
+                <div class="ml-auto flex gap-1">
+                  <button class="btn btn-sm" :disabled="!exportReadyIds.length" @click="toggleSelectAllExport">
+                    {{ exportSelectedReadyIds.length === exportReadyIds.length && exportReadyIds.length ? '清空选择' : '全选已生成' }}
+                  </button>
+                  <button
+                    class="btn btn-sm btn-primary"
+                    :disabled="!exportSelectedReadyIds.length"
+                    @click="doMerge(exportSelectedReadyIds)"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    拼接所选 ({{ exportSelectedReadyIds.length }})
+                  </button>
+                </div>
+              </div>
+              <div class="export-grid">
+                <div
+                  v-for="(sb, i) in sbs"
+                  :key="sb.id"
+                  :class="['exp-card', { selected: isExportSelected(sb.id), playable: hasVid(sb) }]"
+                  :role="hasVid(sb) ? 'button' : undefined"
+                  :tabindex="hasVid(sb) ? 0 : undefined"
+                  @click="toggleExportSelect(sb)"
+                  @keydown.enter.prevent="toggleExportSelect(sb)"
+                >
+                  <div class="exp-thumb">
+                    <video
+                      v-if="hasVid(sb)"
+                      :src="'/' + getVideoUrl(sb)"
+                      preload="metadata"
+                      muted
+                      playsinline
+                      tabindex="-1"
+                    />
+                    <div v-else class="exp-thumb-empty">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <span class="exp-thumb-index">#{{ String(i+1).padStart(2,'0') }}</span>
+                    <span v-if="sb.duration" class="exp-thumb-duration">{{ sb.duration }}s</span>
+                    <span v-if="hasVid(sb)" :class="['exp-check', isExportSelected(sb.id) && 'on']">
+                      <svg v-if="isExportSelected(sb.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                  </div>
+                  <div class="exp-row-line">
+                    <span class="truncate" style="flex:1;font-size:11px">{{ sb.description || sb.title || '—' }}</span>
+                    <span :class="['dot', hasVid(sb) && 'ok']" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- ===== TASK DRAWER ===== -->
+      <div v-if="taskDrawer" class="task-drawer-overlay" @click.self="closeTaskDrawer">
+        <aside class="task-drawer" role="dialog" aria-modal="true" aria-label="生成任务列表">
+          <header class="task-drawer-head">
+            <div>
+              <div class="video-task-title">生成任务列表</div>
+              <div class="video-task-meta">按创建时间倒序 · {{ genTaskRows.length }} 个任务</div>
+            </div>
+            <div class="task-drawer-head-actions">
+              <button class="btn btn-sm" @click="loadGenTasks">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                刷新
+              </button>
+              <button class="btn btn-ghost btn-icon" @click="closeTaskDrawer"><X :size="14" /></button>
+            </div>
+          </header>
+          <div class="video-task-metrics task-drawer-metrics">
+            <span class="video-task-metric is-pending">{{ genTaskActiveCount }} 生成中</span>
+            <span class="video-task-metric is-done">{{ genTaskDoneCount }} 完成</span>
+            <span class="video-task-metric is-failed">{{ genTaskFailedCount }} 失败</span>
+          </div>
+          <div v-if="!genTaskRows.length" class="step-empty task-drawer-empty">
+            <div class="empty-visual">
+              <ListTodo :size="32" />
+            </div>
+            <div class="empty-title">暂无生成任务</div>
+            <div class="empty-desc">在资产、分镜或视频步骤中触发图片 / 视频生成后,任务会自动出现在这里。</div>
+          </div>
+          <div v-else class="video-task-table task-drawer-body">
+            <div
+              v-for="row in genTaskRows"
+              :key="row.key"
+              :class="['video-task-row', 'gen-task-row', 'is-' + genTaskStateClass(row.status)]"
+            >
+              <div class="video-task-preview">
+                <video
+                  v-if="row.previewUrl && (row.kind === 'video' || row.kind === 'merge')"
+                  :src="genTaskPreviewSrc(row.previewUrl)"
+                  controls
+                  preload="metadata"
+                  playsinline
+                />
+                <img
+                  v-else-if="row.previewUrl"
+                  :src="genTaskPreviewSrc(row.previewUrl)"
+                  :alt="row.targetLabel"
+                  loading="lazy"
+                  @click="openImageViewer(genTaskPreviewSrc(row.previewUrl), row.targetLabel)"
+                />
+                <div v-else class="video-task-empty">
+                  <Loader2 v-if="genTaskStateClass(row.status) === 'pending'" :size="18" class="animate-spin" />
+                  <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <span class="video-task-index">{{ genTaskKindLabel(row.kind) }}</span>
+              </div>
+              <div class="video-task-main">
+                <div class="video-task-line">
+                  <strong class="video-task-name truncate">{{ row.targetLabel }}</strong>
+                </div>
+                <div class="video-task-meta-line">
+                  <span class="video-task-loc truncate">{{ row.provider }}{{ row.model ? ' · ' + row.model : '' }}</span>
+                  <template v-if="genTaskDuration(row)">
+                    <span class="video-task-sep">·</span>
+                    <span>耗时 {{ genTaskDuration(row) }}</span>
+                  </template>
+                  <span class="video-task-sep">·</span>
+                  <span>#{{ row.id }}</span>
+                </div>
+                <div v-if="row.errorMsg" class="video-task-error">{{ row.errorMsg }}</div>
+              </div>
+              <span :class="['video-task-status', 'is-' + genTaskStateClass(row.status)]">
+                <span :class="['dot', genTaskStateClass(row.status) === 'done' && 'ok', genTaskStateClass(row.status) === 'pending' && 'pending']" />
+                {{ genTaskStatusLabel(row.status) }}
+              </span>
+            </div>
+          </div>
+        </aside>
       </div>
 
       <div v-if="showBottomBubble" class="step-bubble">
@@ -962,7 +1191,7 @@
           <button
             v-for="step in bubbleSteps"
             :key="step.key"
-            :class="['bubble-dot', { done: step.done, current: step.key === activeBubbleKey }]"
+            :class="['bubble-dot', { current: step.key === activeBubbleKey }]"
             @click="goSubStep(step.key)"
             :title="step.label"
           ></button>
@@ -1213,6 +1442,32 @@
         </div>
       </div>
 
+      <div v-if="activeMerge" class="overlay image-viewer-overlay" @click.self="activeMerge = null">
+        <div class="dialog image-viewer-dialog merge-viewer-dialog">
+          <div class="image-viewer-head">
+            <div class="image-viewer-title">成片预览</div>
+            <span class="dim" style="font-size:11px">{{ formatHistoryTime(activeMerge.created_at) }}<template v-if="activeMerge.duration"> · {{ activeMerge.duration }}s</template></span>
+            <a :href="'/' + activeMerge.merged_url" download class="btn btn-sm" style="margin-left:auto">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              下载成片
+            </a>
+            <button class="btn btn-ghost btn-icon" @click="activeMerge = null">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="merge-viewer-body">
+            <video
+              :key="activeMerge.id"
+              :src="'/' + activeMerge.merged_url"
+              controls
+              autoplay
+              playsinline
+              class="merge-viewer-video"
+            />
+          </div>
+        </div>
+      </div>
+
       <div v-if="assetCreate.open" class="overlay" @click.self="assetCreate.open = false">
         <div class="dialog asset-create-dialog">
           <header class="dialog-head">
@@ -1267,7 +1522,7 @@
 import { toast } from 'vue-sonner'
 import {
   Users, Video, FileText, FolderKanban, Clapperboard, Download, Loader2,
-  MapPin, Play, MessageSquarePlus, Plus, X,
+  MapPin, Play, MessageSquarePlus, Plus, X, ListTodo,
 } from 'lucide-vue-next'
 import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
@@ -1289,6 +1544,40 @@ const epId = computed(() => episode.value?.id || 0)
 const rawLen = computed(() => localRaw.value.replace(/\s/g, '').length || 0)
 const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 0)
 const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
+
+// ===== 拼接导出:镜头选择 + 成片列表 =====
+const exportSelectedIds = ref([]) // 勾选的镜头 id
+const exportMerges = ref([])      // 成片(拼接记录)列表
+let exportSelTouched = false      // 用户手动操作过选择后,不再自动全选
+
+const exportReadyIds = computed(() => sbs.value.filter(s => hasVid(s)).map(s => s.id))
+const exportSelectedReadyIds = computed(() => exportSelectedIds.value.filter(id => exportReadyIds.value.includes(id)))
+
+watch(exportReadyIds, (ids) => {
+  if (exportSelTouched) {
+    exportSelectedIds.value = exportSelectedIds.value.filter(id => ids.includes(id))
+  } else {
+    exportSelectedIds.value = [...ids]
+  }
+})
+
+function isExportSelected(id) { return exportSelectedIds.value.includes(id) }
+function toggleExportSelect(sb) {
+  if (!hasVid(sb)) return
+  exportSelTouched = true
+  exportSelectedIds.value = isExportSelected(sb.id)
+    ? exportSelectedIds.value.filter(x => x !== sb.id)
+    : [...exportSelectedIds.value, sb.id]
+}
+function toggleSelectAllExport() {
+  exportSelTouched = true
+  exportSelectedIds.value = exportSelectedReadyIds.value.length === exportReadyIds.value.length ? [] : [...exportReadyIds.value]
+}
+
+async function loadExportMerges() {
+  if (!epId.value) return
+  try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* 静默 */ }
+}
 
 const scriptStep = ref(0)
 const prodTab = ref('assets')
@@ -1325,6 +1614,19 @@ const pendingSceneImageIds = ref([])
 const pendingPropImageIds = ref([])
 const pendingVideoIds = ref([])
 const failedVideoMessages = ref({})
+// 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
+const genTasks = ref([])
+const genMerges = ref([])
+const taskDrawer = ref(false)
+let genTasksTimer = null
+
+function openTaskDrawer() {
+  taskDrawer.value = true
+  loadGenTasks()
+}
+function closeTaskDrawer() {
+  taskDrawer.value = false
+}
 // Seedance 2.0 视频生成面板：仅多模态参考（参考图 0-9 + 参考视频 0-3 + 参考音频 0-3 + 可选文本）
 const videoRefVideoUrls = ref([])
 const videoRefAudioUrls = ref([])
@@ -1332,6 +1634,7 @@ const videoRefImageUrls = ref([])
 const videoDuration = ref(10)
 const uploadingRefMedia = ref(false)
 const imageViewer = ref({ open: false, src: '', title: '' })
+const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
 const assetDetail = ref({ open: false, type: '', item: null })
 const assetDetailDraft = ref({ appearance: '', styling: '', prompt: '', lighting: '', description: '' })
 // 最终提示词手动编辑：dirty 时才随保存提交，避免无修改保存误清空 Agent 生成的提示词
@@ -1611,6 +1914,7 @@ function handleImageViewerKeydown(event) {
   if (event.key !== 'Escape') return
   if (imageViewer.value.open) closeImageViewer()
   else if (assetDetail.value.open) closeAssetDetail()
+  else if (taskDrawer.value) closeTaskDrawer()
 }
 
 onMounted(() => {
@@ -1619,6 +1923,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleImageViewerKeydown)
+  stopGenTasksPolling()
 })
 
 function isPendingSceneImage(id) {
@@ -1732,12 +2037,124 @@ const imageModelMultiCfg = computed(() => hasMultiConfigs(imageModelOptions.valu
 const videoModelMultiCfg = computed(() => hasMultiConfigs(videoModelOptions.value))
 
 // Production step helpers
-function prodStepDone(id) {
-  if (id === 'assets') return assetTotalCount.value > 0 && assetReadyCount.value === assetTotalCount.value
-  if (id === 'storyboard') return !!sbs.value.length
-  if (id === 'videos') return !!sbs.value.length && shotVidCount.value === sbs.value.length
-  return false
+// ========== 任务列表面板 ==========
+async function loadGenTasks() {
+  if (!epId.value) return
+  try {
+    const data = await taskAPI.listByEpisode(epId.value)
+    genTasks.value = data?.tasks || []
+    genMerges.value = data?.merges || []
+  } catch { /* 静默失败,不打断其他刷新 */ }
 }
+
+function stopGenTasksPolling() {
+  if (genTasksTimer) { clearInterval(genTasksTimer); genTasksTimer = null }
+}
+
+const genTaskActiveCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'processing').length +
+  genMerges.value.filter(m => m.status === 'processing' || m.status === 'pending').length
+)
+const genTaskDoneCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'completed').length +
+  genMerges.value.filter(m => m.status === 'completed').length
+)
+const genTaskFailedCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'failed').length +
+  genMerges.value.filter(m => m.status === 'failed').length
+)
+
+function genTaskTargetLabel(t) {
+  if (t.storyboard_id) {
+    const sb = sbs.value.find(x => x.id === t.storyboard_id)
+    return `分镜 #${sb?.storyboard_number ?? sb?.storyboardNumber ?? t.storyboard_id}`
+  }
+  if (t.character_id) {
+    const c = chars.value.find(x => x.id === t.character_id)
+    return `角色 · ${c?.name || t.character_id}`
+  }
+  if (t.scene_id) {
+    const s = scenes.value.find(x => x.id === t.scene_id)
+    return `场景 · ${s?.location || t.scene_id}`
+  }
+  if (t.prop_id) {
+    const p = propItems.value.find(x => x.id === t.prop_id)
+    return `道具 · ${p?.name || t.prop_id}`
+  }
+  return '通用'
+}
+
+// 统一行结构：image / video / merge 三类合并按时间倒序
+const genTaskRows = computed(() => {
+  const taskRows = genTasks.value.map(t => ({
+    key: `task-${t.id}`,
+    kind: t.type, // image | video
+    id: t.id,
+    targetLabel: genTaskTargetLabel(t),
+    provider: t.provider || '',
+    model: t.model || '',
+    status: t.status || 'processing',
+    errorMsg: t.error_msg || '',
+    previewUrl: t.local_path || t.result_url || '',
+    prompt: t.prompt || '',
+    createdAt: t.created_at || '',
+    completedAt: t.completed_at || '',
+  }))
+  const mergeRows = genMerges.value.map(m => ({
+    key: `merge-${m.id}`,
+    kind: 'merge',
+    id: m.id,
+    targetLabel: '整集拼接',
+    provider: m.provider || 'ffmpeg',
+    model: m.model || '',
+    status: m.status || 'pending',
+    errorMsg: m.error_msg || '',
+    previewUrl: m.merged_url || '',
+    prompt: '',
+    createdAt: m.created_at || '',
+    completedAt: m.completed_at || '',
+  }))
+  return [...taskRows, ...mergeRows].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+})
+
+function genTaskKindLabel(kind) {
+  return kind === 'image' ? '图片' : kind === 'video' ? '视频' : '合并'
+}
+
+function genTaskStatusLabel(status) {
+  if (status === 'completed') return '已完成'
+  if (status === 'failed') return '失败'
+  return '生成中'
+}
+
+// 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
+function genTaskStateClass(status) {
+  if (status === 'completed') return 'done'
+  if (status === 'failed') return 'failed'
+  return 'pending'
+}
+
+// local_path 为站内相对路径补 '/',远端 result_url 原样使用
+function genTaskPreviewSrc(url) {
+  if (!url) return ''
+  return /^https?:\/\//.test(url) ? url : '/' + url
+}
+
+function genTaskDuration(row) {
+  if (!row.createdAt || !row.completedAt) return ''
+  const ms = new Date(row.completedAt).getTime() - new Date(row.createdAt).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return ''
+  return ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`
+}
+
+// 抽屉打开且有进行中任务时,4s 轮询;关闭或全部结束时停止
+watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
+  stopGenTasksPolling()
+  if (open && active > 0) {
+    genTasksTimer = setInterval(loadGenTasks, 4000)
+  }
+})
+
 const productionBlockMessage = computed(() => {
   if (!scriptContent.value) return '请先完成剧本编写'
   return ''
@@ -1828,27 +2245,45 @@ const sidebarSections = computed(() => ([
     id: 'script',
     label: '剧本',
     items: [
-      { key: 'script:raw', label: '原始内容', desc: '', icon: FileText, done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', desc: '', icon: FileText, done: !!scriptContent.value },
+      { key: 'script:raw', label: '原始内容', desc: '', icon: FileText },
+      { key: 'script:rewrite', label: 'AI 改写', desc: '', icon: FileText },
     ],
   },
   {
     id: 'production',
     label: '制作',
     items: [
-      { key: 'prod:assets', label: '资产', desc: '', icon: Users, done: prodStepDone('assets') },
-      { key: 'prod:storyboard', label: '分镜拆分', desc: '', icon: Clapperboard, done: prodStepDone('storyboard') },
-      { key: 'prod:videos', label: '视频生成', desc: '', icon: Video, done: prodStepDone('videos') },
+      { key: 'prod:assets', label: '资产', desc: '', icon: Users },
+      { key: 'prod:storyboard', label: '分镜拆分', desc: '', icon: Clapperboard },
+      { key: 'prod:videos', label: '视频生成', desc: '', icon: Video },
     ],
   },
   {
     id: 'export',
     label: '导出',
     items: [
-      { key: 'export:merge', label: '拼接导出', desc: '', icon: Download, done: !!mergeUrl.value },
+      { key: 'export:merge', label: '拼接导出', desc: '', icon: Download },
     ],
   },
 ]))
+
+// 大环节状态:pending(未开始)/ active(进行中)/ done(已完成)/ none(不显示状态,导出用)
+// 进行中 = 环节内有任意进度但未全部完成,或当前正处于该环节
+function sectionState(sectionId) {
+  if (sectionId === 'export') return 'none'
+  const done = sectionId === 'script'
+    ? mainStageDone('script')
+    : mainStageDone('assets') && mainStageDone('storyboard') && mainStageDone('videos')
+  if (done) return 'done'
+
+  const hasProgress = sectionId === 'script'
+    ? !!(rawContent.value || scriptContent.value)
+    : !!(chars.value.length || scenes.value.length || propItems.value.length || sbs.value.length || shotVidCount.value)
+  const isCurrent = sectionId === 'script'
+    ? panel.value === 'script'
+    : panel.value === 'production'
+  return (hasProgress || isCurrent) ? 'active' : 'pending'
+}
 
 const activeMainStage = computed(() => {
   if (panel.value === 'export') return 'export'
@@ -1912,15 +2347,14 @@ const sidebarJumpSteps = computed(() => {
 const bubbleSteps = computed(() => {
   if (panel.value === 'script') {
     return [
-      { key: 'script:raw', label: '原始内容', done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', done: !!scriptContent.value },
+      { key: 'script:raw', label: '原始内容' },
+      { key: 'script:rewrite', label: 'AI 改写' },
     ]
   }
   if (panel.value === 'production') {
     return prodTabDefs.value.map(step => ({
       key: `prod:${step.id}`,
       label: step.label,
-      done: prodStepDone(step.id),
     }))
   }
   return []
@@ -1952,17 +2386,10 @@ function goSubStep(key) {
   panel.value = 'export'
 }
 
-const pipelineTotal = 6
-const pipelineProgress = computed(() => {
-  let p = 0
-  if (rawContent.value) p++
-  if (scriptContent.value) p++
-  if (chars.value.length) p++
-  if (assetTotalCount.value > 0 && assetReadyCount.value === assetTotalCount.value) p++
-  if (sbs.value.length) p++
-  if (sbs.value.length && shotVidCount.value === sbs.value.length) p++
-  return p
-})
+const pipelineTotal = 2
+const pipelineProgress = computed(() =>
+  ['script', 'production'].filter(id => sectionState(id) === 'done').length
+)
 
 const currentStageLabel = computed(() => {
   if (panel.value === 'script') return `剧本阶段 · ${stepLabels[scriptStep.value]}`
@@ -2093,6 +2520,7 @@ async function refresh() {
     toast.error(e.message)
   }
   try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
+  await Promise.all([loadGenTasks(), loadExportMerges()])
 }
 
 function saveRaw() { episodeAPI.update(epId.value, { content: localRaw.value }); episode.value.content = localRaw.value }
@@ -2426,6 +2854,60 @@ function batchPropImages() {
 }
 function getVideoUrl(s) { return s?.video_url || s?.videoUrl || s?.composed_video_url || s?.composedVideoUrl || null }
 function hasVid(s) { return !!getVideoUrl(s) }
+
+// ===== 分镜视频历史（一个分镜可能生成多个视频,sys_task 留存全部记录）=====
+const sbVideoHistory = ref([])
+const previewVideoUrl = ref('') // 正在预览的历史视频(相对路径);空 = 预览当前主视频
+
+// 注意:/tasks 返回原始行(camelCase),/episodes/:id/generation-tasks 返回 snake_case,两种命名都兼容
+function taskVideoPath(t) { return t?.local_path || t?.localPath || t?.result_url || t?.resultUrl || '' }
+function taskCreatedAt(t) { return t?.created_at || t?.createdAt || '' }
+function isCurrentVideo(t) { const p = taskVideoPath(t); return !!p && p === getVideoUrl(selectedSb.value) }
+
+async function loadSbVideoHistory() {
+  previewVideoUrl.value = ''
+  if (!selectedSb.value?.id) { sbVideoHistory.value = []; return }
+  try {
+    const rows = await taskAPI.list({ type: 'video', storyboard_id: selectedSb.value.id })
+    sbVideoHistory.value = (Array.isArray(rows) ? rows : [])
+      .filter(t => t.status === 'completed' && taskVideoPath(t))
+      .sort((a, b) => taskCreatedAt(b).localeCompare(taskCreatedAt(a)))
+  } catch { sbVideoHistory.value = [] }
+}
+
+watch(() => [selectedSb.value?.id, getVideoUrl(selectedSb.value)], () => { loadSbVideoHistory() })
+
+function previewHistoryVideo(t) {
+  previewVideoUrl.value = isCurrentVideo(t) ? '' : taskVideoPath(t)
+}
+
+async function setAsMainVideo() {
+  const sb = selectedSb.value
+  if (!sb || !previewVideoUrl.value) return
+  try {
+    await storyboardAPI.update(sb.id, { video_url: previewVideoUrl.value })
+    sb.video_url = previewVideoUrl.value
+    sb.videoUrl = previewVideoUrl.value
+    toast.success('已设为主视频')
+  } catch (e) { toast.error(e.message || '设置失败') }
+}
+
+async function removeHistoryVideo(t) {
+  try {
+    await taskAPI.del(t.id)
+    sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== t.id)
+    if (previewVideoUrl.value === taskVideoPath(t)) previewVideoUrl.value = ''
+    toast.success('已删除该历史记录')
+  } catch (e) { toast.error(e.message || '删除失败') }
+}
+
+function formatHistoryTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = n => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 function getShotReferenceImages(sb) {
   const refs = []
@@ -2781,13 +3263,29 @@ function batchVideos() {
     }), 80, 4000)
   }
 }
-async function doMerge() {
-  await mergeAPI.merge(epId.value); toast.success('拼接中...')
+async function doMerge(ids) {
+  const storyboardIds = Array.isArray(ids) ? ids : undefined
+  if (storyboardIds && !storyboardIds.length) {
+    toast.error('请先勾选至少一个已生成视频的镜头')
+    return
+  }
+  try {
+    await mergeAPI.merge(epId.value, storyboardIds)
+    toast.success('拼接中...')
+  } catch (e) {
+    toast.error(e.message || '拼接失败')
+    return
+  }
   const poll = setInterval(async () => {
     try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
     if (mergeData.value?.status === 'completed' || mergeData.value?.status === 'failed') {
       clearInterval(poll)
-      mergeData.value.status === 'completed' ? toast.success('拼接完成') : toast.error('拼接失败')
+      if (mergeData.value.status === 'completed') {
+        toast.success('拼接完成')
+        loadExportMerges()
+      } else {
+        toast.error(mergeData.value?.error_msg || mergeData.value?.errorMsg || '拼接失败')
+      }
     }
   }, 3000)
 }
@@ -3005,9 +3503,51 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .pipeline { flex: 1; overflow-y: auto; padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 8px; }
 .pipe-section { display: flex; flex-direction: column; gap: 2px; }
 .pipe-section-label {
+  display: flex; align-items: center; gap: 5px;
   font-size: 9px; font-weight: 700; color: var(--text-3);
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: 0 7px 2px;
+}
+.pipe-section.is-done .pipe-section-label { color: var(--success); }
+.pipe-section.is-active .pipe-section-label { color: var(--accent); }
+.pipe-section-state {
+  width: 13px; height: 13px; border-radius: 999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pipe-section.is-done .pipe-section-state {
+  background: var(--success-bg); color: var(--success);
+  border: 1px solid rgba(52,199,89,0.3);
+}
+.pipe-section-dot {
+  width: 5px; height: 5px; border-radius: 999px;
+  background: var(--text-3); opacity: 0.55;
+}
+.pipe-section-pulse {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent);
+  animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
+}
+@keyframes pipeSectionPulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.pipe-section-tag {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--accent); background: var(--accent-bg);
+  border-radius: 999px; padding: 1px 5px;
+  text-transform: none;
+}
+/* 子步骤进行中:与大环节同步的脉冲点 */
+.pipe-item.doing { color: var(--text-1); }
+.pipe-item.doing .pipe-icon {
+  background: var(--accent-bg);
+  border-color: rgba(0,113,227,0.25);
+}
+.pipe-item-pulse {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent);
+  animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
 }
 .pipe-item {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
@@ -3128,12 +3668,6 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   outline: none;
   box-shadow: 0 0 0 3px var(--button-focus);
 }
-.progress-wrap { display: flex; flex-direction: column; gap: 5px; }
-.progress-head { display: flex; justify-content: space-between; }
-.progress-label { font-size: 10.5px; color: var(--text-3); font-weight: 500; }
-.progress-val { font-size: 10.5px; color: var(--text-2); font-family: var(--font-mono); font-weight: 600; }
-.progress-track { height: 5px; background: rgba(0,0,0,0.08); border-radius: 99px; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.4s var(--ease-out); }
 .refresh-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 28px;
@@ -4244,6 +4778,167 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
+.video-task-workbench.has-player {
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 52%);
+}
+.video-task-side {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(160px, 30%) auto minmax(0, 1fr);
+  border-left: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+.video-task-side .video-task-inspector {
+  border-left: 0;
+}
+.video-player-history {
+  min-height: 0;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+.video-player-history-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.video-player-history-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.05);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 750;
+}
+.video-player-history-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.video-history-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1.5px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: #0b0d10;
+  cursor: pointer;
+  transition: border-color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
+}
+.video-history-item:hover { border-color: var(--border-strong); }
+.video-history-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.video-history-item.current {
+  border-color: var(--accent);
+}
+.video-history-item.viewing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.18);
+}
+.video-history-time {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.video-history-badge {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.video-history-del {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.62);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.video-history-item:hover .video-history-del { display: flex; }
+.video-task-player {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+.video-player-head {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.video-player-head-info {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.video-player-title { color: var(--text-0); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.video-player-sub { color: var(--text-3); font-size: 11px; white-space: nowrap; }
+.video-player-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0d10;
+}
+.video-player-video {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.video-player-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+}
+.video-player-empty-title { color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 700; }
+.video-player-empty-desc { font-size: 11px; line-height: 1.5; }
 .video-task-list {
   min-height: 0;
   overflow: hidden;
@@ -4975,24 +5670,149 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
 /* Export */
 .export-split { flex: 1; display: flex; min-height: 0; }
-.export-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; }
-.export-player {
+.export-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; gap: 18px; padding: 16px 20px 24px; }
+.export-section { display: flex; flex-direction: column; min-height: 0; }
+.export-section-grow { flex: 1; }
+.export-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.export-section-title { font-size: 13px; font-weight: 800; color: var(--text-0); }
+.export-merge-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.merge-card {
+  flex: 0 0 auto;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.merge-card video {
   width: 100%;
-  max-width: 720px;
-  border-radius: var(--radius-lg);
-  background: #000;
-  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  background: #0b0d10;
+  display: block;
+}
+.merge-card-pending {
+  width: 100%;
+  aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: center;
 }
-.export-video { width: 100%; max-width: 720px; border-radius: var(--radius-lg); background: #000; display: block; }
-.export-bar { display: flex; align-items: center; gap: 12px; margin-top: 16px; width: 100%; max-width: 720px; }
-.export-list { width: 240px; flex-shrink: 0; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: var(--surface-muted); }
-.export-list-head { padding: 11px 14px; font-size: 11px; font-weight: 700; color: var(--text-3); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.06em; }
-.export-list-body { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
-.exp-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--radius); background: #fff; border: 1px solid var(--border); }
-.exp-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
+.merge-card-pending.is-failed { color: var(--error); background: var(--error-bg); }
+.merge-card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); min-width: 0; }
+.merge-card-meta .btn { margin-left: auto; }
+.merge-card.playable { cursor: pointer; }
+.merge-card.playable:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
+.merge-card-thumb { position: relative; }
+.merge-card-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.28);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+  pointer-events: none;
+}
+.merge-card.playable:hover .merge-card-play { opacity: 1; }
+.merge-viewer-dialog { width: min(1080px, calc(100vw - 56px)); }
+.merge-viewer-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  min-height: 0;
+}
+.merge-viewer-video {
+  width: 100%;
+  max-height: calc(100vh - 220px);
+  border-radius: var(--radius);
+  background: #000;
+  display: block;
+}
+.export-merge-empty {
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.export-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.exp-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; border-radius: var(--radius); background: #fff; border: 1px solid var(--border); }
+.exp-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
+.exp-card.playable { cursor: pointer; }
+.exp-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,113,227,0.15); }
+.exp-check {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+}
+.exp-check.on { background: var(--accent); border-color: var(--accent); }
+.exp-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: 6px;
+  background: #0b0d10;
+}
+.exp-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.exp-thumb-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.exp-thumb-index {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.56);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+.exp-thumb-duration {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.exp-row-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 
 /* Shared */
 .dim { color: var(--text-3); }
@@ -5000,6 +5820,10 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 @media (max-width: 1080px) {
   .studio-body {
     grid-template-columns: 1fr;
+  }
+
+  .video-task-workbench.has-player {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 48%);
   }
 
   .split-layout,
@@ -5020,8 +5844,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
   .sb-scene-select { max-width: none; flex: 1; }
 
-  .shot-list,
-  .export-list {
+  .shot-list {
     width: 100%;
   }
 
@@ -5095,6 +5918,86 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
 }
 
+/* ===== 任务列表面板 ===== */
+.gen-task-row {
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  cursor: default;
+}
+.gen-task-row .video-task-preview img {
+  cursor: zoom-in;
+}
+
+/* 任务触发按钮(顶栏) */
+.task-drawer-trigger {
+  position: relative;
+}
+.task-drawer-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--action-primary-text);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* 右侧抽屉 */
+.task-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 118;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0,0,0,0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.18s var(--ease-out);
+}
+.task-drawer {
+  width: min(560px, 100vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-xl);
+  animation: taskDrawerIn 0.22s var(--ease-out);
+}
+@keyframes taskDrawerIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.task-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.task-drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.task-drawer-metrics {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.task-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+}
+.task-drawer-empty {
+  flex: 1;
+  justify-content: center;
+}
+
 @media (max-width: 860px) {
   .studio {
     padding: 8px;
@@ -5164,6 +6067,21 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   .video-task-inspector {
     border-top: 1px solid var(--surface-outline);
     border-left: 0;
+  }
+
+  .video-task-side {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--surface-outline);
+    border-left: 0;
+  }
+
+  .video-task-side .video-task-inspector {
+    border-top: 0;
+  }
+
+  .video-player-stage {
+    min-height: 240px;
   }
 
   .frame-row {

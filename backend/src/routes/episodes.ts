@@ -213,6 +213,49 @@ app.get('/:episode_id/storyboards', async (c) => {
 })
 
 // GET /episodes/:id/pipeline-status — 流水线进度
+// GET /episodes/:id/generation-tasks — 按集聚合 sys_task + video_merges
+// sys_task 无 episode_id,通过 storyboard/scene/character/prop 关联键归属到当前集
+app.get('/:id/generation-tasks', async (c) => {
+  const episodeId = Number(c.req.param('id'))
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  if (!ep) return notFound(c, 'Episode not found')
+
+  const sbs = await db.select().from(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
+  const storyboardIds = new Set(sbs.map(s => s.id))
+
+  const epScenes = await db.select().from(schema.episodeScenes).where(eq(schema.episodeScenes.episodeId, episodeId))
+  const sceneIds = new Set(epScenes.map(r => r.sceneId))
+  // 兼容 scenes.episodeId 直挂的旧数据
+  const directScenes = await db.select().from(schema.scenes).where(eq(schema.scenes.episodeId, episodeId))
+  directScenes.forEach(s => sceneIds.add(s.id))
+
+  const epChars = await db.select().from(schema.episodeCharacters).where(eq(schema.episodeCharacters.episodeId, episodeId))
+  const characterIds = new Set(epChars.map(r => r.characterId))
+
+  const dramaProps = await db.select().from(schema.props).where(eq(schema.props.dramaId, ep.dramaId))
+  const propIds = new Set(dramaProps.map(p => p.id))
+
+  const allTasks = await db.select().from(schema.sysTask).where(eq(schema.sysTask.dramaId, ep.dramaId))
+  const tasks = allTasks
+    .filter(t =>
+      (t.storyboardId && storyboardIds.has(t.storyboardId)) ||
+      (t.sceneId && sceneIds.has(t.sceneId)) ||
+      (t.characterId && characterIds.has(t.characterId)) ||
+      (t.propId && propIds.has(t.propId))
+    )
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+
+  const merges = (await db.select().from(schema.videoMerges)
+    .where(and(eq(schema.videoMerges.episodeId, episodeId), isNull(schema.videoMerges.deletedAt))))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, 20)
+
+  return success(c, {
+    tasks: toSnakeCaseArray(tasks),
+    merges: toSnakeCaseArray(merges),
+  })
+})
+
 app.get('/:id/pipeline-status', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))

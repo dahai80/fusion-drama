@@ -101,6 +101,8 @@ export const taskAPI = {
     if (params?.storyboard_id) query.set('storyboard_id', String(params.storyboard_id))
     return api.get(`/tasks${query.size ? `?${query.toString()}` : ''}`)
   },
+  // 按集聚合生成任务（sys_task + video_merges）
+  listByEpisode: (episodeId: number) => api.get<{ tasks: any[]; merges: any[] }>(`/episodes/${episodeId}/generation-tasks`),
 }
 
 async function uploadReq<T = any>(path: string, file: File): Promise<T> {
@@ -122,8 +124,9 @@ export const uploadAPI = {
   audio: (f: File) => uploadReq<{ url: string; path: string }>('/upload/audio', f),
 }
 export const mergeAPI = {
-  merge: (epId: number) => api.post(`/merge/episodes/${epId}/merge`),
+  merge: (epId: number, storyboardIds?: number[]) => api.post(`/merge/episodes/${epId}/merge`, storyboardIds?.length ? { storyboard_ids: storyboardIds } : {}),
   status: (epId: number) => api.get(`/merge/episodes/${epId}/merge`),
+  list: (epId: number) => api.get<any[]>(`/merge/episodes/${epId}/merges`),
 }
 export const aiConfigAPI = {
   list: (t?: string) => api.get(`/ai-configs${t ? `?service_type=${t}` : ''}`),
