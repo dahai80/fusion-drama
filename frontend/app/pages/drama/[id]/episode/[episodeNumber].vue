@@ -3315,6 +3315,11 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   padding: 8px;
   gap: 8px;
   background: var(--surface-base);
+  /* 选中态:橙色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
+  --sel: #ff9f0a;
+  --sel-bg: rgba(255, 159, 10, 0.12);
+  --sel-text: #c93400;
+  --sel-glow: rgba(255, 159, 10, 0.18);
 }
 
 .studio-topbar {
@@ -3564,8 +3569,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   box-shadow: var(--button-shadow);
 }
 .pipe-item.active {
-  background: var(--accent-bg);
-  color: var(--accent-text);
+  background: var(--sel-bg);
+  color: var(--sel-text);
   border-color: transparent;
   box-shadow: none;
 }
@@ -3601,12 +3606,12 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   position: relative;
   z-index: 1;
 }
-.pipe-item.active .pipe-icon { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pipe-item.active .pipe-icon { background: var(--sel); border-color: var(--sel); color: #fff; }
 .pipe-item.done .pipe-icon { background: var(--success-bg); border-color: rgba(52,199,89,0.3); color: var(--success); }
-.pipe-item.active.done .pipe-icon { background: var(--accent); border-color: var(--accent); color: #fff; }
-.icon-active { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+.pipe-item.active.done .pipe-icon { background: var(--sel); border-color: var(--sel); color: #fff; }
+.icon-active { background: var(--sel) !important; border-color: var(--sel) !important; color: #fff !important; }
 .icon-done { background: var(--success-bg) !important; border-color: rgba(52,199,89,0.3) !important; color: var(--success) !important; }
-.pipe-item.active.done .icon-done { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+.pipe-item.active.done .icon-done { background: var(--sel) !important; border-color: var(--sel) !important; color: #fff !important; }
 
 .pipe-label { flex: 1; font-size: 11px; }
 .pipe-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -3655,14 +3660,14 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 }
 .sidebar-jump-dot.active {
   width: 20px;
-  background: var(--accent);
+  background: var(--sel);
 }
 .sidebar-jump-dot.done {
   background: var(--success);
 }
 .sidebar-jump-dot.active.done {
   width: 20px;
-  background: var(--accent);
+  background: var(--sel);
 }
 .sidebar-jump-dot:focus-visible {
   outline: none;
@@ -3827,7 +3832,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   padding: 0;
 }
 .bubble-dot.done { background: var(--success); }
-.bubble-dot.current { background: var(--accent); transform: scale(1.2); }
+.bubble-dot.current { background: var(--sel); transform: scale(1.2); }
 .bubble-dot:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--button-focus);
@@ -5039,8 +5044,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   background: var(--error-bg);
 }
 .video-task-row.active {
-  background: var(--accent-bg);
-  box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 3px rgba(0,113,227,0.15);
+  background: var(--sel-bg);
+  box-shadow: inset 0 0 0 1.5px var(--sel), 0 0 0 3px var(--sel-glow);
 }
 .video-task-row:focus-visible {
   outline: 2px solid var(--accent);
