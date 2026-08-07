@@ -3315,11 +3315,11 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   padding: 8px;
   gap: 8px;
   background: var(--surface-base);
-  /* 选中态:橙色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
-  --sel: #ff9f0a;
-  --sel-bg: rgba(255, 159, 10, 0.12);
-  --sel-text: #c93400;
-  --sel-glow: rgba(255, 159, 10, 0.18);
+  /* 选中态:靛蓝色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
+  --sel: #5856d6;
+  --sel-bg: rgba(88, 86, 214, 0.10);
+  --sel-text: #4240b0;
+  --sel-glow: rgba(88, 86, 214, 0.16);
 }
 
 .studio-topbar {
