@@ -13,17 +13,48 @@
           <span class="studio-episode-chip">第 {{ episodeNumber }} 集</span>
           <div class="studio-meta-row">
             <span class="studio-meta-pill">{{ currentSubStageLabel }}</span>
-            <span class="studio-meta-pill is-progress">{{ pipelineProgress }}/11</span>
+            <span class="studio-meta-pill is-progress">{{ pipelineProgress }}/{{ pipelineTotal }}</span>
             <span class="studio-meta-inline">{{ chars.length }} 角色 · {{ sbs.length }} 镜头</span>
           </div>
         </div>
       </div>
 
       <div class="studio-topbar-side">
+        <div class="studio-model-picks">
+          <ModelSelect
+            v-if="textModelOptions.length"
+            v-model="chatModel"
+            label="文本"
+            :options="textModelOptions"
+            :default-label="`默认 · ${textModelOptions[0].model}`"
+            :show-config="textModelMultiCfg"
+          />
+          <ModelSelect
+            v-if="imageModelOptions.length"
+            v-model="imageModel"
+            label="图片"
+            :options="imageModelOptions"
+            :default-label="`默认 · ${imageModelOptions[0].model}`"
+            :show-config="imageModelMultiCfg"
+          />
+          <ModelSelect
+            v-if="videoModelOptions.length"
+            v-model="videoModel"
+            label="视频"
+            :options="videoModelOptions"
+            :default-label="`默认 · ${videoModelOptions[0].model}`"
+            :show-config="videoModelMultiCfg"
+          />
+        </div>
         <div class="studio-actions">
           <button class="btn" @click="refresh">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             刷新
+          </button>
+          <button class="btn task-drawer-trigger" @click="openTaskDrawer">
+            <ListTodo :size="12" />
+            任务
+            <span v-if="genTaskActiveCount" class="task-drawer-badge">{{ genTaskActiveCount }}</span>
           </button>
           <button class="btn btn-primary" @click="panel = mergeUrl ? 'export' : (sbs.length ? 'production' : 'script')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -40,17 +71,30 @@
         <div
           v-for="section in sidebarSections"
           :key="section.id"
-          class="pipe-section"
+          :class="['pipe-section', 'is-' + sectionState(section.id)]"
         >
-          <div class="pipe-section-label">{{ section.label }}</div>
+          <div class="pipe-section-label">
+            <span v-if="sectionState(section.id) !== 'none'" class="pipe-section-state">
+              <svg v-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-else-if="sectionState(section.id) === 'active'" class="pipe-section-pulse" />
+              <span v-else class="pipe-section-dot" />
+            </span>
+            <span>{{ section.label }}</span>
+            <span v-if="sectionState(section.id) === 'active'" class="pipe-section-tag">进行中</span>
+          </div>
           <button
             v-for="item in section.items"
             :key="item.key"
-            :class="['pipe-item pipe-item-sub', { active: activeSubStepKey === item.key, done: item.done }]"
+            :class="['pipe-item pipe-item-sub', {
+              active: activeSubStepKey === item.key,
+              done: sectionState(section.id) === 'done',
+              doing: sectionState(section.id) === 'active',
+            }]"
             @click="goSubStep(item.key)"
           >
-            <span class="pipe-icon" :class="item.done ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
-              <svg v-if="item.done" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="pipe-icon" :class="sectionState(section.id) === 'done' ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
+              <svg v-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span v-else-if="sectionState(section.id) === 'active'" class="pipe-item-pulse" />
               <component v-else :is="item.icon" :size="11" />
             </span>
             <span class="pipe-copy">
@@ -61,22 +105,13 @@
         </div>
       </nav>
 
-      <!-- Bottom: Progress + Refresh -->
+      <!-- Bottom: Refresh -->
       <div class="sidebar-bottom">
-        <div class="progress-wrap">
-          <div class="progress-head">
-            <span class="progress-label">制作进度</span>
-            <span class="progress-val">{{ pipelineProgress }}/11</span>
-          </div>
-          <div class="progress-track">
-            <div class="progress-fill" :style="{ width: (pipelineProgress / 11 * 100) + '%' }"></div>
-          </div>
-        </div>
         <div class="sidebar-jumper" v-if="sidebarJumpSteps.length">
           <button
             v-for="step in sidebarJumpSteps"
             :key="step.key"
-            :class="['sidebar-jump-dot', { active: activeSubStepKey === step.key, done: step.done }]"
+            :class="['sidebar-jump-dot', { active: activeSubStepKey === step.key }]"
             @click="goSubStep(step.key)"
             :title="step.label"
           ></button>
@@ -90,18 +125,6 @@
 
     <!-- ========== MAIN CONTENT ========== -->
     <main class="main">
-      <div v-if="activeSubSteps.length" class="stage-subnav">
-        <button
-          v-for="sub in activeSubSteps"
-          :key="sub.key"
-          :class="['stage-subnav-item', { active: activeSubStepKey === sub.key, done: sub.done }]"
-          @click="goSubStep(sub.key)"
-        >
-          <span>{{ sub.label }}</span>
-          <span v-if="sub.done" class="stage-subnav-dot"></span>
-        </button>
-      </div>
-
       <!-- ===== SCRIPT PANEL ===== -->
       <div v-if="panel === 'script'" class="content-panel">
         <!-- Step 0: Raw Content -->
@@ -158,7 +181,7 @@
               </svg>
             </div>
             <div class="empty-title">AI 改写为格式化剧本</div>
-            <div class="empty-desc">你可以先用 AI 把原始内容整理成格式化剧本，也可以跳过这一步，直接使用原始内容继续提取角色与场景。</div>
+            <div class="empty-desc">你可以先用 AI 把原始内容整理成格式化剧本，也可以跳过这一步，直接进入资产制作。</div>
             <div class="step-empty-actions">
               <button class="btn btn-primary" @click="doRewrite">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -176,627 +199,154 @@
           </div>
           <textarea v-else class="fill-textarea" v-model="localScript" placeholder="格式化剧本内容..." />
         </div>
-
-        <!-- Step 2: Extract -->
-        <div v-else-if="scriptStep === 2" class="step-editor">
-          <div class="step-toolbar">
-            <div class="toolbar-left">
-              <div class="step-indicator">
-                <span class="step-num">03</span>
-                <span class="step-name">提取角色与场景</span>
-              </div>
-            </div>
-            <div class="toolbar-right">
-              <span v-if="chars.length" class="char-count">{{ chars.length }} 角色 · {{ scenes.length }} 场景</span>
-              <button v-if="chars.length" class="btn btn-sm" @click="doExtract" :disabled="rn">
-                <Loader2 v-if="rn && rt === 'extractor'" :size="11" class="animate-spin" />
-                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                重新提取
-              </button>
-            </div>
-          </div>
-
-          <div v-if="!chars.length && !rn" class="step-empty">
-            <div class="empty-visual">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </div>
-            <div class="empty-title">从剧本提取角色与场景</div>
-            <div class="empty-desc">AI 自动分析剧本，提取角色信息和场景列表，与项目已有数据智能去重合并</div>
-            <button class="btn btn-primary" @click="doExtract">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              开始提取
-            </button>
-          </div>
-          <div v-else-if="rn && rt === 'extractor'" class="step-loading">
-            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-            <div class="loading-text">正在提取角色和场景...</div>
-          </div>
-          <div v-else class="extract-stage">
-            <aside class="card extract-summary">
-              <div class="extract-summary-kicker">Extraction Board</div>
-              <div class="extract-summary-title">角色与场景结果</div>
-              <div class="extract-summary-desc">从剧本里提取出的角色和场景已经入库。这里先确认命名、定位和描述是否可直接进入后续制作。</div>
-              <div class="extract-summary-stats">
-                <div class="extract-summary-stat">
-                  <span>角色</span>
-                  <strong>{{ chars.length }}</strong>
-                </div>
-                <div class="extract-summary-stat">
-                  <span>场景</span>
-                  <strong>{{ scenes.length }}</strong>
-                </div>
-              </div>
-              <div class="extract-summary-note">如果角色描述过于简短，后续分配音色和生成形象时建议先补充人物特征。</div>
-            </aside>
-
-            <div class="card extract-card">
-              <div class="extract-card-head">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span>角色</span>
-                <span class="tag tag-accent">{{ chars.length }}</span>
-              </div>
-              <div class="extract-list">
-                <div v-for="c in chars" :key="c.id" class="extract-row">
-                  <div class="char-avatar">{{ c.name?.[0] || '?' }}</div>
-                  <div class="extract-info">
-                    <div class="extract-name-row">
-                      <div class="extract-name">{{ c.name }}</div>
-                      <span class="tag">{{ c.role || '角色' }}</span>
-                    </div>
-                    <div class="extract-meta wrap">{{ c.description || c.appearance || c.personality || '暂无描述' }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card extract-card" v-if="scenes.length">
-              <div class="extract-card-head">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span>场景</span>
-                <span class="tag tag-accent">{{ scenes.length }}</span>
-              </div>
-              <div class="extract-list">
-                <div v-for="s in scenes" :key="s.id" class="extract-row">
-                  <div class="scene-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  </div>
-                  <div class="extract-info">
-                    <div class="extract-name-row">
-                      <div class="extract-name">{{ s.location }}</div>
-                      <span v-if="s.time" class="tag">{{ s.time }}</span>
-                    </div>
-                    <div class="extract-meta wrap">{{ s.description || s.time || '等待补充场景描述' }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 3: Voice Assignment -->
-        <div v-else-if="scriptStep === 3" class="step-editor">
-          <div class="step-toolbar">
-            <div class="toolbar-left">
-              <div class="step-indicator">
-                <span class="step-num">04</span>
-                <span class="step-name">分配音色</span>
-              </div>
-            </div>
-            <div class="toolbar-right">
-              <span v-if="charsVoiced" class="char-count">{{ charsVoiced }}/{{ chars.length }} 已分配</span>
-              <span v-if="voiceSampleCount" class="char-count">{{ voiceSampleCount }}/{{ charsVoiced }} 试听文件</span>
-              <button v-if="charsVoiced" class="btn btn-sm" @click="doVoice" :disabled="rn">
-                <Loader2 v-if="rn && rt === 'voice_assigner'" :size="11" class="animate-spin" />
-                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                重新分配
-              </button>
-              <button v-if="charsVoiced" class="btn btn-sm" @click="batchGenSamples">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19 5v14"/></svg>
-                生成试听文件
-              </button>
-            </div>
-          </div>
-
-          <div v-if="!charsVoiced && !rn" class="step-empty">
-            <div class="empty-visual">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-            </div>
-            <div class="empty-title">为角色分配合适的音色</div>
-            <div class="empty-desc">AI 根据角色特征自动分配最匹配的 TTS 音色</div>
-            <button class="btn btn-primary" @click="doVoice">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              AI 自动分配
-            </button>
-          </div>
-          <div v-else-if="rn && rt === 'voice_assigner'" class="step-loading">
-            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-            <div class="loading-text">正在分配音色...</div>
-          </div>
-          <div v-else class="voice-stage">
-            <aside class="card voice-stage-panel">
-              <div class="voice-stage-kicker">Voice Casting</div>
-              <div class="voice-stage-title">角色声音分配台</div>
-              <div class="voice-stage-desc">先为每个角色选择合适音色，再生成试听。音色标签会帮助你快速区分旁白、主角、反派和配角的表达方向。</div>
-              <div class="voice-stage-stats">
-                <div class="voice-stage-stat">
-                  <span class="voice-stage-stat-label">已分配</span>
-                  <strong>{{ charsVoiced }}/{{ chars.length }}</strong>
-                </div>
-                <div class="voice-stage-stat">
-                  <span class="voice-stage-stat-label">试听文件</span>
-                  <strong>{{ voiceSampleCount }}/{{ charsVoiced }}</strong>
-                </div>
-              </div>
-              <div class="voice-library-meta">
-                <span>音色库</span>
-                <span>{{ voiceProfiles.length }} 条</span>
-              </div>
-              <div class="voice-library">
-                <div v-for="voice in voiceProfiles" :key="voice.id" class="voice-library-item">
-                  <div class="voice-library-head">
-                    <span class="voice-library-name">{{ voice.label }}</span>
-                    <span class="tag">{{ voice.gender }}</span>
-                  </div>
-                  <div class="voice-library-traits">{{ voice.traits }}</div>
-                  <div class="voice-library-fit">{{ voice.suitable }}</div>
-                </div>
-              </div>
-            </aside>
-
-            <div class="voice-grid">
-              <div v-for="c in chars" :key="c.id" class="card voice-card">
-                <div class="voice-card-head">
-                  <div class="voice-char">
-                    <div class="char-avatar lg">{{ c.name?.[0] || '?' }}</div>
-                    <div class="voice-name">
-                      <div class="voice-name-row">
-                        <div class="extract-name">{{ c.name }}</div>
-                        <span class="tag" :class="(c.voice_style || c.voiceStyle) ? 'tag-success' : ''">{{ (c.voice_style || c.voiceStyle) ? '已分配' : '待分配' }}</span>
-                      </div>
-                      <div class="extract-meta">{{ c.role || '角色' }}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="voice-card-copy">
-                  <div class="voice-card-text">{{ c.description || c.personality || c.appearance || '暂无角色描述，可根据人物定位手动挑选音色。' }}</div>
-                </div>
-
-                <div class="voice-select-block">
-                  <span class="voice-block-label">选择音色</span>
-                  <BaseSelect
-                    :model-value="c.voice_style || c.voiceStyle || ''"
-                    :options="voiceSelectOptions"
-                    placeholder="选择音色"
-                    searchable
-                    style="width:100%"
-                    @update:model-value="updateCharVoice(c.id, $event)"
-                  />
-                </div>
-
-                <div v-if="getVoiceProfile(c.voice_style || c.voiceStyle)" class="voice-profile-card">
-                  <div class="voice-profile-head">
-                    <span class="voice-profile-name">{{ getVoiceProfile(c.voice_style || c.voiceStyle)?.label }}</span>
-                    <span class="tag">{{ getVoiceProfile(c.voice_style || c.voiceStyle)?.gender }}</span>
-                  </div>
-                  <div class="voice-profile-traits">{{ getVoiceProfile(c.voice_style || c.voiceStyle)?.traits }}</div>
-                  <div class="voice-profile-fit">{{ getVoiceProfile(c.voice_style || c.voiceStyle)?.suitable }}</div>
-                </div>
-
-                <div class="voice-actions-row">
-                  <button class="btn btn-sm" :disabled="!(c.voice_style || c.voiceStyle)" @click="genSample(c.id)">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    {{ (c.voice_sample_url || c.voiceSampleUrl) ? '重新试听' : '生成试听' }}
-                  </button>
-                  <span class="dim" style="font-size:11px">{{ (c.voice_sample_url || c.voiceSampleUrl) ? '已生成声音样本，可直接播放' : '生成后可快速确认角色声音' }}</span>
-                </div>
-
-                <div v-if="c.voice_sample_url || c.voiceSampleUrl" class="voice-player">
-                  <audio :src="'/' + (c.voice_sample_url || c.voiceSampleUrl)" controls preload="none" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 4: Storyboard -->
-        <div v-else-if="scriptStep === 4" class="step-editor">
-          <div class="step-toolbar">
-            <div class="toolbar-left">
-              <div class="step-indicator">
-                <span class="step-num">05</span>
-                <span class="step-name">分镜列表</span>
-              </div>
-            </div>
-            <div class="toolbar-right">
-              <span v-if="sbs.length" class="char-count">{{ sbs.length }} 镜头 · {{ totalDuration }}s</span>
-              <button v-if="sbs.length" class="btn btn-sm" @click="addShot">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                添加
-              </button>
-              <template v-if="!sbs.length">
-                <span class="locked-config">视频模型 · {{ lockedVideoConfigLabel }}</span>
-              </template>
-              <button class="btn btn-sm" :disabled="rn" @click="doBreakdown">
-                <Loader2 v-if="rt === 'storyboard_breaker'" :size="11" class="animate-spin" />
-                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                {{ sbs.length ? '重新拆解' : 'AI 拆解分镜' }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="sbs.length" class="split-layout">
-            <!-- Shot List -->
-            <div class="shot-list">
-              <div class="shot-list-head">
-                <div>
-                  <div class="shot-list-title">镜头序列</div>
-                  <div class="shot-list-sub">按镜头顺序检查内容与素材状态</div>
-                </div>
-                <span class="tag mono">{{ totalDuration }}s</span>
-              </div>
-              <div class="shot-list-body">
-                <div
-                  v-for="(sb, i) in sbs"
-                  :key="sb.id"
-                  :class="['shot-item', { active: selectedSb?.id === sb.id }]"
-                  @click="selectedSb = sb"
-                >
-                  <div class="shot-item-header">
-                    <div class="shot-num">#{{ String(i+1).padStart(2,'0') }}</div>
-                    <span class="tag" style="font-size:10px">{{ sb.shot_type || sb.shotType || '—' }}</span>
-                    <span v-if="getStoryboardCharacterIds(sb).length" class="tag" style="font-size:10px">{{ getStoryboardCharacterIds(sb).length }} 角色</span>
-                    <div class="shot-status">
-                      <div v-if="sb.imageUrl || sb.composedImage || sb.firstFrameImage" class="shot-dot has-img" title="已生成图片"></div>
-                      <div v-if="sb.videoUrl || sb.composedVideoUrl" class="shot-dot has-video" title="已生成视频"></div>
-                      <div v-if="sb.dialogue" class="shot-dot has-dialogue" title="有对白"></div>
-                    </div>
-                  </div>
-                  <div class="shot-body">
-                    <div class="shot-desc">{{ sb.description || sb.title || '无描述' }}</div>
-                  </div>
-                  <div class="shot-meta">
-                    <span class="mono dim" style="font-size:10px">{{ sb.duration || 10 }}s</span>
-                    <span v-if="sb.location" class="shot-location">{{ sb.location }}</span>
-                    <span v-if="getStoryboardCharacterNames(sb).length" class="shot-location">{{ getStoryboardCharacterNames(sb).join(' / ') }}</span>
-                    <span v-if="sb.dialogue" class="shot-dialogue">{{ sb.dialogue }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Detail Panel -->
-            <div class="detail-panel" v-if="selectedSb">
-                <div class="detail-head">
-                  <div class="detail-head-copy">
-                    <span class="detail-head-title">镜头 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
-                  <span class="detail-head-sub">{{ selectedSb.title || `镜头 ${sbs.indexOf(selectedSb) + 1}` }} · {{ selectedSb.shot_type || selectedSb.shotType || '未设置景别' }}</span>
-                  </div>
-                  <span class="tag mono">{{ (selectedSb.duration || 10) }}s</span>
-                  <button class="btn btn-ghost btn-icon ml-auto" style="color:var(--error)" @click="deleteShot(selectedSb)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                  </button>
-              </div>
-              <div class="detail-body">
-                <div class="detail-hero">
-                  <div class="detail-hero-copy">
-                    <div class="detail-hero-label">镜头概览</div>
-                    <div class="detail-hero-text">{{ selectedSb.description || selectedSb.title || '当前镜头还没有画面描述，建议先补充核心动作和构图。' }}</div>
-                    <div class="detail-status-row">
-                      <span class="tag">{{ getSceneName(selectedSb) }}</span>
-                      <span class="tag">{{ selectedSb.angle || '未设角度' }}</span>
-                      <span class="tag">{{ selectedSb.movement || '未设运镜' }}</span>
-                      <span class="tag" :class="getFirstFrame(selectedSb) ? 'tag-success' : ''">首帧 {{ getFirstFrame(selectedSb) ? '已生成' : '待生成' }}</span>
-                      <span class="tag" :class="getLastFrame(selectedSb) ? 'tag-success' : ''">尾帧 {{ getLastFrame(selectedSb) ? '已生成' : '待生成' }}</span>
-                      <span class="tag" :class="hasVid(selectedSb) ? 'tag-success' : ''">视频 {{ hasVid(selectedSb) ? '已生成' : '待生成' }}</span>
-                    </div>
-                  </div>
-                  <div class="detail-preview-grid">
-                    <div class="detail-preview-card">
-                      <div class="detail-preview-title">首帧</div>
-                      <div class="detail-preview-media">
-                        <img
-                          v-if="getFirstFrame(selectedSb)"
-                          :src="'/' + getFirstFrame(selectedSb)"
-                          class="previewable-image"
-                          @click.stop="openImageViewer('/' + getFirstFrame(selectedSb), `镜头 #${sbs.indexOf(selectedSb) + 1} 首帧`)"
-                        />
-                        <div v-else class="detail-preview-empty">待生成</div>
-                      </div>
-                    </div>
-                    <div class="detail-preview-card">
-                      <div class="detail-preview-title">尾帧</div>
-                      <div class="detail-preview-media">
-                        <img
-                          v-if="getLastFrame(selectedSb)"
-                          :src="'/' + getLastFrame(selectedSb)"
-                          class="previewable-image"
-                          @click.stop="openImageViewer('/' + getLastFrame(selectedSb), `镜头 #${sbs.indexOf(selectedSb) + 1} 尾帧`)"
-                        />
-                        <div v-else class="detail-preview-empty">待生成</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="detail-section">
-                  <div class="detail-section-head">
-                    <span class="detail-section-title">镜头结构</span>
-                    <span class="detail-section-copy">景别、角度、运镜、场景绑定和时长</span>
-                  </div>
-                  <div class="field-grid field-grid-4">
-                    <label class="field">
-                      <span class="field-label">标题</span>
-                      <input :value="selectedSb.title || ''" class="input"
-                        @blur="updateField(selectedSb, 'title', $event.target.value)" placeholder="如：雪地逼近" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">景别</span>
-                      <input
-                        list="shot-type-list"
-                        :value="selectedSb.shot_type || selectedSb.shotType || ''"
-                        class="input"
-                        placeholder="选择或输入景别"
-                        @change="updateField(selectedSb, 'shot_type', $event.target.value)"
-                      />
-                      <datalist id="shot-type-list">
-                        <option v-for="t in shotTypes" :key="t" :value="t" />
-                      </datalist>
-                    </label>
-                    <label class="field">
-                      <span class="field-label">角度</span>
-                      <input
-                        list="shot-angle-list"
-                        :value="selectedSb.angle || ''"
-                        class="input"
-                        placeholder="选择或输入角度"
-                        @change="updateField(selectedSb, 'angle', $event.target.value)"
-                      />
-                      <datalist id="shot-angle-list">
-                        <option v-for="t in shotAngles" :key="t" :value="t" />
-                      </datalist>
-                    </label>
-                    <label class="field">
-                      <span class="field-label">运镜</span>
-                      <input
-                        list="shot-movement-list"
-                        :value="selectedSb.movement || ''"
-                        class="input"
-                        placeholder="选择或输入运镜"
-                        @change="updateField(selectedSb, 'movement', $event.target.value)"
-                      />
-                      <datalist id="shot-movement-list">
-                        <option v-for="t in shotMovements" :key="t" :value="t" />
-                      </datalist>
-                    </label>
-                  </div>
-                  <div class="field-grid field-grid-4">
-                    <label class="field">
-                      <span class="field-label">绑定角色</span>
-                      <div class="role-pills">
-                        <button
-                          v-for="char in chars"
-                          :key="char.id"
-                          type="button"
-                          :class="['role-pill', { active: isStoryboardCharacterSelected(selectedSb, char.id) }]"
-                          @click="toggleStoryboardCharacter(selectedSb, char.id)"
-                        >
-                          {{ char.name }}
-                        </button>
-                        <span v-if="!chars.length" class="dim" style="font-size:12px">当前集还没有角色</span>
-                      </div>
-                    </label>
-                    <label class="field">
-                      <span class="field-label">绑定场景</span>
-                      <select class="input" :value="selectedSb.scene_id || selectedSb.sceneId || ''"
-                        @change="updateField(selectedSb, 'scene_id', $event.target.value ? Number($event.target.value) : null)">
-                        <option value="">未绑定场景</option>
-                        <option v-for="scene in scenes" :key="scene.id" :value="scene.id">
-                          {{ scene.location }} · {{ scene.time || '未设时间' }}
-                        </option>
-                      </select>
-                    </label>
-                    <label class="field">
-                      <span class="field-label">地点</span>
-                      <input :value="selectedSb.location || ''" class="input"
-                        @blur="updateField(selectedSb, 'location', $event.target.value)" placeholder="场景地点" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">时间</span>
-                      <input :value="selectedSb.time || ''" class="input"
-                        @blur="updateField(selectedSb, 'time', $event.target.value)" placeholder="如：深夜 / 清晨" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">时长</span>
-                      <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60"
-                        @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
-                    </label>
-                  </div>
-                </div>
-                <div class="detail-section">
-                  <div class="detail-section-head">
-                    <span class="detail-section-title">画面语义</span>
-                    <span class="detail-section-copy">动作、结果、氛围和对白</span>
-                  </div>
-                  <div class="field-grid field-grid-2">
-                    <label class="field">
-                      <span class="field-label">动作</span>
-                      <textarea :value="selectedSb.action || ''" class="textarea" rows="3"
-                        @blur="updateField(selectedSb, 'action', $event.target.value)" placeholder="谁在做什么，表情和动作细节是什么" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">结果</span>
-                      <textarea :value="selectedSb.result || ''" class="textarea" rows="3"
-                        @blur="updateField(selectedSb, 'result', $event.target.value)" placeholder="镜头结束时的状态变化或画面结果" />
-                    </label>
-                  </div>
-                  <div class="field-grid field-grid-2">
-                    <label class="field">
-                      <span class="field-label">画面描述</span>
-                      <textarea :value="selectedSb.description || ''" class="textarea" rows="4"
-                        @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="描述画面内容..." />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">氛围</span>
-                      <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="4"
-                        @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" placeholder="光线、色调、空气感、环境氛围" />
-                    </label>
-                  </div>
-                  <label class="field">
-                    <span class="field-label">对白 / 旁白</span>
-                    <textarea :value="selectedSb.dialogue || ''" class="textarea" rows="3"
-                      @blur="updateField(selectedSb, 'dialogue', $event.target.value)" placeholder="角色名：台词内容 或 旁白：内容" />
-                  </label>
-                </div>
-                <div class="detail-section">
-                  <div class="detail-section-head">
-                    <span class="detail-section-title">生成提示</span>
-                    <span class="detail-section-copy">分别服务图片、视频、配乐和音效生成</span>
-                  </div>
-                  <label class="field">
-                    <span class="field-label">静态画面提示词</span>
-                    <textarea :value="selectedSb.image_prompt || selectedSb.imagePrompt || ''" class="textarea" rows="4"
-                      @blur="updateField(selectedSb, 'image_prompt', $event.target.value)" placeholder="用于首帧、尾帧和镜头图片的单帧画面提示词" />
-                  </label>
-                  <label class="field">
-                    <span class="field-label">视频提示词</span>
-                    <textarea :value="selectedSb.video_prompt || selectedSb.videoPrompt || ''" class="textarea" rows="5"
-                      @blur="updateField(selectedSb, 'video_prompt', $event.target.value)" placeholder="按 3 秒分段的视频提示词..." />
-                  </label>
-                  <div class="field-grid field-grid-2">
-                    <label class="field">
-                      <span class="field-label">配乐提示词</span>
-                      <textarea :value="selectedSb.bgm_prompt || selectedSb.bgmPrompt || ''" class="textarea" rows="3"
-                        @blur="updateField(selectedSb, 'bgm_prompt', $event.target.value)" placeholder="如：压抑低频弦乐，缓慢推进" />
-                    </label>
-                    <label class="field">
-                      <span class="field-label">音效提示词</span>
-                      <textarea :value="selectedSb.sound_effect || selectedSb.soundEffect || ''" class="textarea" rows="3"
-                        @blur="updateField(selectedSb, 'sound_effect', $event.target.value)" placeholder="如：风雪声、脚踩积雪、衣料摩擦声" />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-else-if="rn && rt === 'storyboard_breaker'" class="step-loading">
-            <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-            <div class="loading-text">正在拆解分镜并生成提示词...</div>
-          </div>
-
-          <div v-else class="step-empty">
-            <div class="empty-visual">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-                <rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/>
-              </svg>
-            </div>
-            <div class="empty-title">将剧本拆解为分镜序列</div>
-            <div class="empty-desc">AI 自动分析剧本，生成镜头列表和视频提示词</div>
-            <div class="locked-config-banner">当前集视频模型：{{ lockedVideoConfigLabel }}</div>
-            <button class="btn btn-primary" @click="doBreakdown">
-              <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
-              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              AI 拆解分镜
-            </button>
-          </div>
-        </div>
-
       </div>
 
       <!-- ===== PRODUCTION PANEL ===== -->
       <div v-else-if="panel === 'production'" class="content-panel">
-        <!-- Guard: need script -->
-        <div v-if="!scriptContent || !sbs.length" class="step-empty" style="flex:1">
+        <!-- Guard: current production step prerequisites -->
+        <div v-if="productionBlockMessage" class="step-empty" style="flex:1">
           <div class="empty-visual">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           </div>
           <div class="empty-title">尚未准备就绪</div>
-          <div class="empty-desc">{{ !scriptContent ? '请先完成剧本编写' : '请先完成分镜拆解' }}</div>
-          <button class="btn btn-primary" @click="panel = 'script'">前往剧本</button>
+          <div class="empty-desc">{{ productionBlockMessage }}</div>
+          <button class="btn btn-primary" @click="goProductionBlockTarget">{{ productionBlockActionLabel }}</button>
         </div>
 
         <template v-else>
-          <div class="step-toolbar prod-toolbar">
-            <div class="toolbar-left">
-              <div class="step-indicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                <span class="step-name">制作工作台</span>
+          <!-- 制作子步骤导航（资产/分镜拆分/视频生成）由左侧栏承担，顶部不再重复展示 -->
+          <!-- Sub: Assets -->
+          <div v-if="prodTab === 'assets'" class="prod-content">
+            <div class="prod-section-bar">
+              <span class="dim" style="font-size:12px">资产</span>
+              <span class="tag mono">{{ assetReadyCount }}/{{ assetTotalCount }} 已就绪</span>
+              <span class="tag">{{ lockedImageConfigLabel }}</span>
+              <div class="ml-auto flex gap-1 asset-bar-actions">
+                <button
+                  v-for="t in EXTRACT_TARGETS"
+                  :key="t.key"
+                  class="btn btn-sm asset-btn-extract"
+                  :disabled="isExtracting(t.key)"
+                  @click="doExtract(t.key)"
+                >
+                  <Loader2 v-if="isExtracting(t.key)" :size="11" class="animate-spin" />
+                  <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  {{ (t.key === 'characters' ? chars.length : t.key === 'scenes' ? scenes.length : propItems.length) ? `重提${t.label}` : `提取${t.label}` }}
+                </button>
+                <span class="asset-bar-divider" />
+                <button class="btn btn-sm asset-btn-batch" @click="batchCharImages">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  批量角色
+                </button>
+                <button class="btn btn-sm asset-btn-batch" @click="batchSceneImages">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  批量场景
+                </button>
+                <button class="btn btn-sm asset-btn-batch" @click="batchPropImages">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  批量道具
+                </button>
               </div>
             </div>
-            <div class="prod-tabs">
-              <button
-                v-for="t in prodTabDefs"
-                :key="t.id"
-                :class="['prod-tab', { active: prodTab === t.id }]"
-                @click="prodTab = t.id"
-              >
-                <component :is="t.icon" :size="11" />
-                {{ t.label }}
-                <span v-if="t.badge" class="prod-tab-badge">{{ t.badge }}</span>
+            <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
+              <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+              <div class="loading-text">正在提取{{ extractingLabels }}...</div>
+            </div>
+            <div v-else-if="!chars.length && !scenes.length && !propItems.length" class="step-empty asset-empty-state">
+              <div class="empty-visual">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div class="empty-title">开始提取资产</div>
+              <div class="empty-desc">角色、场景和道具会在提取后显示在这里，可分别单独提取，也可一键并行提取全部。</div>
+              <button class="btn btn-primary" :disabled="!!extractingTargets.length" @click="doExtractAll">
+                <Loader2 v-if="extractingTargets.length" :size="13" class="animate-spin" />
+                <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                {{ extractingTargets.length ? `正在提取${extractingLabels}…` : '开始提取' }}
               </button>
             </div>
-          </div>
-
-          <!-- Sub: Characters -->
-          <div v-if="prodTab === 'chars'" class="prod-content">
-            <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ visualChars.length }} 个需生成形象角色</span>
-              <span class="tag">{{ lockedImageConfigLabel }}</span>
-              <span v-if="chars.length > visualChars.length" class="tag">旁白仅保留声音</span>
-              <div class="ml-auto flex gap-1">
-                <button class="btn btn-sm" @click="batchCharImages">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  批量生成
-                </button>
-              </div>
+            <template v-else>
+            <div class="asset-section-title">
+              角色
+              <button class="asset-add-btn" @click="openAssetCreate('character')"><Plus :size="11" /> 新增</button>
             </div>
-            <div class="asset-grid">
-              <div v-for="c in visualChars" :key="c.id" class="card asset-card">
-                <div class="asset-cover">
-                  <img
-                    v-if="c.image_url || c.imageUrl"
-                    :src="'/' + (c.image_url || c.imageUrl)"
-                    class="previewable-image"
-                    @click.stop="openImageViewer('/' + (c.image_url || c.imageUrl), `${c.name} 角色形象`)"
-                  />
-                  <div v-else class="asset-cover-empty">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <template v-if="visualChars.length">
+            <div class="character-asset-grid">
+              <article
+                v-for="c in visualChars"
+                :key="c.id"
+                class="card character-asset-card"
+                tabindex="0"
+                role="button"
+                @click="openAssetDetail('character', c)"
+                @keydown.enter.prevent="openAssetDetail('character', c)"
+                @keydown.space.prevent="openAssetDetail('character', c)"
+              >
+                <button class="asset-del-btn" title="删除角色" @click.stop="askDeleteAsset('character', c)"><X :size="11" /></button>
+                <div class="character-asset-main">
+                  <div class="character-asset-overview"><div class="character-portrait">
+                      <img
+                        v-if="c.image_url || c.imageUrl"
+                        :src="assetImageSrc(c)"
+                        class="previewable-image"
+                        @click.stop="openImageViewer(assetImageSrc(c), `${c.name} 角色形象`)"
+                      />
+                      <div v-else class="character-portrait-empty">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      </div>
+                      <span class="asset-cover-badge" :class="(c.image_url || c.imageUrl) ? 'is-ready' : (isPendingCharImage(c.id) ? 'is-pending' : '')">
+                        {{ (c.image_url || c.imageUrl) ? '形象已生成' : (isPendingCharImage(c.id) ? '形象生成中' : '形象待生成') }}
+                      </span>
+                    </div>
+
+                    <div class="character-asset-head">
+                      <div class="character-title-block">
+                        <div class="character-name-row">
+                          <strong class="character-name">{{ c.name }}</strong>
+                          <span class="tag">{{ c.role || '角色' }}</span>
+                        </div>
+                        <div class="character-visual-summary" :title="characterVisualSummary(c)">
+                          <span>样貌：{{ characterAppearanceValue(c) }}</span>
+                          <span>妆造：{{ characterStylingValue(c) }}</span>
+                        </div>
+                      </div>
+                      <button class="btn btn-sm character-gen-btn" :disabled="isPendingCharImage(c.id)" @click.stop="genCharImg(c.id)">
+                        <Loader2 v-if="isPendingCharImage(c.id)" :size="11" class="animate-spin" />
+                        {{ (c.image_url || c.imageUrl) ? '重绘' : (isPendingCharImage(c.id) ? '生成中' : '生成') }}
+                      </button>
+                    </div>
                   </div>
-                  <span class="asset-cover-badge" :class="(c.image_url || c.imageUrl) ? 'is-ready' : (isPendingCharImage(c.id) ? 'is-pending' : '')">{{ (c.image_url || c.imageUrl) ? '已生成' : (isPendingCharImage(c.id) ? '生成中' : '待生成') }}</span>
+                  <div class="asset-final-prompt" :title="c.final_prompt || c.finalPrompt || ''">
+                    <span class="afp-label">最终提示词 · 三视图</span>
+                    <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || '首次生成形象时由提示词 Agent 自动生成' }}</span>
+                  </div>
                 </div>
-                <div class="asset-body">
-                  <div class="asset-name">{{ c.name }}</div>
-                  <div class="asset-meta dim">{{ c.role || '角色' }}</div>
-                </div>
-                <div class="asset-foot">
-                  <span :class="['dot', (c.image_url || c.imageUrl) && 'ok', isPendingCharImage(c.id) && 'pending']" />
-                  <span class="dim" style="font-size:10px">{{ (c.image_url || c.imageUrl) ? '已生成' : (isPendingCharImage(c.id) ? '生成中' : '待生成') }}</span>
-                  <button class="btn btn-sm ml-auto" :disabled="isPendingCharImage(c.id)" @click="genCharImg(c.id)">{{ isPendingCharImage(c.id) ? '生成中' : '生成' }}</button>
-                </div>
-              </div>
+              </article>
             </div>
-          </div>
+            </template>
 
-          <!-- Sub: Scenes -->
-          <div v-else-if="prodTab === 'scenes'" class="prod-content">
-            <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ scenes.length }} 个场景</span>
-              <span class="tag">{{ lockedImageConfigLabel }}</span>
-              <div class="ml-auto flex gap-1">
-                <button class="btn btn-sm" @click="batchSceneImages">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  批量生成
-                </button>
-              </div>
+            <div class="asset-section-title">
+              场景
+              <button class="asset-add-btn" @click="openAssetCreate('scene')"><Plus :size="11" /> 新增</button>
             </div>
+            <template v-if="scenes.length">
             <div class="asset-grid">
-              <div v-for="s in scenes" :key="s.id" class="card asset-card">
+              <div
+                v-for="s in scenes"
+                :key="s.id"
+                class="card asset-card asset-click-card"
+                tabindex="0"
+                role="button"
+                @click="openAssetDetail('scene', s)"
+                @keydown.enter.prevent="openAssetDetail('scene', s)"
+                @keydown.space.prevent="openAssetDetail('scene', s)"
+              >
+                <button class="asset-del-btn" title="删除场景" @click.stop="askDeleteAsset('scene', s)"><X :size="11" /></button>
                 <div class="asset-cover wide">
                   <img
                     v-if="s.image_url || s.imageUrl"
-                    :src="'/' + (s.image_url || s.imageUrl)"
+                    :src="assetImageSrc(s)"
                     class="previewable-image"
-                    @click.stop="openImageViewer('/' + (s.image_url || s.imageUrl), `${s.location} 场景图`)"
+                    @click.stop="openImageViewer(assetImageSrc(s), `${s.location} 场景图`)"
                   />
                   <div v-else class="asset-cover-empty">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -804,503 +354,603 @@
                   <span class="asset-cover-badge" :class="(s.image_url || s.imageUrl) ? 'is-ready' : (isPendingSceneImage(s.id) ? 'is-pending' : '')">{{ (s.image_url || s.imageUrl) ? '已生成' : (isPendingSceneImage(s.id) ? '生成中' : '待生成') }}</span>
                 </div>
                 <div class="asset-body">
-                  <div class="asset-name">{{ s.location }}</div>
-                  <div class="asset-meta dim">{{ s.time || '—' }}</div>
+                  <div class="asset-name" :title="s.location">{{ s.location }}</div>
+                  <div class="asset-meta asset-desc dim" :title="sceneDescriptionValue(s)">{{ sceneDescriptionValue(s) }}</div>
+                  <div v-if="sceneLightingValue(s)" class="asset-meta asset-light dim" :title="sceneLightingValue(s)">光照 · {{ sceneLightingValue(s) }}</div>
+                  <div class="asset-meta asset-final" :class="{ dim: !(s.final_prompt || s.finalPrompt) }" :title="s.final_prompt || s.finalPrompt || ''">
+                    <span class="afp-label">最终提示词 · 固定视角</span>
+                    {{ s.final_prompt || s.finalPrompt || '首次生成图片时由提示词 Agent 自动生成（前景/中景/后景）' }}
+                  </div>
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (s.image_url || s.imageUrl) && 'ok', isPendingSceneImage(s.id) && 'pending']" />
-                  <span class="dim" style="font-size:10px">{{ (s.image_url || s.imageUrl) ? '已生成' : (isPendingSceneImage(s.id) ? '生成中' : '待生成') }}</span>
-                  <button class="btn btn-sm ml-auto" :disabled="isPendingSceneImage(s.id)" @click="genSceneImg(s.id)">{{ isPendingSceneImage(s.id) ? '生成中' : '生成' }}</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Sub: Dubbing -->
-          <div v-else-if="prodTab === 'dubbing'" class="prod-content">
-            <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ ttsEligibleCount }} 条可生成配音</span>
-              <span class="tag mono">{{ ttsGeneratedCount }}/{{ ttsEligibleCount }} 已生成</span>
-              <span class="tag">{{ lockedAudioConfigLabel }}</span>
-              <div class="ml-auto flex gap-1">
-                <button class="btn btn-sm" @click="batchShotTTS">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-                  批量生成
-                </button>
-              </div>
-            </div>
-
-            <div v-if="!ttsEligibleCount" class="step-empty" style="min-height:260px">
-              <div class="empty-visual">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
-              </div>
-              <div class="empty-title">当前没有可生成的配音</div>
-              <div class="empty-desc">先在分镜里填写“角色名：台词”或“旁白：文案”，这里就会出现待生成的语音镜头。</div>
-            </div>
-
-            <div v-else class="dub-grid">
-                <div v-for="(sb, i) in sbs.filter(hasDialogue)" :key="sb.id" class="card dub-card">
-                  <div class="dub-head">
-                    <div class="dub-copy">
-                    <div class="dub-title">
-                      <span class="frame-num">#{{ String(sb.storyboard_number || sb.storyboardNumber || i + 1).padStart(2, '0') }}</span>
-                      <span class="frame-badge">{{ getDialogueSpeaker(sb) }}</span>
-                    </div>
-                    <div class="dub-desc">{{ getDialogueText(sb) || '未填写文本' }}</div>
-                    </div>
-                    <span class="tag" :class="hasTTS(sb) ? 'tag-success' : ''">{{ hasTTS(sb) ? '已生成' : '待生成' }}</span>
-                  </div>
-                <div class="dub-meta">
-                  <span class="dim">{{ sb.shot_type || sb.shotType || '未设景别' }}</span>
-                  <span class="dim">{{ sb.duration || 10 }}s</span>
-                  <span class="dim">{{ sb.location || '未设地点' }}</span>
-                </div>
-                <div class="dub-foot">
-                  <audio v-if="hasTTS(sb)" :src="'/' + getTTSUrl(sb)" controls preload="none" class="dub-audio" />
-                  <div v-else class="dim" style="font-size:12px">尚未生成语音文件</div>
-                  <button class="btn btn-sm ml-auto" @click="genShotTTS(sb)">生成配音</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Sub: Shots -->
-          <div v-else-if="prodTab === 'shots'" class="prod-content">
-            <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ sbs.length }} 个镜头</span>
-              <span class="tag mono">{{ shotImgCount }}/{{ sbs.length }} 已有帧图</span>
-              <span class="tag">{{ lockedImageConfigLabel }}</span>
-              <div class="ml-auto flex gap-1">
-                <BaseSelect v-model="frameMode" :options="frameModeOptions" placeholder="帧模式" searchable style="width:100px" />
-                <button v-if="gridImagePath" class="btn btn-sm" @click="reopenGridPreview">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-                  查看当前宫格图
-                </button>
-                <button class="btn btn-primary btn-sm" @click="openGridTool">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  宫格图工具
-                </button>
-              </div>
-            </div>
-
-            <div v-if="gridHistory.length" class="grid-history-panel">
-              <div v-if="gridImagePath" class="latest-grid-strip">
-                <button class="latest-grid-strip-thumb" @click="openImageViewer('/' + gridImagePath, '当前宫格图')">
-                  <img :src="'/' + gridImagePath" class="previewable-image" />
-                </button>
-                <div class="latest-grid-strip-copy">
-                  <div class="latest-grid-strip-head">
-                    <span class="tag mono">{{ gridActualLayout.rows }}x{{ gridActualLayout.cols }}</span>
-                    <span class="tag" v-if="gridRecoveredMode">{{ gridRecoveredMode }}</span>
-                  </div>
-                  <div class="latest-grid-strip-title">当前宫格图</div>
-                  <div class="latest-grid-strip-meta">
-                    <span v-if="gridRecoveredAt">{{ gridRecoveredAt }}</span>
-                    <span>可继续切割并分配</span>
-                  </div>
-                </div>
-                <div class="latest-grid-strip-actions">
-                  <button class="btn btn-sm" @click="reopenGridPreview">预览</button>
-                  <button class="btn btn-primary btn-sm" @click="continueGridSplit">继续切割</button>
-                </div>
-              </div>
-              <div class="grid-history-head">
-                <div>
-                  <div class="grid-history-title">历史宫格图</div>
-                  <div class="grid-history-subtitle">按需展开切换不同宫格图，不默认占用第一屏</div>
-                </div>
-                <button class="btn btn-sm" @click="showAllGridHistory = !showAllGridHistory">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline :points="showAllGridHistory ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/></svg>
-                  {{ showAllGridHistory ? '收起历史宫格图' : `展开全部 (${gridHistory.length})` }}
-                </button>
-              </div>
-              <div v-if="showAllGridHistory" class="grid-history-list">
-                <button
-                  v-for="item in gridHistory"
-                  :key="item.id"
-                  :class="['grid-history-item', { active: item.localPath === gridImagePath }]"
-                  @click="selectGridHistory(item)"
-                >
-                  <div class="grid-history-thumb">
-                    <img :src="'/' + item.localPath" class="previewable-image" />
-                  </div>
-                  <div class="grid-history-copy">
-                    <div class="grid-history-tags">
-                      <span class="tag mono">#{{ item.id }}</span>
-                      <span class="tag mono">{{ item.layout.rows }}x{{ item.layout.cols }}</span>
-                      <span class="tag">{{ item.modeLabel }}</span>
-                    </div>
-                    <div class="grid-history-meta">{{ item.createdAtLabel }}</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div class="frame-scroll">
-              <div class="frame-grid">
-                <div v-for="(sb, i) in sbs" :key="sb.id"
-                  :class="['frame-row', 'card', { active: selectedSb?.id === sb.id }]"
-                  @click="selectedSb = sb">
-                  <!-- Info: number + type + desc -->
-                  <div class="frame-info">
-                    <div class="frame-top">
-                      <span class="frame-num">#{{ String(i+1).padStart(2,'0') }}</span>
-                      <span class="frame-badge">{{ sb.shot_type || sb.shotType || '—' }}</span>
-                    </div>
-                    <div class="frame-desc">{{ sb.description || sb.title || '—' }}</div>
-                    <div class="frame-meta">
-                      <span :class="['dot', getFirstFrame(sb) && 'ok', isPendingShotFrame(sb.id, 'first_frame') && 'pending']" />
-                      <span class="dim" style="font-size:11px">首帧</span>
-                      <span v-if="frameMode === 'first_last'" style="display:flex;align-items:center;gap:4px">
-                        <span :class="['dot', getLastFrame(sb) && 'ok', isPendingShotFrame(sb.id, 'last_frame') && 'pending']" />
-                        <span class="dim" style="font-size:11px">尾帧</span>
-                      </span>
-                    </div>
-                  </div>
-                  <!-- Thumbnails -->
-                  <div class="frame-thumbs">
-                    <div class="frame-thumb-wrap">
-                      <div class="frame-thumb" @click.stop="!isPendingShotFrame(sb.id, 'first_frame') && genShotFrame(sb, 'first_frame')">
-                        <img
-                          v-if="getFirstFrame(sb)"
-                          :src="'/' + getFirstFrame(sb)"
-                          class="previewable-image"
-                          @click.stop="openImageViewer('/' + getFirstFrame(sb), `镜头 #${String(i + 1).padStart(2, '0')} 首帧`)"
-                        />
-                        <div v-else class="frame-thumb-empty">
-                          <Loader2 v-if="isPendingShotFrame(sb.id, 'first_frame')" :size="14" class="animate-spin" />
-                          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        </div>
-                        <span v-if="getFirstFrame(sb)" class="frame-re">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                        </span>
-                      </div>
-                      <span class="frame-thumb-label">{{ isPendingShotFrame(sb.id, 'first_frame') ? '首帧生成中' : '首帧' }}</span>
-                    </div>
-                    <div v-if="frameMode === 'first_last'" class="frame-thumb-wrap">
-                      <div class="frame-thumb" @click.stop="!isPendingShotFrame(sb.id, 'last_frame') && genShotFrame(sb, 'last_frame')">
-                        <img
-                          v-if="getLastFrame(sb)"
-                          :src="'/' + getLastFrame(sb)"
-                          class="previewable-image"
-                          @click.stop="openImageViewer('/' + getLastFrame(sb), `镜头 #${String(i + 1).padStart(2, '0')} 尾帧`)"
-                        />
-                        <div v-else class="frame-thumb-empty">
-                          <Loader2 v-if="isPendingShotFrame(sb.id, 'last_frame')" :size="14" class="animate-spin" />
-                          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        </div>
-                        <span v-if="getLastFrame(sb)" class="frame-re">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                        </span>
-                      </div>
-                      <span class="frame-thumb-label">{{ isPendingShotFrame(sb.id, 'last_frame') ? '尾帧生成中' : '尾帧' }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Grid Tool Dialog -->
-            <div v-if="gridDialog" class="overlay" @click.self="gridDialog = false">
-              <div class="card grid-tool">
-                <div class="grid-tool-head">
-                  <span style="font-size:15px;font-weight:600;font-family:var(--font-display)">宫格图工具</span>
-                  <button class="btn btn-ghost btn-icon ml-auto" @click="gridDialog = false">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <button class="btn btn-sm ml-auto" :disabled="isPendingSceneImage(s.id)" @click.stop="genSceneImg(s.id)">
+                    <Loader2 v-if="isPendingSceneImage(s.id)" :size="11" class="animate-spin" />
+                    {{ (s.image_url || s.imageUrl) ? '重绘' : (isPendingSceneImage(s.id) ? '生成中' : '生成') }}
                   </button>
                 </div>
+              </div>
+            </div>
+            </template>
 
-                <!-- Step 0: Config -->
-                <div v-if="gridStep === 0" class="grid-tool-body">
-                  <div class="grid-mode-tabs">
-                    <button v-for="m in gridModes" :key="m.id"
-                      :class="['grid-mode-tab', { active: gridMode === m.id }]"
-                      @click="gridMode = m.id; gridSelected = []; gridSingleTarget = null; gridAssignmentsState = []">
-                      <span style="font-weight:600">{{ m.label }}</span>
-                      <span class="dim" style="font-size:11px">{{ m.desc }}</span>
-                    </button>
+            <div class="asset-section-title">
+              道具
+              <button class="asset-add-btn" @click="openAssetCreate('prop')"><Plus :size="11" /> 新增</button>
+            </div>
+            <div v-if="propItems.length" class="asset-grid">
+              <div
+                v-for="p in propItems"
+                :key="p.id"
+                class="card asset-card asset-click-card prop-card"
+                tabindex="0"
+                role="button"
+                @click="openAssetDetail('prop', p)"
+                @keydown.enter.prevent="openAssetDetail('prop', p)"
+                @keydown.space.prevent="openAssetDetail('prop', p)"
+              >
+                <button class="asset-del-btn" title="删除道具" @click.stop="askDeleteAsset('prop', p)"><X :size="11" /></button>
+                <div class="asset-cover wide">
+                  <img
+                    v-if="p.image_url || p.imageUrl"
+                    :src="assetImageSrc(p)"
+                    class="previewable-image"
+                    @click.stop="openImageViewer(assetImageSrc(p), `${p.name} 道具图`)"
+                  />
+                  <div v-else class="asset-cover-empty">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                   </div>
-
-                  <div class="grid-config">
-                    <label class="field" style="flex:0 0 auto" v-if="gridMode !== 'multi_ref'">
-                      <span class="field-label">宫格</span>
-                      <BaseSelect v-model="gridLayout" :options="gridLayoutOptions" placeholder="宫格" style="width:90px" />
-                    </label>
-                    <div class="field" style="flex:1">
-                      <span class="field-label">
-                        {{ gridMode === 'multi_ref' ? '选择目标镜头' : '选择镜头' }}
-                        <span class="dim" v-if="gridMode !== 'multi_ref'">(已选 {{ gridSelected.length }})</span>
-                      </span>
-                    </div>
-                    <div style="align-self:flex-end" v-if="gridMode !== 'multi_ref'">
-                      <button class="btn btn-sm" @click="gridSelectAll">{{ gridSelected.length === sbs.length ? '取消全选' : '全选' }}</button>
-                    </div>
+                  <span class="asset-cover-badge" :class="(p.image_url || p.imageUrl) ? 'is-ready' : (isPendingPropImage(p.id) ? 'is-pending' : '')">{{ (p.image_url || p.imageUrl) ? '已生成' : (isPendingPropImage(p.id) ? '生成中' : '待生成') }}</span>
+                </div>
+                <div class="asset-body">
+                  <div class="prop-name-row">
+                    <span class="asset-name" :title="p.name">{{ p.name }}</span>
+                    <span class="tag">{{ p.type || '道具' }}</span>
                   </div>
-
-                  <div class="grid-pick-list">
-                    <label v-for="(sb, i) in sbs" :key="sb.id"
-                      :class="['grid-pick-item', { selected: gridMode === 'multi_ref' ? gridSingleTarget === sb.id : gridSelected.includes(sb.id) }]">
-                      <input v-if="gridMode === 'multi_ref'" type="radio" :value="sb.id" v-model="gridSingleTarget" name="grid-target" />
-                      <input v-else type="checkbox" :value="sb.id" v-model="gridSelected" />
-                      <span class="mono" style="font-size:11px;width:28px">#{{ String(i+1).padStart(2,'0') }}</span>
-                      <span class="truncate" style="flex:1;font-size:12px">{{ sb.description || sb.title || '—' }}</span>
-                    </label>
-                  </div>
-
-                  <div class="grid-tool-foot">
-                    <span v-if="gridCanStart" class="tag mono">{{ gridAutoLayout.rows }}x{{ gridAutoLayout.cols }} = {{ gridAutoLayout.rows * gridAutoLayout.cols }}格</span>
-                    <span class="dim" style="font-size:11px">{{ gridPromptLoading ? gridPromptStatus : gridSummary }}</span>
-                    <button class="btn btn-primary ml-auto" :disabled="!gridCanStart || gridPromptLoading" @click="generateGridPrompt">
-                      <Loader2 v-if="gridPromptLoading" :size="12" class="animate-spin" />
-                      <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                      {{ gridPromptLoading ? '生成中' : '生成提示词' }}
-                    </button>
+                  <div class="asset-meta asset-desc dim" :title="p.description || ''">{{ p.description || '暂无描述' }}</div>
+                  <div class="asset-meta asset-final" :class="{ dim: !(p.final_prompt || p.finalPrompt) }" :title="p.final_prompt || p.finalPrompt || ''">
+                    <span class="afp-label">最终提示词 · 白底单品</span>
+                    {{ p.final_prompt || p.finalPrompt || '首次生成图片时由提示词 Agent 自动生成（白底单品）' }}
                   </div>
                 </div>
-
-                <!-- Step 1: Prompt Preview -->
-                <div v-else-if="gridStep === 1" class="grid-tool-body">
-                  <div class="grid-prompt-summary">
-                    <div class="grid-prompt-label">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                      宫格图提示词
-                      <span v-if="gridPromptSource" class="tag ml-8">{{ gridPromptSource === 'agent' ? 'AI生成' : '模板兜底' }}</span>
-                    </div>
-                    <div class="grid-prompt-text">{{ gridPromptText || '（等待生成）' }}</div>
-                  </div>
-
-                  <div class="grid-blank-preview" :style="gridBlankStyle">
-                    <div v-for="(cell, i) in gridCellPrompts" :key="i" class="grid-blank-cell">
-                      <div class="grid-blank-cell-index">#{{ cell.shot_number }} {{ {first_frame:'首帧',last_frame:'尾帧',reference:'参考'}[cell.frame_type] || '' }}</div>
-                      <div class="grid-blank-cell-desc">{{ cell.prompt }}</div>
-                    </div>
-                    <div v-for="i in Math.max(0, (gridAutoLayout.rows * gridAutoLayout.cols) - gridCellPrompts.length)" :key="'empty-'+i" class="grid-blank-cell empty">
-                      <div class="grid-blank-cell-index">空</div>
-                      <div class="grid-blank-cell-desc">—</div>
-                    </div>
-                  </div>
-
-                  <div class="grid-tool-foot">
-                    <button class="btn" @click="gridStep = 0">上一步</button>
-                    <button class="btn ml-auto" @click="generateGridPrompt" :disabled="gridPromptLoading">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                      重新生成
-                    </button>
-                    <button class="btn btn-primary" @click="startGridGen">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                      生成宫格图
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Step 2: Generating -->
-                <div v-else-if="gridStep === 2" class="grid-tool-body" style="align-items:center;justify-content:center;min-height:300px">
-                  <Loader2 :size="28" class="animate-spin" style="color:var(--accent)" />
-                  <div class="loading-text" style="margin-top:12px">宫格图生成中...</div>
-                  <div class="dim" style="font-size:11px;margin-top:6px">{{ gridStatusText }}</div>
-                </div>
-
-                <!-- Step 3: Preview -->
-                <div v-else-if="gridStep === 3" class="grid-tool-body grid-tool-body-preview">
-                  <div class="grid-preview-layout">
-                    <div class="grid-preview-pane">
-                      <div class="grid-preview-wrap">
-                        <div class="grid-preview-stage">
-                          <img
-                            :src="'/' + gridImagePath"
-                            class="grid-preview-img previewable-image"
-                            @click.stop="openImageViewer('/' + gridImagePath, '宫格图预览')"
-                          />
-                          <div class="grid-overlay" :style="gridOverlayStyle">
-                            <button
-                              v-for="(a, i) in gridAssignments"
-                              :key="i"
-                              type="button"
-                              :class="['grid-overlay-cell', activeGridCell === i && 'active']"
-                              @click="focusGridCell(i)"
-                            >
-                              <span class="grid-cell-label">{{ gridCellLabel(a) }}</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="grid-adjust-summary">
-                        <span class="tag mono">{{ gridActualLayout.rows }}x{{ gridActualLayout.cols }} = {{ gridActualLayout.rows * gridActualLayout.cols }}格</span>
-                        <span class="dim" style="font-size:12px">{{ gridAssignedCount }}/{{ gridAssignments.length }} 格已分配</span>
-                        <span class="tag" v-if="gridAssignedCount < gridAssignments.length">未分配格子会被忽略，不会写回分镜</span>
-                      </div>
-                    </div>
-                    <div class="grid-assignment-pane">
-                      <div class="grid-assign-head">
-                        <div class="grid-assign-title">格子分配</div>
-                        <div class="grid-assign-subtitle">切分后由你自己决定每格对应哪个分镜</div>
-                      </div>
-                      <div v-if="gridAssignmentTotalPages > 1" class="grid-assign-pagination">
-                        <button class="btn btn-sm" :disabled="gridAssignmentPage === 0" @click="gridAssignmentPage--">上一页</button>
-                        <span class="dim">第 {{ gridAssignmentPage + 1 }}/{{ gridAssignmentTotalPages }} 页</span>
-                        <span class="dim">{{ gridAssignmentPageStart + 1 }}-{{ gridAssignmentPageEnd }} / {{ gridAssignments.length }}</span>
-                        <button class="btn btn-sm ml-auto" :disabled="gridAssignmentPage >= gridAssignmentTotalPages - 1" @click="gridAssignmentPage++">下一页</button>
-                      </div>
-                      <div class="grid-assign-columns">
-                        <span>格</span>
-                        <span>镜头</span>
-                        <span>类型</span>
-                        <span>当前绑定</span>
-                      </div>
-                      <div class="grid-assign-info">
-                        <div v-for="item in pagedGridAssignments" :key="item.index" :class="['grid-assign-row', activeGridCell === item.index && 'active']">
-                          <span class="grid-assign-index">格{{ item.index + 1 }}</span>
-                          <BaseSelect
-                            :model-value="item.assignment.storyboard_id"
-                            :options="gridAssignmentShotOptions"
-                            placeholder="选择镜头"
-                            @update:model-value="updateGridAssignment(item.index, 'storyboard_id', $event)"
-                          />
-                          <BaseSelect
-                            :model-value="item.assignment.frame_type"
-                            :options="gridFrameTypeOptions"
-                            placeholder="帧类型"
-                            style="width:100%"
-                            @update:model-value="updateGridAssignment(item.index, 'frame_type', $event)"
-                          />
-                          <span class="grid-assign-bind">{{ gridCellTitle(item.assignment.storyboard_id) }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="grid-tool-foot">
-                    <button class="btn" @click="gridStep = 1">返回</button>
-                    <button class="btn btn-primary ml-auto" @click="doGridSplit">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                      切分并分配
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Step 4: Done -->
-                <div v-else-if="gridStep === 4" class="grid-tool-body" style="align-items:center;justify-content:center;min-height:200px">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  <div style="font-size:17px;font-weight:700;font-family:var(--font-display);margin-top:8px">分配完成</div>
-                  <div class="dim" style="font-size:13px;margin-top:4px">{{ gridAssignedCount }} 格已分配</div>
-                  <button class="btn btn-primary" style="margin-top:16px" @click="gridDialog = false; refresh()">关闭</button>
+                <div class="asset-foot">
+                  <span :class="['dot', (p.image_url || p.imageUrl) && 'ok', isPendingPropImage(p.id) && 'pending']" />
+                  <button class="btn btn-sm ml-auto" :disabled="isPendingPropImage(p.id)" @click.stop="genPropImg(p.id)">
+                    <Loader2 v-if="isPendingPropImage(p.id)" :size="11" class="animate-spin" />
+                    {{ (p.image_url || p.imageUrl) ? '重绘' : (isPendingPropImage(p.id) ? '生成中' : '生成') }}
+                  </button>
                 </div>
               </div>
+            </div>
+            <div v-else class="asset-props-empty">本集暂无涉及事态发展的关键道具</div>
+            </template>
+          </div>
+
+          <!-- Sub: Storyboard Split -->
+          <div v-if="prodTab === 'storyboard'" class="prod-content">
+            <div class="prod-section-bar">
+              <span class="dim" style="font-size:12px">分镜拆分</span>
+              <span class="tag mono">{{ sbs.length }} 镜头 · {{ totalDuration }}s</span>
+              <span class="tag">{{ lockedVideoConfigLabel }}</span>
+              <div class="ml-auto flex gap-1">
+                <button class="btn btn-sm" :disabled="rn" @click="doBreakdown">
+                  <Loader2 v-if="rt === 'storyboard_breaker'" :size="11" class="animate-spin" />
+                  <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  {{ sbs.length ? '重新拆分' : '开始拆分' }}
+                </button>
+                <button class="btn btn-sm" :disabled="videoPromptBatch.running || !sbs.length" @click="batchVideoPrompts">
+                  <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
+                  <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  {{ videoPromptBatch.running ? `提示词 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : (selectedSbIds.length ? `生成所选提示词(${selectedSbIds.length})` : '批量视频提示词') }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="sbs.length" class="storyboard-workbench">
+              <aside class="storyboard-shot-list">
+                <div class="shot-list-head">
+                  <div class="shot-list-head-main">
+                    <div class="shot-list-head-copy">
+                      <div class="shot-list-title">分镜列表</div>
+                      <div class="shot-list-sub">检查拆分描述和绑定的角色场景</div>
+                    </div>
+                    <span class="tag mono">{{ totalDuration }}s</span>
+                    <button v-if="!sbSelectMode && sbs.length" class="shot-quick-btn" @click="sbSelectMode = true">选择</button>
+                  </div>
+                  <div v-if="sbSelectMode" class="shot-quick-actions">
+                    <button class="shot-quick-btn" @click="toggleSelectAllSbs">全选</button>
+                    <button class="shot-quick-btn" @click="selectMissingSbs">仅缺失</button>
+                    <button class="shot-quick-btn" @click="selectedSbIds = []">清空</button>
+                  </div>
+                </div>
+                <div class="shot-list-body">
+                  <button
+                    v-for="(sb, i) in sbs"
+                    :key="sb.id"
+                    type="button"
+                    class="storyboard-shot-card"
+                    :class="{ active: !sbSelectMode && selectedSb?.id === sb.id, 'is-selected': sbSelectMode && isSbSelected(sb.id) }"
+                    @click="onShotCardClick(sb)"
+                  >
+                    <div class="storyboard-shot-head">
+                      <span
+                        v-if="sbSelectMode"
+                        class="shot-check"
+                        :class="{ on: isSbSelected(sb.id) }"
+                      >
+                        <svg v-if="isSbSelected(sb.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      </span>
+                      <div class="shot-num">#{{ String(i + 1).padStart(2, '0') }}</div>
+                      <span class="storyboard-shot-chip">{{ sb.duration || 10 }}s</span>
+                      <span v-if="getSceneName(sb)" class="shot-location"><MapPin :size="9" />{{ getSceneName(sb) }}</span>
+                      <span v-if="hasVid(sb)" class="shot-chip-video" title="已生成视频"><Play :size="8" />已出片</span>
+                    </div>
+                    <div class="shot-body">
+                      <div class="shot-desc" :class="{ 'is-empty': !sb.description }">{{ sb.description || '暂无画面描述' }}</div>
+                    </div>
+                    <div class="shot-meta">
+                      <div class="shot-avatars">
+                        <template v-if="getStoryboardCharacters(sb).length">
+                          <span
+                            v-for="c in getStoryboardCharacters(sb).slice(0, 3)"
+                            :key="c.id"
+                            class="shot-avatar"
+                            :title="c.name"
+                          >
+                            <img v-if="assetImageSrc(c)" :src="assetImageSrc(c)" :alt="c.name" />
+                            <template v-else>{{ (c.name || '?').slice(0, 1) }}</template>
+                          </span>
+                          <span v-if="getStoryboardCharacters(sb).length > 3" class="shot-avatar shot-avatar-more">+{{ getStoryboardCharacters(sb).length - 3 }}</span>
+                        </template>
+                        <span v-else class="shot-avatars-empty">0 角色</span>
+                      </div>
+                      <div class="shot-flags">
+                        <span class="shot-flag flag-dialogue" :class="{ on: !!sb.dialogue }" :title="sb.dialogue ? '有对白' : '无对白'"><i class="dot"></i>白</span>
+                        <span class="shot-flag flag-video" :class="{ on: hasVid(sb) }" :title="hasVid(sb) ? '已生成视频' : '未生成视频'"><i class="dot"></i>视</span>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                <div v-if="sbSelectMode" class="shot-select-bar">
+                  <div class="shot-select-info">
+                    <span class="shot-select-count">已选 {{ selectedSbIds.length }} 个</span>
+                    <button class="btn btn-sm" @click="exitSbSelectMode">取消</button>
+                  </div>
+                  <button class="btn btn-sm btn-primary shot-select-go" :disabled="!selectedSbIds.length || videoPromptBatch.running" @click="generateSelectedVideoPrompts">
+                    <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
+                    {{ videoPromptBatch.running ? `生成中 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : `生成视频提示词(${selectedSbIds.length})` }}
+                  </button>
+                </div>
+              </aside>
+
+              <section class="storyboard-editor-main" v-if="selectedSb">
+                <div class="sb-header-top">
+                  <div class="sb-nav-group">
+                    <button
+                      type="button"
+                      class="btn btn-icon btn-sm sb-nav-btn"
+                      :disabled="sbs.indexOf(selectedSb) <= 0"
+                      @click="selectedSb = sbs[sbs.indexOf(selectedSb) - 1]"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <div class="detail-head-copy">
+                      <span class="detail-head-title">分镜 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
+                      <span class="dim sb-header-total">/ 共 {{ sbs.length }} 个</span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-icon btn-sm sb-nav-btn"
+                      :disabled="sbs.indexOf(selectedSb) >= sbs.length - 1"
+                      @click="selectedSb = sbs[sbs.indexOf(selectedSb) + 1]"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="sb-header-fields">
+                  <span class="sb-field-label">时长</span>
+                  <span class="sb-duration-input">
+                    <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60" @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
+                    <span class="sb-duration-unit">s</span>
+                  </span>
+                  <!-- 角色/场景/道具绑定已移至右侧参考素材面板 -->
+                </div>
+
+                <div class="storyboard-editor-scroll">
+                  <div class="sb-split">
+                    <div class="detail-section">
+                      <div class="detail-section-head">
+                        <span class="detail-section-title">分镜描述</span>
+                      </div>
+                      <label class="field">
+                        <span class="field-label">画面描述</span>
+                        <textarea :value="selectedSb.description || ''" class="textarea" rows="4" @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="分镜画面描述" />
+                      </label>
+                      <div class="field-grid field-grid-2">
+                        <label class="field">
+                          <span class="field-label">动作</span>
+                          <textarea :value="selectedSb.action || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'action', $event.target.value)" placeholder="角色动作与表演" />
+                        </label>
+                        <label class="field">
+                          <span class="field-label">氛围</span>
+                          <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" placeholder="光线、色调、空气感、环境氛围" />
+                        </label>
+                      </div>
+                      <label v-if="dialogueOpen || selectedSb.dialogue" class="field">
+                        <span class="field-label">对白 / 旁白</span>
+                        <textarea :value="selectedSb.dialogue || ''" class="textarea" rows="2" @blur="updateField(selectedSb, 'dialogue', $event.target.value)" placeholder="角色名：台词内容 或 旁白：内容" />
+                      </label>
+                      <button v-else type="button" class="dialogue-add" @click="dialogueOpen = true">
+                        <MessageSquarePlus :size="12" />
+                        添加对白 / 旁白
+                      </button>
+                    </div>
+
+                    <div class="detail-section">
+                      <div class="detail-section-head">
+                        <span class="detail-section-title">视频提示词</span>
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          :disabled="rn || videoPromptBatch.running"
+                          @click="genVideoPrompt(selectedSb)"
+                        >
+                          <Loader2 v-if="rn && rt === 'prompt_generator'" :size="11" class="animate-spin" />
+                          {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
+                        </button>
+                      </div>
+                      <div class="detail-section-copy">根据当前分镜的画面描述、动作、氛围以及对白 / 旁白生成</div>
+                      <MentionTextarea
+                        :model-value="selectedSb.video_prompt || selectedSb.videoPrompt || ''"
+                        :options="mentionOptions"
+                        :rows="12"
+                        input-class="textarea"
+                        placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材（如 @志远、@电子厂车间、@扳手），按 3 秒一段换行描述画面运动与镜头；也可点 AI 生成由提示词 Agent 自动创作…"
+                        @commit="v => updateField(selectedSb, 'video_prompt', v)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="storyboard-reference-panel" v-if="selectedSb">
+                <div class="storyboard-ref-head">
+                  <div>
+                    <div class="storyboard-ref-title">参考素材</div>
+                    <div class="storyboard-ref-copy">绑定角色 / 场景 / 道具作为视频参考</div>
+                  </div>
+                  <span class="tag mono">{{ refBindableAssets.filter(a => a.bound).length }}/{{ refBindableAssets.length }} 已绑定</span>
+                </div>
+                <div class="storyboard-ref-list">
+                  <template v-for="group in ['角色', '场景', '道具']" :key="group">
+                    <div v-if="refBindableAssets.filter(a => a.type === group).length" class="storyboard-ref-group">
+                      <div class="storyboard-ref-group-label">{{ group }}</div>
+                      <div
+                        v-for="asset in refBindableAssets.filter(a => a.type === group)"
+                        :key="asset.key"
+                        :class="['storyboard-ref-item', { bound: asset.bound }]"
+                        :title="asset.bound ? '点击移出参考' : '点击添加为参考'"
+                        @click="toggleShotBind(selectedSb, asset)"
+                      >
+                        <button
+                          type="button"
+                          class="storyboard-ref-thumb"
+                          :disabled="!asset.ready"
+                          @click.stop="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
+                        >
+                          <img v-if="asset.ready" :src="assetImageSrc({ imageUrl: asset.imageUrl })" class="previewable-image" />
+                          <span v-else>{{ asset.type === '场景' ? '景' : asset.type === '道具' ? '具' : '角' }}</span>
+                        </button>
+                        <div class="storyboard-ref-main">
+                          <div class="storyboard-ref-line">
+                            <span class="storyboard-ref-name">{{ asset.name }}</span>
+                            <span :class="['storyboard-ref-state', asset.bound && asset.ready ? 'is-ready' : '']">
+                              {{ asset.bound ? (asset.ready ? '可参考' : '未生成') : '未绑定' }}
+                            </span>
+                          </div>
+                          <div class="storyboard-ref-meta">{{ asset.type }} · {{ asset.meta }}</div>
+                          <button v-if="asset.bound && !asset.ready" type="button" class="storyboard-ref-goto" @click.stop="prodTab = 'assets'">去生成 →</button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  <div v-if="!refBindableAssets.length" class="storyboard-ref-empty">
+                    当前集还没有场景、角色或道具，先到「资产」提取素材后即可绑定。
+                  </div>
+                </div>
+              </aside>
+            </div>
+
+            <div v-else-if="rn && rt === 'storyboard_breaker'" class="step-loading">
+              <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
+              <div class="loading-text">正在拆分分镜...</div>
+            </div>
+
+            <div v-else class="step-empty video-task-empty-state">
+              <div class="empty-visual">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/></svg>
+              </div>
+              <div class="empty-title">开始拆分分镜</div>
+              <div class="empty-desc">根据剧本、角色和场景拆分镜头，生成分镜描述和绑定信息。</div>
+              <button class="btn btn-primary" :disabled="rn" @click="doBreakdown">
+                <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
+                <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                开始拆分
+              </button>
             </div>
           </div>
 
           <!-- Sub: Videos -->
-          <div v-else-if="prodTab === 'videos'" class="prod-content">
+          <div v-if="prodTab === 'videos'" class="prod-content">
             <div class="prod-section-bar">
               <span class="dim" style="font-size:12px">{{ sbs.length }} 个镜头</span>
               <span class="tag mono">{{ shotVidCount }}/{{ sbs.length }} 已生成</span>
               <div class="ml-auto flex gap-1">
-                <button class="btn btn-sm" @click="batchVideos">
+                <button class="btn btn-sm" :disabled="videoPromptBatch.running || !sbs.length" @click="batchVideoPrompts">
+                  <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
+                  <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  {{ videoPromptBatch.running ? `提示词 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : (selectedSbIds.length ? `生成所选提示词(${selectedSbIds.length})` : '批量视频提示词') }}
+                </button>
+                <button class="btn btn-sm" :disabled="!sbs.length" @click="batchVideos">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                   批量视频
                 </button>
               </div>
             </div>
-            <div class="prod-grid">
-              <div v-for="(sb, i) in sbs" :key="sb.id" class="card prod-card">
-                <div class="prod-cover">
-                  <video
-                    v-if="hasVid(sb)"
-                    :src="'/' + getVideoUrl(sb)"
-                    class="prod-video"
-                    controls
-                    preload="metadata"
-                    playsinline
-                  />
-                  <img
-                    v-else-if="hasImg(sb)"
-                    :src="'/' + getStoryboardCover(sb)"
-                    class="previewable-image"
-                    @click.stop="openImageViewer('/' + getStoryboardCover(sb), `镜头 #${String(i + 1).padStart(2, '0')} 参考图`)"
-                  />
-                  <div v-else class="prod-cover-empty">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                  </div>
-                  <span class="prod-idx">#{{ String(i+1).padStart(2,'0') }}</span>
-                  <span v-if="hasComposed(sb)" class="prod-overlay-badge">已合成</span>
+            <div v-if="!sbs.length" class="step-empty video-task-empty-state">
+              <div class="empty-visual">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              </div>
+              <div class="empty-title">先生成分镜</div>
+              <div class="empty-desc">视频任务来自分镜拆分结果。先生成分镜描述和视频提示词，再批量生成视频。</div>
+              <div class="locked-config-banner">当前集视频模型：{{ lockedVideoConfigLabel }}</div>
+              <button class="btn btn-primary" :disabled="rn" @click="prodTab = 'storyboard'; doBreakdown()">
+                <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
+                <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                AI 生成分镜
+              </button>
+            </div>
+            <div v-else class="video-task-workbench has-player">
+              <section class="video-task-list">
+                <div class="video-task-head">
+                <div>
+                  <div class="video-task-title">视频任务列表</div>
+                  <div class="video-task-meta">按镜头顺序 · {{ videoTaskRows.length }} 个任务</div>
                 </div>
-                <div class="prod-info">
-                  <div class="prod-desc truncate">{{ sb.description || sb.title || '—' }}</div>
-                  <div class="prod-meta-line">{{ sb.shot_type || sb.shotType || '未设景别' }} · {{ sb.duration || 10 }}s</div>
-                  <div class="prod-dots">
-                    <span :class="['dot', hasImg(sb) && 'ok']" /><span style="font-size:10px">图</span>
-                    <span :class="['dot', hasVid(sb) && 'ok', isPendingVideo(sb.id) && 'pending']" /><span style="font-size:10px">{{ isPendingVideo(sb.id) ? '视频生成中' : '视频' }}</span>
-                  </div>
-                  <div v-if="videoFailMessage(sb.id)" class="prod-error">{{ videoFailMessage(sb.id) }}</div>
+                <div class="video-task-metrics">
+                  <span class="video-task-metric is-pending">{{ pendingVideoIds.length }} 生成中</span>
+                  <span class="video-task-metric is-done">{{ videoTaskDoneCount }} 完成</span>
+                  <span class="video-task-metric is-failed">{{ videoTaskFailedCount }} 失败</span>
                 </div>
-                <div class="prod-actions">
-                  <button class="btn btn-sm" :disabled="isPendingVideo(sb.id)" @click="genVid(sb)">
+                </div>
+                <div class="video-task-table">
+                <div
+                  v-for="task in videoTaskRows"
+                  :key="task.id"
+                  :class="['video-task-row', 'is-' + videoTaskState(task.storyboard), { active: selectedSb?.id === task.storyboard.id }]"
+                  role="button"
+                  tabindex="0"
+                  @click="selectedSb = task.storyboard"
+                  @keydown.enter.prevent="selectedSb = task.storyboard"
+                  @keydown.space.prevent="selectedSb = task.storyboard"
+                >
+                  <div class="video-task-preview">
+                    <video
+                      v-if="hasVid(task.storyboard)"
+                      :src="'/' + getVideoUrl(task.storyboard)"
+                      preload="metadata"
+                      playsinline
+                      muted
+                      tabindex="-1"
+                    />
+                    <div v-else class="video-task-empty">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <span class="video-task-index">#{{ String(task.index + 1).padStart(2, '0') }}</span>
+                  </div>
+                  <div class="video-task-main">
+                    <div class="video-task-line">
+                      <strong class="video-task-name truncate">{{ task.title }}</strong>
+                    </div>
+                    <div class="video-task-meta-line">
+                      <span v-if="task.meta" class="video-task-loc truncate">{{ task.meta }}</span>
+                      <span class="video-task-sep">·</span>
+                      <span>{{ task.duration }}s</span>
+                      <span class="video-task-sep">·</span>
+                      <span>参考 {{ task.referenceCount }}</span>
+                    </div>
+                    <div v-if="task.error" class="video-task-error">{{ task.error }}</div>
+                  </div>
+                  <span :class="['video-task-status', 'is-' + videoTaskState(task.storyboard)]">
+                    <span :class="['dot', videoTaskState(task.storyboard) === 'done' && 'ok', videoTaskState(task.storyboard) === 'pending' && 'pending']" />
+                    {{ videoTaskStatusLabel(task.storyboard) }}
+                  </span>
+                  <button
+                    class="btn btn-sm video-task-action"
+                    :disabled="videoTaskState(task.storyboard) === 'pending'"
+                    @click.stop="genVid(task.storyboard)"
+                  >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                    {{ isPendingVideo(sb.id) ? '生成中' : '生成视频' }}
+                    {{ videoTaskActionLabel(task.storyboard) }}
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
+                </div>
+              </section>
 
-          <!-- Sub: Compose -->
-          <div v-else-if="prodTab === 'compose'" class="prod-content">
-            <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ sbs.length }} 个镜头</span>
-              <span class="tag mono">{{ composedCount }}/{{ sbs.length }} 已合成</span>
-              <div class="ml-auto flex gap-1">
-                <button class="btn btn-sm" @click="batchCompose">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  批量合成
-                </button>
+              <div v-if="selectedSb" class="video-task-side">
+              <aside class="video-task-player">
+                <div class="video-player-head">
+                  <div class="video-player-head-info">
+                    <div class="video-player-title">分镜 {{ String(selectedVideoTaskNumber).padStart(2, '0') }}</div>
+                    <span :class="['video-task-status', 'is-' + videoTaskState(selectedSb)]">
+                      <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
+                      {{ videoTaskStatusLabel(selectedSb) }}
+                    </span>
+                    <span v-if="selectedSb.duration" class="video-player-sub">{{ selectedSb.duration }}s</span>
+                  </div>
+                  <button
+                    v-if="previewVideoUrl"
+                    class="btn btn-sm btn-primary"
+                    @click="setAsMainVideo"
+                  >
+                    设为主视频
+                  </button>
+                  <a
+                    v-if="previewVideoUrl || hasVid(selectedSb)"
+                    :href="'/' + (previewVideoUrl || getVideoUrl(selectedSb))"
+                    download
+                    class="btn btn-sm"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下载
+                  </a>
+                </div>
+                <div class="video-player-stage">
+                  <video
+                    v-if="previewVideoUrl || hasVid(selectedSb)"
+                    :key="previewVideoUrl || getVideoUrl(selectedSb)"
+                    :src="'/' + (previewVideoUrl || getVideoUrl(selectedSb))"
+                    controls
+                    preload="metadata"
+                    playsinline
+                    class="video-player-video"
+                  />
+                  <div v-else class="video-player-empty">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    <div class="video-player-empty-title">{{ videoTaskState(selectedSb) === 'pending' ? '视频生成中…' : '尚未生成视频' }}</div>
+                    <div class="video-player-empty-desc">{{ videoTaskState(selectedSb) === 'pending' ? '生成完成后可在此播放预览' : '点击下方按钮为当前分镜生成视频' }}</div>
+                    <button
+                      v-if="videoTaskState(selectedSb) !== 'pending'"
+                      class="btn btn-primary btn-sm"
+                      style="margin-top:4px"
+                      @click="genVid(selectedSb)"
+                    >
+                      生成视频
+                    </button>
+                  </div>
+                </div>
+              </aside>
+
+              <div v-if="sbVideoHistory.length" class="video-player-history">
+                <div class="video-player-history-head">
+                  <span>历史视频</span>
+                  <span class="video-player-history-count">{{ sbVideoHistory.length }}</span>
+                </div>
+                <div class="video-player-history-list">
+                  <div
+                    v-for="t in sbVideoHistory"
+                    :key="t.id"
+                    :class="['video-history-item', { current: isCurrentVideo(t), viewing: !!previewVideoUrl && previewVideoUrl === taskVideoPath(t) }]"
+                    role="button"
+                    tabindex="0"
+                    @click="previewHistoryVideo(t)"
+                    @keydown.enter.prevent="previewHistoryVideo(t)"
+                  >
+                    <video :src="'/' + taskVideoPath(t)" preload="metadata" muted playsinline tabindex="-1" />
+                    <span class="video-history-time">{{ formatHistoryTime(taskCreatedAt(t)) }}</span>
+                    <span v-if="isCurrentVideo(t)" class="video-history-badge">当前</span>
+                    <button v-else type="button" class="video-history-del" title="删除该记录" @click.stop="removeHistoryVideo(t)">×</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div class="prod-grid">
-              <div v-for="(sb, i) in sbs" :key="sb.id" class="card prod-card">
-                <div class="prod-cover">
-                  <video
-                    v-if="hasComposed(sb)"
-                    :src="'/' + getComposedVideoUrl(sb)"
-                    class="prod-video"
-                    controls
-                    preload="metadata"
-                    playsinline
-                  />
-                  <video
-                    v-else-if="hasVid(sb)"
-                    :src="'/' + getVideoUrl(sb)"
-                    class="prod-video"
-                    controls
-                    preload="metadata"
-                    playsinline
-                  />
-                  <img
-                    v-else-if="hasImg(sb)"
-                    :src="'/' + getStoryboardCover(sb)"
-                    class="previewable-image"
-                    @click.stop="openImageViewer('/' + getStoryboardCover(sb), `镜头 #${String(i + 1).padStart(2, '0')} 参考图`)"
-                  />
-                  <div v-else class="prod-cover-empty">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  </div>
-                  <span class="prod-idx">#{{ String(i+1).padStart(2,'0') }}</span>
-                  <span v-if="hasComposed(sb)" class="prod-overlay-badge">已合成</span>
-                </div>
-                <div class="prod-info">
-                  <div class="prod-desc truncate">{{ sb.description || sb.title || '—' }}</div>
-                  <div class="prod-meta-line">{{ sb.shot_type || sb.shotType || '未设景别' }} · {{ sb.duration || 10 }}s</div>
-                  <div class="prod-dots">
-                    <span :class="['dot', hasVid(sb) && 'ok']" /><span style="font-size:10px">视频</span>
-                    <span :class="['dot', hasTTS(sb) && 'ok']" /><span style="font-size:10px">配音</span>
-                    <span :class="['dot', hasComposed(sb) && 'ok', isPendingCompose(sb.id) && 'pending']" /><span style="font-size:10px">{{ isPendingCompose(sb.id) ? '合成中' : '合成' }}</span>
-                  </div>
-                  <div v-if="composeFailMessage(sb.id)" class="prod-error">{{ composeFailMessage(sb.id) }}</div>
-                </div>
-                <div class="prod-actions">
-                  <button class="btn btn-sm" :disabled="!hasVid(sb) || isPendingCompose(sb.id)" @click="doCompose(sb)">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                    {{ isPendingCompose(sb.id) ? '合成中' : (hasComposed(sb) ? '重新合成' : '开始合成') }}
+
+              <aside class="video-task-inspector">
+                <div class="video-inspector-body">
+                  <section class="video-inspector-section">
+                    <div class="video-inspector-prompt-head">
+                      <span class="video-inspector-label video-inspector-label-hero">视频提示词</span>
+                      <button
+                        type="button"
+                        class="btn btn-sm"
+                        :disabled="rn || videoPromptBatch.running"
+                        @click="genVideoPrompt(selectedSb)"
+                      >
+                        <Loader2 v-if="rn && rt === 'prompt_generator'" :size="11" class="animate-spin" />
+                        {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
+                      </button>
+                    </div>
+                    <MentionTextarea
+                      :model-value="selectedSb.video_prompt || selectedSb.videoPrompt || ''"
+                      :options="mentionOptions"
+                      :rows="9"
+                      input-class="textarea video-inspector-prompt"
+                      placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材（如 @志远、@电子厂车间、@扳手），生成时自动映射为参考图片；再按时间段描述画面运动与镜头…"
+                      @commit="v => updateField(selectedSb, 'video_prompt', v)"
+                    />
+                  </section>
+
+                  <section class="video-inspector-section">
+                    <span class="video-inspector-label">参考素材</span>
+                    <div class="video-inspector-assets">
+                      <button
+                        v-for="asset in getShotReferenceAssets(selectedSb)"
+                        :key="asset.key"
+                        type="button"
+                        class="video-inspector-asset"
+                        :disabled="!asset.ready"
+                        @click="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
+                      >
+                        <img v-if="asset.ready" :src="assetImageSrc({ imageUrl: asset.imageUrl })" :alt="asset.name" />
+                        <span v-else>{{ asset.type }}</span>
+                        <small>{{ asset.name }}</small>
+                      </button>
+                      <div v-if="!getShotReferenceAssets(selectedSb).length" class="video-inspector-empty">当前分镜未绑定参考素材</div>
+                    </div>
+                  </section>
+
+                  <section class="video-inspector-section">
+                    <span class="video-inspector-label">参考图片 / 视频 / 音频</span>
+                    <div v-if="videoRefImageUrls.length || videoRefVideoUrls.length || videoRefAudioUrls.length" class="video-ref-media-list">
+                      <span v-for="(url, i) in videoRefImageUrls" :key="'ref-i-' + i" class="video-ref-media-chip">
+                        图片 {{ i + 1 }}
+                        <button type="button" class="video-ref-media-remove" @click="removeRefMedia('image', i)">×</button>
+                      </span>
+                      <span v-for="(url, i) in videoRefVideoUrls" :key="'ref-v-' + i" class="video-ref-media-chip">
+                        视频 {{ i + 1 }}
+                        <button type="button" class="video-ref-media-remove" @click="removeRefMedia('video', i)">×</button>
+                      </span>
+                      <span v-for="(url, i) in videoRefAudioUrls" :key="'ref-a-' + i" class="video-ref-media-chip">
+                        音频 {{ i + 1 }}
+                        <button type="button" class="video-ref-media-remove" @click="removeRefMedia('audio', i)">×</button>
+                      </span>
+                    </div>
+                    <div class="video-ref-media-actions">
+                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || refImageFull" @click="uploadRefMedia('image')">
+                        上传参考图片 ({{ refImageUsedCount }}/9)
+                      </button>
+                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefVideoUrls.length >= 3" @click="uploadRefMedia('video')">
+                        上传参考视频 ({{ videoRefVideoUrls.length }}/3)
+                      </button>
+                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefAudioUrls.length >= 3" @click="uploadRefMedia('audio')">
+                        上传参考音频 ({{ videoRefAudioUrls.length }}/3)
+                      </button>
+                    </div>
+                    <div
+                      v-if="videoRefAudioUrls.length && !getShotReferenceImages(selectedSb).length && !videoRefVideoUrls.length"
+                      class="video-ref-media-hint"
+                    >参考音频需至少 1 个参考图片或视频</div>
+                  </section>
+
+                  <section class="video-inspector-section">
+                    <span class="video-inspector-label">生成参数</span>
+                    <div class="video-param-row">
+                      <span class="video-param-name">生成时长</span>
+                      <span class="video-param-control">
+                        <input v-model.number="videoDuration" type="number" min="4" max="15" class="input video-duration-input" />
+                        <span class="video-param-unit">s（4-15）</span>
+                      </span>
+                    </div>
+                  </section>
+
+                  <button
+                    class="btn btn-primary video-inspector-action"
+                    :disabled="videoTaskState(selectedSb) === 'pending'"
+                    @click="genVid(selectedSb)"
+                  >
+                    {{ videoTaskActionLabel(selectedSb) }}
                   </button>
                 </div>
+              </aside>
               </div>
             </div>
           </div>
@@ -1321,42 +971,196 @@
         </div>
         <div v-else class="export-split">
           <div class="export-main">
-            <template v-if="mergeUrl">
-              <video :src="'/' + mergeUrl" controls class="export-video" />
-              <div class="export-bar">
-                <span class="tag tag-success">拼接完成</span>
-                <span class="dim" style="font-size:12px">{{ sbs.length }} 镜头 · {{ totalDuration }}s</span>
-                <a :href="'/' + mergeUrl" download class="btn btn-primary ml-auto">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  下载视频
-                </a>
-              </div>
-            </template>
-            <template v-else>
-              <div class="step-empty">
-                <div class="empty-visual">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                </div>
-                <div class="empty-title">拼接全集视频</div>
-                <div class="empty-desc">将 {{ composedCount }} 个已合成镜头拼接为完整视频</div>
-                <button class="btn btn-primary" :disabled="composedCount === 0" @click="doMerge" style="margin-top:12px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                  开始拼接
+            <!-- 上方:成片列表 -->
+            <div class="export-section">
+              <div class="export-section-head">
+                <span class="export-section-title">成片列表</span>
+                <span class="dim" style="font-size:11px">{{ exportMerges.length }} 个</span>
+                <button class="btn btn-sm ml-auto" @click="loadExportMerges">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  刷新
                 </button>
               </div>
-            </template>
-          </div>
-          <div class="export-list">
-            <div class="export-list-head">镜头概览</div>
-            <div class="export-list-body">
-              <div v-for="(sb, i) in sbs" :key="sb.id" class="exp-row">
-                <span class="mono dim" style="font-size:10px">#{{ String(i+1).padStart(2,'0') }}</span>
-                <span class="truncate" style="flex:1;font-size:11px">{{ sb.description || sb.title || '—' }}</span>
-                <span :class="['dot', hasComposed(sb) && 'ok']" />
+              <div v-if="exportMerges.length" class="export-merge-strip">
+                <div
+                  v-for="m in exportMerges"
+                  :key="m.id"
+                  :class="['merge-card', m.status === 'completed' && m.merged_url && 'playable']"
+                  :role="m.status === 'completed' && m.merged_url ? 'button' : undefined"
+                  :tabindex="m.status === 'completed' && m.merged_url ? 0 : undefined"
+                  @click="m.status === 'completed' && m.merged_url && (activeMerge = m)"
+                  @keydown.enter.prevent="m.status === 'completed' && m.merged_url && (activeMerge = m)"
+                >
+                  <div class="merge-card-thumb">
+                    <video
+                      v-if="m.status === 'completed' && m.merged_url"
+                      :src="'/' + m.merged_url"
+                      preload="metadata"
+                      muted
+                      playsinline
+                      tabindex="-1"
+                    />
+                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']">
+                      {{ m.status === 'failed' ? (m.error_msg || '拼接失败') : '拼接中…' }}
+                    </div>
+                    <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    </span>
+                  </div>
+                  <div class="merge-card-meta">
+                    <span class="mono">{{ formatHistoryTime(m.created_at) }}</span>
+                    <span v-if="m.duration">· {{ m.duration }}s</span>
+                    <a
+                      v-if="m.status === 'completed' && m.merged_url"
+                      :href="'/' + m.merged_url"
+                      download
+                      class="btn btn-sm"
+                      @click.stop
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      下载
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="export-merge-empty">暂无成片，在下方勾选镜头后点击「拼接所选」</div>
+            </div>
+
+            <!-- 下方:镜头素材(可勾选) -->
+            <div class="export-section export-section-grow">
+              <div class="export-section-head">
+                <span class="export-section-title">镜头素材</span>
+                <span class="dim" style="font-size:11px">{{ shotVidCount }}/{{ sbs.length }} 已生成 · 已选 {{ exportSelectedReadyIds.length }}</span>
+                <div class="ml-auto flex gap-1">
+                  <button class="btn btn-sm" :disabled="!exportReadyIds.length" @click="toggleSelectAllExport">
+                    {{ exportSelectedReadyIds.length === exportReadyIds.length && exportReadyIds.length ? '清空选择' : '全选已生成' }}
+                  </button>
+                  <button
+                    class="btn btn-sm btn-primary"
+                    :disabled="!exportSelectedReadyIds.length"
+                    @click="doMerge(exportSelectedReadyIds)"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    拼接所选 ({{ exportSelectedReadyIds.length }})
+                  </button>
+                </div>
+              </div>
+              <div class="export-grid">
+                <div
+                  v-for="(sb, i) in sbs"
+                  :key="sb.id"
+                  :class="['exp-card', { selected: isExportSelected(sb.id), playable: hasVid(sb) }]"
+                  :role="hasVid(sb) ? 'button' : undefined"
+                  :tabindex="hasVid(sb) ? 0 : undefined"
+                  @click="toggleExportSelect(sb)"
+                  @keydown.enter.prevent="toggleExportSelect(sb)"
+                >
+                  <div class="exp-thumb">
+                    <video
+                      v-if="hasVid(sb)"
+                      :src="'/' + getVideoUrl(sb)"
+                      preload="metadata"
+                      muted
+                      playsinline
+                      tabindex="-1"
+                    />
+                    <div v-else class="exp-thumb-empty">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    </div>
+                    <span class="exp-thumb-index">#{{ String(i+1).padStart(2,'0') }}</span>
+                    <span v-if="sb.duration" class="exp-thumb-duration">{{ sb.duration }}s</span>
+                    <span v-if="hasVid(sb)" :class="['exp-check', isExportSelected(sb.id) && 'on']">
+                      <svg v-if="isExportSelected(sb.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
+                  </div>
+                  <div class="exp-row-line">
+                    <span class="truncate" style="flex:1;font-size:11px">{{ sb.description || sb.title || '—' }}</span>
+                    <span :class="['dot', hasVid(sb) && 'ok']" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- ===== TASK DRAWER ===== -->
+      <div v-if="taskDrawer" class="task-drawer-overlay" @click.self="closeTaskDrawer">
+        <aside class="task-drawer" role="dialog" aria-modal="true" aria-label="生成任务列表">
+          <header class="task-drawer-head">
+            <div>
+              <div class="video-task-title">生成任务列表</div>
+              <div class="video-task-meta">按创建时间倒序 · {{ genTaskRows.length }} 个任务</div>
+            </div>
+            <div class="task-drawer-head-actions">
+              <button class="btn btn-sm" @click="loadGenTasks">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                刷新
+              </button>
+              <button class="btn btn-ghost btn-icon" @click="closeTaskDrawer"><X :size="14" /></button>
+            </div>
+          </header>
+          <div class="video-task-metrics task-drawer-metrics">
+            <span class="video-task-metric is-pending">{{ genTaskActiveCount }} 生成中</span>
+            <span class="video-task-metric is-done">{{ genTaskDoneCount }} 完成</span>
+            <span class="video-task-metric is-failed">{{ genTaskFailedCount }} 失败</span>
+          </div>
+          <div v-if="!genTaskRows.length" class="step-empty task-drawer-empty">
+            <div class="empty-visual">
+              <ListTodo :size="32" />
+            </div>
+            <div class="empty-title">暂无生成任务</div>
+            <div class="empty-desc">在资产、分镜或视频步骤中触发图片 / 视频生成后,任务会自动出现在这里。</div>
+          </div>
+          <div v-else class="video-task-table task-drawer-body">
+            <div
+              v-for="row in genTaskRows"
+              :key="row.key"
+              :class="['video-task-row', 'gen-task-row', 'is-' + genTaskStateClass(row.status)]"
+            >
+              <div class="video-task-preview">
+                <video
+                  v-if="row.previewUrl && (row.kind === 'video' || row.kind === 'merge')"
+                  :src="genTaskPreviewSrc(row.previewUrl)"
+                  controls
+                  preload="metadata"
+                  playsinline
+                />
+                <img
+                  v-else-if="row.previewUrl"
+                  :src="genTaskPreviewSrc(row.previewUrl)"
+                  :alt="row.targetLabel"
+                  loading="lazy"
+                  @click="openImageViewer(genTaskPreviewSrc(row.previewUrl), row.targetLabel)"
+                />
+                <div v-else class="video-task-empty">
+                  <Loader2 v-if="genTaskStateClass(row.status) === 'pending'" :size="18" class="animate-spin" />
+                  <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <span class="video-task-index">{{ genTaskKindLabel(row.kind) }}</span>
+              </div>
+              <div class="video-task-main">
+                <div class="video-task-line">
+                  <strong class="video-task-name truncate">{{ row.targetLabel }}</strong>
+                </div>
+                <div class="video-task-meta-line">
+                  <span class="video-task-loc truncate">{{ row.provider }}{{ row.model ? ' · ' + row.model : '' }}</span>
+                  <template v-if="genTaskDuration(row)">
+                    <span class="video-task-sep">·</span>
+                    <span>耗时 {{ genTaskDuration(row) }}</span>
+                  </template>
+                  <span class="video-task-sep">·</span>
+                  <span>#{{ row.id }}</span>
+                </div>
+                <div v-if="row.errorMsg" class="video-task-error">{{ row.errorMsg }}</div>
+              </div>
+              <span :class="['video-task-status', 'is-' + genTaskStateClass(row.status)]">
+                <span :class="['dot', genTaskStateClass(row.status) === 'done' && 'ok', genTaskStateClass(row.status) === 'pending' && 'pending']" />
+                {{ genTaskStatusLabel(row.status) }}
+              </span>
+            </div>
+          </div>
+        </aside>
       </div>
 
       <div v-if="showBottomBubble" class="step-bubble">
@@ -1387,7 +1191,7 @@
           <button
             v-for="step in bubbleSteps"
             :key="step.key"
-            :class="['bubble-dot', { done: step.done, current: step.key === activeBubbleKey }]"
+            :class="['bubble-dot', { current: step.key === activeBubbleKey }]"
             @click="goSubStep(step.key)"
             :title="step.label"
           ></button>
@@ -1407,7 +1211,7 @@
         <button
           v-else-if="panel === 'production'"
           class="bubble-btn primary"
-          :disabled="panel === 'production' && prodTab === 'compose' && !canExport"
+          :disabled="prodTab === 'videos' && !canExport"
           @click="goNextProd"
         >
           {{ prodTabIdx < prodTabDefs.length - 1 ? (prodTabDefs[prodTabIdx + 1]?.label || '下一步') : '进入导出' }}
@@ -1417,8 +1221,215 @@
         </button>
       </div>
 
+      <div v-if="assetDetail.open && assetDetail.item" class="overlay asset-detail-overlay" @click.self="closeAssetDetail">
+        <section
+          class="dialog asset-detail-dialog"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="(assetDetail.type === 'character' ? '角色' : assetDetail.type === 'scene' ? '场景' : '道具') + '详情'"
+        >
+          <header class="dialog-head asset-detail-head">
+            <div class="asset-detail-title-block">
+              <span class="asset-detail-kicker">{{ assetTypeLabel(assetDetail.type) }}</span>
+              <h2 class="asset-detail-title">{{ assetDetailTitle(assetDetail) }}</h2>
+            </div>
+            <div class="asset-detail-head-actions">
+              <span class="tag" v-if="assetDetail.type === 'character'">{{ assetDetail.item.role || '角色' }}</span>
+              <span class="tag" v-else-if="assetDetail.type === 'prop'">{{ assetDetail.item.type || '道具' }}</span>
+              <span class="tag" v-else>{{ assetDetail.item.time || '未设时间' }}</span>
+              <button class="btn btn-ghost btn-icon" @click="closeAssetDetail">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </header>
+
+          <div class="dialog-body asset-detail-body">
+            <div class="asset-detail-shell">
+              <aside class="asset-detail-preview-panel">
+                <div class="asset-detail-section-title">
+                  <span>视觉预览</span>
+                  <span :class="['asset-detail-state', assetImageSrc(assetDetail.item) ? 'is-ready' : '']">
+                    {{ assetImageSrc(assetDetail.item) ? '已生成' : '待生成' }}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  class="asset-detail-media-frame"
+                  :disabled="!assetImageSrc(assetDetail.item)"
+                  @click.stop="openImageViewer(assetImageSrc(assetDetail.item), `${assetDetailTitle(assetDetail)} ${assetDetail.type === 'character' ? '角色形象' : assetDetail.type === 'scene' ? '场景图' : '道具图'}`)"
+                >
+                  <img
+                    v-if="assetImageSrc(assetDetail.item)"
+                    :src="assetImageSrc(assetDetail.item)"
+                    class="previewable-image"
+                  />
+                  <span v-else class="asset-detail-media-empty">
+                    <svg v-if="assetDetail.type === 'character'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <svg v-else-if="assetDetail.type === 'prop'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    <svg v-else width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  </span>
+                </button>
+
+                <div class="asset-detail-meta-row">
+                  <div class="asset-detail-meta-item">
+                    <span>类型</span>
+                    <strong>{{ assetDetail.type === 'character' ? '角色形象' : assetDetail.type === 'prop' ? '道具' : '场景图片' }}</strong>
+                  </div>
+                  <div class="asset-detail-meta-item">
+                    <span>{{ assetDetail.type === 'character' ? '定位' : assetDetail.type === 'prop' ? '道具类型' : '时间' }}</span>
+                    <strong>{{ assetDetail.type === 'character' ? (assetDetail.item.role || '角色') : assetDetail.type === 'prop' ? (assetDetail.item.type || '道具') : (assetDetail.item.time || '未设时间') }}</strong>
+                  </div>
+                </div>
+              </aside>
+
+              <section class="asset-detail-editor-panel">
+                <div class="asset-detail-section-title">
+                  <span>编辑信息</span>
+                  <span class="dim">{{ assetDetail.type === 'character' ? '样貌与妆造会影响角色形象' : assetDetail.type === 'prop' ? '物品外貌会影响道具图' : '空间与光影会影响场景图' }}</span>
+                </div>
+
+                <div v-if="assetDetail.type === 'prop'" class="asset-detail-edit-grid asset-detail-edit-grid--prop">
+                  <label class="asset-detail-edit-field">
+                    <span>物品外貌</span>
+                    <textarea
+                      v-model="assetDetailDraft.description"
+                      class="textarea asset-detail-textarea"
+                      rows="6"
+                      placeholder="材质、颜色、形状、大小、新旧程度、磨损痕迹等"
+                    />
+                  </label>
+                </div>
+
+                <div v-else :class="['asset-detail-edit-grid', `asset-detail-edit-grid--${assetDetail.type}`]">
+                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
+                    <span>样貌</span>
+                    <textarea
+                      v-model="assetDetailDraft.appearance"
+                      class="textarea asset-detail-textarea"
+                      rows="6"
+                      placeholder="年龄感、五官、体态、气质等"
+                    />
+                  </label>
+                  <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
+                    <span>妆造</span>
+                    <textarea
+                      v-model="assetDetailDraft.styling"
+                      class="textarea asset-detail-textarea"
+                      rows="6"
+                      placeholder="发型、服装、妆面、配饰等"
+                    />
+                  </label>
+                  <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
+                    <span>场景描述</span>
+                    <textarea
+                      v-model="assetDetailDraft.prompt"
+                      class="textarea asset-detail-textarea"
+                      rows="5"
+                      placeholder="空间、陈设、年代质感、关键视觉元素等"
+                    />
+                  </label>
+                  <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
+                    <span>场景光影</span>
+                    <textarea
+                      v-model="assetDetailDraft.lighting"
+                      class="textarea asset-detail-textarea"
+                      rows="5"
+                      placeholder="光源、色调、明暗、氛围等"
+                    />
+                  </label>
+                </div>
+
+              </section>
+            </div>
+
+            <section class="asset-detail-prompt-panel">
+              <div class="asset-detail-section-title">
+                <span>{{ assetDetail.type === 'character' ? '最终提示词 · 三视图' : assetDetail.type === 'scene' ? '最终提示词 · 固定视角' : '最终提示词 · 白底单品' }}</span>
+                <div class="asset-detail-prompt-head-actions">
+                  <button
+                    class="btn btn-sm"
+                    :disabled="isGeneratingPrompt(assetDetail.type, assetDetail.item.id) || isAssetImagePending(assetDetail.type, assetDetail.item.id)"
+                    @click="genAssetFinalPrompt"
+                  >
+                    <Loader2 v-if="isGeneratingPrompt(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
+                    {{ isGeneratingPrompt(assetDetail.type, assetDetail.item.id) ? '生成中' : (assetFinalPrompt ? '重新生成' : '生成提示词') }}
+                  </button>
+                  <span :class="['asset-detail-state', assetFinalPrompt && 'is-ready']">
+                    {{ assetFinalPrompt ? '已生成' : '待生成' }}
+                  </span>
+                  <button
+                    v-if="assetPromptDraft"
+                    class="btn btn-ghost btn-sm asset-detail-copy-btn"
+                    @click="copyAssetFinalPrompt"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    复制
+                  </button>
+                </div>
+              </div>
+              <textarea
+                :value="assetPromptDraft"
+                @input="onAssetPromptInput"
+                class="textarea asset-detail-prompt-textarea"
+                rows="5"
+                :placeholder="assetDetail.type === 'character'
+                  ? '可手动编写三视图最终提示词，或点击「生成提示词」由 Agent 生成'
+                  : assetDetail.type === 'scene'
+                    ? '可手动编写固定视角最终提示词，或点击「生成提示词」由 Agent 生成'
+                    : '可手动编写白底单品最终提示词，或点击「生成提示词」由 Agent 生成'"
+              />
+              <p class="asset-detail-prompt-hint">
+                {{ assetDetail.type === 'character'
+                  ? '提示词可直接编辑，保存后生效；修改样貌或妆造并保存后，最终提示词将被清空，下次生成形象时由提示词 Agent 重新生成。'
+                  : assetDetail.type === 'scene'
+                    ? '提示词可直接编辑，保存后生效；修改场景描述或光影并保存后，最终提示词将被清空，下次生成场景图时由提示词 Agent 重新生成。'
+                    : '提示词可直接编辑，保存后生效；修改物品外貌并保存后，最终提示词将被清空，下次生成道具图时由提示词 Agent 重新生成。' }}
+              </p>
+            </section>
+          </div>
+
+          <footer class="dialog-foot asset-detail-foot">
+            <div class="asset-detail-secondary-actions">
+              <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">删除</button>
+              <button class="btn" @click="closeAssetDetail">关闭</button>
+            </div>
+            <div class="asset-detail-primary-actions">
+              <button
+                v-if="assetDetail.type === 'character'"
+                class="btn"
+                :disabled="isPendingCharImage(assetDetail.item.id)"
+                @click="genCharImg(assetDetail.item.id)"
+              >
+                {{ assetImageSrc(assetDetail.item) ? '重绘形象' : (isPendingCharImage(assetDetail.item.id) ? '生成中' : '生成形象') }}
+              </button>
+              <button
+                v-else-if="assetDetail.type === 'scene'"
+                class="btn"
+                :disabled="isPendingSceneImage(assetDetail.item.id)"
+                @click="genSceneImg(assetDetail.item.id)"
+              >
+                {{ assetImageSrc(assetDetail.item) ? '重绘场景' : (isPendingSceneImage(assetDetail.item.id) ? '生成中' : '生成场景') }}
+              </button>
+              <button
+                v-else-if="assetDetail.type === 'prop'"
+                class="btn"
+                :disabled="isPendingPropImage(assetDetail.item.id)"
+                @click="genPropImg(assetDetail.item.id)"
+              >
+                {{ assetImageSrc(assetDetail.item) ? '重绘道具图' : (isPendingPropImage(assetDetail.item.id) ? '生成中' : '生成道具图') }}
+              </button>
+              <button class="btn btn-primary" :disabled="savingAssetDetail" @click="saveAssetDetail">
+                <Loader2 v-if="savingAssetDetail" :size="12" class="animate-spin" />
+                保存修改
+              </button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
       <div v-if="imageViewer.open && imageViewer.src" class="overlay image-viewer-overlay" @click.self="closeImageViewer">
-        <div class="card image-viewer-dialog">
+        <div class="dialog image-viewer-dialog">
           <div class="image-viewer-head">
             <div class="image-viewer-title">{{ imageViewer.title || '图片预览' }}</div>
             <button class="btn btn-ghost btn-icon" @click="closeImageViewer">
@@ -1430,6 +1441,78 @@
           </div>
         </div>
       </div>
+
+      <div v-if="activeMerge" class="overlay image-viewer-overlay" @click.self="activeMerge = null">
+        <div class="dialog image-viewer-dialog merge-viewer-dialog">
+          <div class="image-viewer-head">
+            <div class="image-viewer-title">成片预览</div>
+            <span class="dim" style="font-size:11px">{{ formatHistoryTime(activeMerge.created_at) }}<template v-if="activeMerge.duration"> · {{ activeMerge.duration }}s</template></span>
+            <a :href="'/' + activeMerge.merged_url" download class="btn btn-sm" style="margin-left:auto">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              下载成片
+            </a>
+            <button class="btn btn-ghost btn-icon" @click="activeMerge = null">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="merge-viewer-body">
+            <video
+              :key="activeMerge.id"
+              :src="'/' + activeMerge.merged_url"
+              controls
+              autoplay
+              playsinline
+              class="merge-viewer-video"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div v-if="assetCreate.open" class="overlay" @click.self="assetCreate.open = false">
+        <div class="dialog asset-create-dialog">
+          <header class="dialog-head">
+            <h2 class="dialog-title">新增{{ assetCreateTypeLabel }}</h2>
+            <button class="btn btn-ghost btn-icon" @click="assetCreate.open = false">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </header>
+          <div class="dialog-body asset-create-body">
+            <template v-if="assetCreate.type === 'character'">
+              <label class="field"><span class="field-label">名称</span><input v-model="assetCreateDraft.name" class="input" placeholder="角色名称" /></label>
+              <label class="field"><span class="field-label">角色定位</span><input v-model="assetCreateDraft.role" class="input" placeholder="如：主角 / 反派 / 配角" /></label>
+              <label class="field"><span class="field-label">样貌</span><textarea v-model="assetCreateDraft.appearance" class="textarea" rows="3" placeholder="外貌特征（可融入性格）" /></label>
+              <label class="field"><span class="field-label">妆造</span><textarea v-model="assetCreateDraft.styling" class="textarea" rows="2" placeholder="服装、妆容、配饰" /></label>
+            </template>
+            <template v-else-if="assetCreate.type === 'scene'">
+              <label class="field"><span class="field-label">地点</span><input v-model="assetCreateDraft.location" class="input" placeholder="场景地点" /></label>
+              <label class="field"><span class="field-label">时间</span><input v-model="assetCreateDraft.time" class="input" placeholder="如：白天 / 夜晚" /></label>
+              <label class="field"><span class="field-label">场景描述</span><textarea v-model="assetCreateDraft.prompt" class="textarea" rows="3" placeholder="环境、陈设、氛围" /></label>
+              <label class="field"><span class="field-label">场景光影</span><input v-model="assetCreateDraft.lighting" class="input" placeholder="如：黄昏暖光、冷清顶光" /></label>
+            </template>
+            <template v-else>
+              <label class="field"><span class="field-label">名称</span><input v-model="assetCreateDraft.name" class="input" placeholder="道具名称" /></label>
+              <label class="field"><span class="field-label">类型</span><input v-model="assetCreateDraft.type" class="input" placeholder="如：武器 / 信物 / 文件" /></label>
+              <label class="field"><span class="field-label">物品外貌</span><textarea v-model="assetCreateDraft.description" class="textarea" rows="3" placeholder="只描述物品的外观，与其他无关" /></label>
+            </template>
+          </div>
+          <footer class="dialog-foot">
+            <button class="btn" @click="assetCreate.open = false">取消</button>
+            <button class="btn btn-primary" :disabled="assetCreate.saving" @click="saveAssetCreate">
+              <Loader2 v-if="assetCreate.saving" :size="12" class="animate-spin" />
+              新增
+            </button>
+          </footer>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        :open="assetDelete.open"
+        :title="`删除${assetDeleteTypeLabel}`"
+        :message="`确定删除${assetDeleteTypeLabel}「${assetDeleteName}」吗？将从本剧所有集中移除。`"
+        :loading="assetDelete.loading"
+        @confirm="confirmDeleteAsset"
+        @cancel="assetDelete.open = false"
+      />
     </main>
     </div>
   </div>
@@ -1438,11 +1521,11 @@
 <script setup>
 import { toast } from 'vue-sonner'
 import {
-  Users, MapPin, Video, ImageIcon, Layers, Mic2, FileText, FolderKanban, Clapperboard, Download,
+  Users, Video, FileText, FolderKanban, Clapperboard, Download, Loader2,
+  MapPin, Play, MessageSquarePlus, Plus, X, ListTodo,
 } from 'lucide-vue-next'
-import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, imageAPI, videoAPI, composeAPI, mergeAPI, gridAPI, aiConfigAPI, voicesAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
-import BaseSelect from '~/components/BaseSelect.vue'
 
 definePageMeta({ layout: 'studio' })
 
@@ -1450,7 +1533,7 @@ const route = useRoute()
 const dramaId = Number(route.params.id)
 const episodeNumber = Number(route.params.episodeNumber)
 
-const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), sbs = ref([]), mergeData = ref(null)
+const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), propItems = ref([]), sbs = ref([]), mergeData = ref(null)
 const panel = ref('script')
 const { running: rn, runningType: rt, run: runAgent } = useAgent()
 
@@ -1460,57 +1543,108 @@ const scriptContent = computed(() => episode.value?.script_content || episode.va
 const epId = computed(() => episode.value?.id || 0)
 const rawLen = computed(() => localRaw.value.replace(/\s/g, '').length || 0)
 const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 0)
-const charsVoiced = computed(() => chars.value.filter(c => c.voice_style || c.voiceStyle).length)
-const voiceSampleCount = computed(() => chars.value.filter(c => c.voice_sample_url || c.voiceSampleUrl).length)
-const composedCount = computed(() => sbs.value.filter(s => s.composed_video_url || s.composedVideoUrl).length)
 const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
 
+// ===== 拼接导出:镜头选择 + 成片列表 =====
+const exportSelectedIds = ref([]) // 勾选的镜头 id
+const exportMerges = ref([])      // 成片(拼接记录)列表
+let exportSelTouched = false      // 用户手动操作过选择后,不再自动全选
+
+const exportReadyIds = computed(() => sbs.value.filter(s => hasVid(s)).map(s => s.id))
+const exportSelectedReadyIds = computed(() => exportSelectedIds.value.filter(id => exportReadyIds.value.includes(id)))
+
+watch(exportReadyIds, (ids) => {
+  if (exportSelTouched) {
+    exportSelectedIds.value = exportSelectedIds.value.filter(id => ids.includes(id))
+  } else {
+    exportSelectedIds.value = [...ids]
+  }
+})
+
+function isExportSelected(id) { return exportSelectedIds.value.includes(id) }
+function toggleExportSelect(sb) {
+  if (!hasVid(sb)) return
+  exportSelTouched = true
+  exportSelectedIds.value = isExportSelected(sb.id)
+    ? exportSelectedIds.value.filter(x => x !== sb.id)
+    : [...exportSelectedIds.value, sb.id]
+}
+function toggleSelectAllExport() {
+  exportSelTouched = true
+  exportSelectedIds.value = exportSelectedReadyIds.value.length === exportReadyIds.value.length ? [] : [...exportReadyIds.value]
+}
+
+async function loadExportMerges() {
+  if (!epId.value) return
+  try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* 静默 */ }
+}
+
 const scriptStep = ref(0)
-const prodTab = ref('chars')
+const prodTab = ref('assets')
+const activeExtractTab = ref('characters')
 const prodTabIdx = computed({
   get: () => prodTabDefs.value.findIndex(t => t.id === prodTab.value),
-  set: (v) => { prodTab.value = prodTabDefs.value[v]?.id || 'chars' },
+  set: (v) => { prodTab.value = prodTabDefs.value[v]?.id || 'assets' },
 })
-const frameMode = ref('first')
-const fallbackVoiceProfiles = [
-  { id: 'alloy', label: 'Alloy', gender: '中性', traits: '平衡、自然、克制', suitable: '通用叙述、旁白、需要稳定输出的角色' },
-  { id: 'echo', label: 'Echo', gender: '男声', traits: '低沉、稳重、冷静', suitable: '成熟男性、父辈、旁白、压迫感角色' },
-  { id: 'fable', label: 'Fable', gender: '男声', traits: '温暖、讲述感、表现力强', suitable: '男主、成长型角色、叙事担当' },
-  { id: 'onyx', label: 'Onyx', gender: '男声', traits: '深沉、有力、权威', suitable: '反派、强势角色、掌控型人物' },
-  { id: 'nova', label: 'Nova', gender: '女声', traits: '温柔、甜润、亲和', suitable: '女主、母亲、柔和配角' },
-  { id: 'shimmer', label: 'Shimmer', gender: '女声', traits: '明亮、活泼、年轻', suitable: '少女、轻快角色、跳脱配角' },
-]
-const voiceProfiles = ref(fallbackVoiceProfiles)
-const voiceSelectOptions = computed(() => voiceProfiles.value.map(v => ({ label: `${v.label} · ${v.traits}`, value: v.id })))
-const videoConfigSelectOptions = computed(() => videoConfigs.value.map(c => {
-  let modelName = ''
-  try { const m = JSON.parse(c.model || '[]'); modelName = Array.isArray(m) ? (m[0] || '') : (m || '') } catch { modelName = c.model || '' }
-  const label = modelName ? `${modelName} (${c.provider})` : `${c.name} (${c.provider})`
-  return { label, value: c.id }
-}))
-const frameModeOptions = [{ label: '仅首帧', value: 'first' }, { label: '首尾帧', value: 'first_last' }]
-const gridLayoutOptions = [
-  { label: '2x2', value: '2x2' },
-  { label: '3x3', value: '3x3' },
-  { label: '4x4', value: '4x4' },
-  { label: '5x5', value: '5x5' },
-]
 const imageConfigs = ref([])
 const videoConfigs = ref([])
-const audioConfigs = ref([])
+const textConfigs = ref([])
+// 生成时可选模型：空串 = 跟随配置默认（models[0]）；选择持久化到 localStorage，刷新页面后保留
+const MODEL_STORE_KEYS = { chat: 'huobao:model:chat', image: 'huobao:model:image', video: 'huobao:model:video' }
+function readStoredModel(key, legacyKey = '') {
+  try { return localStorage.getItem(key) || (legacyKey && localStorage.getItem(legacyKey)) || '' } catch { return '' }
+}
+// 顶栏文本模型：适用于所有 Chat Agent 调用（改写/提取/拆镜/视频提示词/最终提示词），空串 = 跟随配置默认
+const chatModel = ref(readStoredModel(MODEL_STORE_KEYS.chat, 'huobao:model:rewrite'))
+const imageModel = ref(readStoredModel(MODEL_STORE_KEYS.image))
+const videoModel = ref(readStoredModel(MODEL_STORE_KEYS.video))
+function persistModel(modelRef, key) {
+  watch(modelRef, v => {
+    try { v ? localStorage.setItem(key, v) : localStorage.removeItem(key) } catch {}
+  })
+}
+persistModel(chatModel, MODEL_STORE_KEYS.chat)
+persistModel(imageModel, MODEL_STORE_KEYS.image)
+persistModel(videoModel, MODEL_STORE_KEYS.video)
+/** 顶栏文本模型覆盖参数：未选择时为 undefined，后端回退到 Agent/文本配置默认 */
+function chatModelOverride() { return chatModel.value || undefined }
+function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel.value) }
 const pendingCharImageIds = ref([])
 const pendingSceneImageIds = ref([])
-const pendingShotFrameKeys = ref([])
+const pendingPropImageIds = ref([])
 const pendingVideoIds = ref([])
-const pendingComposeIds = ref([])
 const failedVideoMessages = ref({})
-const failedComposeMessages = ref({})
+// 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
+const genTasks = ref([])
+const genMerges = ref([])
+const taskDrawer = ref(false)
+let genTasksTimer = null
+
+function openTaskDrawer() {
+  taskDrawer.value = true
+  loadGenTasks()
+}
+function closeTaskDrawer() {
+  taskDrawer.value = false
+}
+// Seedance 2.0 视频生成面板：仅多模态参考（参考图 0-9 + 参考视频 0-3 + 参考音频 0-3 + 可选文本）
+const videoRefVideoUrls = ref([])
+const videoRefAudioUrls = ref([])
+const videoRefImageUrls = ref([])
+const videoDuration = ref(10)
+const uploadingRefMedia = ref(false)
 const imageViewer = ref({ open: false, src: '', title: '' })
+const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
+const assetDetail = ref({ open: false, type: '', item: null })
+const assetDetailDraft = ref({ appearance: '', styling: '', prompt: '', lighting: '', description: '' })
+// 最终提示词手动编辑：dirty 时才随保存提交，避免无修改保存误清空 Agent 生成的提示词
+const assetPromptDraft = ref('')
+const assetPromptDirty = ref(false)
+const savingAssetDetail = ref(false)
 
 function configLabel(config) {
   if (!config) return '未配置'
-  let modelName = ''
-  try { const m = JSON.parse(config.model || '[]'); modelName = Array.isArray(m) ? (m[0] || '') : (m || '') } catch { modelName = config.model || '' }
+  const modelName = configModels(config)[0] || ''
   return modelName ? `${config.name} · ${modelName} (${config.provider})` : `${config.name} (${config.provider})`
 }
 
@@ -1527,8 +1661,260 @@ function closeImageViewer() {
   imageViewer.value = { open: false, src: '', title: '' }
 }
 
+function openAssetDetail(type, item) {
+  if (!item) return
+  assetDetail.value = { open: true, type, item }
+  assetDetailDraft.value = {
+    appearance: item.appearance || '',
+    styling: item.styling || '',
+    prompt: item.prompt || (type === 'prop' ? '' : item.description) || '',
+    lighting: item.lighting || '',
+    description: item.description || '',
+  }
+  assetPromptDraft.value = item.final_prompt || item.finalPrompt || ''
+  assetPromptDirty.value = false
+}
+
+function closeAssetDetail() {
+  assetDetail.value = { open: false, type: '', item: null }
+  assetDetailDraft.value = { appearance: '', styling: '', prompt: '', lighting: '', description: '' }
+  assetPromptDraft.value = ''
+  assetPromptDirty.value = false
+}
+
+// ─── 手动新增资产 ────────────────────────────────────────────
+const ASSET_TYPE_SHORT = { character: '角色', scene: '场景', prop: '道具' }
+const assetCreate = ref({ open: false, type: 'character', saving: false })
+const assetCreateDraft = ref({})
+const assetCreateTypeLabel = computed(() => ASSET_TYPE_SHORT[assetCreate.value.type] || '资产')
+
+function openAssetCreate(type) {
+  assetCreateDraft.value = { name: '', role: '', appearance: '', styling: '', location: '', time: '', prompt: '', lighting: '', type: '', description: '' }
+  assetCreate.value = { open: true, type, saving: false }
+}
+
+async function saveAssetCreate() {
+  const d = assetCreateDraft.value
+  const type = assetCreate.value.type
+  if (assetCreate.value.saving) return
+  if (type === 'scene' ? !d.location?.trim() : !d.name?.trim()) {
+    toast.warning(type === 'scene' ? '请填写场景地点' : '请填写名称')
+    return
+  }
+  assetCreate.value.saving = true
+  try {
+    const base = { drama_id: dramaId, episode_id: epId.value }
+    if (type === 'character') await characterAPI.create({ ...base, name: d.name, role: d.role, appearance: d.appearance, styling: d.styling })
+    else if (type === 'scene') await sceneAPI.create({ ...base, location: d.location, time: d.time, prompt: d.prompt, lighting: d.lighting })
+    else await propAPI.create({ ...base, name: d.name, type: d.type, description: d.description })
+    toast.success(`已新增${assetCreateTypeLabel.value}`)
+    assetCreate.value.open = false
+    await refresh()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    assetCreate.value.saving = false
+  }
+}
+
+// ─── 删除资产 ────────────────────────────────────────────────
+const assetDelete = ref({ open: false, type: '', item: null, loading: false })
+const assetDeleteTypeLabel = computed(() => ASSET_TYPE_SHORT[assetDelete.value.type] || '资产')
+const assetDeleteName = computed(() => assetDelete.value.item?.name || assetDelete.value.item?.location || '')
+
+function askDeleteAsset(type, item) {
+  assetDelete.value = { open: true, type, item, loading: false }
+}
+
+async function confirmDeleteAsset() {
+  const { type, item } = assetDelete.value
+  if (!item || assetDelete.value.loading) return
+  assetDelete.value.loading = true
+  try {
+    if (type === 'character') await characterAPI.del(item.id)
+    else if (type === 'scene') await sceneAPI.del(item.id)
+    else await propAPI.del(item.id)
+    toast.success(`已删除${assetDeleteTypeLabel.value}`)
+    assetDelete.value.open = false
+    if (assetDetail.value.open && assetDetail.value.type === type && assetDetail.value.item?.id === item.id) closeAssetDetail()
+    await refresh()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    assetDelete.value.loading = false
+  }
+}
+
+function onAssetPromptInput(event) {
+  assetPromptDraft.value = event.target.value
+  assetPromptDirty.value = true
+}
+
+const assetFinalPrompt = computed(() => {
+  const item = assetDetail.value?.item
+  return item?.final_prompt || item?.finalPrompt || ''
+})
+
+/** 把生成好的最终提示词同步到列表项与弹窗项 */
+function applyFinalPrompt(type, id, fp) {
+  const patch = { final_prompt: fp, finalPrompt: fp }
+  const list = type === 'character' ? chars.value : type === 'scene' ? scenes.value : propItems.value
+  const target = list.find(x => x.id === id)
+  if (target) Object.assign(target, patch)
+  if (assetDetail.value.open && assetDetail.value.type === type && assetDetail.value.item?.id === id) {
+    Object.assign(assetDetail.value.item, patch)
+  }
+}
+
+const generatingPromptKeys = ref([])
+
+function isGeneratingPrompt(type, id) {
+  return generatingPromptKeys.value.includes(`${type}:${id}`)
+}
+
+/** 该资产图片是否在外层「生成」流程中（含提示词阶段与生图阶段） */
+function isAssetImagePending(type, id) {
+  return type === 'character' ? isPendingCharImage(id) : type === 'scene' ? isPendingSceneImage(id) : isPendingPropImage(id)
+}
+
+/**
+ * 生成最终提示词（弹窗按钮与外层两段式生图共用同一 key 状态，避免重复触发）
+ * force=true 时忽略已有提示词强制重新生成
+ * 返回最终提示词；生成失败由接口抛错，Agent 返回空时返回 ''
+ */
+async function ensureAssetPrompt(type, id, force = false) {
+  const key = `${type}:${id}`
+  if (generatingPromptKeys.value.includes(key)) return ''
+  generatingPromptKeys.value.push(key)
+  try {
+    const res = type === 'character'
+      ? await characterAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+      : type === 'scene'
+        ? await sceneAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+        : await propAPI.generatePrompt(id, epId.value, force, chatModelOverride(), chatConfigId())
+    const fp = res?.final_prompt || res?.finalPrompt || ''
+    if (fp) applyFinalPrompt(type, id, fp)
+    return fp
+  } finally {
+    generatingPromptKeys.value = generatingPromptKeys.value.filter(k => k !== key)
+  }
+}
+
+/** 弹窗内生成最终提示词（不生图）；已有最终提示词时重新生成（force） */
+async function genAssetFinalPrompt() {
+  const detail = assetDetail.value
+  if (!detail.open || !detail.item?.id) return
+  const force = !!assetFinalPrompt.value
+  try {
+    const fp = await ensureAssetPrompt(detail.type, detail.item.id, force)
+    if (!fp) throw new Error('最终提示词生成失败，请重试')
+    assetPromptDraft.value = fp
+    assetPromptDirty.value = false
+    toast.success(force ? '最终提示词已重新生成' : '最终提示词已生成')
+  } catch (e) {
+    toast.error(e.message || '最终提示词生成失败')
+  }
+}
+
+async function copyAssetFinalPrompt() {
+  const text = assetPromptDraft.value || assetFinalPrompt.value
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('最终提示词已复制')
+  } catch {
+    toast.error('复制失败，请手动选择文本复制')
+  }
+}
+
+async function saveAssetDetail() {
+  const detail = assetDetail.value
+  if (!detail.open || !detail.item?.id) return
+  const item = detail.item
+  // 只提交真正修改过的字段：无修改保存不应触发后端的提示词失效置空
+  const payload = {}
+  let infoChanged = false
+  if (detail.type === 'character') {
+    if (assetDetailDraft.value.appearance !== (item.appearance || '')) payload.appearance = assetDetailDraft.value.appearance
+    if (assetDetailDraft.value.styling !== (item.styling || '')) payload.styling = assetDetailDraft.value.styling
+  } else if (detail.type === 'scene') {
+    if (assetDetailDraft.value.prompt !== (item.prompt || '')) payload.prompt = assetDetailDraft.value.prompt
+    if (assetDetailDraft.value.lighting !== (item.lighting || '')) payload.lighting = assetDetailDraft.value.lighting
+  } else {
+    if (assetDetailDraft.value.description !== (item.description || '')) payload.description = assetDetailDraft.value.description
+  }
+  infoChanged = Object.keys(payload).length > 0
+  // 手动编辑过最终提示词才提交；空串视为清空
+  if (assetPromptDirty.value) payload.final_prompt = assetPromptDraft.value.trim() || ''
+  if (!infoChanged && !assetPromptDirty.value) {
+    toast.info('没有需要保存的修改')
+    return
+  }
+  savingAssetDetail.value = true
+  try {
+    if (detail.type === 'character') await characterAPI.update(item.id, payload)
+    else if (detail.type === 'scene') await sceneAPI.update(item.id, payload)
+    else await propAPI.update(item.id, payload)
+    // 本地同步：手动编辑的提示词以草稿为准；仅信息字段变更时提示词已被后端置空
+    const { final_prompt, ...infoPatch } = payload
+    const promptValue = assetPromptDirty.value ? (payload.final_prompt || null) : (infoChanged ? null : (item.final_prompt || item.finalPrompt || null))
+    Object.assign(item, infoPatch, { final_prompt: promptValue, finalPrompt: promptValue })
+    const list = detail.type === 'character' ? chars.value : detail.type === 'scene' ? scenes.value : propItems.value
+    const target = list.find(x => x.id === item.id)
+    if (target) Object.assign(target, infoPatch, { final_prompt: promptValue, finalPrompt: promptValue })
+    if (assetPromptDirty.value) assetPromptDraft.value = payload.final_prompt || ''
+    assetPromptDirty.value = false
+    toast.success('修改已保存')
+  } catch (e) {
+    toast.error(e.message || '保存失败')
+  } finally {
+    savingAssetDetail.value = false
+  }
+}
+
+function assetImageSrc(item) {
+  const raw = item?.image_url || item?.imageUrl || ''
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) return raw
+  return `/${raw}`
+}
+
+function assetDetailTitle(detail) {
+  if (!detail?.item) return ''
+  if (detail.type === 'character') return detail.item.name || '未命名角色'
+  if (detail.type === 'prop') return detail.item.name || '未命名道具'
+  return detail.item.location || '未命名场景'
+}
+
+function assetTypeLabel(type) {
+  return { character: '角色资产', scene: '场景资产', prop: '道具资产' }[type] || '资产'
+}
+
+function characterAppearanceValue(char) {
+  return char?.appearance || '样貌待补充'
+}
+
+function characterStylingValue(char) {
+  return char?.styling || '妆造待补充'
+}
+
+function characterVisualSummary(char) {
+  return `样貌：${characterAppearanceValue(char)} · 妆造：${characterStylingValue(char)}`
+}
+
+function sceneDescriptionValue(scene) {
+  return scene?.prompt || scene?.description || '场景描述待补充'
+}
+
+function sceneLightingValue(scene) {
+  return scene?.lighting || '场景光影待补充'
+}
+
 function handleImageViewerKeydown(event) {
-  if (event.key === 'Escape' && imageViewer.value.open) closeImageViewer()
+  if (event.key !== 'Escape') return
+  if (imageViewer.value.open) closeImageViewer()
+  else if (assetDetail.value.open) closeAssetDetail()
+  else if (taskDrawer.value) closeTaskDrawer()
 }
 
 onMounted(() => {
@@ -1537,18 +1923,11 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleImageViewerKeydown)
+  stopGenTasksPolling()
 })
 
 function isPendingSceneImage(id) {
   return pendingSceneImageIds.value.includes(id)
-}
-
-function framePendingKey(id, frameType) {
-  return `${id}:${frameType}`
-}
-
-function isPendingShotFrame(id, frameType) {
-  return pendingShotFrameKeys.value.includes(framePendingKey(id, frameType))
 }
 
 function isPendingVideo(id) {
@@ -1559,13 +1938,46 @@ function videoFailMessage(id) {
   return failedVideoMessages.value[id] || ''
 }
 
-function isPendingCompose(id) {
-  return pendingComposeIds.value.includes(id)
+function videoTaskState(sb) {
+  if (hasVid(sb)) return 'done'
+  if (isPendingVideo(sb?.id)) return 'pending'
+  if (videoFailMessage(sb?.id)) return 'failed'
+  return 'ready'
 }
 
-function composeFailMessage(id) {
-  return failedComposeMessages.value[id] || ''
+function videoTaskStatusLabel(sb) {
+  const state = videoTaskState(sb)
+  if (state === 'done') return '已完成'
+  if (state === 'pending') return '生成中'
+  if (state === 'failed') return '失败'
+  return '待生成'
 }
+
+function videoTaskActionLabel(sb) {
+  const state = videoTaskState(sb)
+  if (state === 'done') return '重新生成'
+  if (state === 'pending') return '生成中'
+  return '生成'
+}
+
+const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
+  const duration = Number(sb.duration || 5)
+  const referenceCount = getShotReferenceImages(sb).length
+  const sceneName = getSceneName(sb)
+  return {
+    id: sb.id,
+    index,
+    storyboard: sb,
+    title: sb.description || `镜头 #${String(index + 1).padStart(2, '0')}`,
+    meta: sceneName || `${referenceCount} 个参考素材`,
+    duration: Number.isFinite(duration) ? duration : 5,
+    referenceCount,
+    state: videoTaskState(sb),
+    error: videoFailMessage(sb.id),
+  }
+}))
+const videoTaskDoneCount = computed(() => videoTaskRows.value.filter(task => task.state === 'done').length)
+const videoTaskFailedCount = computed(() => videoTaskRows.value.filter(task => task.state === 'failed').length)
 
 function isNarratorCharacter(char) {
   const text = `${char?.name || ''} ${char?.role || ''}`.toLowerCase()
@@ -1573,196 +1985,203 @@ function isNarratorCharacter(char) {
 }
 
 const visualChars = computed(() => chars.value.filter(c => !isNarratorCharacter(c)))
-
 const lockedImageConfigId = computed(() => episode.value?.image_config_id || episode.value?.imageConfigId || null)
 const lockedVideoConfigId = computed(() => episode.value?.video_config_id || episode.value?.videoConfigId || null)
-const lockedAudioConfigId = computed(() => episode.value?.audio_config_id || episode.value?.audioConfigId || null)
-const lockedAudioProvider = computed(() => audioConfigs.value.find(c => c.id === lockedAudioConfigId.value)?.provider || '')
 const lockedImageConfigLabel = computed(() => configLabel(imageConfigs.value.find(c => c.id === lockedImageConfigId.value)))
 const lockedVideoConfigLabel = computed(() => configLabel(videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)))
-const lockedAudioConfigLabel = computed(() => configLabel(audioConfigs.value.find(c => c.id === lockedAudioConfigId.value)))
+// 画面比例在创建项目时固定，视频生成统一使用
+const dramaAspectRatio = computed(() => drama.value?.aspect_ratio || drama.value?.aspectRatio || '16:9')
 
-// Grid tool state
-const gridDialog = ref(false)
-const gridStep = ref(0)
-const gridLayout = ref('3x3')
-const gridMode = ref('first_frame')
-const gridSelected = ref([])
-const gridSingleTarget = ref(null)
-const gridGenId = ref(null)
-const gridImagePath = ref('')
-const gridStatusText = ref('')
-const gridActualLayout = ref({ rows: 3, cols: 3 })
-const gridRecoveredAt = ref('')
-const gridRecoveredMode = ref('')
-const gridPromptText = ref('')
-const gridCellPrompts = ref([])
-const gridPromptSource = ref('')
-const gridPromptLoading = ref(false)
-const gridPromptStatus = ref('')
-const gridAssignmentsState = ref([])
-const gridActiveShotIds = ref([])
-const gridHistory = ref([])
-const showAllGridHistory = ref(false)
-const activeGridCell = ref(0)
-const gridAssignmentPage = ref(0)
-const gridStorageKey = computed(() => `huobao:grid:${dramaId}:${epId.value || episodeNumber}`)
-
-const gridModes = [
-  { id: 'first_frame', label: '首帧', desc: '每格=一个镜头的首帧' },
-  { id: 'first_last', label: '首尾帧', desc: '每镜头占一行：左首帧，右尾帧' },
-  { id: 'multi_ref', label: '多参考', desc: '所有格子=同一镜头的参考图' },
-]
-
-const gridLayoutShape = computed(() => {
-  const [rows, cols] = String(gridLayout.value || '3x3').split('x').map(Number)
-  return {
-    rows: rows || 3,
-    cols: cols || 3,
-  }
-})
-const gridTotalCells = computed(() => {
-  return gridLayoutShape.value.rows * gridLayoutShape.value.cols
-})
-
-const gridCanStart = computed(() => {
-  if (gridMode.value === 'multi_ref') return !!gridSingleTarget.value
-  return gridSelected.value.length > 0
-})
-
-const gridSummary = computed(() => {
-  if (gridMode.value === 'multi_ref') {
-    const idx = sbs.value.findIndex(s => s.id === gridSingleTarget.value) + 1
-    return gridSingleTarget.value ? `${gridLayoutShape.value.rows}x${gridLayoutShape.value.cols} 参考图 → 镜头 #${idx}` : '请选择一个镜头'
-  }
-  if (!gridSelected.value.length) return '请选择镜头'
-  const count = gridSelected.value.length
-  if (gridMode.value === 'first_last') {
-    const { rows, cols } = gridLayoutShape.value
-    return `${count} 个镜头 → ${rows}x${cols} 宫格（按首尾帧风格生成，切分后再手动分配）`
-  }
-  const { rows, cols } = gridLayoutShape.value
-  const cells = rows * cols
-  return `${count} 个镜头 → ${rows}x${cols} 宫格（先生成宫格图，切分后再手动分配）`
-})
-
-function createGridAssignments() {
-  return Array.from({ length: gridActualLayout.value.rows * gridActualLayout.value.cols }, () => ({
-    storyboard_id: null,
-    frame_type: 'first_frame',
-  }))
+// 生成可选模型列表：配置中的模型数组（首位为配置默认）；API 可能返回数组或 JSON 字符串
+function configModels(cfg) {
+  const raw = cfg?.model
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  try { const m = JSON.parse(raw); return Array.isArray(m) ? m.filter(Boolean) : [m].filter(Boolean) } catch { return [raw].filter(Boolean) }
 }
-
-const gridAssignments = computed(() => gridAssignmentsState.value)
-const gridAssignableShotIds = computed(() => {
-  const assignedIds = [...new Set(gridAssignments.value.map(item => item?.storyboard_id).filter(Boolean))]
-  const ids = Array.isArray(gridActiveShotIds.value) && gridActiveShotIds.value.length
-    ? gridActiveShotIds.value
-    : assignedIds.length
-      ? assignedIds
-    : gridMode.value === 'multi_ref'
-      ? (gridSingleTarget.value ? [gridSingleTarget.value] : [])
-      : gridSelected.value.length
-        ? [...gridSelected.value]
-        : sbs.value.map(s => s.id)
-  return ids.filter(id => sbs.value.some(s => s.id === id))
-})
-const gridAssignmentShotOptions = computed(() => [
-  { label: '未分配', value: null },
-  ...gridAssignableShotIds.value.map((id) => {
-    const index = sbs.value.findIndex(s => s.id === id) + 1
-    const sb = sbs.value.find(s => s.id === id)
-    return {
-      label: `#${String(index).padStart(2, '0')} ${sb?.title || sb?.description || '镜头'}`,
-      value: id,
+// 汇总该类型全部启用配置的模型（去重，按优先级排序），选中模型时连同所属配置一起调用
+function collectModelOptions(cfgs) {
+  const seen = new Set()
+  const out = []
+  const sorted = [...cfgs].filter(c => c.is_active).sort((a, b) => (b.priority || 0) - (a.priority || 0))
+  for (const c of sorted) {
+    for (const m of configModels(c)) {
+      if (seen.has(m)) continue
+      seen.add(m)
+      out.push({ model: m, configId: c.id, configName: c.name || c.provider })
     }
-  }),
-])
-const gridFrameTypeOptions = computed(() => {
-  return [
-    { label: '首帧', value: 'first_frame' },
-    { label: '尾帧', value: 'last_frame' },
-    { label: '参考图', value: 'reference' },
-  ]
-})
-const gridAssignedCount = computed(() => gridAssignments.value.filter(item => !!item.storyboard_id).length)
-const gridAssignmentPageSize = computed(() => {
-  if (gridAssignments.value.length >= 25) return 8
-  if (gridAssignments.value.length >= 16) return 10
-  if (gridAssignments.value.length >= 9) return 9
-  return Math.max(1, gridAssignments.value.length || 1)
-})
-const gridAssignmentTotalPages = computed(() => Math.max(1, Math.ceil(gridAssignments.value.length / gridAssignmentPageSize.value)))
-const gridAssignmentPageStart = computed(() => gridAssignmentPage.value * gridAssignmentPageSize.value)
-const gridAssignmentPageEnd = computed(() => Math.min(gridAssignments.value.length, gridAssignmentPageStart.value + gridAssignmentPageSize.value))
-const pagedGridAssignments = computed(() => {
-  return gridAssignments.value
-    .slice(gridAssignmentPageStart.value, gridAssignmentPageEnd.value)
-    .map((assignment, offset) => ({
-      assignment,
-      index: gridAssignmentPageStart.value + offset,
-    }))
-})
-
-function resetGridAssignments() {
-  gridAssignmentsState.value = createGridAssignments()
-  activeGridCell.value = 0
-  gridAssignmentPage.value = 0
+  }
+  return out
 }
-
-function gridCellLabel(a) {
-  if (!a?.storyboard_id) return '未分配'
-  const idx = sbs.value.findIndex(s => s.id === a.storyboard_id) + 1
-  const suffix = { first_frame: '首', last_frame: '尾', reference: '参' }[a.frame_type] || ''
-  return `#${idx}${suffix ? ` ${suffix}` : ''}`
+function ownerConfigId(options, model) {
+  return model ? (options.find(o => o.model === model)?.configId || undefined) : undefined
 }
-
-function gridCellTitle(id) {
-  if (!id) return '未分配'
-  const idx = sbs.value.findIndex(s => s.id === id) + 1
-  const sb = sbs.value.find(s => s.id === id)
-  return `#${String(idx).padStart(2, '0')} ${sb?.title || sb?.description || '镜头'}`
+function hasMultiConfigs(options) {
+  return new Set(options.map(o => o.configId)).size > 1
 }
+const textModelOptions = computed(() => collectModelOptions(textConfigs.value))
+const imageModelOptions = computed(() => collectModelOptions(imageConfigs.value))
+const videoModelOptions = computed(() => collectModelOptions(videoConfigs.value))
 
-function updateGridAssignment(index, field, value) {
-  const next = [...gridAssignmentsState.value]
-  next[index] = { ...next[index], [field]: value }
-  gridAssignmentsState.value = next
-  activeGridCell.value = index
-  if (gridImagePath.value) persistGridImagePath(gridImagePath.value)
+// 配置变化后校验持久化的模型是否仍存在（配置被删/模型被移除时回退默认，避免把失效模型传给后端）
+function pruneStaleModel(modelRef, optionsRef) {
+  watch(optionsRef, opts => {
+    if (modelRef.value && opts.length && !opts.some(o => o.model === modelRef.value)) modelRef.value = ''
+  }, { immediate: true })
 }
-
-function focusGridCell(index) {
-  activeGridCell.value = index
-  gridAssignmentPage.value = Math.floor(index / gridAssignmentPageSize.value)
-}
-
-const gridOverlayStyle = computed(() => {
-  const { rows, cols } = gridActualLayout.value
-  return { 'grid-template-columns': `repeat(${cols}, 1fr)`, 'grid-template-rows': `repeat(${rows}, 1fr)` }
-})
-
-const gridAutoLayout = computed(() => {
-  return gridLayoutShape.value
-})
-
-const gridBlankStyle = computed(() => {
-  const { rows, cols } = gridAutoLayout.value
-  return { 'grid-template-columns': `repeat(${cols}, 1fr)`, 'grid-template-rows': `repeat(${rows}, 1fr)` }
-})
+pruneStaleModel(chatModel, textModelOptions)
+pruneStaleModel(imageModel, imageModelOptions)
+pruneStaleModel(videoModel, videoModelOptions)
+const textModelMultiCfg = computed(() => hasMultiConfigs(textModelOptions.value))
+const imageModelMultiCfg = computed(() => hasMultiConfigs(imageModelOptions.value))
+const videoModelMultiCfg = computed(() => hasMultiConfigs(videoModelOptions.value))
 
 // Production step helpers
-function prodStepDone(id) {
-  if (id === 'chars') return !visualCharTotal.value || charImgCount.value === visualCharTotal.value
-  if (id === 'scenes') return !!scenes.value.length && sceneImgCount.value === scenes.value.length
-  if (id === 'dubbing') return !!sbs.value.length && (!ttsEligibleCount.value || ttsGeneratedCount.value === ttsEligibleCount.value)
-  if (id === 'shots') return !!sbs.value.length && shotImgCount.value === sbs.value.length
-  if (id === 'videos') return !!sbs.value.length && shotVidCount.value === sbs.value.length
-  if (id === 'compose') return !!sbs.value.length && composedCount.value === sbs.value.length
-  return false
+// ========== 任务列表面板 ==========
+async function loadGenTasks() {
+  if (!epId.value) return
+  try {
+    const data = await taskAPI.listByEpisode(epId.value)
+    genTasks.value = data?.tasks || []
+    genMerges.value = data?.merges || []
+  } catch { /* 静默失败,不打断其他刷新 */ }
 }
-const canExport = computed(() => !!sbs.value.length && composedCount.value === sbs.value.length)
+
+function stopGenTasksPolling() {
+  if (genTasksTimer) { clearInterval(genTasksTimer); genTasksTimer = null }
+}
+
+const genTaskActiveCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'processing').length +
+  genMerges.value.filter(m => m.status === 'processing' || m.status === 'pending').length
+)
+const genTaskDoneCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'completed').length +
+  genMerges.value.filter(m => m.status === 'completed').length
+)
+const genTaskFailedCount = computed(() =>
+  genTasks.value.filter(t => t.status === 'failed').length +
+  genMerges.value.filter(m => m.status === 'failed').length
+)
+
+function genTaskTargetLabel(t) {
+  if (t.storyboard_id) {
+    const sb = sbs.value.find(x => x.id === t.storyboard_id)
+    return `分镜 #${sb?.storyboard_number ?? sb?.storyboardNumber ?? t.storyboard_id}`
+  }
+  if (t.character_id) {
+    const c = chars.value.find(x => x.id === t.character_id)
+    return `角色 · ${c?.name || t.character_id}`
+  }
+  if (t.scene_id) {
+    const s = scenes.value.find(x => x.id === t.scene_id)
+    return `场景 · ${s?.location || t.scene_id}`
+  }
+  if (t.prop_id) {
+    const p = propItems.value.find(x => x.id === t.prop_id)
+    return `道具 · ${p?.name || t.prop_id}`
+  }
+  return '通用'
+}
+
+// 统一行结构：image / video / merge 三类合并按时间倒序
+const genTaskRows = computed(() => {
+  const taskRows = genTasks.value.map(t => ({
+    key: `task-${t.id}`,
+    kind: t.type, // image | video
+    id: t.id,
+    targetLabel: genTaskTargetLabel(t),
+    provider: t.provider || '',
+    model: t.model || '',
+    status: t.status || 'processing',
+    errorMsg: t.error_msg || '',
+    previewUrl: t.local_path || t.result_url || '',
+    prompt: t.prompt || '',
+    createdAt: t.created_at || '',
+    completedAt: t.completed_at || '',
+  }))
+  const mergeRows = genMerges.value.map(m => ({
+    key: `merge-${m.id}`,
+    kind: 'merge',
+    id: m.id,
+    targetLabel: '整集拼接',
+    provider: m.provider || 'ffmpeg',
+    model: m.model || '',
+    status: m.status || 'pending',
+    errorMsg: m.error_msg || '',
+    previewUrl: m.merged_url || '',
+    prompt: '',
+    createdAt: m.created_at || '',
+    completedAt: m.completed_at || '',
+  }))
+  return [...taskRows, ...mergeRows].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+})
+
+function genTaskKindLabel(kind) {
+  return kind === 'image' ? '图片' : kind === 'video' ? '视频' : '合并'
+}
+
+function genTaskStatusLabel(status) {
+  if (status === 'completed') return '已完成'
+  if (status === 'failed') return '失败'
+  return '生成中'
+}
+
+// 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
+function genTaskStateClass(status) {
+  if (status === 'completed') return 'done'
+  if (status === 'failed') return 'failed'
+  return 'pending'
+}
+
+// local_path 为站内相对路径补 '/',远端 result_url 原样使用
+function genTaskPreviewSrc(url) {
+  if (!url) return ''
+  return /^https?:\/\//.test(url) ? url : '/' + url
+}
+
+function genTaskDuration(row) {
+  if (!row.createdAt || !row.completedAt) return ''
+  const ms = new Date(row.completedAt).getTime() - new Date(row.createdAt).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return ''
+  return ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`
+}
+
+// 抽屉打开且有进行中任务时,4s 轮询;关闭或全部结束时停止
+watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
+  stopGenTasksPolling()
+  if (open && active > 0) {
+    genTasksTimer = setInterval(loadGenTasks, 4000)
+  }
+})
+
+const productionBlockMessage = computed(() => {
+  if (!scriptContent.value) return '请先完成剧本编写'
+  return ''
+})
+const productionBlockActionLabel = computed(() => {
+  if (!scriptContent.value) return '前往剧本'
+  return '返回处理'
+})
+function goProductionBlockTarget() {
+  if (!scriptContent.value) {
+    panel.value = 'script'
+    scriptStep.value = rawContent.value ? 1 : 0
+    return
+  }
+  panel.value = 'production'
+  prodTab.value = 'assets'
+}
+const canExport = computed(() => !!sbs.value.length && shotVidCount.value === sbs.value.length)
 function goNextProd() {
+  if (prodTab.value === 'assets') {
+    prodTab.value = 'storyboard'
+    return
+  }
+  if (prodTab.value === 'storyboard') {
+    prodTab.value = 'videos'
+    return
+  }
   if (prodTabIdx.value < prodTabDefs.value.length - 1) {
     prodTabIdx.value++
   } else {
@@ -1771,328 +2190,53 @@ function goNextProd() {
 }
 
 // Script step navigation
-const stepLabels = ['原始内容', 'AI 改写', '提取', '音色', '分镜']
+const stepLabels = ['原始内容', 'AI 改写']
 const prevStepLabel = computed(() => scriptStep.value > 0 ? stepLabels[scriptStep.value - 1] : '')
 const nextStepLabel = computed(() => {
-  if (scriptStep.value === 4) return '进入制作'
+  if (scriptStep.value === 1) return '资产'
   return stepLabels[scriptStep.value + 1] || ''
 })
 const canGoNext = computed(() => {
   if (scriptStep.value === 0) return !!localRaw.value.trim()
   if (scriptStep.value === 1) return !!localScript.value.trim() || !!scriptContent.value
-  if (scriptStep.value === 2) return chars.value.length > 0
-  if (scriptStep.value === 3) return charsVoiced.value > 0
-  if (scriptStep.value === 4) return sbs.value.length > 0
   return false
 })
 function goPrevStep() { if (scriptStep.value > 0) scriptStep.value-- }
 function goNextStep() {
-  if (scriptStep.value === 0 && localRaw.value.trim()) { saveRaw() }
-  if (scriptStep.value === 1 && localScript.value.trim()) { saveScr() }
-  if (scriptStep.value === 4) { panel.value = 'production'; return }
-  if (canGoNext.value) scriptStep.value++
-}
-
-function gridSelectAll() {
-  if (gridSelected.value.length === sbs.value.length) gridSelected.value = []
-  else gridSelected.value = sbs.value.map(s => s.id)
-}
-
-function openGridTool() {
-  gridStep.value = 0
-  gridSelected.value = []
-  gridSingleTarget.value = null
-  gridActiveShotIds.value = []
-  gridPromptText.value = ''
-  gridCellPrompts.value = []
-  gridPromptSource.value = ''
-  gridPromptStatus.value = ''
-  gridAssignmentsState.value = []
-  gridDialog.value = true
-}
-
-function persistGridImagePath(value) {
-  if (typeof window === 'undefined') return
-  if (!value) {
-    window.localStorage.removeItem(gridStorageKey.value)
+  if (scriptStep.value === 0 && localRaw.value.trim()) {
+    saveRaw()
+    scriptStep.value = 1
     return
   }
-  const current = restoreGridState() || {}
-  const entries = current.entries || {}
-  entries[value] = {
-    generationId: gridGenId.value,
-    layout: gridActualLayout.value,
-    shotIds: gridActiveShotIds.value,
-    assignments: gridAssignmentsState.value,
-    recoveredAt: gridRecoveredAt.value,
-    recoveredMode: gridRecoveredMode.value,
-  }
-  const payload = {
-    activeImagePath: value,
-    entries,
-  }
-  window.localStorage.setItem(gridStorageKey.value, JSON.stringify(payload))
-}
-
-function restoreGridState() {
-  if (typeof window === 'undefined') return null
-  const raw = window.localStorage.getItem(gridStorageKey.value)
-  if (!raw) return null
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return { activeImagePath: raw, entries: { [raw]: {} } }
-  }
-}
-
-function applyGridState(imagePath, meta = {}) {
-  gridImagePath.value = imagePath || ''
-  gridGenId.value = meta.generationId || meta.id || null
-  if (meta.layout?.rows && meta.layout?.cols) gridActualLayout.value = meta.layout
-  if (Array.isArray(meta.shotIds)) gridActiveShotIds.value = meta.shotIds
-  else gridActiveShotIds.value = []
-  if (Array.isArray(meta.assignments)) gridAssignmentsState.value = meta.assignments
-  else gridAssignmentsState.value = []
-  gridRecoveredAt.value = meta.recoveredAt || meta.createdAtLabel || ''
-  gridRecoveredMode.value = meta.recoveredMode || meta.modeLabel || ''
-}
-
-function selectGridHistory(item) {
-  const cached = restoreGridState()
-  const cachedEntry = cached?.entries?.[item.localPath] || {}
-  applyGridState(item.localPath, {
-    ...item,
-    ...cachedEntry,
-    generationId: cachedEntry.generationId || item.id,
-    recoveredAt: cachedEntry.recoveredAt || item.createdAtLabel,
-    recoveredMode: cachedEntry.recoveredMode || item.modeLabel,
-  })
-  if (!gridAssignmentsState.value.length) resetGridAssignments()
-  persistGridImagePath(item.localPath)
-}
-
-function reopenGridPreview() {
-  if (!gridImagePath.value) {
-    openGridTool()
-    return
-  }
-  gridDialog.value = true
-  if (!gridAssignmentsState.value.length) resetGridAssignments()
-  gridStep.value = 3
-}
-
-function parseGridLayoutFromFrameType(value) {
-  const match = String(value || '').match(/grid_[^_]+_(\d+)x(\d+)$/)
-  if (!match) return null
-  return { rows: Number(match[1]) || 3, cols: Number(match[2]) || 3 }
-}
-
-function continueGridSplit() {
-  if (!gridImagePath.value) {
-    toast.warning('还没有可继续切割的宫格图')
-    return
-  }
-  if (!gridAssignmentsState.value.length) resetGridAssignments()
-  gridDialog.value = true
-  gridStep.value = 3
-}
-
-function getGridPromptShotIds() {
-  if (gridMode.value === 'multi_ref') return gridSingleTarget.value ? [gridSingleTarget.value] : []
-  if (gridMode.value === 'first_last') return [...gridSelected.value]
-  return gridSelected.value.slice(0, gridTotalCells.value)
-}
-
-async function generateGridPrompt() {
-  if (!gridCanStart.value) {
-    toast.warning('请先选择镜头')
-    return
-  }
-  gridPromptLoading.value = true
-  gridPromptStatus.value = '正在调用 AI 生成宫格提示词...'
-  gridPromptText.value = ''
-  gridCellPrompts.value = []
-  gridPromptSource.value = ''
-  try {
-    const shotIds = getGridPromptShotIds()
-    const { rows, cols } = gridAutoLayout.value
-
-    const res = await gridAPI.prompt({
-      storyboard_ids: shotIds,
-      drama_id: dramaId,
-      episode_id: epId.value,
-      rows,
-      cols,
-      mode: gridMode.value,
-    })
-
-    gridPromptText.value = res?.grid_prompt || ''
-    gridCellPrompts.value = Array.isArray(res?.cell_prompts) ? res.cell_prompts : []
-    gridPromptSource.value = res?.source || ''
-
-    if (gridPromptText.value) {
-      resetGridAssignments()
-      gridPromptStatus.value = gridPromptSource.value === 'agent' ? 'AI 提示词已生成' : '已使用模板提示词'
-      gridStep.value = 1
-    } else {
-      gridPromptStatus.value = ''
-      toast.error('提示词生成失败')
-    }
-  } catch (e) {
-    gridPromptStatus.value = ''
-    toast.error(e?.message || '生成提示词失败')
-  } finally {
-    gridPromptLoading.value = false
-  }
-}
-
-async function startGridGen() {
-  let rows, cols, ids
-  if (gridMode.value === 'multi_ref') {
-    rows = gridAutoLayout.value.rows; cols = gridAutoLayout.value.cols; ids = [gridSingleTarget.value]
-  } else {
-    rows = gridAutoLayout.value.rows; cols = gridAutoLayout.value.cols; ids = gridSelected.value.slice(0, gridTotalCells.value)
-    if (gridMode.value === 'first_last') ids = [...gridSelected.value]
-  }
-  gridActiveShotIds.value = ids.filter(Boolean)
-  gridActualLayout.value = { rows, cols }
-  if (!gridAssignmentsState.value.length) resetGridAssignments()
-  gridStep.value = 2
-  gridStatusText.value = '提交生成请求...'
-  try {
-    const res = await gridAPI.generate({
-      storyboard_ids: ids,
-      drama_id: dramaId,
-      rows,
-      cols,
-      mode: gridMode.value,
-      custom_prompt: gridPromptText.value || undefined,
-    })
-    gridGenId.value = res.image_generation_id
-    gridActualLayout.value = res.grid || { rows, cols }
-    gridStatusText.value = '等待图片生成...'
-    pollGridStatus()
-  } catch (e) {
-    toast.error(e.message)
-    gridStep.value = 0
-  }
-}
-
-async function pollGridStatus() {
-  for (let i = 0; i < 120; i++) {
-    await new Promise(r => setTimeout(r, 3000))
-    try {
-      const res = await gridAPI.status(gridGenId.value)
-      gridStatusText.value = `状态: ${res.status}`
-      if (res.status === 'completed' && res.local_path) {
-        gridImagePath.value = res.local_path
-        gridGenId.value = gridGenId.value || res.id || null
-        persistGridImagePath(res.local_path)
-        gridStep.value = 3
-        return
-      }
-      if (res.status === 'failed') {
-        toast.error(res.error_msg || '生成失败')
-        gridStep.value = 0
-        return
-      }
-    } catch {}
-  }
-  toast.error('生成超时'); gridStep.value = 0
-}
-
-async function loadLatestGridImage() {
-  try {
-    const rows = await imageAPI.list({ drama_id: dramaId })
-    const list = Array.isArray(rows) ? rows : []
-    const grids = list
-      .filter((row) => row?.status === 'completed' && String(row?.frame_type || row?.frameType || '').startsWith('grid_') && (row?.local_path || row?.localPath))
-      .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))
-      .map((row) => {
-        const frameType = String(row?.frame_type || row?.frameType || '')
-        const parsedLayout = parseGridLayoutFromFrameType(frameType) || { rows: 3, cols: 3 }
-        return {
-          id: row.id,
-          localPath: row?.local_path || row?.localPath || '',
-          layout: parsedLayout,
-          modeLabel: frameType.replace(/^grid_/, '').replace(/_/g, ' · '),
-          createdAtLabel: row?.created_at || row?.createdAt || '',
-        }
-      })
-
-    gridHistory.value = grids
-
-    const cached = restoreGridState()
-    const preferredPath = cached?.activeImagePath && grids.some(item => item.localPath === cached.activeImagePath)
-      ? cached.activeImagePath
-      : grids[0]?.localPath
-    const current = grids.find(item => item.localPath === preferredPath)
-    if (current) {
-      const cachedEntry = cached?.entries?.[current.localPath] || {}
-      applyGridState(current.localPath, {
-        ...current,
-        ...cachedEntry,
-        generationId: cachedEntry.generationId || current.id,
-        recoveredAt: cachedEntry.recoveredAt || current.createdAtLabel,
-        recoveredMode: cachedEntry.recoveredMode || current.modeLabel,
-      })
-      if (!gridAssignmentsState.value.length) resetGridAssignments()
-      persistGridImagePath(current.localPath)
-      return
-    }
-  } catch {}
-
-  const cached = restoreGridState()
-  if (cached?.activeImagePath) {
-    const cachedEntry = cached?.entries?.[cached.activeImagePath] || {}
-    applyGridState(cached.activeImagePath, {
-      ...cachedEntry,
-      recoveredAt: cachedEntry.recoveredAt || '',
-      recoveredMode: cachedEntry.recoveredMode || '',
-    })
-  }
-}
-
-async function doGridSplit() {
-  const { rows, cols } = gridActualLayout.value
-  try {
-    const assignments = gridAssignments.value
-      .filter(item => !!item.storyboard_id)
-      .map(item => ({ storyboard_id: item.storyboard_id, frame_type: item.frame_type }))
-    if (!assignments.length) {
-      toast.warning('请至少分配一个格子')
-      return
-    }
-    await gridAPI.split({ image_generation_id: gridGenId.value, rows, cols, assignments })
-    persistGridImagePath(gridImagePath.value)
-    gridStep.value = 4
-    toast.success('切分分配完成')
-  } catch (e) {
-    toast.error(e.message)
+  if (scriptStep.value === 1 && canGoNext.value) {
+    if (localScript.value.trim()) saveScr()
+    panel.value = 'production'
+    prodTab.value = 'assets'
   }
 }
 
 const charImgCount = computed(() => visualChars.value.filter(c => c.image_url || c.imageUrl).length)
 const sceneImgCount = computed(() => scenes.value.filter(s => s.image_url || s.imageUrl).length)
-const ttsEligibleCount = computed(() => sbs.value.filter(s => hasDialogue(s)).length)
-const ttsGeneratedCount = computed(() => sbs.value.filter(s => hasDialogue(s) && hasTTS(s)).length)
-const shotImgCount = computed(() => sbs.value.filter(s => s.first_frame_image || s.firstFrameImage || s.last_frame_image || s.lastFrameImage || s.composed_image || s.composedImage).length)
+const propImgCount = computed(() => propItems.value.filter(p => p.image_url || p.imageUrl).length)
 const shotVidCount = computed(() => sbs.value.filter(s => s.video_url || s.videoUrl).length)
 const visualCharTotal = computed(() => visualChars.value.length)
+const pendingCharacterImageCount = computed(() => Math.max(visualCharTotal.value - charImgCount.value, 0))
+const pendingSceneImageCount = computed(() => Math.max(scenes.value.length - sceneImgCount.value, 0))
+const pendingAssetImageCount = computed(() => pendingCharacterImageCount.value + pendingSceneImageCount.value)
+const assetTotalCount = computed(() => visualCharTotal.value + scenes.value.length + propItems.value.length)
+const assetReadyCount = computed(() => charImgCount.value + sceneImgCount.value + propImgCount.value)
 
 const prodTabDefs = computed(() => [
-  { id: 'chars', label: '角色形象', icon: Users, badge: visualCharTotal.value ? `${charImgCount.value}/${visualCharTotal.value}` : '' },
-  { id: 'scenes', label: '场景图片', icon: MapPin, badge: sceneImgCount.value ? `${sceneImgCount.value}/${scenes.value.length}` : '' },
-  { id: 'dubbing', label: '配音生成', icon: Mic2, badge: '' },
-  { id: 'shots', label: '镜头图片', icon: ImageIcon, badge: shotImgCount.value ? `${shotImgCount.value}/${sbs.value.length}` : '' },
+  { id: 'assets', label: '资产', icon: FolderKanban, badge: assetTotalCount.value ? `${assetReadyCount.value}/${assetTotalCount.value}` : '' },
+  { id: 'storyboard', label: '分镜拆分', icon: Clapperboard, badge: sbs.value.length ? `${sbs.value.length}` : '' },
   { id: 'videos', label: '视频生成', icon: Video, badge: shotVidCount.value ? `${shotVidCount.value}/${sbs.value.length}` : '' },
-  { id: 'compose', label: '视频合成', icon: Layers, badge: composedCount.value ? `${composedCount.value}/${sbs.value.length}` : '' },
 ])
 
 const mainStageDefs = [
   { id: 'script', label: '剧本', desc: '内容改写与整理', icon: FileText },
-  { id: 'assets', label: '资产', desc: '角色、场景与音色', icon: FolderKanban },
-  { id: 'storyboard', label: '分镜', desc: '镜头制作与合成', icon: Clapperboard },
+  { id: 'assets', label: '资产', desc: '角色 / 场景 / 道具', icon: FolderKanban },
+  { id: 'storyboard', label: '分镜', desc: '分镜拆分与提示词', icon: Clapperboard },
+  { id: 'videos', label: '视频', desc: '视频任务与生成', icon: Video },
   { id: 'export', label: '导出', desc: '拼接与成片输出', icon: Download },
 ]
 
@@ -2101,60 +2245,63 @@ const sidebarSections = computed(() => ([
     id: 'script',
     label: '剧本',
     items: [
-      { key: 'script:raw', label: '原始内容', desc: '', icon: FileText, done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', desc: '', icon: FileText, done: !!scriptContent.value },
-      { key: 'script:extract', label: '提取', desc: '', icon: Users, done: !!chars.value.length },
-      { key: 'script:voice', label: '音色', desc: '', icon: Mic2, done: !!chars.value.length && charsVoiced.value === chars.value.length },
-      { key: 'script:storyboard', label: '分镜', desc: '', icon: Clapperboard, done: !!sbs.value.length },
+      { key: 'script:raw', label: '原始内容', desc: '', icon: FileText },
+      { key: 'script:rewrite', label: 'AI 改写', desc: '', icon: FileText },
     ],
   },
   {
     id: 'production',
     label: '制作',
     items: [
-      { key: 'prod:chars', label: '角色形象', desc: '', icon: Users, done: prodStepDone('chars') },
-      { key: 'prod:scenes', label: '场景图片', desc: '', icon: MapPin, done: prodStepDone('scenes') },
-      { key: 'prod:dubbing', label: '配音生成', desc: '', icon: Mic2, done: prodStepDone('dubbing') },
-      { key: 'prod:shots', label: '镜头图片', desc: '', icon: ImageIcon, done: prodStepDone('shots') },
-      { key: 'prod:videos', label: '视频生成', desc: '', icon: Video, done: prodStepDone('videos') },
-      { key: 'prod:compose', label: '视频合成', desc: '', icon: Layers, done: prodStepDone('compose') },
+      { key: 'prod:assets', label: '资产', desc: '', icon: Users },
+      { key: 'prod:storyboard', label: '分镜拆分', desc: '', icon: Clapperboard },
+      { key: 'prod:videos', label: '视频生成', desc: '', icon: Video },
     ],
   },
   {
     id: 'export',
     label: '导出',
     items: [
-      { key: 'export:merge', label: '拼接导出', desc: '', icon: Download, done: !!mergeUrl.value },
+      { key: 'export:merge', label: '拼接导出', desc: '', icon: Download },
     ],
   },
 ]))
 
+// 大环节状态:pending(未开始)/ active(进行中)/ done(已完成)/ none(不显示状态,导出用)
+// 进行中 = 环节内有任意进度但未全部完成,或当前正处于该环节
+function sectionState(sectionId) {
+  if (sectionId === 'export') return 'none'
+  const done = sectionId === 'script'
+    ? mainStageDone('script')
+    : mainStageDone('assets') && mainStageDone('storyboard') && mainStageDone('videos')
+  if (done) return 'done'
+
+  const hasProgress = sectionId === 'script'
+    ? !!(rawContent.value || scriptContent.value)
+    : !!(chars.value.length || scenes.value.length || propItems.value.length || sbs.value.length || shotVidCount.value)
+  const isCurrent = sectionId === 'script'
+    ? panel.value === 'script'
+    : panel.value === 'production'
+  return (hasProgress || isCurrent) ? 'active' : 'pending'
+}
+
 const activeMainStage = computed(() => {
   if (panel.value === 'export') return 'export'
   if (panel.value === 'production') {
-    return ['chars', 'scenes'].includes(prodTab.value) ? 'assets' : 'storyboard'
+    if (prodTab.value === 'assets') return 'assets'
+    if (prodTab.value === 'storyboard') return 'storyboard'
+    return 'videos'
   }
-  if (scriptStep.value <= 1) return 'script'
-  if (scriptStep.value <= 3) return 'assets'
-  return 'storyboard'
+  return 'script'
 })
 
 function mainStageDone(stageId) {
   if (stageId === 'script') return !!scriptContent.value
-  if (stageId === 'assets') {
-    const charsReady = !!chars.value.length && charsVoiced.value === chars.value.length
-    const charImagesReady = !visualCharTotal.value || charImgCount.value === visualCharTotal.value
-    const sceneImagesReady = !scenes.value.length || sceneImgCount.value === scenes.value.length
-    return charsReady && charImagesReady && sceneImagesReady
+  if (stageId === 'assets') return assetTotalCount.value > 0 && assetReadyCount.value === assetTotalCount.value
+  if (stageId === 'videos') {
+    return !!sbs.value.length && shotVidCount.value === sbs.value.length
   }
-  if (stageId === 'storyboard') {
-    if (!sbs.value.length) return false
-    const ttsReady = !ttsEligibleCount.value || ttsGeneratedCount.value === ttsEligibleCount.value
-    return ttsReady
-      && shotImgCount.value === sbs.value.length
-      && shotVidCount.value === sbs.value.length
-      && composedCount.value === sbs.value.length
-  }
+  if (stageId === 'storyboard') return !!sbs.value.length
   if (stageId === 'export') return !!mergeUrl.value
   return false
 }
@@ -2166,66 +2313,27 @@ function goMainStage(stageId) {
     return
   }
   if (stageId === 'assets') {
-    const hasAssetWorkspace = !!visualCharTotal.value || !!scenes.value.length
-    const hasPendingAssetGeneration = (visualCharTotal.value && charImgCount.value < visualCharTotal.value)
-      || (scenes.value.length && sceneImgCount.value < scenes.value.length)
-    if (panel.value === 'production' || hasPendingAssetGeneration || hasAssetWorkspace) {
-      panel.value = 'production'
-      prodTab.value = ['chars', 'scenes'].includes(prodTab.value) ? prodTab.value : 'chars'
-      return
-    }
-    panel.value = 'script'
-    scriptStep.value = chars.value.length ? 3 : 2
+    panel.value = 'production'
+    prodTab.value = 'assets'
+    return
+  }
+  if (stageId === 'videos') {
+    panel.value = 'production'
+    prodTab.value = 'videos'
     return
   }
   if (stageId === 'storyboard') {
-    if (panel.value === 'production') {
-      prodTab.value = ['dubbing', 'shots', 'videos', 'compose'].includes(prodTab.value) ? prodTab.value : 'dubbing'
-      return
-    }
-    panel.value = 'script'
-    scriptStep.value = 4
+    panel.value = 'production'
+    prodTab.value = 'storyboard'
     return
   }
   panel.value = 'export'
 }
 
-const activeSubSteps = computed(() => {
-  if (activeMainStage.value === 'script') {
-    return [
-      { key: 'script:raw', label: '原始内容', done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', done: !!scriptContent.value },
-    ]
-  }
-  if (activeMainStage.value === 'assets') {
-    return [
-      { key: 'script:extract', label: '提取角色场景', done: !!chars.value.length },
-      { key: 'script:voice', label: '分配音色', done: !!chars.value.length && charsVoiced.value === chars.value.length },
-      { key: 'prod:chars', label: '角色形象', done: !visualCharTotal.value || charImgCount.value === visualCharTotal.value },
-      { key: 'prod:scenes', label: '场景图片', done: !scenes.value.length || sceneImgCount.value === scenes.value.length },
-    ]
-  }
-  if (activeMainStage.value === 'storyboard') {
-    return [
-      { key: 'script:storyboard', label: '分镜拆解', done: !!sbs.value.length },
-      { key: 'prod:dubbing', label: '配音生成', done: !ttsEligibleCount.value || ttsGeneratedCount.value === ttsEligibleCount.value },
-      { key: 'prod:shots', label: '镜头图片', done: !!sbs.value.length && shotImgCount.value === sbs.value.length },
-      { key: 'prod:videos', label: '视频生成', done: !!sbs.value.length && shotVidCount.value === sbs.value.length },
-      { key: 'prod:compose', label: '视频合成', done: !!sbs.value.length && composedCount.value === sbs.value.length },
-    ]
-  }
-  return [
-    { key: 'export:merge', label: '拼接导出', done: !!mergeUrl.value },
-  ]
-})
-
 const activeSubStepKey = computed(() => {
   if (panel.value === 'script') {
     if (scriptStep.value === 0) return 'script:raw'
-    if (scriptStep.value === 1) return 'script:rewrite'
-    if (scriptStep.value === 2) return 'script:extract'
-    if (scriptStep.value === 3) return 'script:voice'
-    return 'script:storyboard'
+    return 'script:rewrite'
   }
   if (panel.value === 'production') return `prod:${prodTab.value}`
   return 'export:merge'
@@ -2239,18 +2347,14 @@ const sidebarJumpSteps = computed(() => {
 const bubbleSteps = computed(() => {
   if (panel.value === 'script') {
     return [
-      { key: 'script:raw', label: '原始内容', done: !!rawContent.value },
-      { key: 'script:rewrite', label: 'AI 改写', done: !!scriptContent.value },
-      { key: 'script:extract', label: '提取', done: !!chars.value.length },
-      { key: 'script:voice', label: '音色', done: !!chars.value.length && charsVoiced.value === chars.value.length },
-      { key: 'script:storyboard', label: '分镜', done: !!sbs.value.length },
+      { key: 'script:raw', label: '原始内容' },
+      { key: 'script:rewrite', label: 'AI 改写' },
     ]
   }
   if (panel.value === 'production') {
     return prodTabDefs.value.map(step => ({
       key: `prod:${step.id}`,
       label: step.label,
-      done: prodStepDone(step.id),
     }))
   }
   return []
@@ -2270,9 +2374,6 @@ function goSubStep(key) {
     const stepMap = {
       'script:raw': 0,
       'script:rewrite': 1,
-      'script:extract': 2,
-      'script:voice': 3,
-      'script:storyboard': 4,
     }
     scriptStep.value = stepMap[key] ?? 0
     return
@@ -2285,20 +2386,10 @@ function goSubStep(key) {
   panel.value = 'export'
 }
 
-const pipelineProgress = computed(() => {
-  let p = 0
-  if (rawContent.value) p++
-  if (scriptContent.value) p++
-  if (chars.value.length) p++
-  if (charsVoiced.value) p++
-  if (sbs.value.length) p++
-  if (sbs.value.length && (!ttsEligibleCount.value || ttsGeneratedCount.value === ttsEligibleCount.value)) p++
-  if (sbs.value.some(s => s.composed_image || s.composedImage)) p++
-  if (sbs.value.some(s => s.video_url || s.videoUrl)) p++
-  if (sbs.value.length && composedCount.value === sbs.value.length) p++
-  if (mergeUrl.value) p++
-  return p
-})
+const pipelineTotal = 2
+const pipelineProgress = computed(() =>
+  ['script', 'production'].filter(id => sectionState(id) === 'done').length
+)
 
 const currentStageLabel = computed(() => {
   if (panel.value === 'script') return `剧本阶段 · ${stepLabels[scriptStep.value]}`
@@ -2311,36 +2402,14 @@ const currentMainStageLabel = computed(() => {
   return current?.label || '工作台'
 })
 
-const currentSubStageLabel = computed(() => {
-  const current = activeSubSteps.value.find(step => step.key === activeSubStepKey.value)
-  return current?.label || currentStageLabel.value
-})
+const currentSubStageLabel = computed(() => currentStageLabel.value)
 
-function updateCharVoice(charId, voiceId) {
-  characterAPI.update(charId, { voice_style: voiceId, voice_provider: lockedAudioProvider.value || undefined })
-  const c = chars.value.find(ch => ch.id === charId)
-  if (c) {
-    c.voice_style = voiceId
-    c.voiceStyle = voiceId
-    c.voice_provider = lockedAudioProvider.value || ''
-    c.voiceProvider = lockedAudioProvider.value || ''
-    c.voice_sample_url = ''
-    c.voiceSampleUrl = ''
-  }
-}
-function getVoiceProfile(voiceId) {
-  return voiceProfiles.value.find(v => v.id === voiceId) || null
-}
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
-
 const selectedSb = ref(null)
-const shotTypes = [
-  '大远景', '远景', '全景', '中景', '中近景', '近景', '特写', '大特写',
-  '双人镜头', '三人镜头', '群像', '背影', '侧面', '正面', '俯视', '仰视',
-  '过肩', '主观视角', '航拍', '运动镜头',
-]
-const shotAngles = ['平视', '仰视', '俯视', '侧拍', '背拍', '斜侧', '主观视角', '过肩']
-const shotMovements = ['固定', '推镜', '拉镜', '摇镜', '移镜', '跟拍', '升降', '手持', '环绕']
+const selectedVideoTaskNumber = computed(() => {
+  const index = videoTaskRows.value.findIndex(task => String(task.id) === String(selectedSb.value?.id))
+  return index >= 0 ? index + 1 : 0
+})
 
 function updateField(sb, field, value) {
   const current = sb[field] ?? sb[toCamel(field)]
@@ -2348,7 +2417,7 @@ function updateField(sb, field, value) {
   sb[field] = value
   const camelField = toCamel(field)
   if (camelField !== field) sb[camelField] = value
-  storyboardAPI.update(sb.id, { [field]: value })
+  storyboardAPI.update(sb.id, { [field]: value }).catch(e => toast.error(e.message))
 }
 
 function toCamel(field) {
@@ -2359,9 +2428,15 @@ function getStoryboardCharacterIds(sb) {
   return sb?.character_ids || sb?.characterIds || []
 }
 
-function getStoryboardCharacterNames(sb) {
+function getStoryboardCharacters(sb) {
   const ids = getStoryboardCharacterIds(sb)
-  return chars.value.filter(char => ids.includes(char.id)).map(char => char.name)
+  return visualChars.value.filter(char => ids.includes(char.id))
+}
+
+function getStoryboardScene(sb) {
+  const sceneId = sb?.scene_id || sb?.sceneId
+  if (!sceneId) return null
+  return scenes.value.find(s => s.id === sceneId) || null
 }
 
 function isStoryboardCharacterSelected(sb, charId) {
@@ -2376,35 +2451,43 @@ function toggleStoryboardCharacter(sb, charId) {
   updateField(sb, 'character_ids', nextIds)
 }
 
+function getStoryboardPropIds(sb) {
+  return sb?.prop_ids || sb?.propIds || []
+}
+
+function getStoryboardProps(sb) {
+  const ids = getStoryboardPropIds(sb)
+  return propItems.value.filter(p => ids.includes(p.id))
+}
+
+function isStoryboardPropSelected(sb, propId) {
+  return getStoryboardPropIds(sb).includes(propId)
+}
+
+function toggleStoryboardProp(sb, propId) {
+  const currentIds = getStoryboardPropIds(sb)
+  const nextIds = currentIds.includes(propId)
+    ? currentIds.filter(id => id !== propId)
+    : [...currentIds, propId]
+  updateField(sb, 'prop_ids', nextIds)
+}
+
 function getSceneName(sb) {
-  const sceneId = sb?.scene_id || sb?.sceneId
-  if (!sceneId) return '未绑定场景'
-  const scene = scenes.value.find(s => s.id === sceneId)
-  return scene ? `${scene.location} · ${scene.time || '未设时间'}` : `场景 #${sceneId}`
+  const scene = getStoryboardScene(sb)
+  if (!scene) return ''
+  return `${scene.location} · ${scene.time || '未设时间'}`
 }
 
-async function deleteShot(sb) {
-  if (!confirm('确定删除此镜头？')) return
-  const idx = sbs.value.indexOf(sb)
-  await storyboardAPI.del(sb.id)
-  await refresh()
-  if (sbs.value.length) selectedSb.value = sbs.value[Math.min(idx, sbs.value.length - 1)]
-  else selectedSb.value = null
-}
+const sceneOptions = computed(() => [
+  { label: '未绑定场景', value: '' },
+  ...scenes.value.map(s => ({ label: `${s.location} · ${s.time || '未设时间'}`, value: s.id })),
+])
 
-const scriptSteps = computed(() => {
-  const hasScript = !!scriptContent.value
-  const hasChars = chars.value.length > 0 && hasScript
-  const hasVoice = charsVoiced.value > 0 && hasChars
-  const hasSbs = sbs.value.length > 0
-  return [
-    { label: '原始内容', state: rawContent.value ? 'done' : 'active', spinning: false },
-    { label: 'AI 改写', state: hasScript ? 'done' : (rawContent.value ? 'active' : ''), spinning: rt.value === 'script_rewriter' },
-    { label: '提取', state: hasChars ? 'done' : (hasScript ? 'active' : ''), spinning: rt.value === 'extractor' },
-    { label: '音色', state: hasVoice ? 'done' : (hasChars ? 'active' : ''), spinning: rt.value === 'voice_assigner' },
-    { label: '分镜', state: hasSbs ? 'done' : (hasVoice ? 'active' : ''), spinning: rt.value === 'storyboard_breaker' },
-  ]
-})
+const dialogueOpen = ref(false)
+
+function sceneShotCount(sceneId) {
+  return sbs.value.filter(sb => String(sb?.scene_id || sb?.sceneId || '') === String(sceneId)).length
+}
 
 watch(rawContent, v => { localRaw.value = v }, { immediate: true })
 watch(scriptContent, v => { localScript.value = v }, { immediate: true })
@@ -2417,29 +2500,32 @@ async function refresh() {
       episode.value = ep
       try { chars.value = await episodeAPI.characters(ep.id) } catch { chars.value = [] }
       try { scenes.value = await episodeAPI.scenes(ep.id) } catch { scenes.value = [] }
+      try { propItems.value = await episodeAPI.props(ep.id) } catch { propItems.value = [] }
       sbs.value = await episodeAPI.storyboards(ep.id)
-      if (sbs.value.length && !selectedSb.value) selectedSb.value = sbs.value[0]
+      selectedSbIds.value = selectedSbIds.value.filter(id => sbs.value.some(sb => sb.id === id))
+      if (sbs.value.length) {
+        const currentSelectedId = selectedSb.value?.id
+        selectedSb.value = sbs.value.find(sb => sb.id === currentSelectedId) || sbs.value[0]
+      } else {
+        selectedSb.value = null
+      }
 
       const epHasContent = !!(episode.value?.content)
       const epHasScript = !!(episode.value?.script_content || episode.value?.scriptContent)
-      const epHasSbs = sbs.value.length > 0
 
-      if (epHasSbs) scriptStep.value = 4
-      else if (epHasScript && chars.value.some(c => c.voice_style || c.voiceStyle)) scriptStep.value = 3
-      else if (epHasScript && chars.value.length) scriptStep.value = 2
-      else if (epHasScript || epHasContent) scriptStep.value = 1
+      if (epHasScript || epHasContent) scriptStep.value = 1
       else scriptStep.value = 0
-      await loadLatestGridImage()
     }
   } catch (e) {
     toast.error(e.message)
   }
   try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
+  await Promise.all([loadGenTasks(), loadExportMerges()])
 }
 
 function saveRaw() { episodeAPI.update(epId.value, { content: localRaw.value }); episode.value.content = localRaw.value }
 function saveScr() { episodeAPI.update(epId.value, { script_content: localScript.value }); episode.value.script_content = localScript.value }
-function doRewrite() { saveRaw(); runAgent('script_rewriter', '请读取剧本并改写为格式化剧本，然后保存', dramaId, epId.value, refresh) }
+function doRewrite() { saveRaw(); runAgent('script_rewriter', '请读取剧本并改写为格式化剧本，然后保存', dramaId, epId.value, refresh, chatModelOverride(), chatConfigId()) }
 function skipRewrite() {
   const raw = (localRaw.value || rawContent.value || '').trim()
   if (!raw) {
@@ -2449,30 +2535,189 @@ function skipRewrite() {
   localScript.value = raw
   saveScr()
   toast.success('已跳过 AI 改写，当前将直接使用原始内容')
-  scriptStep.value = 2
+  panel.value = 'production'
+  prodTab.value = 'assets'
 }
-function doExtract() { saveScr(); runAgent('extractor', '请从剧本中提取所有角色和场景信息，提取时自动与项目已有数据进行去重合并', dramaId, epId.value, refresh) }
-function doVoice() { runAgent('voice_assigner', '请为所有角色分配合适的音色', dramaId, epId.value, refresh) }
-async function batchGenSamples() {
-  const pending = chars.value.filter(c => (c.voice_style || c.voiceStyle) && !(c.voice_sample_url || c.voiceSampleUrl))
-  if (!pending.length) {
-    toast.info(charsVoiced.value ? '所有角色的试听文件已生成' : '请先分配音色')
-    return
+// 资产提取：按类型独立的异步任务（后端任务表驱动），三类可并行；前端轮询状态直到完成
+const EXTRACT_TARGETS = [
+  { key: 'characters', label: '角色' },
+  { key: 'scenes', label: '场景' },
+  { key: 'props', label: '道具' },
+]
+const extractingTargets = ref([])
+const extractingLabels = computed(() => EXTRACT_TARGETS.filter(t => extractingTargets.value.includes(t.key)).map(t => t.label).join('、'))
+function isExtracting(target) { return extractingTargets.value.includes(target) }
+
+function doExtract(target) {
+  if (isExtracting(target) || !epId.value) return
+  saveScr()
+  extractingTargets.value.push(target)
+  episodeAPI.extract(epId.value, target, chatModelOverride(), chatConfigId())
+    .then(() => pollExtractStatus(target))
+    .catch(e => {
+      extractingTargets.value = extractingTargets.value.filter(t => t !== target)
+      toast.error(e.message)
+    })
+}
+function doExtractAll() { EXTRACT_TARGETS.forEach(t => doExtract(t.key)) }
+
+function pollExtractStatus(target, attempts = 150) {
+  const label = EXTRACT_TARGETS.find(t => t.key === target)?.label || target
+  const tick = async (left) => {
+    try {
+      const st = await episodeAPI.extractStatus(epId.value)
+      const task = st?.[target]
+      if (task && task.status !== 'running') {
+        extractingTargets.value = extractingTargets.value.filter(t => t !== target)
+        if (task.status === 'done') {
+          toast.success(`${label}提取完成`)
+          await refresh()
+        } else {
+          toast.error(task.error || `${label}提取失败`)
+        }
+        return
+      }
+    } catch {}
+    if (left > 0) setTimeout(() => tick(left - 1), 2500)
+    else extractingTargets.value = extractingTargets.value.filter(t => t !== target)
   }
-  const results = await Promise.allSettled(pending.map(c => characterAPI.voiceSample(c.id, epId.value)))
-  const okCount = results.filter(r => r.status === 'fulfilled').length
-  const failCount = results.length - okCount
-  if (okCount) toast.success(`已生成 ${okCount} 份试听文件`)
-  if (failCount) toast.error(`${failCount} 份试听文件生成失败`)
-  await refresh()
+  setTimeout(() => tick(attempts), 2500)
+}
+
+/** 页面加载后恢复仍在运行的提取任务状态（刷新页面不丢进度展示） */
+async function syncExtractStatus() {
+  if (!epId.value) return
+  try {
+    const st = await episodeAPI.extractStatus(epId.value)
+    for (const t of EXTRACT_TARGETS) {
+      if (st?.[t.key]?.status === 'running' && !isExtracting(t.key)) {
+        extractingTargets.value.push(t.key)
+        pollExtractStatus(t.key)
+      }
+    }
+  } catch {}
+  try {
+    const vp = await episodeAPI.videoPromptsStatus(epId.value)
+    if (vp?.status === 'running' && !videoPromptBatch.value.running) {
+      videoPromptBatch.value = { running: true, total: vp.total || 0, completed: vp.completed || 0 }
+      pollVideoPromptBatch()
+    }
+  } catch {}
+}
+
+// ─── 批量视频提示词：后端异步逐分镜生成，前端轮询进度 ──────────
+const videoPromptBatch = ref({ running: false, total: 0, completed: 0 })
+// 分镜勾选：勾选后批量生成只处理所选（已有提示词也会重新生成）；未勾选时处理全部缺失
+const selectedSbIds = ref([])
+// 多选模式：进入后点击卡片=勾选/取消，底部操作条确认生成
+const sbSelectMode = ref(false)
+function isSbSelected(id) { return selectedSbIds.value.includes(id) }
+function toggleSbSelect(id) {
+  selectedSbIds.value = isSbSelected(id) ? selectedSbIds.value.filter(x => x !== id) : [...selectedSbIds.value, id]
+}
+function toggleSelectAllSbs() {
+  selectedSbIds.value = selectedSbIds.value.length === sbs.value.length ? [] : sbs.value.map(sb => sb.id)
+}
+function onShotCardClick(sb) {
+  if (sbSelectMode.value) toggleSbSelect(sb.id)
+  else selectedSb.value = sb
+}
+// 仅缺失：选中还没有视频提示词的分镜
+function selectMissingSbs() {
+  selectedSbIds.value = sbs.value.filter(sb => !((sb.video_prompt || sb.videoPrompt || '').trim())).map(sb => sb.id)
+}
+function exitSbSelectMode() {
+  sbSelectMode.value = false
+  selectedSbIds.value = []
+}
+function generateSelectedVideoPrompts() {
+  batchVideoPrompts() // 内部同步捕获所选 ids
+  exitSbSelectMode()
+}
+
+async function batchVideoPrompts() {
+  if (videoPromptBatch.value.running || !epId.value) return
+  if (!sbs.value.length) { toast.warning('请先拆分分镜'); return }
+  const ids = selectedSbIds.value.length ? [...selectedSbIds.value] : undefined
+  try {
+    const res = await episodeAPI.generateVideoPrompts(epId.value, chatModelOverride(), chatConfigId(), ids)
+    if (!res?.total) {
+      if (res?.already_running) {
+        videoPromptBatch.value = { running: true, total: 0, completed: 0 }
+        pollVideoPromptBatch()
+      } else toast.info(ids ? '所选分镜不存在' : '所有分镜已有视频提示词')
+      return
+    }
+    videoPromptBatch.value = { running: true, total: res.total, completed: 0 }
+    toast.info(`开始生成 ${res.total} 个分镜的视频提示词…`)
+    pollVideoPromptBatch()
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+function pollVideoPromptBatch(attempts = 240) {
+  const tick = async (left) => {
+    try {
+      const st = await episodeAPI.videoPromptsStatus(epId.value)
+      if (st && st.status !== 'running') {
+        videoPromptBatch.value = { running: false, total: 0, completed: 0 }
+        await refresh()
+        if (st.status === 'done') {
+          toast.success(st.failed ? `视频提示词批量生成完成，${st.failed} 个失败` : '视频提示词批量生成完成')
+        } else {
+          toast.error(st.error || '视频提示词批量生成失败')
+        }
+        return
+      }
+      if (st) {
+        const prev = videoPromptBatch.value.completed
+        videoPromptBatch.value = { running: true, total: st.total || 0, completed: st.completed || 0 }
+        if ((st.completed || 0) !== prev) await refresh() // 每完成一条刷新，提示词逐步出现
+      }
+    } catch {}
+    if (left > 0) setTimeout(() => tick(left - 1), 2500)
+    else videoPromptBatch.value = { running: false, total: 0, completed: 0 }
+  }
+  setTimeout(() => tick(attempts), 2500)
 }
 function doBreakdown() {
+  const charList = chars.value.length
+    ? chars.value.map(c => `${c.name}(ID:${c.id})`).join('、')
+    : '（当前集还没有角色）'
+  const sceneList = scenes.value.length
+    ? scenes.value.map(s => `${s.location} · ${s.time || '未设时间'}(ID:${s.id})`).join('、')
+    : '（当前集还没有场景）'
+  const propList = propItems.value.length
+    ? propItems.value.map(p => `${p.name}(ID:${p.id})`).join('、')
+    : '（当前集还没有道具）'
+  runAgent('storyboard_breaker', `请基于当前集剧本拆分分镜（不需要生成视频提示词，video_prompt 在视频生成阶段按需生成）。
+
+当前集已有角色：${charList}
+当前集已有场景：${sceneList}
+当前集已有道具：${propList}
+
+绑定要求：
+- 每个镜头必须根据剧本内容，从上述当前集已有角色中选出出场的角色绑定 character_ids（ID 必须来自上述列表；有角色出场就必须绑定，不要遗漏）
+- 每个镜头尽量匹配上述已有场景填写 scene_id（ID 必须来自上述列表），不要凭空创造新场景
+- 每个镜头出现关键道具（被使用、交接、特写或在画面中明显可见）时，从上述当前集已有道具中绑定 prop_ids（ID 必须来自上述列表）；没有道具出现可传空数组
+- 只有纯环境空镜头才可以不绑定角色`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
+}
+
+// 按需为单个分镜生成视频提示词：由 prompt_generator 读取分镜字段生成并保存到 video_prompt
+function genVideoPrompt(sb) {
+  if (!sb) return
+  const idx = sbs.value.indexOf(sb) + 1
   const cfg = videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)
   const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
-  runAgent('storyboard_breaker', `请拆解分镜并生成视频提示词。视频模型：${label}，请根据该模型的特性和时长限制生成合适的视频提示词。`, dramaId, epId.value, refresh)
+  const charNames = getStoryboardCharacters(sb).map(c => c.name).join('、') || '无'
+  const propNames = getStoryboardProps(sb).map(p => p.name).join('、') || '无'
+  runAgent('prompt_generator', `请为分镜 #${idx}(ID:${sb.id})生成视频提示词(video_prompt)。视频模型:${label},请根据该模型的特性和时长限制生成。
+
+该分镜信息:时长 ${sb.duration || 10}s;场景:${getSceneName(sb) || '未绑定'};角色:${charNames};道具:${propNames}。
+
+请先调用 read_storyboard_context 获取该分镜的画面描述、动作、氛围、对白/旁白,据此生成 video_prompt(按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。只更新 video_prompt 字段,不要改动其他字段,不要重新拆分整集。`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
 }
-async function genSample(id) { try { await characterAPI.voiceSample(id, epId.value); toast.success('试听已生成'); refresh() } catch (e) { toast.error(e.message) } }
-async function addShot() { await storyboardAPI.create({ episode_id: epId.value, storyboard_number: sbs.value.length + 1, title: `镜头${sbs.value.length + 1}`, duration: 10 }); refresh() }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -2491,7 +2736,14 @@ function watchAsyncResult(check, attempts = 24, delay = 2500) {
 async function genCharImg(id) {
   try {
     if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
-    await characterAPI.generateImage(id, epId.value)
+    const char = chars.value.find(c => c.id === id)
+    if (char && !(char.final_prompt || char.finalPrompt)) {
+      toast.info('正在生成最终提示词…')
+      try {
+        await ensureAssetPrompt('character', id)
+      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
+    }
+    await characterAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success('角色图片生成中')
     await refresh()
     watchAsyncResult(() => {
@@ -2509,7 +2761,7 @@ function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info('所有角色图片已生成'); return }
   pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
-  characterAPI.batchImages(ids, epId.value).then(async () => {
+  characterAPI.batchImages(ids, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
     toast.success('角色图片批量生成中')
     await refresh()
     watchAsyncResult(() => ids.every(id => {
@@ -2526,7 +2778,14 @@ function batchCharImages() {
 async function genSceneImg(id) {
   try {
     if (!isPendingSceneImage(id)) pendingSceneImageIds.value.push(id)
-    await sceneAPI.generateImage(id, epId.value)
+    const scene = scenes.value.find(s => s.id === id)
+    if (scene && !(scene.final_prompt || scene.finalPrompt)) {
+      toast.info('正在生成最终提示词…')
+      try {
+        await ensureAssetPrompt('scene', id)
+      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
+    }
+    await sceneAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success('场景图片生成中')
     await refresh()
     watchAsyncResult(() => {
@@ -2540,11 +2799,38 @@ async function genSceneImg(id) {
     toast.error(e.message)
   }
 }
+function isPendingPropImage(id) {
+  return pendingPropImageIds.value.includes(id)
+}
+async function genPropImg(id) {
+  try {
+    if (!isPendingPropImage(id)) pendingPropImageIds.value.push(id)
+    const prop = propItems.value.find(p => p.id === id)
+    if (prop && !(prop.final_prompt || prop.finalPrompt)) {
+      toast.info('正在生成最终提示词…')
+      try {
+        await ensureAssetPrompt('prop', id)
+      } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
+    }
+    await propAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    toast.success('道具图片生成中')
+    await refresh()
+    watchAsyncResult(() => {
+      const prop = propItems.value.find(p => p.id === id)
+      const done = !!(prop?.image_url || prop?.imageUrl)
+      if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
+      return done
+    })
+  } catch (e) {
+    pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
+    toast.error(e.message)
+  }
+}
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info('所有场景图片已生成'); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  ids.forEach(id => { sceneAPI.generateImage(id, epId.value).then(() => refresh()).catch(e => toast.error(e.message)) })
+  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
   toast.success('场景图片批量生成中')
   watchAsyncResult(() => ids.every(id => {
     const scene = scenes.value.find(s => s.id === id)
@@ -2553,172 +2839,367 @@ function batchSceneImages() {
     return done
   }), 36)
 }
-
-const IGNORE_TTS_SPEAKERS = /^(环境音|环境声|音效|效果音|sfx|sound ?effect|bgm|背景音|背景音乐|ambient)$/i
-const IGNORE_TTS_TEXT = /^(无|无对白|无台词|无旁白|无需配音|无需对白|none|null|n\/a|na|环境音|环境声|音效|效果音|纯音效|纯环境音|只有环境音|仅环境音|背景音|背景音乐|bgm|sfx|ambient)$/i
-
-function getDialogueSpeakerRaw(sb) {
-  const dialogue = sb?.dialogue?.trim() || ''
-  const match = dialogue.match(/^(.+?)[:：]/)
-  return match ? match[1].replace(/[（(].+?[)）]/g, '').trim() : ''
+function batchPropImages() {
+  const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
+  if (!ids.length) { toast.info('所有道具图片已生成'); return }
+  pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
+  ids.forEach(id => { propAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
+  toast.success('道具图片批量生成中')
+  watchAsyncResult(() => ids.every(id => {
+    const prop = propItems.value.find(p => p.id === id)
+    const done = !!(prop?.image_url || prop?.imageUrl)
+    if (done) pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
+    return done
+  }), 36)
 }
-
-function getDialogueText(sb) {
-  const dialogue = sb?.dialogue?.trim() || ''
-  return dialogue ? dialogue.replace(/^.+?[:：]\s*/, '').trim() : ''
-}
-
-function isTTSIgnorable(sb) {
-  const speaker = getDialogueSpeakerRaw(sb)
-  const text = getDialogueText(sb)
-  if (!sb?.dialogue?.trim()) return true
-  if (speaker && IGNORE_TTS_SPEAKERS.test(speaker)) return true
-  if (!text) return true
-  if (IGNORE_TTS_TEXT.test(text)) return true
-  return false
-}
-
-function hasDialogue(sb) { return !isTTSIgnorable(sb) }
-function hasTTS(sb) { return !!(sb?.tts_audio_url || sb?.ttsAudioUrl) }
-function getTTSUrl(sb) { return sb?.tts_audio_url || sb?.ttsAudioUrl || '' }
-function getDialogueSpeaker(sb) {
-  const speaker = getDialogueSpeakerRaw(sb)
-  if (!speaker) return '旁白'
-  return speaker
-}
-async function genShotTTS(sb) {
-  try {
-    await storyboardAPI.generateTTS(sb.id)
-    toast.success(`镜头 #${sb.storyboard_number || sb.storyboardNumber || sb.id} 配音已生成`)
-    await refresh()
-  } catch (e) { toast.error(e.message) }
-}
-async function batchShotTTS() {
-  const pending = sbs.value.filter(sb => hasDialogue(sb) && !hasTTS(sb))
-  if (!pending.length) {
-    toast.info(ttsEligibleCount.value ? '所有镜头配音已生成' : '当前没有可生成的对白或旁白')
-    return
-  }
-  const results = await Promise.allSettled(pending.map(sb => storyboardAPI.generateTTS(sb.id)))
-  const okCount = results.filter(r => r.status === 'fulfilled').length
-  const failCount = results.length - okCount
-  if (okCount) toast.success(`已生成 ${okCount} 条镜头配音`)
-  if (failCount) toast.error(`${failCount} 条镜头配音生成失败`)
-  await refresh()
-}
-
-function getFirstFrame(s) { return s?.first_frame_image || s?.firstFrameImage || null }
-function getLastFrame(s) { return s?.last_frame_image || s?.lastFrameImage || null }
-function getStoryboardCover(s) { return s?.composed_image || s?.composedImage || getFirstFrame(s) || getLastFrame(s) || null }
-function getVideoUrl(s) { return s?.video_url || s?.videoUrl || null }
-function getComposedVideoUrl(s) { return s?.composed_video_url || s?.composedVideoUrl || null }
-function hasImg(s) { return !!getStoryboardCover(s) }
+function getVideoUrl(s) { return s?.video_url || s?.videoUrl || s?.composed_video_url || s?.composedVideoUrl || null }
 function hasVid(s) { return !!getVideoUrl(s) }
-function hasComposed(s) { return !!getComposedVideoUrl(s) }
+
+// ===== 分镜视频历史（一个分镜可能生成多个视频,sys_task 留存全部记录）=====
+const sbVideoHistory = ref([])
+const previewVideoUrl = ref('') // 正在预览的历史视频(相对路径);空 = 预览当前主视频
+
+// 注意:/tasks 返回原始行(camelCase),/episodes/:id/generation-tasks 返回 snake_case,两种命名都兼容
+function taskVideoPath(t) { return t?.local_path || t?.localPath || t?.result_url || t?.resultUrl || '' }
+function taskCreatedAt(t) { return t?.created_at || t?.createdAt || '' }
+function isCurrentVideo(t) { const p = taskVideoPath(t); return !!p && p === getVideoUrl(selectedSb.value) }
+
+async function loadSbVideoHistory() {
+  previewVideoUrl.value = ''
+  if (!selectedSb.value?.id) { sbVideoHistory.value = []; return }
+  try {
+    const rows = await taskAPI.list({ type: 'video', storyboard_id: selectedSb.value.id })
+    sbVideoHistory.value = (Array.isArray(rows) ? rows : [])
+      .filter(t => t.status === 'completed' && taskVideoPath(t))
+      .sort((a, b) => taskCreatedAt(b).localeCompare(taskCreatedAt(a)))
+  } catch { sbVideoHistory.value = [] }
+}
+
+watch(() => [selectedSb.value?.id, getVideoUrl(selectedSb.value)], () => { loadSbVideoHistory() })
+
+function previewHistoryVideo(t) {
+  previewVideoUrl.value = isCurrentVideo(t) ? '' : taskVideoPath(t)
+}
+
+async function setAsMainVideo() {
+  const sb = selectedSb.value
+  if (!sb || !previewVideoUrl.value) return
+  try {
+    await storyboardAPI.update(sb.id, { video_url: previewVideoUrl.value })
+    sb.video_url = previewVideoUrl.value
+    sb.videoUrl = previewVideoUrl.value
+    toast.success('已设为主视频')
+  } catch (e) { toast.error(e.message || '设置失败') }
+}
+
+async function removeHistoryVideo(t) {
+  try {
+    await taskAPI.del(t.id)
+    sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== t.id)
+    if (previewVideoUrl.value === taskVideoPath(t)) previewVideoUrl.value = ''
+    toast.success('已删除该历史记录')
+  } catch (e) { toast.error(e.message || '删除失败') }
+}
+
+function formatHistoryTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = n => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 function getShotReferenceImages(sb) {
   const refs = []
   const pushRef = (value) => {
-    if (!value || refs.includes(value) || refs.length >= 6) return
+    if (!value || refs.includes(value) || refs.length >= 9) return
     refs.push(value)
   }
-  const sceneId = sb?.scene_id || sb?.sceneId
-  const scene = scenes.value.find(item => item.id === sceneId)
+  const scene = getStoryboardScene(sb)
   pushRef(scene?.image_url || scene?.imageUrl)
-  for (const charId of getStoryboardCharacterIds(sb)) {
-    const char = chars.value.find(item => item.id === charId)
+  for (const char of getStoryboardCharacters(sb)) {
     pushRef(char?.image_url || char?.imageUrl)
   }
-  for (const ref of getRefs(sb)) {
-    pushRef(ref)
+  for (const prop of getStoryboardProps(sb)) {
+    pushRef(prop?.image_url || prop?.imageUrl)
   }
-  const first = getFirstFrame(sb)
-  const last = getLastFrame(sb)
-  pushRef(first)
-  pushRef(last)
-  return refs.filter(Boolean).slice(0, 6)
+  // 手动上传的参考图片追加到尾部（总计 ≤9）
+  for (const url of videoRefImageUrls.value) pushRef(url)
+  return refs
 }
 
-function buildShotImagePrompt(sb, frameType) {
-  const title = sb.title || ''
-  const description = sb.image_prompt || sb.imagePrompt || sb.description || ''
-  const shotType = sb.shot_type || sb.shotType || ''
-  const angle = sb.angle || ''
-  const movement = sb.movement || ''
-  const location = sb.location || getSceneName(sb)
-  const time = sb.time || ''
-  const charactersText = getStoryboardCharacterNames(sb).join('、')
-  const action = sb.action || ''
-  const atmosphere = sb.atmosphere || ''
-  const frameHint = frameType === 'first_frame'
-    ? '生成这个镜头的起始关键帧，突出建立关系和动作开始瞬间'
-    : '生成这个镜头的结束关键帧，突出动作结束、情绪落点或结果状态'
-
-  return [
-    title ? `镜头标题：${title}` : '',
-    description ? `画面描述：${description}` : '',
-    shotType ? `景别：${shotType}` : '',
-    angle ? `机位：${angle}` : '',
-    movement ? `运镜：${movement}` : '',
-    charactersText ? `角色：${charactersText}` : '',
-    location ? `地点：${location}` : '',
-    time ? `时间：${time}` : '',
-    action ? `动作：${action}` : '',
-    atmosphere ? `氛围：${atmosphere}` : '',
-    frameHint,
-  ].filter(Boolean).join('；')
-}
-
-async function genShotFrame(sb, frameType) {
-  const prompt = buildShotImagePrompt(sb, frameType)
-  const referenceImages = getShotReferenceImages(sb)
-  const key = framePendingKey(sb.id, frameType)
-  try {
-    if (!pendingShotFrameKeys.value.includes(key)) pendingShotFrameKeys.value.push(key)
-    const body = {
-      storyboard_id: sb.id,
-      drama_id: dramaId,
-      prompt,
-      frame_type: frameType,
-      reference_images: referenceImages.length ? referenceImages : undefined,
-    }
-    await imageAPI.generate(body)
-    toast.success(frameType === 'first_frame' ? '首帧生成中' : '尾帧生成中')
-    await refresh()
-    watchAsyncResult(() => {
-      const target = sbs.value.find(s => s.id === sb.id)
-      const done = frameType === 'first_frame' ? !!getFirstFrame(target) : !!getLastFrame(target)
-      if (done) pendingShotFrameKeys.value = pendingShotFrameKeys.value.filter(item => item !== key)
-      return done
+function getShotReferenceAssets(sb) {
+  const assets = []
+  const scene = getStoryboardScene(sb)
+  if (scene) {
+    const imageUrl = scene.image_url || scene.imageUrl || ''
+    assets.push({
+      key: `scene-${scene.id}`,
+      type: '场景',
+      name: scene.location || '未命名场景',
+      meta: scene.time || '场景图',
+      imageUrl,
+      ready: !!imageUrl,
     })
-  } catch (e) {
-    pendingShotFrameKeys.value = pendingShotFrameKeys.value.filter(item => item !== key)
-    toast.error(e.message)
   }
+  for (const char of getStoryboardCharacters(sb)) {
+    const imageUrl = char.image_url || char.imageUrl || ''
+    assets.push({
+      key: `character-${char.id}`,
+      type: '角色',
+      name: char.name || '未命名角色',
+      meta: char.role || '角色形象',
+      imageUrl,
+      ready: !!imageUrl,
+    })
+  }
+  for (const prop of getStoryboardProps(sb)) {
+    const imageUrl = prop.image_url || prop.imageUrl || ''
+    assets.push({
+      key: `prop-${prop.id}`,
+      type: '道具',
+      name: prop.name || '未命名道具',
+      meta: prop.type || '道具单品图',
+      imageUrl,
+      ready: !!imageUrl,
+    })
+  }
+  return assets.slice(0, 6)
+}
+
+// 右侧参考素材面板：本集全部可绑定素材（场景单选、角色/道具多选），bound 标记是否已绑定
+function shotBindableAssets(sb) {
+  const out = []
+  for (const char of visualChars.value) {
+    const imageUrl = char.image_url || char.imageUrl || ''
+    out.push({
+      key: `character-${char.id}`,
+      id: char.id,
+      type: '角色',
+      name: char.name || '未命名角色',
+      meta: char.role || '角色形象',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: getStoryboardCharacterIds(sb).includes(char.id),
+    })
+  }
+  for (const scene of scenes.value) {
+    const imageUrl = scene.image_url || scene.imageUrl || ''
+    out.push({
+      key: `scene-${scene.id}`,
+      id: scene.id,
+      type: '场景',
+      name: `${scene.location} · ${scene.time || '未设时间'}`,
+      meta: scene.time || '场景图',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: (sb?.scene_id || sb?.sceneId) === scene.id,
+    })
+  }
+  for (const prop of propItems.value) {
+    const imageUrl = prop.image_url || prop.imageUrl || ''
+    out.push({
+      key: `prop-${prop.id}`,
+      id: prop.id,
+      type: '道具',
+      name: prop.name || '未命名道具',
+      meta: prop.type || '道具单品图',
+      imageUrl,
+      ready: !!imageUrl,
+      bound: getStoryboardPropIds(sb).includes(prop.id),
+    })
+  }
+  // 固定顺序（角色→场景→道具，按资产原顺序）：点击绑定/解绑不重排，避免跳动
+  return out
+}
+
+// 右侧参考素材面板渲染用：当前分镜可绑定的全部素材
+const refBindableAssets = computed(() => {
+  const sb = selectedSb.value
+  return sb ? shotBindableAssets(sb) : []
+})
+
+// 右侧面板切换绑定：场景单选（切换/解绑），角色/道具多选
+function toggleShotBind(sb, asset) {
+  if (asset.type === '场景') {
+    const current = sb?.scene_id || sb?.sceneId
+    updateField(sb, 'scene_id', current === asset.id ? null : asset.id)
+    return
+  }
+  if (asset.type === '角色') {
+    toggleStoryboardCharacter(sb, asset.id)
+    return
+  }
+  toggleStoryboardProp(sb, asset.id)
+}
+
+// 场景/角色/道具自动绑定占用的参考图片槽位（按素材卡片数，最多 9）
+const autoReferenceImageCount = computed(() => {
+  const sb = selectedSb.value
+  if (!sb) return 0
+  let count = 0
+  if (getStoryboardScene(sb)) count += 1
+  count += getStoryboardCharacters(sb).length
+  count += getStoryboardProps(sb).length
+  return Math.min(count, 9)
+})
+
+// 已占用的参考图片数（场景/角色素材 + 手动上传），展示为 n/9
+const refImageUsedCount = computed(() => Math.min(9, autoReferenceImageCount.value + videoRefImageUrls.value.length))
+// 是否已达 9 张上限（禁用继续上传）
+const refImageFull = computed(() => refImageUsedCount.value >= 9)
+
+// 视频提示词 @ 引用候选：仅当前分镜已绑定的角色与道具（按名字引用）、场景（按地点引用），展示顺序：角色 → 场景 → 道具
+const mentionOptions = computed(() => {
+  const sb = selectedSb.value
+  if (!sb) return []
+  const scene = getStoryboardScene(sb)
+  return [
+    ...getStoryboardCharacters(sb).map(c => ({
+      label: c.name,
+      value: c.name,
+      group: '角色',
+      image: assetImageSrc(c),
+    })),
+    ...(scene ? [{
+      label: `${scene.location} · ${scene.time || '未设时间'}`,
+      value: scene.location,
+      group: '场景',
+      image: assetImageSrc(scene),
+    }] : []),
+    ...getStoryboardProps(sb).map(p => ({
+      label: p.name,
+      value: p.name,
+      group: '道具',
+      image: assetImageSrc(p),
+    })),
+  ]
+})
+
+// 按参考图顺序（场景图在前、角色图居中、道具图在后）为 @名字 建立索引映射，供视频提示词引用替换
+function getShotReferenceIndexMap(sb) {
+  const ordered = []
+  const seen = new Set()
+  const push = (name, url) => {
+    if (!url || seen.has(url) || ordered.length >= 9) return
+    seen.add(url)
+    ordered.push({ name, imageUrl: url })
+  }
+  const scene = getStoryboardScene(sb)
+  push(scene?.location || '', scene?.image_url || scene?.imageUrl)
+  for (const char of getStoryboardCharacters(sb)) {
+    push(char.name || '', char?.image_url || char?.imageUrl)
+  }
+  for (const prop of getStoryboardProps(sb)) {
+    push(prop.name || '', prop?.image_url || prop?.imageUrl)
+  }
+  const nameToIndex = {}
+  ordered.forEach((a, i) => { if (a.name && !(a.name in nameToIndex)) nameToIndex[a.name] = i + 1 })
+  return nameToIndex
+}
+
+// 将视频提示词里的 @名字 替换为 @图片N名字（N 为参考图序号，1 起），生成时使用
+function resolveVideoPromptRefs(sb) {
+  const prompt = sb.video_prompt || sb.videoPrompt || ''
+  const map = getShotReferenceIndexMap(sb)
+  const names = Object.keys(map).sort((a, b) => b.length - a.length)
+  if (!names.length) return prompt
+  return prompt.replace(/@([^\s@]+)/g, (m, raw) => {
+    for (const name of names) {
+      if (raw.startsWith(name)) {
+        return `@图片${map[name]}${name}${raw.slice(name.length)}`
+      }
+    }
+    return m
+  })
+}
+
+// 切换选中分镜时重置视频生成面板
+watch(selectedSb, (sb) => {
+  videoRefVideoUrls.value = []
+  videoRefAudioUrls.value = []
+  videoRefImageUrls.value = []
+  videoDuration.value = Number(sb?.duration || 10)
+  dialogueOpen.value = false
+})
+
+function pickFile(accept, cb) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = accept
+  input.onchange = () => { const f = input.files?.[0]; if (f) cb(f) }
+  input.click()
+}
+
+function uploadRefMedia(kind) {
+  if (kind === 'image') {
+    if (refImageFull.value) { toast.info('参考图片已达上限（含场景/角色素材）'); return }
+    pickFile('image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp', async (file) => {
+      uploadingRefMedia.value = true
+      try {
+        const res = await uploadAPI.image(file)
+        videoRefImageUrls.value = [...videoRefImageUrls.value, res.url]
+        toast.success('参考图片已上传')
+      } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
+    })
+    return
+  }
+  const isVideo = kind === 'video'
+  const list = isVideo ? videoRefVideoUrls : videoRefAudioUrls
+  const label = isVideo ? '视频' : '音频'
+  if (list.value.length >= 3) { toast.info(`参考${label}最多 3 个`); return }
+  const accept = isVideo ? 'video/mp4,video/quicktime,video/webm,.m4v' : 'audio/mpeg,audio/wav,audio/mp4,.aac'
+  pickFile(accept, async (file) => {
+    uploadingRefMedia.value = true
+    try {
+      const res = isVideo ? await uploadAPI.video(file) : await uploadAPI.audio(file)
+      list.value = [...list.value, res.url]
+      toast.success(`参考${label}已上传`)
+    } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
+  })
+}
+
+function removeRefMedia(kind, index) {
+  const list = kind === 'image' ? videoRefImageUrls : kind === 'video' ? videoRefVideoUrls : videoRefAudioUrls
+  list.value = list.value.filter((_, i) => i !== index)
 }
 
 async function genVid(sb) {
+  const referenceImages = getShotReferenceImages(sb)
   const params = {
     storyboard_id: sb.id,
     drama_id: dramaId,
-    prompt: sb.video_prompt || sb.videoPrompt || '',
-    duration: Number(sb.duration || 5),
+    prompt: resolveVideoPromptRefs(sb),
+    duration: Number(videoDuration.value || sb.duration || 10),
+    aspect_ratio: dramaAspectRatio.value,
+    generate_audio: true,
+    model: videoModel.value || undefined,
+    config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
+    reference_image_urls: referenceImages,
+    reference_video_urls: videoRefVideoUrls.value,
+    reference_audio_urls: videoRefAudioUrls.value,
   }
-  const first = getFirstFrame(sb)
-  const last = getLastFrame(sb)
-  const refs = getRefs(sb)
-  if (first && last) { Object.assign(params, { reference_mode: 'first_last', first_frame_url: first, last_frame_url: last }) }
-  else if (refs.length) { Object.assign(params, { reference_mode: 'multiple', reference_image_urls: [first, ...refs].filter(Boolean) }) }
-  else if (first) { Object.assign(params, { reference_mode: 'single', image_url: first }) }
+  if (params.reference_audio_urls.length && !referenceImages.length && !params.reference_video_urls.length) {
+    toast.error('参考音频需要至少 1 个参考图片或视频')
+    return
+  }
+  if (!params.prompt && !referenceImages.length && !params.reference_video_urls.length && !params.reference_audio_urls.length) {
+    toast.error('需要至少一个参考素材或视频提示词')
+    return
+  }
   try {
     delete failedVideoMessages.value[sb.id]
     if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
-    const generation = await videoAPI.generate(params)
+    const generation = await taskAPI.generate({ type: 'video', ...params })
     toast.success('视频生成中')
     await refresh()
     pollVideoGeneration(generation?.id, sb.id)
   } catch (e) {
     pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sb.id)
+    failedVideoMessages.value = {
+      ...failedVideoMessages.value,
+      [sb.id]: e.message || '视频生成失败',
+    }
     toast.error(e.message)
   }
 }
@@ -2735,7 +3216,7 @@ async function pollVideoGeneration(generationId, storyboardId) {
   for (let i = 0; i < 120; i++) {
     await sleep(4000)
     try {
-      const res = await videoAPI.get(generationId)
+      const res = await taskAPI.get(generationId)
       await refresh()
       if (res?.status === 'completed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
@@ -2761,25 +3242,13 @@ async function pollVideoGeneration(generationId, storyboardId) {
   }
   toast.error('视频生成超时')
 }
-async function doCompose(sb) {
-  try {
-    delete failedComposeMessages.value[sb.id]
-    if (!isPendingCompose(sb.id)) pendingComposeIds.value.push(sb.id)
-    await composeAPI.shot(sb.id)
-    toast.success('合成完成')
-    pendingComposeIds.value = pendingComposeIds.value.filter(item => item !== sb.id)
-    refresh()
-  } catch (e) {
-    pendingComposeIds.value = pendingComposeIds.value.filter(item => item !== sb.id)
-    failedComposeMessages.value = {
-      ...failedComposeMessages.value,
-      [sb.id]: e.message,
-    }
-    toast.error(e.message)
-  }
-}
 function batchVideos() {
-  const pendingIds = sbs.value.filter(s => !hasVid(s)).map(s => s.id)
+  const missing = sbs.value.filter(s => !hasVid(s) && !isPendingVideo(s.id))
+  if (!missing.length) {
+    toast.info('所有镜头视频已生成')
+    return
+  }
+  const pendingIds = missing.map(s => s.id)
   pendingIds.forEach(id => {
     const sb = sbs.value.find(item => item.id === id)
     if (sb) genVid(sb)
@@ -2788,106 +3257,52 @@ function batchVideos() {
     pendingVideoIds.value = [...new Set([...pendingVideoIds.value, ...pendingIds])]
     watchAsyncResult(() => pendingIds.every(id => {
       const target = sbs.value.find(s => s.id === id)
-      const done = !!(target?.video_url || target?.videoUrl)
+      const done = !!getVideoUrl(target)
       if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== id)
       return done
     }), 80, 4000)
   }
 }
-async function batchCompose() {
-  await composeAPI.all(epId.value)
-  pendingComposeIds.value = [...new Set(sbs.value.filter(sb => !!sb.video_url || !!sb.videoUrl).map(sb => sb.id))]
-  toast.success('批量合成已开始')
-  pollComposeStatus()
-}
-async function doMerge() {
-  await mergeAPI.merge(epId.value); toast.success('拼接中...')
+async function doMerge(ids) {
+  const storyboardIds = Array.isArray(ids) ? ids : undefined
+  if (storyboardIds && !storyboardIds.length) {
+    toast.error('请先勾选至少一个已生成视频的镜头')
+    return
+  }
+  try {
+    await mergeAPI.merge(epId.value, storyboardIds)
+    toast.success('拼接中...')
+  } catch (e) {
+    toast.error(e.message || '拼接失败')
+    return
+  }
   const poll = setInterval(async () => {
     try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
     if (mergeData.value?.status === 'completed' || mergeData.value?.status === 'failed') {
       clearInterval(poll)
-      mergeData.value.status === 'completed' ? toast.success('拼接完成') : toast.error('拼接失败')
+      if (mergeData.value.status === 'completed') {
+        toast.success('拼接完成')
+        loadExportMerges()
+      } else {
+        toast.error(mergeData.value?.error_msg || mergeData.value?.errorMsg || '拼接失败')
+      }
     }
   }, 3000)
 }
-
-async function pollComposeStatus() {
-  for (let i = 0; i < 120; i++) {
-    await sleep(3000)
-    try {
-      const res = await composeAPI.status(epId.value)
-      await refresh()
-      const items = Array.isArray(res?.items) ? res.items : []
-      const processingIds = items.filter(item => item.status === 'compose_processing').map(item => item.id)
-      pendingComposeIds.value = processingIds
-
-      const failedItems = items.filter(item => item.status === 'compose_failed')
-      if (failedItems.length) {
-        const next = { ...failedComposeMessages.value }
-        failedItems.forEach((item) => {
-          next[item.id] = item.error_msg || item.errorMsg || '视频合成失败'
-        })
-        failedComposeMessages.value = next
-      }
-
-      if (!processingIds.length) {
-        if (failedItems.length) toast.error(`有 ${failedItems.length} 个镜头合成失败`)
-        else toast.success('批量合成完成')
-        return
-      }
-    } catch {}
-  }
-}
-function getRefs(sb) {
-  const raw = sb.reference_images || sb.referenceImages
-  if (!raw) return []
-  try { return JSON.parse(raw) } catch { return [] }
-}
-
 async function loadConfigs() {
   try {
-    const [imgCfgs, vidCfgs, audCfgs] = await Promise.all([
+    const [imgCfgs, vidCfgs, txtCfgs] = await Promise.all([
       aiConfigAPI.list('image'),
       aiConfigAPI.list('video'),
-      aiConfigAPI.list('audio'),
+      aiConfigAPI.list('text'),
     ])
     imageConfigs.value = imgCfgs || []
     videoConfigs.value = vidCfgs || []
-    audioConfigs.value = audCfgs || []
+    textConfigs.value = txtCfgs || []
   } catch (e) { console.error('Failed to load AI configs', e) }
 }
 
-function inferVoiceGender(name, desc = []) {
-  const text = `${name} ${Array.isArray(desc) ? desc.join(' ') : ''}`
-  if (/[男|青年|大爷|学长|boy|man|male]/i.test(text)) return '男声'
-  if (/[女|少女|御姐|奶奶|girl|woman|female]/i.test(text)) return '女声'
-  return '中性'
-}
-
-function mapVoiceProfile(v) {
-  const desc = Array.isArray(v.description) ? v.description : []
-  return {
-    id: v.voice_id,
-    label: v.voice_name || v.voice_id,
-    gender: inferVoiceGender(v.voice_name || v.voice_id, desc),
-    traits: desc.length ? desc.slice(0, 2).join('、') : `${v.language || '多语言'}音色`,
-    suitable: desc.length > 2 ? desc.slice(2).join('、') : `${v.language || '通用'}角色`,
-  }
-}
-
-async function loadVoices() {
-  try {
-    const provider = lockedAudioProvider.value || 'minimax'
-    const rows = await voicesAPI.list(provider)
-    voiceProfiles.value = rows?.length ? rows.map(mapVoiceProfile) : fallbackVoiceProfiles
-  } catch (e) {
-    console.error('Failed to load voices', e)
-    voiceProfiles.value = fallbackVoiceProfiles
-  }
-}
-
-watch([lockedAudioConfigId, audioConfigs], () => { loadVoices() }, { deep: true })
-onMounted(() => { refresh(); loadConfigs(); loadVoices() })
+onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 </script>
 
 <style scoped>
@@ -2897,12 +3312,14 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  padding: 14px;
-  gap: 12px;
-  background:
-    radial-gradient(circle at top left, rgba(255,255,255,0.7), transparent 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0)),
-    var(--bg-base);
+  padding: 8px;
+  gap: 8px;
+  background: var(--surface-base);
+  /* 选中态:靛蓝色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
+  --sel: #5856d6;
+  --sel-bg: rgba(88, 86, 214, 0.10);
+  --sel-text: #4240b0;
+  --sel-glow: rgba(88, 86, 214, 0.16);
 }
 
 .studio-topbar {
@@ -2911,21 +3328,22 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   justify-content: space-between;
   gap: 8px;
   flex-shrink: 0;
-  padding: 8px 12px;
-  border-radius: 18px;
-  background: rgba(252, 253, 255, 0.84);
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  box-shadow: 0 14px 36px rgba(20, 32, 54, 0.07), 0 3px 10px rgba(20, 32, 54, 0.04);
-  backdrop-filter: blur(16px);
+  min-height: 40px;
+  padding: 4px 10px;
+  border-radius: var(--radius-lg);
+  background: rgba(251,251,253,0.72);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 .studio-topbar-main,
 .sidebar,
 .main {
-  background: rgba(252, 253, 255, 0.84);
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  box-shadow: 0 18px 48px rgba(20, 32, 54, 0.08), 0 4px 14px rgba(20, 32, 54, 0.05);
-  backdrop-filter: blur(16px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
 }
 
 .studio-topbar-main {
@@ -2940,12 +3358,13 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   min-width: 0;
 }
 
-.topbar-back {
+/* 用更高特异性压过后面的 .back-btn{height:40px}，保持顶栏紧凑 */
+.studio-topbar .topbar-back {
   width: auto;
-  min-width: 76px;
-  padding: 0 8px;
-  height: 28px;
-  border-radius: 999px;
+  min-width: 72px;
+  padding: 0 12px;
+  height: 26px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   font-size: 11px;
 }
@@ -2974,7 +3393,7 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 }
 
 .studio-title {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   letter-spacing: -0.04em;
   white-space: nowrap;
@@ -2983,10 +3402,10 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 .studio-episode-chip {
   display: inline-flex;
   align-items: center;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: rgba(19, 51, 121, 0.08);
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
   color: var(--accent-text);
   font-size: 9px;
   font-weight: 700;
@@ -3004,21 +3423,21 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   display: inline-flex;
   align-items: center;
   height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgba(18, 25, 42, 0.05);
-  color: var(--text-2);
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-bg);
+  color: var(--accent-text);
   font-size: 8px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .studio-meta-pill.is-stage {
-  background: rgba(19, 51, 121, 0.08);
+  background: var(--accent-bg);
   color: var(--accent-text);
 }
 .studio-meta-pill.is-progress {
-  background: rgba(45, 122, 69, 0.08);
+  background: var(--success-bg);
   color: var(--success);
 }
 .studio-meta-inline {
@@ -3040,16 +3459,16 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   gap: 6px;
 }
 .studio-topbar .btn {
-  height: 28px;
-  padding: 0 10px;
-  font-size: 11px;
+  height: 26px;
+  padding: 0 9px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 
 .studio-body {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 208px minmax(0, 1fr);
+  gap: 8px;
   min-height: 0;
   flex: 1;
 }
@@ -3062,76 +3481,142 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  border-radius: 28px;
+  border-radius: var(--radius);
 }
 .back-btn {
-  width: 40px; height: 40px; flex-shrink: 0;
+  min-width: 40px; width: auto; height: 40px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(27, 41, 64, 0.1); border-radius: 14px;
-  background: rgba(255,255,255,0.8); color: var(--text-2);
-  cursor: pointer; transition: all 0.15s;
-  box-shadow: var(--shadow-xs);
+  gap: 6px;
+  padding: 0 12px;
+  border: none; border-radius: var(--radius-pill);
+  background: rgba(0,0,0,0.05); color: var(--text-1);
+  cursor: pointer; transition: all 0.18s var(--ease-out);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
 }
-.back-btn:hover { background: #fff; color: var(--text-0); }
+.back-btn:hover {
+  background: rgba(0,0,0,0.09);
+  color: var(--text-0);
+}
+.back-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px var(--button-focus);
+}
 
 /* Pipeline Nav */
-.pipeline { flex: 1; overflow-y: auto; padding: 16px 14px 12px; display: flex; flex-direction: column; gap: 12px; }
-.pipe-section { display: flex; flex-direction: column; gap: 4px; }
+.pipeline { flex: 1; overflow-y: auto; padding: 12px 10px 8px; display: flex; flex-direction: column; gap: 8px; }
+.pipe-section { display: flex; flex-direction: column; gap: 2px; }
 .pipe-section-label {
-  font-size: 10px; font-weight: 700; color: #95a1b6;
-  text-transform: uppercase; letter-spacing: 0.1em;
-  padding: 2px 8px 3px;
+  display: flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 0 7px 2px;
+}
+.pipe-section.is-done .pipe-section-label { color: var(--success); }
+.pipe-section.is-active .pipe-section-label { color: var(--accent); }
+.pipe-section-state {
+  width: 13px; height: 13px; border-radius: 999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pipe-section.is-done .pipe-section-state {
+  background: var(--success-bg); color: var(--success);
+  border: 1px solid rgba(52,199,89,0.3);
+}
+.pipe-section-dot {
+  width: 5px; height: 5px; border-radius: 999px;
+  background: var(--text-3); opacity: 0.55;
+}
+.pipe-section-pulse {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent);
+  animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
+}
+@keyframes pipeSectionPulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  70% { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.pipe-section-tag {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--accent); background: var(--accent-bg);
+  border-radius: 999px; padding: 1px 5px;
+  text-transform: none;
+}
+/* 子步骤进行中:与大环节同步的脉冲点 */
+.pipe-item.doing { color: var(--text-1); }
+.pipe-item.doing .pipe-icon {
+  background: var(--accent-bg);
+  border-color: rgba(0,113,227,0.25);
+}
+.pipe-item-pulse {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent);
+  animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
 }
 .pipe-item {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
   padding: 7px 10px;
-  border-radius: 17px;
+  border-radius: var(--radius);
   font-size: 12px; font-weight: 600;
-  background: none; border: 1px solid transparent; color: var(--text-2); cursor: pointer;
-  transition: all 0.14s; width: 100%; text-align: left;
+  background: transparent; border: 1px solid transparent; color: var(--text-2); cursor: pointer;
+  transition: all 0.18s var(--ease-out); width: 100%; text-align: left;
 }
-.pipe-item:hover { background: rgba(255,255,255,0.3); color: var(--text-0); }
-.pipe-item.active {
-  background: rgba(255,255,255,0.94);
+.pipe-item:hover {
+  background: var(--button-bg);
+  border-color: var(--button-border);
   color: var(--text-0);
-  border-color: rgba(27, 41, 64, 0.05);
-  box-shadow: 0 8px 18px rgba(19, 33, 56, 0.045);
+  box-shadow: var(--button-shadow);
 }
-.pipe-item.done { color: var(--success); }
+.pipe-item.active {
+  background: var(--sel-bg);
+  color: var(--sel-text);
+  border-color: transparent;
+  box-shadow: none;
+}
+.pipe-item:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow);
+}
+.pipe-item.done { color: var(--text-2); }
 .pipe-item-sub {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  padding: 7px 10px;
+  padding: 5px 8px;
   position: relative;
-  min-height: 42px;
+  min-height: 34px;
 }
 
 .pipe-item-sub:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 18px;
-  top: 25px;
-  bottom: -7px;
+  left: 15px;
+  top: 23px;
+  bottom: -6px;
   width: 1px;
-  background: rgba(27, 41, 64, 0.07);
+  background: var(--border);
 }
 
 .pipe-icon {
-  width: 17px; height: 17px; border-radius: 999px;
+  width: 16px; height: 16px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(246,248,252,0.98); border: 1px solid rgba(18,25,42,0.08);
-  color: #aab4c6; flex-shrink: 0; transition: all 0.15s;
+  background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text-3); flex-shrink: 0; transition: all 0.15s;
   position: relative;
   z-index: 1;
 }
-.pipe-item.active .pipe-icon { background: rgba(19, 51, 121, 0.07); border-color: rgba(19, 51, 121, 0.1); color: var(--accent-text); }
-.pipe-item.done .pipe-icon { background: rgba(45, 122, 69, 0.96); border-color: rgba(45,122,69,0.18); color: #fff; }
-.icon-active { background: var(--accent-dark) !important; border-color: var(--accent-dark) !important; color: #fff !important; }
-.icon-done { background: var(--success) !important; border-color: var(--success) !important; color: #fff !important; }
+.pipe-item.active .pipe-icon { background: var(--sel); border-color: var(--sel); color: #fff; }
+.pipe-item.done .pipe-icon { background: var(--success-bg); border-color: rgba(52,199,89,0.3); color: var(--success); }
+.pipe-item.active.done .pipe-icon { background: var(--sel); border-color: var(--sel); color: #fff; }
+.icon-active { background: var(--sel) !important; border-color: var(--sel) !important; color: #fff !important; }
+.icon-done { background: var(--success-bg) !important; border-color: rgba(52,199,89,0.3) !important; color: var(--success) !important; }
+.pipe-item.active.done .icon-done { background: var(--sel) !important; border-color: var(--sel) !important; color: #fff !important; }
 
-.pipe-label { flex: 1; font-size: 11.5px; }
+.pipe-label { flex: 1; font-size: 11px; }
 .pipe-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .pipe-sub {
+  display: none;
   font-size: 8.5px;
   line-height: 1.35;
   color: var(--text-3);
@@ -3147,121 +3632,122 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 
 /* Sidebar Bottom */
 .sidebar-bottom {
-  padding: 12px 14px 14px;
-  border-top: 1px solid rgba(27, 41, 64, 0.08);
-  display: flex; flex-direction: column; gap: 8px;
+  padding: 9px 10px 10px;
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 7px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.72));
+  background: var(--surface-soft);
 }
 .sidebar-jumper {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 3px 0 2px;
+  gap: 6px;
+  padding: 2px 0 1px;
 }
 .sidebar-jump-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   border: none;
-  background: rgba(45, 122, 69, 0.22);
+  padding: 0;
+  background: rgba(0,0,0,0.14);
   cursor: pointer;
-  transition: transform 0.14s, background 0.14s, box-shadow 0.14s;
+  transition: all 0.2s var(--ease-out);
 }
 .sidebar-jump-dot:hover {
   transform: scale(1.08);
 }
 .sidebar-jump-dot.active {
-  background: var(--accent-dark);
-  box-shadow: 0 0 0 2px rgba(76, 125, 255, 0.14);
+  width: 20px;
+  background: var(--sel);
 }
 .sidebar-jump-dot.done {
   background: var(--success);
 }
 .sidebar-jump-dot.active.done {
-  background: #1e3f8a;
+  width: 20px;
+  background: var(--sel);
 }
-.progress-wrap { display: flex; flex-direction: column; gap: 5px; }
-.progress-head { display: flex; justify-content: space-between; }
-.progress-label { font-size: 10.5px; color: var(--text-3); font-weight: 500; }
-.progress-val { font-size: 10.5px; color: var(--text-2); font-family: var(--font-mono); font-weight: 600; }
-.progress-track { height: 6px; background: rgba(194, 207, 227, 0.92); border-radius: 99px; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--accent-gradient); border-radius: 99px; transition: width 0.5s var(--ease-out); }
+.sidebar-jump-dot:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
 .refresh-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px; font-size: 11.5px; color: var(--text-2);
-  background: rgba(255,255,255,0.86); border: 1px solid rgba(27, 41, 64, 0.08); border-radius: 999px;
-  cursor: pointer; transition: all 0.15s;
+  min-height: 28px;
+  padding: 0 10px; font-size: 11.5px; font-weight: 650; color: var(--button-text);
+  background: var(--button-bg); border: 1px solid var(--button-border); border-radius: var(--button-radius);
+  cursor: pointer; transition: all 0.18s var(--ease-out);
+  box-shadow: var(--button-shadow);
 }
-.refresh-btn:hover { background: #fff; color: var(--text-0); }
+.refresh-btn:hover {
+  background: var(--button-bg-hover);
+  border-color: var(--button-border-hover);
+  color: var(--button-text-hover);
+  box-shadow: var(--button-shadow-hover);
+}
+.refresh-btn:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
+}
 
 /* ===== Main Content ===== */
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; border-radius: 30px; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; border-radius: var(--radius); }
 .content-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-height: 0; }
 .stage-subnav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(255,255,255,0.52));
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  max-width: calc(100% - 24px);
   overflow-x: auto;
   flex-shrink: 0;
 }
 .stage-subnav-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 11px;
-  border-radius: 999px;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  background: rgba(255,255,255,0.7);
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 600;
+  gap: 6px;
   white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.stage-subnav-item:hover {
-  background: #fff;
-  color: var(--text-0);
+  /* 压过全局 .seg-item{padding:7px 16px}，收紧子导航高度 */
+  padding: 4px 13px;
+  font-size: 12px;
 }
 .stage-subnav-item.active {
-  background: rgba(19, 51, 121, 0.08);
-  border-color: rgba(19, 51, 121, 0.12);
-  color: #1e3f8a;
+  background: #fff;
+  color: var(--text-0);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
 .stage-subnav-item.done {
   color: var(--text-1);
 }
+.stage-subnav-item.active.done {
+  color: var(--text-0);
+}
 .stage-subnav-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: var(--success);
-  box-shadow: 0 0 0 4px rgba(45, 122, 69, 0.1);
 }
 
 /* Toolbar */
 .step-toolbar {
   display: flex; align-items: center; gap: 10px;
-  padding: 11px 14px; border-bottom: 1px solid rgba(27, 41, 64, 0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.42)); flex-shrink: 0;
+  min-height: 44px;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: var(--surface-raised); flex-shrink: 0;
 }
-.prod-toolbar { background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.42)); }
+.prod-toolbar { background: var(--surface-raised); }
 .toolbar-left { display: flex; align-items: center; gap: 8px; flex: 1; }
 .toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .step-indicator { display: flex; align-items: center; gap: 8px; }
 .step-num {
   width: 26px; height: 26px; border-radius: 10px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(19, 51, 121, 0.08);
+  background: var(--accent-bg);
   font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--accent-text); letter-spacing: 0.05em;
 }
-.step-name { font-size: 13px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
+.step-name { font-size: 12.5px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
 .char-count { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
 
 /* Editor Area */
@@ -3269,7 +3755,7 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 .fill-textarea {
   flex: 1; border: none; border-radius: 0; padding: 26px 28px;
   font-size: 13.5px; line-height: 1.9; resize: none; outline: none;
-  font-family: var(--font-body); background: linear-gradient(180deg, rgba(255,255,255,0.28), rgba(255,255,255,0.12)); color: var(--text-0);
+  font-family: var(--font-body); background: var(--bg-input); color: var(--text-0);
 }
 .fill-textarea:focus { box-shadow: none; }
 
@@ -3281,8 +3767,8 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 }
 .empty-visual {
   width: 72px; height: 72px; border-radius: 22px;
-  background: rgba(255,255,255,0.8); color: var(--accent);
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  background: var(--bg-1); color: var(--accent);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 8px;
@@ -3300,138 +3786,375 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 
 /* Step Navigator Bubble */
 .step-bubble {
-  position: static;
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 14px 12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.58));
-  border-top: 1px solid rgba(27, 41, 64, 0.08);
-  margin-top: auto;
+  padding: 6px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lift);
 }
 .bubble-btn {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
-  border: 1px solid rgba(27, 41, 64, 0.08); background: rgba(255,255,255,0.84); color: var(--text-2); cursor: pointer;
-  transition: all 0.15s; white-space: nowrap;
+  min-height: var(--button-height-sm);
+  padding: 0 12px; border-radius: var(--radius-pill); font-size: 11.5px; font-weight: 650;
+  border: none; background: var(--button-bg); color: var(--button-text); cursor: pointer;
+  transition: all 0.18s var(--ease-out); white-space: nowrap;
+  line-height: 1;
 }
-.bubble-btn:hover:not(:disabled) { background: #fff; color: var(--text-0); }
-.bubble-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.bubble-btn.primary { margin-left: auto; background: linear-gradient(135deg, #557ff4, #345fcc); color: #fff; box-shadow: 0 6px 16px rgba(53, 95, 206, 0.2); border-color: transparent; }
-.bubble-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
-.bubble-btn.primary:disabled { filter: none; box-shadow: none; opacity: 0.5; }
+.bubble-btn:hover:not(:disabled) {
+  background: var(--button-bg-hover);
+  color: var(--button-text-hover);
+}
+.bubble-btn:disabled { opacity: 0.44; cursor: not-allowed; }
+.bubble-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
+.bubble-btn.primary {
+  margin-left: auto;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
+}
+.bubble-btn.primary:hover:not(:disabled) { background: var(--action-primary-hover); }
+.bubble-btn.primary:disabled { opacity: 0.5; }
 .bubble-dots { display: flex; gap: 7px; padding: 0 4px; }
 .bubble-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: rgba(143, 160, 184, 0.4); cursor: pointer; transition: all 0.15s;
+  background: rgba(0,0,0,0.14); cursor: pointer; transition: all 0.15s;
   border: none;
+  padding: 0;
 }
 .bubble-dot.done { background: var(--success); }
-.bubble-dot.current { background: var(--accent-dark); transform: scale(1.2); box-shadow: 0 0 0 2px rgba(76, 125, 255, 0.14); }
+.bubble-dot.current { background: var(--sel); transform: scale(1.2); }
+.bubble-dot:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
 
-/* Extract grid */
-.extract-stage { flex: 1; min-height: 0; overflow: hidden; padding: 12px 16px; display: grid; grid-template-columns: 280px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: stretch; }
-.extract-summary { padding: 16px; display: flex; flex-direction: column; gap: 14px; align-self: stretch; position: sticky; top: 0; max-height: 100%; }
-.extract-summary-kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
-.extract-summary-title { font-size: 20px; line-height: 1.05; font-family: var(--font-display); color: var(--text-0); }
-.extract-summary-desc { font-size: 12px; color: var(--text-2); line-height: 1.7; }
-.extract-summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.extract-summary-stat { padding: 10px 12px; border-radius: 14px; background: rgba(19, 51, 121, 0.05); border: 1px solid rgba(19, 51, 121, 0.08); display: flex; flex-direction: column; gap: 4px; }
-.extract-summary-stat span { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
-.extract-summary-stat strong { font-size: 18px; color: var(--text-0); font-family: var(--font-display); }
-.extract-summary-note { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.56); border: 1px solid rgba(27, 41, 64, 0.08); font-size: 11px; line-height: 1.7; color: var(--text-2); }
-.extract-card { overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
-.extract-card-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 11px 14px; font-size: 12px; font-weight: 600;
-  border-bottom: 1px solid var(--border); background: var(--bg-1);
-  color: var(--text-1);
-}
-.extract-list { padding: 8px 14px; flex: 1; min-height: 0; overflow-y: auto; }
-.extract-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
-.extract-row + .extract-row { border-top: 1px solid var(--border); }
-.char-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--accent-bg); color: var(--accent-text);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; flex-shrink: 0;
-}
-.scene-icon {
-  width: 30px; height: 30px; border-radius: 6px;
-  background: var(--bg-2); border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text-3); flex-shrink: 0;
-}
-.extract-info { min-width: 0; }
-.extract-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.extract-name { font-size: 13px; font-weight: 600; }
-.extract-meta { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.extract-meta.wrap { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-
-/* Voice grid */
-.voice-stage { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 12px; }
-.voice-stage-panel {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-self: start;
-  position: sticky;
-  top: 0;
+/* Split layout (storyboard) */
+.storyboard-workbench {
+  flex: 1;
   min-height: 0;
-  max-height: calc(100vh - 210px);
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr) 280px;
+  gap: 12px;
+  padding: 12px 14px 16px;
   overflow: hidden;
 }
-.voice-stage-kicker { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
-.voice-stage-title { font-size: 20px; line-height: 1.05; font-family: var(--font-display); color: var(--text-0); }
-.voice-stage-desc { font-size: 12px; color: var(--text-2); line-height: 1.7; }
-.voice-stage-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.voice-stage-stat { padding: 10px 12px; border-radius: 14px; background: rgba(19, 51, 121, 0.05); border: 1px solid rgba(19, 51, 121, 0.08); display: flex; flex-direction: column; gap: 3px; }
-.voice-stage-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
-.voice-stage-stat strong { font-size: 18px; color: var(--text-0); font-family: var(--font-display); }
-.voice-library-meta {
+.storyboard-shot-list {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+}
+.storyboard-shot-card {
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text-1);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
+}
+.storyboard-shot-card + .storyboard-shot-card { margin-top: 7px; }
+.storyboard-shot-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card);
+}
+.storyboard-shot-card.active {
+  background: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+}
+/* 多选模式：选中的卡片高亮描边 */
+.storyboard-shot-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+  background: var(--accent-soft, #f0f7ff);
+}
+.storyboard-shot-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.storyboard-shot-chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.storyboard-editor-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.sb-header-top {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
 }
-.voice-library {
+.sb-header-top .detail-head-copy { flex-direction: row; align-items: baseline; gap: 4px; min-width: 0; }
+.sb-header-total { font-size: 11px; white-space: nowrap; }
+.sb-header-fields {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.sb-field-label { font-size: 12px; color: var(--text-3); flex-shrink: 0; }
+.sb-duration-input { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.sb-duration-input .input { width: 56px; height: 30px; padding: 4px 8px; font-size: 12.5px; }
+.sb-duration-unit { font-size: 11px; color: var(--text-3); }
+.storyboard-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+/* 编辑器内：取消卡片式分块，改为整白面板 + 发丝分隔线 */
+.storyboard-editor-scroll .detail-section {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.storyboard-editor-scroll .detail-section:last-child {
+  border-bottom: none;
+}
+/* 描述 / 视频提示词 左右双栏分割 */
+.storyboard-editor-scroll .sb-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+.storyboard-editor-scroll .sb-split .detail-section {
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.storyboard-editor-scroll .sb-split .detail-section:first-child {
+  border-right: 1px solid var(--border);
+}
+.storyboard-editor-scroll .sb-split .detail-section-copy {
+  margin-top: -4px;
+}
+/* 双栏内字段撑满面板高度 */
+.storyboard-editor-scroll .sb-split .field { flex: 1; min-height: 0; }
+.storyboard-editor-scroll .sb-split .field .textarea { flex: 1; min-height: 64px; resize: vertical; }
+.storyboard-editor-scroll .sb-split .field-grid-2 { flex: 1; }
+.storyboard-editor-scroll .sb-split .mention-textarea {
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 1200px) {
+  .storyboard-editor-scroll .sb-split { grid-template-columns: 1fr; }
+  .storyboard-editor-scroll .sb-split .detail-section:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+/* 上一条 / 下一条导航 */
+.sb-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sb-nav-btn {
+  flex-shrink: 0;
+}
+.storyboard-reference-panel {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+}
+.storyboard-ref-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.storyboard-ref-title { font-size: 13px; font-weight: 800; color: var(--text-0); }
+.storyboard-ref-copy { margin-top: 3px; font-size: 11px; color: var(--text-3); }
+.storyboard-ref-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
 }
-.voice-library-item { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.56); border: 1px solid rgba(27, 41, 64, 0.08); display: flex; flex-direction: column; gap: 4px; }
-.voice-library-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.voice-library-name { font-size: 13px; font-weight: 700; color: var(--text-0); }
-.voice-library-traits { font-size: 11px; color: var(--text-1); }
-.voice-library-fit { font-size: 10px; color: var(--text-3); line-height: 1.5; }
-
-.voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-content: start; }
-.voice-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; border-radius: 22px; min-height: 0; }
-.voice-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.voice-char { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.voice-name { min-width: 0; flex: 1; }
-.voice-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.voice-card-copy { min-height: 58px; }
-.voice-card-text { font-size: 12px; line-height: 1.7; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.voice-select-block { display: flex; flex-direction: column; gap: 6px; }
-.voice-block-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
-.voice-profile-card { padding: 12px; border-radius: 16px; background: linear-gradient(135deg, rgba(19, 51, 121, 0.08), rgba(255,255,255,0.78)); border: 1px solid rgba(19, 51, 121, 0.1); display: flex; flex-direction: column; gap: 4px; }
-.voice-profile-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.voice-profile-name { font-size: 13px; font-weight: 700; color: var(--accent-text); }
-.voice-profile-traits { font-size: 11px; color: var(--text-1); }
-.voice-profile-fit { font-size: 10px; color: var(--text-2); line-height: 1.5; }
-.voice-actions-row { display: flex; align-items: center; gap: 8px; }
-.voice-player audio { width: 100%; height: 30px; border-radius: var(--radius); }
-.char-avatar.lg { width: 38px; height: 38px; font-size: 16px; }
-
-/* Split layout (storyboard) */
+.storyboard-ref-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.storyboard-ref-group + .storyboard-ref-group {
+  margin-top: 6px;
+}
+.storyboard-ref-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+  padding: 0 2px;
+}
+.storyboard-ref-goto {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.storyboard-ref-goto:hover {
+  background: var(--accent-bg);
+}
+.storyboard-ref-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 7px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-out), opacity 0.15s var(--ease-out);
+}
+.storyboard-ref-item:hover { border-color: var(--accent); }
+.storyboard-ref-item:not(.bound) {
+  background: transparent;
+  border-color: var(--border);
+  opacity: 0.72;
+}
+.storyboard-ref-item:not(.bound):hover { opacity: 1; border-color: var(--accent); }
+.storyboard-ref-item:not(.bound) .storyboard-ref-main .storyboard-ref-name { color: var(--text-2); }
+.storyboard-ref-item.bound {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(0,113,227,0.06));
+}
+.storyboard-ref-item.bound:hover { border-color: var(--accent); }
+.storyboard-ref-thumb {
+  width: 48px;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  border: 1px solid var(--surface-outline);
+  overflow: hidden;
+  background: var(--bg-2);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.storyboard-ref-thumb:disabled { cursor: default; }
+.storyboard-ref-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 对白折叠入口 */
+.dialogue-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px dashed var(--surface-outline);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), background 0.16s var(--ease-out);
+}
+.dialogue-add:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.storyboard-ref-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.storyboard-ref-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.storyboard-ref-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--text-0);
+}
+.storyboard-ref-state {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-3);
+}
+.storyboard-ref-state.is-ready { color: var(--success); }
+.storyboard-ref-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.storyboard-ref-empty {
+  padding: 14px 10px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px dashed var(--surface-outline);
+  border-radius: var(--radius);
+}
 .split-layout { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 .shot-list { width: 296px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid var(--border); background: var(--bg-0); }
 .shot-list-head {
@@ -3439,56 +4162,87 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   top: 0;
   z-index: 1;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
   padding: 11px 12px 10px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.06);
-  background: rgba(255,255,255,0.92);
+  border-bottom: 1px solid var(--surface-outline);
+  background: var(--surface-raised);
   backdrop-filter: blur(10px);
 }
+.shot-list-head-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.shot-list-head-copy { flex: 1; min-width: 0; }
 .shot-list-title { font-size: 13px; font-weight: 700; color: var(--text-0); }
 .shot-list-sub { margin-top: 3px; font-size: 11px; color: var(--text-3); line-height: 1.45; }
-.shot-list-body { padding: 6px; }
-.shot-item {
-  position: relative; padding: 10px 11px; cursor: pointer;
-  border: 1px solid transparent; border-left: 3px solid transparent;
-  transition: all 0.15s;
-  display: flex; flex-direction: column; gap: 5px;
-  border-radius: 14px;
-}
-.shot-item + .shot-item { margin-top: 6px; }
-.shot-item:hover { background: var(--bg-hover); border-color: rgba(27, 41, 64, 0.06); }
-.shot-item.active {
-  background: var(--bg-0);
-  border-left-color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent-glow);
-  z-index: 1;
-}
-.shot-item-header { display: flex; align-items: center; gap: 8px; }
+.shot-list-body { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
 .shot-num {
   font-size: 11px; font-family: var(--font-mono); font-weight: 700;
   color: var(--accent); background: var(--accent-bg);
   padding: 2px 6px; border-radius: 4px; flex-shrink: 0;
   letter-spacing: 0.03em;
 }
-.shot-item.active .shot-num { background: var(--accent); color: #fff; }
-.shot-status { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
-.shot-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg-3); flex-shrink: 0; }
-.shot-dot.has-img { background: var(--success); }
-.shot-dot.has-video { background: var(--info); }
-.shot-dot.has-dialogue { background: var(--warning); }
 .shot-body { }
 .shot-desc { font-size: 12px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-1); }
-.shot-item.active .shot-desc { color: var(--text-0); }
-.shot-meta { display: flex; align-items: center; gap: 6px; }
+.shot-desc.is-empty { color: var(--text-3); font-style: italic; }
+.shot-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
 .shot-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
   font-size: 10px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.shot-location svg { flex-shrink: 0; }
+.shot-chip-video {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  flex-shrink: 0;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.shot-avatars { display: flex; align-items: center; min-width: 0; }
+.shot-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--surface-raised);
+  background: var(--bg-2);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.shot-avatar + .shot-avatar { margin-left: -4px; }
+.shot-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.shot-avatar-more { font-size: 8px; color: var(--text-3); }
+.shot-avatars-empty { font-size: 10px; color: var(--text-3); }
+.shot-flags { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.shot-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.shot-flag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg-3); flex-shrink: 0; }
+.shot-flag.on { color: var(--text-2); }
+.shot-flag.flag-dialogue.on .dot { background: var(--warning); }
+.shot-flag.flag-video.on .dot { background: var(--info); }
 .shot-dialogue {
   font-size: 10px; color: var(--text-3); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -3500,16 +4254,15 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 .detail-head { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .detail-head-copy { display: flex; flex-direction: column; gap: 2px; }
 .detail-head-title { font-size: 14px; font-weight: 700; color: var(--text-0); }
-.detail-head-sub { font-size: 11px; color: var(--text-3); }
 .detail-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .detail-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.9fr);
   gap: 12px;
   padding: 12px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(20,39,82,0.08), rgba(255,255,255,0.68));
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
 }
 .detail-hero-copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .detail-hero-label {
@@ -3518,27 +4271,14 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 }
 .detail-hero-text { font-size: 13px; color: var(--text-1); line-height: 1.7; }
 .detail-status-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.detail-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.detail-preview-card { display: flex; flex-direction: column; gap: 6px; }
-.detail-preview-title { font-size: 11px; font-weight: 700; color: var(--text-2); }
-.detail-preview-media {
-  position: relative; aspect-ratio: 16/9; overflow: hidden;
-  border-radius: 14px; background: rgba(18,25,42,0.08);
-  border: 1px solid rgba(27, 41, 64, 0.08);
-}
-.detail-preview-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.detail-preview-empty {
-  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-  color: var(--text-3); font-size: 12px;
-}
 .detail-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.72);
-  border: 1px solid rgba(27, 41, 64, 0.08);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
 }
 .detail-section-head {
   display: flex;
@@ -3563,8 +4303,8 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   height: 30px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(19, 51, 121, 0.08);
-  border: 1px solid rgba(19, 51, 121, 0.12);
+  background: var(--surface-muted);
+  border: 1px solid var(--surface-outline);
   color: var(--text-1);
   font-size: 11px;
   font-weight: 600;
@@ -3574,60 +4314,343 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   font-size: 12px;
   color: var(--text-2);
 }
-.role-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.role-pill {
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(27, 41, 64, 0.12);
-  background: rgba(255,255,255,0.86);
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.role-pill:hover { border-color: var(--accent); color: var(--text-0); }
-.role-pill.active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(29, 77, 176, 0.18);
-}
 
 /* Production tabs */
-.prod-tabs { display: flex; gap: 0; background: var(--bg-2); border-radius: var(--radius); padding: 2px; }
+.prod-tabs { display: flex; gap: 4px; background: var(--bg-2); border-radius: var(--radius); padding: 2px; }
 .prod-tab {
-  display: flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 12px;
-  border: none; background: transparent; color: var(--text-2); cursor: pointer;
-  border-radius: calc(var(--radius) - 2px); transition: all 0.15s; font-weight: 500;
+  display: flex; align-items: center; gap: 4px; min-height: 26px; padding: 0 10px; font-size: 11px;
+  border: 1px solid transparent; background: transparent; color: var(--text-2); cursor: pointer;
+  border-radius: calc(var(--radius) - 2px); transition: all 0.18s var(--ease-out); font-weight: 650;
+  line-height: 1;
 }
-.prod-tab:hover { color: var(--text-0); }
-.prod-tab.active { background: var(--bg-0); color: var(--text-0); font-weight: 600; box-shadow: var(--shadow-xs); }
+.prod-tab:hover { color: var(--text-0); background: var(--button-bg); border-color: var(--button-border); }
+.prod-tab.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 650; border-color: var(--accent-glow); box-shadow: none; }
+.prod-tab:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow);
+}
 .prod-tab-badge { font-size: 10px; font-family: var(--font-mono); padding: 0 4px; background: var(--bg-3); border-radius: 99px; }
 .prod-tab.active .prod-tab-badge { background: var(--accent-bg); color: var(--accent-text); }
 
 /* Production content */
-.prod-content { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
-.prod-section-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.prod-content { flex: 1; overflow-y: auto; padding: 10px 12px 64px; display: flex; flex-direction: column; gap: 10px; }
+.prod-section-bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 
-.dub-grid { display: flex; flex-direction: column; gap: 10px; }
-.dub-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; border-radius: 20px; background: linear-gradient(180deg, rgba(255,255,255,0.74), rgba(248,251,255,0.58)); }
-.dub-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.dub-copy { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.dub-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dub-desc { font-size: 13px; line-height: 1.6; color: var(--text-1); }
-.dub-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11px; }
-.dub-foot { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(27, 41, 64, 0.08); }
-.dub-audio { flex: 1; min-width: 0; height: 30px; }
+/* 资产栏动作：提取（虚线中性）与批量生成（强调色）视觉分组 */
+.asset-bar-actions { align-items: center; }
+.asset-bar-divider { width: 1px; height: 16px; margin: 0 4px; background: var(--surface-outline-strong); }
+.asset-btn-extract {
+  background: transparent;
+  color: var(--text-2);
+  box-shadow: none;
+  border: 1px dashed var(--surface-outline-strong);
+}
+.asset-btn-extract:hover { background: var(--surface-muted); color: var(--text-1); }
+.asset-btn-batch {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  box-shadow: none;
+}
+.asset-btn-batch:hover { background: var(--accent); color: #fff; }
+
+/* 资产分区标题：新增入口 + 卡片删除按钮 */
+.asset-section-title { display: flex; align-items: center; gap: 8px; }
+.asset-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--surface-outline-strong);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.asset-add-btn:hover { color: var(--accent-text); border-color: var(--accent-text); }
+.character-asset-card, .asset-click-card { position: relative; }
+.asset-del-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+.asset-del-btn:hover { background: var(--action-danger); }
+.character-asset-card:hover .asset-del-btn,
+.asset-click-card:hover .asset-del-btn { opacity: 1; }
+
+/* 分镜勾选：选择后批量生成视频提示词 */
+.shot-check {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid var(--surface-outline-strong);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.shot-check:hover { border-color: var(--accent); }
+.shot-check.on { background: var(--accent); border-color: var(--accent); }
+.shot-quick-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+.shot-quick-btn:hover { text-decoration: underline; }
+/* 多选模式：头部快捷操作独立一行，分段芯片样式 */
+.shot-quick-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--surface-outline);
+}
+.shot-quick-actions .shot-quick-btn {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+}
+.shot-quick-actions .shot-quick-btn:hover {
+  background: var(--accent-soft, #f0f7ff);
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+/* 多选模式底部操作条：信息行 + 全宽主按钮 */
+.shot-select-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1, #fafafa);
+}
+.shot-select-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.shot-select-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.shot-select-go { width: 100%; justify-content: center; }
+
+/* 新增资产弹窗 */
+.asset-create-dialog { width: 440px; max-width: calc(100vw - 48px); }
+.asset-create-body { display: flex; flex-direction: column; gap: 10px; }
 
 /* Asset grid */
-.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.asset-section-title {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: 0.04em;
+}
+.prop-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.prop-name-row .asset-name {
+  min-width: 0;
+}
+.asset-props-empty {
+  padding: 14px;
+  border: 1px dashed var(--surface-outline);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; align-items: stretch; }
+.character-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 260px));
+  justify-content: start;
+  gap: 10px;
+}
 .asset-card {
   display: flex; flex-direction: column; overflow: hidden;
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
 }
-.asset-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(20, 32, 54, 0.08); }
+.asset-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.asset-click-card,
+.character-asset-card {
+  cursor: pointer;
+}
+.asset-click-card:focus-visible,
+.character-asset-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--shadow-panel);
+}
+.character-asset-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
+}
+.character-asset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+  border-color: var(--border-strong);
+}
+.character-portrait {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  align-self: start;
+  margin: 0;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+.character-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.character-portrait-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.character-asset-main {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-asset-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-asset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.character-title-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.character-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.character-name {
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text-0);
+}
+.character-gen-btn { flex-shrink: 0; align-self: center; }
+.studio-model-picks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+}
+.asset-final-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.afp-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+.afp-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  color: var(--text-2);
+}
+.afp-text.dim { color: var(--text-3); }
+.asset-final {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  color: var(--text-2);
+}
+.asset-final .afp-label { margin-right: 4px; }
+.character-visual-summary {
+  max-width: 100%;
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+.character-visual-summary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .asset-cover { position: relative; aspect-ratio: 1; background: var(--bg-2); overflow: hidden; }
 .asset-cover.wide { aspect-ratio: 16/9; }
 .asset-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -3635,28 +4658,59 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 .previewable-image:hover { transform: scale(1.015); filter: saturate(1.04); }
 .asset-cover-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 7px;
+  left: 7px;
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(7,11,21,0.58);
-  color: #fff;
-  font-size: 10px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  color: var(--text-2);
+  font-size: 9.5px;
   font-weight: 700;
 }
 .asset-cover-badge.is-ready {
-  background: rgba(36, 125, 72, 0.92);
+  background: var(--success-bg);
+  color: #248a3d;
 }
 .asset-cover-badge.is-pending {
-  background: rgba(19, 51, 121, 0.92);
+  background: var(--accent-bg);
+  color: var(--accent-text);
 }
 .asset-cover-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
-.asset-body { padding: 8px 10px; }
-.asset-name { font-size: 13px; font-weight: 600; }
-.asset-meta { font-size: 11px; }
-.asset-foot { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-top: 1px solid var(--border); }
+.asset-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px 8px;
+  min-width: 0;
+}
+.asset-name {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-meta { font-size: 11px; line-height: 1.5; }
+.asset-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+.asset-light {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-foot { display: flex; align-items: center; gap: 4px; padding: 7px 11px; border-top: 1px solid var(--border); }
 
 /* Frame grid */
 .frame-grid { display: flex; flex-direction: column; gap: 8px; }
@@ -3714,9 +4768,472 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bg-3); flex-shrink: 0; }
 .dot.ok { background: var(--success); }
 .dot.pending {
-  background: var(--accent-dark);
-  box-shadow: 0 0 0 3px rgba(76, 125, 255, 0.14);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.14);
 }
+
+/* Video tasks */
+.video-task-workbench {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(460px, 55%);
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.video-task-workbench.has-player {
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 52%);
+}
+.video-task-side {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(160px, 30%) auto minmax(0, 1fr);
+  border-left: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+.video-task-side .video-task-inspector {
+  border-left: 0;
+}
+.video-player-history {
+  min-height: 0;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+.video-player-history-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.video-player-history-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.05);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 750;
+}
+.video-player-history-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.video-history-item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1.5px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: #0b0d10;
+  cursor: pointer;
+  transition: border-color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
+}
+.video-history-item:hover { border-color: var(--border-strong); }
+.video-history-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.video-history-item.current {
+  border-color: var(--accent);
+}
+.video-history-item.viewing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,113,227,0.18);
+}
+.video-history-time {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.video-history-badge {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+}
+.video-history-del {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.62);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.video-history-item:hover .video-history-del { display: flex; }
+.video-task-player {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+.video-player-head {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.video-player-head-info {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.video-player-title { color: var(--text-0); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.video-player-sub { color: var(--text-3); font-size: 11px; white-space: nowrap; }
+.video-player-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0d10;
+}
+.video-player-video {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.video-player-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+}
+.video-player-empty-title { color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 700; }
+.video-player-empty-desc { font-size: 11px; line-height: 1.5; }
+.video-task-list {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-raised);
+}
+.video-task-head {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.video-task-title {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 850;
+  color: var(--text-0);
+}
+.video-task-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+.video-task-metrics {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.video-task-metric,
+.video-task-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--surface-outline);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.04);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.video-task-metric.is-done,
+.video-task-status.is-done {
+  color: var(--success);
+  border-color: rgba(52,199,89,0.32);
+  background: var(--success-bg);
+}
+.video-task-metric.is-pending,
+.video-task-status.is-pending,
+.video-task-status.is-ready {
+  color: var(--accent-text);
+  border-color: var(--accent-glow);
+  background: var(--accent-bg);
+}
+.video-task-metric.is-failed,
+.video-task-status.is-failed,
+.video-task-status.is-blocked {
+  color: var(--warning);
+  border-color: rgba(255,159,10,0.32);
+  background: var(--warning-bg);
+}
+.video-task-table {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.video-task-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--surface-outline);
+  transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out);
+  cursor: pointer;
+}
+.video-task-row:first-child {
+  border-top: 0;
+}
+.video-task-row:hover,
+.video-task-row.is-pending {
+  background: var(--bg-hover);
+}
+.video-task-row.is-failed {
+  background: var(--error-bg);
+}
+.video-task-row.active {
+  background: var(--sel-bg);
+  box-shadow: inset 0 0 0 1.5px var(--sel), 0 0 0 3px var(--sel-glow);
+}
+.video-task-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.video-task-preview {
+  position: relative;
+  width: 84px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.video-task-preview video,
+.video-task-preview img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.video-task-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.video-task-index {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.56);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+.video-task-main {
+  min-width: 0;
+}
+.video-task-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.video-task-name {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-0);
+}
+.video-task-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.video-task-loc {
+  color: var(--text-2);
+}
+.video-task-sep { color: var(--text-3); opacity: 0.5; }
+.video-task-error {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--error);
+}
+.video-task-status {
+  justify-self: end;
+  align-self: center;
+}
+.video-task-action {
+  justify-self: end;
+  align-self: center;
+  min-width: 76px;
+  justify-content: center;
+}
+.video-task-inspector {
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+.video-inspector-head {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.video-inspector-title { color: var(--text-0); font-size: 14px; font-weight: 700; }
+.video-inspector-sub { margin-top: 2px; color: var(--text-3); font-size: 11px; }
+.video-inspector-body { display: flex; flex-direction: column; gap: 16px; padding: 16px 18px 18px; }
+.video-inspector-section { display: flex; flex-direction: column; gap: 7px; }
+.video-inspector-label { color: var(--text-0); font-size: 12px; font-weight: 700; }
+.video-inspector-label-hero {
+  color: var(--accent);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.video-inspector-label-hero::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.video-inspector-prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* MentionTextarea 内部元素需 :deep 穿透（scoped 样式默认到不了子组件内部） */
+:deep(.video-inspector-prompt) {
+  min-height: 176px;
+  font-size: 13px;
+  line-height: 1.6;
+  border-color: var(--accent-bg);
+  background: var(--accent-bg);
+}
+.video-inspector-assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+.video-inspector-asset {
+  position: relative;
+  min-height: 86px;
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.video-inspector-asset:disabled { cursor: default; }
+.video-inspector-asset img { width: 100%; height: 86px; display: block; object-fit: cover; }
+.video-inspector-asset > span { min-height: 86px; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+.video-inspector-asset small {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 10px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-inspector-empty { padding: 12px; border: 1px dashed var(--surface-outline); border-radius: var(--radius); color: var(--text-3); font-size: 11px; }
+.video-inspector-params { display: grid; gap: 8px; }
+.video-inspector-params div { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.video-inspector-params dt { color: var(--text-3); }
+.video-inspector-params dd { margin: 0; color: var(--text-1); text-align: right; }
+.video-inspector-action { width: 100%; }
+.video-ref-media-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.video-ref-media-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  border: 1px solid var(--surface-outline); border-radius: 980px;
+  font-size: 11px; color: var(--text-1); background: var(--surface-2, #f5f5f7);
+}
+.video-ref-media-remove {
+  border: none; background: none; padding: 0; cursor: pointer;
+  color: var(--text-3); font-size: 13px; line-height: 1;
+}
+.video-ref-media-remove:hover { color: var(--text-0); }
+.video-ref-media-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.video-ref-media-hint { margin-top: 6px; font-size: 11px; color: var(--warning, #b25000); }
+.video-param-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; }
+.video-param-name { color: var(--text-3); flex-shrink: 0; }
+.video-param-value { color: var(--text-1); text-align: right; font-size: 11px; }
+.video-param-control { display: inline-flex; align-items: center; gap: 6px; }
+.video-param-unit { font-size: 11px; color: var(--text-3); }
+.video-duration-input { width: 64px; padding: 4px 8px; font-size: 12px; }
 
 /* Prod grid */
 .prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
@@ -3724,9 +5241,10 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   display: flex; flex-direction: column; overflow: hidden;
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.74), rgba(248,251,255,0.58));
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-outline);
 }
-.prod-card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(20, 32, 54, 0.08); }
+.prod-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
 .prod-cover { position: relative; aspect-ratio: 16/9; background: var(--bg-2); overflow: hidden; }
 .prod-cover img { width: 100%; height: 100%; object-fit: cover; }
 .prod-video { width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
@@ -3749,31 +5267,388 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   line-height: 1.45;
   color: var(--error);
 }
-.prod-actions { display: flex; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid rgba(27, 41, 64, 0.08); }
+.prod-actions { display: flex; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--surface-outline); }
 .prod-actions .btn { flex: 1; justify-content: center; }
+
+/* Asset detail dialog */
+.asset-detail-overlay {
+  z-index: 118;
+  padding: 28px;
+}
+.asset-detail-dialog {
+  width: min(1040px, calc(100vw - 56px));
+  max-height: calc(100vh - 56px);
+}
+.asset-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.asset-detail-title-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.asset-detail-kicker {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.asset-detail-title {
+  margin: 0;
+  color: var(--text-0);
+  font-size: 18px;
+  line-height: 1.2;
+  font-family: var(--font-display);
+}
+.asset-detail-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.asset-detail-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+.asset-detail-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.asset-detail-preview-panel,
+.asset-detail-editor-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.asset-detail-preview-panel {
+  position: sticky;
+  top: 0;
+}
+.asset-detail-section-title {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 820;
+  letter-spacing: 0.02em;
+}
+.asset-detail-section-title .dim {
+  font-size: 11px;
+  font-weight: 560;
+  letter-spacing: 0;
+  text-align: right;
+}
+.asset-detail-state {
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.05);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.asset-detail-state.is-ready {
+  color: var(--success);
+  background: var(--success-bg);
+}
+.asset-detail-media-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  padding: 0;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--text-3);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.asset-detail-media-frame:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.asset-detail-media-frame:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus);
+}
+.asset-detail-media-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.asset-detail-media-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.asset-detail-desc {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.asset-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.asset-detail-field {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+.asset-detail-field span,
+.asset-detail-edit-field span,
+.asset-detail-text-block span,
+.asset-detail-shot-head {
+  display: block;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+}
+.asset-detail-field strong {
+  display: block;
+  margin-top: 5px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-0);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-detail-text-block {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.asset-detail-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.asset-detail-edit-grid--character,
+.asset-detail-edit-grid--scene {
+  grid-template-columns: 1fr;
+}
+.asset-detail-edit-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.asset-detail-textarea {
+  min-height: 138px;
+  resize: vertical;
+}
+.asset-detail-edit-grid--character .asset-detail-textarea,
+.asset-detail-edit-grid--scene .asset-detail-textarea {
+  min-height: 164px;
+}
+.asset-detail-meta-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.asset-detail-meta-item {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+.asset-detail-meta-item span {
+  display: block;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+}
+.asset-detail-meta-item strong {
+  display: block;
+  margin-top: 4px;
+  min-width: 0;
+  color: var(--text-0);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-detail-text-block > div,
+.asset-detail-shot-list {
+  padding: 10px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+.asset-detail-text-block p {
+  margin: 5px 0 0;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.asset-detail-shot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.asset-detail-shot-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.asset-detail-shot-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+.asset-detail-shot-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-detail-shot-row small,
+.asset-detail-empty {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.asset-detail-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--surface-outline);
+}
+.asset-detail-secondary-actions,
+.asset-detail-primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.asset-detail-prompt-panel {
+  min-width: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--surface-outline);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.asset-detail-prompt-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.asset-detail-copy-btn {
+  gap: 5px;
+}
+.asset-detail-prompt-textarea {
+  min-height: 96px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  resize: vertical;
+  width: 100%;
+}
+.asset-detail-prompt-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.asset-detail-readonly-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.asset-detail-readonly {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+.asset-detail-readonly span {
+  display: block;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.04em;
+}
+.asset-detail-readonly p {
+  margin: 6px 0 0;
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+.asset-detail-readonly p.dim {
+  color: var(--text-3);
+}
 
 /* Image viewer */
 .image-viewer-overlay {
   z-index: 120;
   padding: 28px;
-  background: rgba(18, 24, 34, 0.68);
-  backdrop-filter: blur(10px);
 }
 .image-viewer-dialog {
   width: min(1100px, calc(100vw - 56px));
   max-height: calc(100vh - 56px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 24px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.92));
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 .image-viewer-head {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
+  border-bottom: 1px solid var(--surface-outline);
 }
 .image-viewer-title {
   font-size: 14px;
@@ -3794,374 +5669,166 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
   max-width: 100%;
   max-height: calc(100vh - 140px);
   border-radius: 18px;
-  box-shadow: 0 18px 48px rgba(8, 14, 24, 0.22);
-  background: rgba(255,255,255,0.9);
-}
-
-/* Grid tool dialog */
-.grid-tool { width: min(1320px, calc(100vw - 40px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: scaleIn 0.2s var(--ease-out); }
-.grid-tool-head { display: flex; align-items: center; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.grid-tool-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
-.grid-tool-body-preview { overflow: hidden; min-height: 0; padding-bottom: 10px; }
-.grid-tool-foot { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px; }
-.grid-preview-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.72fr) minmax(340px, 400px);
-  gap: 14px;
-  min-height: 0;
-  flex: 1;
-  align-items: start;
-}
-.grid-preview-pane {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.grid-assignment-pane {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  border-radius: 18px;
-  background: rgba(255,255,255,0.66);
-  overflow: hidden;
-  max-height: min(70vh, 840px);
-}
-.grid-assign-head {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.72));
-}
-.grid-assign-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-0);
-  font-family: var(--font-display);
-}
-.grid-assign-subtitle {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--text-3);
-}
-.grid-assign-pagination {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
-  background: rgba(255,255,255,0.86);
-}
-.grid-assign-columns {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 96px minmax(0, 1fr);
-  gap: 8px;
-  padding: 7px 12px;
-  border-bottom: 1px solid rgba(27, 41, 64, 0.08);
-  background: rgba(246, 248, 252, 0.92);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* Prompt preview */
-.grid-prompt-summary { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
-.grid-prompt-label { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
-.grid-prompt-text { font-size: 12px; color: var(--text-1); line-height: 1.7; }
-
-.grid-blank-preview {
-  display: grid;
-  gap: 4px;
-  border: 1.5px dashed var(--border-strong);
-  border-radius: var(--radius);
-  padding: 8px;
-  min-height: 200px;
-}
-.grid-blank-cell {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 70px;
-}
-.grid-blank-cell.empty { opacity: 0.4; }
-.grid-blank-cell-index { font-size: 10px; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
-.grid-blank-cell-desc { font-size: 11px; color: var(--text-2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.grid-mode-tabs { display: flex; gap: 6px; }
-.grid-mode-tab { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); background: var(--bg-0); cursor: pointer; transition: all 0.15s; text-align: left; }
-.grid-mode-tab:hover { border-color: var(--border-strong); }
-.grid-mode-tab.active { border-color: var(--accent); background: var(--accent-bg); }
-.grid-config { display: flex; gap: 12px; align-items: flex-end; }
-.grid-pick-list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
-.grid-pick-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
-.grid-pick-item:hover { background: var(--bg-hover); }
-.grid-pick-item.selected { background: var(--accent-bg); }
-.grid-pick-item input { accent-color: var(--accent); }
-.grid-preview-wrap {
-  border-radius: var(--radius);
-  overflow: auto;
-  border: 1px solid var(--border);
-  background: rgba(14, 19, 28, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 300px;
-  max-height: min(70vh, 860px);
-  padding: 10px;
-}
-.grid-preview-stage {
-  position: relative;
-  width: fit-content;
-  max-width: 100%;
-  margin: auto;
-  line-height: 0;
-}
-.grid-preview-img {
-  display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: min(66vh, 820px);
-  object-fit: contain;
-}
-.grid-overlay { position: absolute; inset: 0; display: grid; }
-.grid-overlay-cell {
-  border: 1px dashed rgba(255,255,255,0.42);
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding: 4px 6px;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-.grid-overlay-cell.active {
-  background: rgba(255,255,255,0.08);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28);
-}
-.grid-cell-label { font-size: 10px; font-weight: 700; color: #fff; background: rgba(0,0,0,0.5); padding: 1px 5px; border-radius: 3px; }
-.grid-adjust-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 2px; }
-.grid-assign-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-  padding: 4px 12px 10px;
-}
-.grid-assign-row {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 112px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px dashed rgba(27, 41, 64, 0.08);
-}
-.grid-assign-row.active {
-  background: rgba(32, 86, 190, 0.05);
-  border-radius: 12px;
-  padding-left: 6px;
-  padding-right: 6px;
-}
-.grid-assign-row:last-child { border-bottom: 0; }
-.grid-assign-index {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-}
-.grid-assign-bind {
-  font-size: 11px;
-  color: var(--text-2);
-  line-height: 1.45;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.grid-history-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 10px 12px 12px;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  border-radius: 20px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.64));
-}
-.grid-history-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.grid-history-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-0);
-  font-family: var(--font-display);
-}
-.grid-history-subtitle {
-  font-size: 11px;
-  color: var(--text-3);
-}
-.grid-history-list {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(160px, 182px);
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-.grid-history-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  border-radius: 16px;
-  background: rgba(255,255,255,0.78);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-.grid-history-item:hover {
-  border-color: rgba(33, 88, 255, 0.18);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-.grid-history-item.active {
-  border-color: rgba(33, 88, 255, 0.26);
-  background: linear-gradient(180deg, rgba(244,248,255,0.96), rgba(255,255,255,0.86));
-  box-shadow: 0 14px 28px rgba(33, 88, 255, 0.12);
-}
-.grid-history-thumb {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  background: rgba(14, 19, 28, 0.05);
-}
-.grid-history-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.grid-history-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.grid-history-tags {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.grid-history-meta {
-  font-size: 10.5px;
-  color: var(--text-3);
-  line-height: 1.45;
-  word-break: break-word;
-}
-
-.latest-grid-strip {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 10px;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.84), rgba(255,255,255,0.62));
-}
-.latest-grid-strip-thumb {
-  width: 72px;
-  height: 48px;
-  padding: 0;
-  border: 1px solid rgba(27, 41, 64, 0.08);
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(14, 19, 28, 0.06);
-  cursor: zoom-in;
-  box-shadow: none;
-}
-.latest-grid-strip-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.latest-grid-strip-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.latest-grid-strip-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.latest-grid-strip-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-0);
-  font-family: var(--font-display);
-}
-.latest-grid-strip-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 10px;
-  color: var(--text-3);
-}
-.latest-grid-strip-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.18);
+  background: var(--surface-muted);
 }
 
 /* Export */
 .export-split { flex: 1; display: flex; min-height: 0; }
-.export-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; }
-.export-video { max-width: 720px; width: 100%; border-radius: var(--radius-lg); background: #000; }
-.export-bar { display: flex; align-items: center; gap: 12px; margin-top: 16px; width: 100%; max-width: 720px; }
-.export-list { width: 240px; flex-shrink: 0; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
-.export-list-head { padding: 11px 14px; font-size: 11px; font-weight: 700; color: var(--text-3); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.06em; }
-.export-list-body { flex: 1; overflow-y: auto; padding: 6px; }
-.exp-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: var(--radius); }
-.exp-row:hover { background: var(--bg-hover); }
+.export-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; gap: 18px; padding: 16px 20px 24px; }
+.export-section { display: flex; flex-direction: column; min-height: 0; }
+.export-section-grow { flex: 1; }
+.export-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.export-section-title { font-size: 13px; font-weight: 800; color: var(--text-0); }
+.export-merge-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.merge-card {
+  flex: 0 0 auto;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.merge-card video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  background: #0b0d10;
+  display: block;
+}
+.merge-card-pending {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: center;
+}
+.merge-card-pending.is-failed { color: var(--error); background: var(--error-bg); }
+.merge-card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); min-width: 0; }
+.merge-card-meta .btn { margin-left: auto; }
+.merge-card.playable { cursor: pointer; }
+.merge-card.playable:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
+.merge-card-thumb { position: relative; }
+.merge-card-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.28);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease-out);
+  pointer-events: none;
+}
+.merge-card.playable:hover .merge-card-play { opacity: 1; }
+.merge-viewer-dialog { width: min(1080px, calc(100vw - 56px)); }
+.merge-viewer-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  min-height: 0;
+}
+.merge-viewer-video {
+  width: 100%;
+  max-height: calc(100vh - 220px);
+  border-radius: var(--radius);
+  background: #000;
+  display: block;
+}
+.export-merge-empty {
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.export-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.exp-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; border-radius: var(--radius); background: #fff; border: 1px solid var(--border); }
+.exp-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
+.exp-card.playable { cursor: pointer; }
+.exp-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,113,227,0.15); }
+.exp-check {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.9);
+  background: rgba(0,0,0,0.35);
+  color: #fff;
+}
+.exp-check.on { background: var(--accent); border-color: var(--accent); }
+.exp-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--surface-outline);
+  border-radius: 6px;
+  background: #0b0d10;
+}
+.exp-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.exp-thumb-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.exp-thumb-index {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.56);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+.exp-thumb-duration {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.exp-row-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 
 /* Shared */
 .dim { color: var(--text-3); }
 
-@media (max-width: 1240px) {
+@media (max-width: 1080px) {
   .studio-body {
     grid-template-columns: 1fr;
   }
 
-  .studio-topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .studio-topbar-side {
-    justify-content: space-between;
+  .video-task-workbench.has-player {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 48%);
   }
 
   .split-layout,
@@ -4169,12 +5836,20 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
     flex-direction: column;
   }
 
-  .sidebar {
-    max-height: 340px;
+  .storyboard-workbench {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .shot-list,
-  .export-list {
+  .storyboard-shot-list,
+  .storyboard-editor-main,
+  .storyboard-reference-panel {
+    min-height: 280px;
+  }
+
+  .sb-scene-select { max-width: none; flex: 1; }
+
+  .shot-list {
     width: 100%;
   }
 
@@ -4186,6 +5861,34 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .character-asset-grid {
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  }
+
+  .video-task-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .video-task-metrics {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .video-task-row {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+
+  .video-task-preview {
+    width: 84px;
+  }
+
+  .video-task-status,
+  .video-task-action {
+    justify-self: start;
+  }
+
   .image-viewer-overlay {
     padding: 16px;
   }
@@ -4195,42 +5898,132 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
     max-height: calc(100vh - 32px);
   }
 
-  .grid-tool {
-    width: calc(100vw - 24px);
-    max-height: calc(100vh - 24px);
+  .asset-detail-overlay {
+    padding: 16px;
   }
 
-  .grid-preview-layout {
+  .asset-detail-dialog {
+    width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+  }
+
+  .asset-detail-shell {
     grid-template-columns: 1fr;
   }
 
-  .grid-preview-wrap,
-  .grid-preview-img {
-    max-height: 42vh;
+  .asset-detail-preview-panel {
+    position: static;
   }
 
-  .grid-assignment-pane {
-    max-height: 42vh;
-  }
-
-  .grid-assign-columns {
-    display: none;
-  }
-
-  .grid-assign-row {
+  .asset-detail-grid,
+  .asset-detail-edit-grid,
+  .asset-detail-text-block {
     grid-template-columns: 1fr;
-    align-items: stretch;
   }
+
+}
+
+/* ===== 任务列表面板 ===== */
+.gen-task-row {
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  cursor: default;
+}
+.gen-task-row .video-task-preview img {
+  cursor: zoom-in;
+}
+
+/* 任务触发按钮(顶栏) */
+.task-drawer-trigger {
+  position: relative;
+}
+.task-drawer-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--action-primary-text);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* 右侧抽屉 */
+.task-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 118;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0,0,0,0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.18s var(--ease-out);
+}
+.task-drawer {
+  width: min(560px, 100vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-xl);
+  animation: taskDrawerIn 0.22s var(--ease-out);
+}
+@keyframes taskDrawerIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.task-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.task-drawer-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.task-drawer-metrics {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--surface-outline);
+}
+.task-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+}
+.task-drawer-empty {
+  flex: 1;
+  justify-content: center;
 }
 
 @media (max-width: 860px) {
   .studio {
-    padding: 12px;
-    gap: 12px;
+    padding: 8px;
+    gap: 8px;
   }
 
   .studio-topbar-main {
     align-items: flex-start;
+  }
+
+  .studio-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .studio-topbar-side {
+    justify-content: space-between;
+  }
+
+  .sidebar {
+    max-height: 340px;
   }
 
   .studio-topbar-side,
@@ -4244,29 +6037,56 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
     flex-wrap: wrap;
   }
 
-  .extract-grid,
-  .voice-grid,
   .asset-grid,
+  .character-asset-grid,
   .prod-grid {
     grid-template-columns: 1fr;
   }
 
-  .voice-stage {
+  .character-asset-card {
+    min-height: 0;
+  }
+
+  .character-asset-overview {
     grid-template-columns: 1fr;
   }
 
-  .extract-stage {
+  .character-portrait {
+    width: auto;
+  }
+
+  .character-asset-main {
+    padding: 10px;
+  }
+
+  .character-asset-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .video-task-workbench {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
-  .extract-summary {
-    position: static;
+  .video-task-inspector {
+    border-top: 1px solid var(--surface-outline);
+    border-left: 0;
   }
 
-  .voice-stage-panel {
-    position: static;
-    max-height: none;
-    overflow: visible;
+  .video-task-side {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--surface-outline);
+    border-left: 0;
+  }
+
+  .video-task-side .video-task-inspector {
+    border-top: 0;
+  }
+
+  .video-player-stage {
+    min-height: 240px;
   }
 
   .frame-row {
@@ -4291,22 +6111,5 @@ onMounted(() => { refresh(); loadConfigs(); loadVoices() })
     width: 100%;
   }
 
-  .latest-grid-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .grid-history-list {
-    grid-auto-columns: minmax(148px, 168px);
-  }
-
-  .latest-grid-strip-thumb {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
-  }
-
-  .latest-grid-strip-actions {
-    justify-content: flex-start;
-  }
 }
 </style>

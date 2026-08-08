@@ -34,9 +34,9 @@ Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本
 
 ```
 frontend/   — Nuxt 3 + Vue 3 + TypeScript (纯 CSS，无 UI 框架)
-backend/    — Hono + Drizzle ORM + Mastra AI Agents + better-sqlite3
+backend/    — Hono + Drizzle ORM + Mastra AI Agents + mysql2
 configs/    — config.yaml 配置文件
-data/       — SQLite 数据库 + 生成资源文件
+data/       — 生成资源文件
 skills/     — Agent 技能定义 (SKILL.md)
 ```
 
@@ -67,21 +67,17 @@ skills/     — Agent 技能定义 (SKILL.md)
 - ✅ AI 生成角色形象
 - ✅ 批量角色生成
 - ✅ 角色图片上传和管理
-- ✅ 角色音色分配与试听
 
-### 🎬 分镜制作
+### 🎬 视频任务
 
-- ✅ AI 自动拆解分镜脚本
-- ✅ 场景描述和镜头设计
-- ✅ 分镜图片生成（文生图）
-- ✅ 宫格图生成、切分与分配
-- ✅ 帧类型选择（首帧/尾帧/分镜板）
+- ✅ AI 自动生成视频任务
+- ✅ 场景描述和视频提示词生成
+- ✅ 按任务批量生成视频
 
 ### 🎥 视频生成
 
-- ✅ 图生视频自动生成
-- ✅ TTS 配音生成
-- ✅ FFmpeg 单镜头合成（视频 + 音频 + 字幕）
+- ✅ 文生视频自动生成
+- ✅ FFmpeg 单镜头合成与字幕处理
 - ✅ 整集拼接导出
 
 ### 📦 资源管理
@@ -92,23 +88,21 @@ skills/     — Agent 技能定义 (SKILL.md)
 
 ### 🤖 AI Agents
 
-内置 5 个 Mastra Agent，支持数据库配置和 Skill 扩展：
+内置 4 个 Mastra Agent，支持数据库配置和 Skill 扩展：
 
 | Agent | 职责 |
 |---|---|
 | `script_rewriter` | 小说 → 格式化剧本改写 |
 | `extractor` | 角色 + 场景智能提取与去重 |
 | `storyboard_breaker` | 剧本 → 分镜序列拆解 |
-| `voice_assigner` | 角色音色自动分配 |
-| `grid_prompt_generator` | 角色/场景/宫格图提示词生成 |
+| `grid_prompt_generator` | 角色/场景图片提示词生成 |
 
 ### 🔌 多厂商适配
 
 | 类型 | 支持厂商 |
 |---|---|
-| **图片** | OpenAI、Gemini、MiniMax、火山引擎、阿里、Chatfire |
-| **视频** | MiniMax、火山引擎/Seedance、Vidu、阿里 |
-| **TTS** | MiniMax |
+| **图片** | OpenAI、Gemini、火山引擎、阿里、Chatfire |
+| **视频** | 火山引擎/Seedance、Vidu、阿里 |
 
 ---
 
@@ -168,8 +162,8 @@ server:
     - "http://localhost:3013"
 
 database:
-  type: "sqlite"
-  path: "./data/huobao_drama.db"
+  type: "mysql"
+  url: "mysql://huobao:huobao@127.0.0.1:3306/huobao_drama"
 
 storage:
   type: "local"
@@ -234,10 +228,10 @@ cd ../backend && npm start
 
 ### 🗄️ 数据库
 
-数据库表在首次启动时自动创建，无需手动迁移。默认路径 `data/huobao_drama.db`，可通过环境变量覆盖：
+数据库表在首次启动时自动创建。默认连接读取 `DATABASE_URL`，也可以通过 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 分项配置：
 
 ```bash
-DB_PATH=/path/to/your.db npm start
+DATABASE_URL=mysql://huobao:huobao@127.0.0.1:3306/huobao_drama npm start
 ```
 
 ---
@@ -357,7 +351,7 @@ server {
 
 - **运行时**: Node.js 20+
 - **Web 框架**: Hono
-- **ORM**: Drizzle ORM + better-sqlite3
+- **ORM**: Drizzle ORM + mysql2
 - **AI Agent**: Mastra + AI SDK (OpenAI compatible)
 - **视频处理**: FFmpeg (fluent-ffmpeg)
 - **图片处理**: Sharp
@@ -401,20 +395,18 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 #### 🚀 重大更新
 
 - 项目全面迁移至 TypeScript 技术栈
-  - 后端：Hono + Drizzle ORM + better-sqlite3
+  - 后端：Hono + Drizzle ORM + mysql2
   - 前端：Nuxt 3 + Vue 3
   - AI Agent：Mastra 框架
 - 重做单集工作台 UI 和生产流程
   - 更紧凑的控制台布局
   - 重做分镜编辑区
-  - 重做配音、镜头图、视频、合成、导出界面
+  - 重做镜头图、视频、合成、导出界面
 - 新增 Docker 部署支持，前后端合并为单镜像
 - 增加运行时 Skill 加载机制
 - 扩展多厂商媒体 Adapter
-  - 图片：OpenAI、Gemini、MiniMax、火山引擎、阿里
-  - 视频：MiniMax、火山引擎/Seedance、Vidu、阿里
-  - TTS：MiniMax
-- 增加宫格图生成、切分和重新分配流程
+  - 图片：OpenAI、Gemini、火山引擎、阿里
+  - 视频：火山引擎/Seedance、Vidu、阿里
 - 优化本地文件处理与参考图按需转码
 
 ### v1.0.4 (2026-01-27)
@@ -426,8 +418,7 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 
 ### v1.0.3 (2026-01-16)
 
-- SQLite 纯 Go 驱动，支持 CGO_ENABLED=0 跨平台编译
-- 优化并发性能（WAL 模式）
+- 优化数据库并发访问性能
 - Docker 跨平台支持 host.docker.internal
 
 ### v1.0.2 (2026-01-14)

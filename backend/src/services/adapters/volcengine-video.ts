@@ -1,7 +1,11 @@
 /**
- * 火山引擎 Seedance 视频生成 Adapter
+ * 火山引擎 Seedance 2.0 视频生成 Adapter
  * 端点: /api/v3/contents/generations/tasks (注意 /api/v3 前缀)
  * 响应: { id: "task-xxx" } -> 轮询获取状态
+ *
+ * 仅支持 Doubao Seedance 2.0+ 系列模型，生成模式只保留多模态参考:
+ * - reference   多模态参考（≤9 reference_image + ≤3 reference_video + ≤3 reference_audio + 可选文本）
+ *   有参考音频时至少包含 1 个参考图片或视频
  */
 import type {
   VideoProviderAdapter,
@@ -13,39 +17,66 @@ import type {
 } from './types'
 import { joinProviderUrl } from './url'
 
+/** 仅支持 Seedance 2.0+ 系列（前缀匹配，兼容未来 2.0.x 变体） */
+const SEEDANCE2_MODEL_PREFIX = 'doubao-seedance-2-0'
+const DEFAULT_MODEL = 'doubao-seedance-2-0-fast-260128'
+
+/** 多模态参考素材上限：图片 9、视频 3、音频 3 */
+const REF_LIMITS = { images: 9, videos: 3, audios: 3 } as const
+
+function parseUrlArray(raw?: string | null): string[] {
+  if (!raw) return []
+  try {
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.filter((u) => typeof u === 'string' && u.trim()) : []
+  } catch {
+    return []
+  }
+}
+
 export class VolcEngineVideoAdapter implements VideoProviderAdapter {
   provider = 'volcengine'
 
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
-    const model = record.model || config.model || 'doubao-seedance-1-5-pro-251215'
+    const model = record.model || config.model || DEFAULT_MODEL
+    if (!model.startsWith(SEEDANCE2_MODEL_PREFIX)) {
+      throw new Error(`仅支持 Seedance 2.0 系列模型（${SEEDANCE2_MODEL_PREFIX}-*），当前: ${model}`)
+    }
 
-    const content: any[] = [{ type: 'text', text: record.prompt || '' }]
+    const prompt = (record.prompt || '').trim()
+    const refImages = parseUrlArray(record.referenceImageUrls)
+    const refVideos = parseUrlArray(record.referenceVideoUrls)
+    const refAudios = parseUrlArray(record.referenceAudioUrls)
 
-    // 添加参考图
-    if (record.referenceMode === 'single' && record.imageUrl) {
-      content.push({ type: 'image_url', image_url: { url: record.imageUrl } })
-    } else if (record.referenceMode === 'first_last') {
-      if (record.firstFrameUrl) {
-        content.push({ type: 'image_url', image_url: { url: record.firstFrameUrl }, role: 'first_frame' })
-      }
-      if (record.lastFrameUrl) {
-        content.push({ type: 'image_url', image_url: { url: record.lastFrameUrl }, role: 'last_frame' })
-      }
-    } else if (record.referenceMode === 'multiple' && record.referenceImageUrls) {
-      try {
-        const refs = JSON.parse(record.referenceImageUrls)
-        for (const url of refs) {
-          content.push({ type: 'image_url', image_url: { url } })
-        }
-      } catch {}
+    if (refImages.length > REF_LIMITS.images || refVideos.length > REF_LIMITS.videos || refAudios.length > REF_LIMITS.audios) {
+      throw new Error(`参考素材超限：图片≤${REF_LIMITS.images}、视频≤${REF_LIMITS.videos}、音频≤${REF_LIMITS.audios}`)
+    }
+    if (refAudios.length > 0 && refImages.length + refVideos.length === 0) {
+      throw new Error('参考音频需要至少 1 个参考图片或视频')
+    }
+    if (!prompt && !refImages.length && !refVideos.length && !refAudios.length) {
+      throw new Error('多模态参考模式需要至少一个参考素材或 prompt')
+    }
+
+    const content: any[] = []
+    if (prompt) content.push({ type: 'text', text: prompt })
+    for (const url of refImages) {
+      content.push({ type: 'image_url', image_url: { url }, role: 'reference_image' })
+    }
+    for (const url of refVideos) {
+      content.push({ type: 'video_url', video_url: { url }, role: 'reference_video' })
+    }
+    for (const url of refAudios) {
+      content.push({ type: 'audio_url', audio_url: { url }, role: 'reference_audio' })
     }
 
     const body: any = {
       model,
       content,
-      generate_audio: true,
+      generate_audio: record.generateAudio !== 0 && record.generateAudio !== false,
       ratio: record.aspectRatio || 'adaptive',
       duration: this.normalizeDuration(record.duration),
+      resolution: record.resolution === '480p' ? '480p' : '720p',
       watermark: false,
     }
 
@@ -105,6 +136,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
   private normalizeDuration(duration?: number | null): number {
     const parsed = Math.round(Number(duration || 5))
     if (!Number.isFinite(parsed)) return 5
-    return Math.min(12, Math.max(4, parsed))
+    // Seedance 2.0 支持 4-15 秒
+    return Math.min(15, Math.max(4, parsed))
   }
 }

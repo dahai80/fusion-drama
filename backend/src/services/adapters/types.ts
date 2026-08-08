@@ -94,8 +94,12 @@ export interface VideoGenerationRecord {
   firstFrameUrl?: string | null
   lastFrameUrl?: string | null
   referenceImageUrls?: string | null
+  referenceVideoUrls?: string | null
+  referenceAudioUrls?: string | null
+  generateAudio?: number | boolean | null
   duration?: number | null
   aspectRatio?: string | null
+  resolution?: string | null
   // ... 其他字段
 }
 
@@ -122,22 +126,4 @@ export interface VideoPollResponse {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   videoUrl?: string
   error?: string
-}
-
-/**
- * TTS 语音合成 Provider Adapter
- */
-export interface TTSProviderAdapter {
-  provider: string
-
-  buildGenerateRequest(config: AIConfig, params: any): ProviderRequest
-
-  parseResponse(result: any): {
-    audioHex: string
-    audioLength: number
-    sampleRate: number
-    bitrate: number
-    format: string
-    channel: number
-  }
 }

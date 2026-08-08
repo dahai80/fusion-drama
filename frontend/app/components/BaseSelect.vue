@@ -202,33 +202,44 @@ onBeforeUnmount(() => {
 }
 
 .base-select-trigger {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 7px 28px 7px 10px;
+  min-height: var(--button-height);
+  padding: 0 30px 0 12px;
   font-size: 12px;
+  font-weight: 600;
   font-family: var(--font-body);
-  color: var(--text-0);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  color: var(--button-text);
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  border-radius: var(--button-radius);
   cursor: pointer;
-  transition: all 0.15s var(--ease-out);
+  transition: all 0.18s var(--ease-out);
   white-space: nowrap;
   min-width: 0;
   width: 100%;
   max-width: none;
   flex-shrink: 0;
+  box-shadow: var(--button-shadow);
 }
 .base-select-trigger:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-0);
+  border-color: var(--button-border-hover);
+  background: var(--button-bg-hover);
+  color: var(--button-text-hover);
+  box-shadow: var(--button-shadow-hover);
 }
 .base-select-trigger.open {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-  background: var(--bg-0);
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
+  background: var(--button-bg-hover);
+}
+.base-select-trigger:focus-visible {
+  outline: none;
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--button-focus), var(--button-shadow-hover);
 }
 .base-select-trigger .placeholder {
   color: var(--text-3);
@@ -305,10 +316,12 @@ onBeforeUnmount(() => {
 }
 
 .base-select-option {
+  appearance: none;
   display: block;
   width: 100%;
   padding: 7px 10px;
   font-size: 13px;
+  font-weight: 500;
   font-family: var(--font-body);
   color: var(--text-1);
   background: none;
@@ -316,7 +329,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
-  transition: background 0.1s;
+  transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out), box-shadow 0.14s var(--ease-out);
   word-break: break-all;
 }
 .base-select-option:hover,
@@ -324,9 +337,15 @@ onBeforeUnmount(() => {
   background: var(--bg-hover);
   color: var(--text-0);
 }
+.base-select-option:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+  color: var(--text-0);
+  box-shadow: inset 0 0 0 1px var(--action-primary), 0 0 0 2px var(--button-focus);
+}
 .base-select-option.selected {
   background: var(--accent-bg);
-  color: var(--accent-dark);
+  color: var(--accent-text);
   font-weight: 600;
 }
 

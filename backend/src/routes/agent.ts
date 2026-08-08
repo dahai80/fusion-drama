@@ -2,7 +2,9 @@
  * Agent 聊天路由 — 非流式版本
  */
 import { Hono } from 'hono'
-import { createAgent, validAgentTypes } from '../agents/index.js'
+import { validAgentTypes } from '../agents/index.js'
+import { buildAgentRequestContext } from '../agents/context.js'
+import { mastra } from '../mastra/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
@@ -44,18 +46,25 @@ app.post('/:type/chat', async (c) => {
     return badRequest(c, 'drama_id and episode_id are required')
   }
 
-  const agent = createAgent(agentType, episode_id, drama_id)
+  const agent = mastra.getAgent(agentType)
   if (!agent) {
     logTaskError('Agent', agentType, { reason: 'agent not found' })
     return badRequest(c, 'Agent not found')
   }
+
+  const requestContext = buildAgentRequestContext({
+    episodeId: episode_id,
+    dramaId: drama_id,
+    modelOverride: body.model || undefined,
+    textConfigId: body.config_id || undefined,
+  })
 
   const startTime = performance.now()
 
   try {
     const result = await agent.generate(
       [{ role: 'user', content: message }],
-      { maxSteps: 20 },
+      { maxSteps: 20, requestContext },
     )
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)

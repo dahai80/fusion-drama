@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { eq, isNull, and } from 'drizzle-orm'
-import { db, schema } from '../db/index.js'
+import { db, getInsertId, schema } from '../db/index.js'
 import { success, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 
@@ -8,16 +8,16 @@ const app = new Hono()
 
 // GET /agent-configs
 app.get('/', async (c) => {
-  const rows = db.select().from(schema.agentConfigs)
-    .where(isNull(schema.agentConfigs.deletedAt)).all()
+  const rows = await db.select().from(schema.agentConfigs)
+    .where(isNull(schema.agentConfigs.deletedAt))
   return success(c, toSnakeCaseArray(rows))
 })
 
 // GET /agent-configs/:id
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const [row] = db.select().from(schema.agentConfigs)
-    .where(eq(schema.agentConfigs.id, id)).all()
+  const [row] = await db.select().from(schema.agentConfigs)
+    .where(eq(schema.agentConfigs.id, id))
   if (!row) return badRequest(c, 'Not found')
   return success(c, toSnakeCase(row))
 })
@@ -29,12 +29,12 @@ app.post('/', async (c) => {
   const ts = now()
 
   // Check if exists (including soft-deleted)
-  const [existing] = db.select().from(schema.agentConfigs)
-    .where(eq(schema.agentConfigs.agentType, body.agent_type)).all()
+  const [existing] = await db.select().from(schema.agentConfigs)
+    .where(eq(schema.agentConfigs.agentType, body.agent_type))
 
   if (existing) {
     // Update existing
-    db.update(schema.agentConfigs).set({
+    await db.update(schema.agentConfigs).set({
       name: body.name || existing.name,
       model: body.model ?? existing.model,
       systemPrompt: body.system_prompt ?? existing.systemPrompt,
@@ -44,12 +44,12 @@ app.post('/', async (c) => {
       isActive: body.is_active ?? true,
       deletedAt: null,
       updatedAt: ts,
-    }).where(eq(schema.agentConfigs.id, existing.id)).run()
-    const [row] = db.select().from(schema.agentConfigs).where(eq(schema.agentConfigs.id, existing.id)).all()
+    }).where(eq(schema.agentConfigs.id, existing.id))
+    const [row] = await db.select().from(schema.agentConfigs).where(eq(schema.agentConfigs.id, existing.id))
     return success(c, toSnakeCase(row))
   }
 
-  const res = db.insert(schema.agentConfigs).values({
+  const res = await db.insert(schema.agentConfigs).values({
     agentType: body.agent_type,
     name: body.name || '',
     description: body.description || '',
@@ -61,9 +61,9 @@ app.post('/', async (c) => {
     isActive: body.is_active ?? true,
     createdAt: ts,
     updatedAt: ts,
-  }).run()
-  const [result] = db.select().from(schema.agentConfigs)
-    .where(eq(schema.agentConfigs.id, Number(res.lastInsertRowid))).all()
+  })
+  const [result] = await db.select().from(schema.agentConfigs)
+    .where(eq(schema.agentConfigs.id, getInsertId(res)))
   return success(c, toSnakeCase(result))
 })
 
@@ -82,15 +82,15 @@ app.put('/:id', async (c) => {
   if ('name' in body) updates.name = body.name
   if ('description' in body) updates.description = body.description
 
-  db.update(schema.agentConfigs).set(updates).where(eq(schema.agentConfigs.id, id)).run()
-  const [row] = db.select().from(schema.agentConfigs).where(eq(schema.agentConfigs.id, id)).all()
+  await db.update(schema.agentConfigs).set(updates).where(eq(schema.agentConfigs.id, id))
+  const [row] = await db.select().from(schema.agentConfigs).where(eq(schema.agentConfigs.id, id))
   return success(c, toSnakeCase(row))
 })
 
 // DELETE /agent-configs/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  db.update(schema.agentConfigs).set({ deletedAt: now() }).where(eq(schema.agentConfigs.id, id)).run()
+  await db.update(schema.agentConfigs).set({ deletedAt: now() }).where(eq(schema.agentConfigs.id, id))
   return success(c)
 })
 

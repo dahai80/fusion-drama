@@ -18,7 +18,7 @@ export class VolcEngineImageAdapter implements ImageProviderAdapter {
 
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
     // 火山引擎使用 seedream 模型
-    const model = record.model || config.model || 'doubao-seedream-5-0-lite'
+    const model = record.model || config.model || 'doubao-seedream-5-0-260128'
 
     const body: any = {
       model,

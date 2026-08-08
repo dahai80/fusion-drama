@@ -17,29 +17,22 @@
 
       <nav class="header-nav">
         <NuxtLink to="/" class="nav-link" :class="{ active: route.path === '/' }">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-          </svg>
+          <LayoutGrid :size="15" :stroke-width="1.8" />
           <span>项目</span>
         </NuxtLink>
         <NuxtLink to="/settings" class="nav-link" :class="{ active: route.path === '/settings' }">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
+          <Settings :size="15" :stroke-width="1.8" />
           <span>设置</span>
         </NuxtLink>
       </nav>
-
-      <div class="header-right">
-        <div class="film-strip">
-          <span class="film-frame"></span>
-          <span class="film-frame"></span>
-          <span class="film-frame"></span>
-        </div>
-      </div>
     </header>
+
+    <!-- AI 服务未配置引导横幅(缺任一类型即提示) -->
+    <div v-if="missingConfigLabels.length" class="config-banner">
+      <TriangleAlert :size="14" :stroke-width="1.8" />
+      <span>尚未配置{{ missingConfigLabels.join('、') }}模型,AI 功能无法使用</span>
+      <NuxtLink to="/settings" class="config-banner-link">前往设置</NuxtLink>
+    </div>
 
     <main class="content">
       <slot />
@@ -48,10 +41,28 @@
 </template>
 
 <script setup>
+import { LayoutGrid, Settings, TriangleAlert } from 'lucide-vue-next'
+import { aiConfigAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/huobao-logo.png'
 
 const route = useRoute()
 const showBrandImage = ref(true)
+
+const SERVICE_TYPE_LABELS = { text: '文本', image: '图片', video: '视频' }
+const missingConfigLabels = ref([])
+
+async function checkAiConfigs() {
+  try {
+    const configs = await aiConfigAPI.list()
+    missingConfigLabels.value = Object.entries(SERVICE_TYPE_LABELS)
+      .filter(([type]) => !configs.some(c => c.service_type === type && c.is_active))
+      .map(([, label]) => label)
+  } catch { /* 配置检查失败不阻塞页面 */ }
+}
+
+onMounted(checkAiConfigs)
+// 设置页保存配置后返回时重新检查(布局跨页面复用,onMounted 只触发一次)
+watch(() => route.path, checkAiConfigs)
 </script>
 
 <style scoped>
@@ -64,27 +75,33 @@ const showBrandImage = ref(true)
 /* === Header === */
 .header {
   display: flex; align-items: center;
-  height: 56px; flex-shrink: 0;
+  height: 60px; flex-shrink: 0;
   padding: 0 24px;
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--border);
   gap: 32px;
+  background: rgba(251,251,253,0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  position: relative; z-index: 10;
 }
 
 .header-left { display: flex; align-items: center; }
 
 .brand {
-  display: flex; align-items: center; gap: 10px;
-  background: none; border: none; cursor: pointer; padding: 0;
+  display: flex; align-items: center; gap: 11px;
+  background: transparent; border: none; cursor: pointer; padding: 4px 8px 4px 4px;
   text-decoration: none; border-radius: var(--radius);
-  transition: opacity 0.15s;
+  transition: background 0.18s var(--ease-out);
 }
-.brand:hover { opacity: 0.75; }
+.brand:hover { background: var(--bg-hover); }
+.brand:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px var(--button-focus);
+}
 .brand-mark {
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--bg-2); border-radius: var(--radius);
-  border: 1px solid var(--border);
+  background: var(--text-0); border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
@@ -94,15 +111,13 @@ const showBrandImage = ref(true)
   display: block;
 }
 .brand-fallback {
-  font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--accent-text);
+  color: #fff;
   line-height: 1;
 }
-.brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .brand-name {
-  font-family: var(--font-display);
   font-size: 15px; font-weight: 700;
   color: var(--text-0);
   letter-spacing: -0.01em;
@@ -113,45 +128,53 @@ const showBrandImage = ref(true)
   letter-spacing: 0.04em;
 }
 
-/* Nav */
-.header-nav { display: flex; gap: 4px; flex: 1; }
+/* Nav — pill segmented group */
+.header-nav {
+  display: flex; gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: rgba(0,0,0,0.05);
+}
 .nav-link {
-  display: flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border-radius: var(--radius);
-  font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  min-height: 32px;
+  padding: 0 16px; border-radius: var(--radius-pill);
+  font-size: 13px; font-weight: 600;
   color: var(--text-2); text-decoration: none;
   transition: all 0.18s var(--ease-out);
-  border: 1px solid transparent;
+  border: none;
+  line-height: 1;
 }
-.nav-link:hover {
-  background: var(--bg-hover); color: var(--text-0);
-  border-color: var(--border);
-}
+.nav-link:hover { color: var(--text-0); }
 .nav-link.active {
-  background: var(--accent-bg);
-  color: var(--accent-text);
-  border-color: rgba(76,125,255,0.18);
-  font-weight: 600;
+  background: #fff;
+  color: var(--text-0);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.nav-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
-.header-right { display: flex; align-items: center; margin-left: auto; }
-
-/* Film strip decoration */
-.film-strip {
-  display: flex; align-items: center; gap: 3px;
-  padding: 6px 10px;
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+/* Config banner — AI 服务未配置引导 */
+.config-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 24px; flex-shrink: 0;
+  font-size: 12.5px; color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  position: relative; z-index: 9;
 }
-.film-frame {
-  width: 8px; height: 10px;
-  background: var(--bg-3);
-  border-radius: 1.5px;
-  transition: background 0.2s;
+.config-banner-link {
+  margin-left: auto;
+  font-size: 12.5px; font-weight: 600;
+  color: #b45309; text-decoration: none;
+  padding: 2px 10px; border-radius: var(--radius-pill);
+  border: 1px solid #fcd34d;
+  transition: all 0.18s var(--ease-out);
+  line-height: 1.6;
 }
-.film-frame:nth-child(2) { background: var(--accent); opacity: 0.6; }
-.film-frame:nth-child(3) { opacity: 0.3; }
+.config-banner-link:hover { background: #fef3c7; color: #92400e; }
 
 /* Content */
 .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }

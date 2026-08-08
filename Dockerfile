@@ -4,8 +4,8 @@ FROM node:20-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-COPY frontend/ ./
-RUN npm run generate
+    COPY frontend/ ./
+    RUN npm run generate
 
 # ── Stage 2: Build backend native modules ────────────────────
 FROM node:20-slim AS backend-build
@@ -23,10 +23,8 @@ RUN npm ci --omit=dev
 # ── Stage 3: Production image (lean) ────────────────────────
 FROM node:20-slim
 
-# ffmpeg (runtime) + tsx (runs TS directly)
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm i -g tsx
+# tsx 直接运行 TS 源码;ffmpeg 用 npm 包 ffmpeg-static/ffprobe-static 内置二进制,无需系统安装
+RUN npm i -g tsx
 
 WORKDIR /app
 
@@ -42,10 +40,7 @@ COPY backend/tsconfig.json ./backend/
 COPY --from=frontend-build /app/frontend/.output/public ./frontend/dist
 
 # Skills
-COPY skills/ ./backend/skills/
-
-# Config
-COPY configs/config.example.yaml ./configs/config.yaml
+COPY backend/workspace/skills/ ./backend/workspace/skills/
 
 RUN mkdir -p data/static
 
