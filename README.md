@@ -35,9 +35,9 @@ Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本
 ```
 frontend/   — Nuxt 3 + Vue 3 + TypeScript (纯 CSS，无 UI 框架)
 backend/    — Hono + Drizzle ORM + Mastra AI Agents + mysql2
-configs/    — config.yaml 配置文件
+backend/workspace/skills/ — Agent 技能定义 (SKILL.md，支持界面在线编辑)
 data/       — 生成资源文件
-skills/     — Agent 技能定义 (SKILL.md)
+docker/     — init.sql 数据库初始化脚本(可选，启动时自动建表)
 ```
 
 ### 🎥 作品展示 / Demo Videos
@@ -93,16 +93,17 @@ skills/     — Agent 技能定义 (SKILL.md)
 | Agent | 职责 |
 |---|---|
 | `script_rewriter` | 小说 → 格式化剧本改写 |
-| `extractor` | 角色 + 场景智能提取与去重 |
+| `extractor` | 角色 / 场景 / 道具智能提取与去重 |
 | `storyboard_breaker` | 剧本 → 分镜序列拆解 |
-| `grid_prompt_generator` | 角色/场景图片提示词生成 |
+| `prompt_generator` | 角色/场景/道具图片提示词 + 分镜视频提示词生成 |
 
 ### 🔌 多厂商适配
 
 | 类型 | 支持厂商 |
 |---|---|
-| **图片** | OpenAI、Gemini、火山引擎、阿里、Chatfire |
-| **视频** | 火山引擎/Seedance、Vidu、阿里 |
+| **文本** | OpenAI(兼容接口)、Gemini |
+| **图片** | OpenAI、Gemini、火山引擎 |
+| **视频** | 火山引擎 Seedance 2.0(标准 / Fast / Mini) |
 
 ---
 
@@ -114,69 +115,24 @@ skills/     — Agent 技能定义 (SKILL.md)
 |---|---|---|
 | **Node.js** | 20+ | 前后端运行环境 |
 | **npm** | 9+ | 包管理工具 |
-| **FFmpeg** | 4.0+ | 视频处理（**必需**） |
+| **MySQL** | 8.0+ | 数据库（Docker 部署已内置，无需单独安装） |
 
-#### 安装 FFmpeg
+> **FFmpeg 无需安装**：项目通过 `ffmpeg-static` / `ffprobe-static` npm 包内置二进制，本地与 Docker 均开箱即用。
 
-**macOS:**
+### ⚙️ 环境变量
 
-```bash
-brew install ffmpeg
-```
+无需配置文件，通过环境变量设置（均有默认值，本地开发可零配置启动）：
 
-**Ubuntu/Debian:**
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `DATABASE_URL` | — | 完整 MySQL 连接串（优先） |
+| `MYSQL_HOST` / `MYSQL_PORT` | `127.0.0.1` / `3306` | 未设 `DATABASE_URL` 时分项配置 |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | `huobao` / `huobao` | 同上 |
+| `MYSQL_DATABASE` | `huobao_drama` | 同上 |
+| `PORT` | `5679` | 后端服务端口 |
+| `STORAGE_PATH` | `./data/static` | 生成文件存储目录 |
 
-```bash
-sudo apt update && sudo apt install ffmpeg
-```
-
-**Windows:**
-从 [FFmpeg 官网](https://ffmpeg.org/download.html) 下载并配置环境变量
-
-验证安装：
-
-```bash
-ffmpeg -version
-```
-
-### ⚙️ 配置文件
-
-复制并编辑配置文件：
-
-```bash
-cp configs/config.example.yaml configs/config.yaml
-```
-
-配置文件格式（`configs/config.yaml`）：
-
-```yaml
-app:
-  name: "Huobao Drama API"
-  version: "1.0.0"
-  debug: true
-
-server:
-  port: 5679
-  host: "0.0.0.0"
-  cors_origins:
-    - "http://localhost:3013"
-
-database:
-  type: "mysql"
-  url: "mysql://huobao:huobao@127.0.0.1:3306/huobao_drama"
-
-storage:
-  type: "local"
-  local_path: "./data/storage"
-  base_url: "http://localhost:5679/static"
-
-ai:
-  default_text_provider: "openai"
-  default_image_provider: "openai"
-  default_video_provider: "doubao"
-```
-
-> **说明**：AI 服务的具体 API Key 和模型参数在 Web 界面的「设置」页面中配置。
+> **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
 
 ### 📥 安装依赖
 
@@ -228,11 +184,23 @@ cd ../backend && npm start
 
 ### 🗄️ 数据库
 
-数据库表在首次启动时自动创建。默认连接读取 `DATABASE_URL`，也可以通过 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 分项配置：
+数据库表在首次启动时自动创建（幂等，每次启动自动重放初始化与迁移）。默认连接读取 `DATABASE_URL`，也可以通过 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 分项配置：
 
 ```bash
 DATABASE_URL=mysql://huobao:huobao@127.0.0.1:3306/huobao_drama npm start
 ```
+
+如需在应用外预建表（如 DBA 审核场景），可使用 `docker/init.sql`；schema 变更后通过 `cd backend && npx tsx scripts/export-init-sql.ts` 重新生成。
+
+### 🔑 首次使用：配置 AI 服务
+
+启动后所有 AI 功能（文本/生图/视频）都需要先配置模型服务，未配置时页面顶部会有横幅引导：
+
+1. 打开「设置」页
+2. 在「火宝快捷配置」中粘贴 Huobao API Key（[前往 api.chatfire.site 获取](https://api.chatfire.site)），一键写入文本、图片、视频三条推荐配置
+3. 或使用「手动模板」按厂商逐个添加，支持连通性测试
+
+配置完成横幅自动消失，即可开始创建剧集生产。
 
 ---
 
@@ -242,9 +210,11 @@ DATABASE_URL=mysql://huobao:huobao@127.0.0.1:3306/huobao_drama npm start
 
 #### 方式一：Docker Compose（推荐）
 
+一条命令拉起应用 + MySQL 8.4，含健康检查与启动顺序编排（应用等待 MySQL 就绪后启动，建表自动完成）：
+
 ```bash
-# 启动服务
-docker compose up -d
+# 构建并启动
+docker compose up -d --build
 
 # 查看日志
 docker compose logs -f
@@ -253,17 +223,33 @@ docker compose logs -f
 docker compose down
 ```
 
+访问: `http://localhost:5679`
+
+持久化数据：
+
+| 挂载 | 内容 |
+|---|---|
+| `./data` | 生成的图片/视频等文件 |
+| `./backend/workspace` | Agent 技能文件（设置页可在线编辑） |
+| `mysql-data`(命名卷) | MySQL 数据 |
+
+> **提示**：构建过程需从外网下载 `ffmpeg-static` / `sharp` 预编译二进制，网络受限环境请先配置 npm 镜像或代理。
+
 #### 方式二：Docker 命令
 
 ```bash
-# 从 Docker Hub 运行
+# 本地构建
+docker build -t huobao-drama:latest .
+
+# 运行(MySQL 需另行准备,通过 DATABASE_URL 指向)
 docker run -d \
   --name huobao-drama \
   -p 5679:5679 \
   -v $(pwd)/data:/app/data \
-  -v $(pwd)/configs/config.yaml:/app/configs/config.yaml \
+  -v $(pwd)/backend/workspace:/app/backend/workspace \
+  -e DATABASE_URL=mysql://huobao:huobao@host.docker.internal:3306/huobao_drama \
   --restart unless-stopped \
-  huobao/huobao-drama:latest
+  huobao-drama:latest
 
 # 查看日志
 docker logs -f huobao-drama
@@ -271,22 +257,12 @@ docker logs -f huobao-drama
 
 > **注意**：Linux 用户需添加 `--add-host=host.docker.internal:host-gateway` 以访问宿主机服务
 
-**本地构建**（可选）：
-
-```bash
-docker build -t huobao-drama:latest .
-docker run -d --name huobao-drama -p 5679:5679 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/configs/config.yaml:/app/configs/config.yaml \
-  huobao-drama:latest
-```
-
 **Docker 部署优势：**
 
-- ✅ 开箱即用，内置 FFmpeg 和默认配置
+- ✅ 开箱即用，内置 FFmpeg 二进制，无需系统安装
 - ✅ 前后端合并为单镜像、单端口
-- ✅ 环境一致性，避免依赖问题
-- ✅ `data/` 目录 volume 挂载，数据持久化
+- ✅ MySQL 健康检查 + 应用启动重试，首次部署零人工干预
+- ✅ `data/` 与 `workspace/` 目录 volume 挂载，数据与技能持久化
 
 #### 🔗 访问宿主机服务（Ollama / 本地模型）
 
@@ -320,11 +296,10 @@ cd backend && npm start
 需要上传到服务器的文件：
 
 ```
-backend/          # 后端源码 + node_modules
-frontend/dist/    # 前端构建产物
-configs/config.yaml
-data/             # 数据目录（首次运行自动创建）
-skills/           # Agent 技能文件
+backend/                    # 后端源码 + node_modules
+backend/workspace/skills/   # Agent 技能文件
+frontend/dist/              # 前端构建产物
+data/                       # 数据目录（首次运行自动创建）
 ```
 
 #### Nginx 反向代理
@@ -361,7 +336,7 @@ server {
 - **框架**: Nuxt 3 (SPA 模式)
 - **语言**: Vue 3 + TypeScript
 - **路由**: 文件路由 (Vue Router 4)
-- **样式**: 纯 CSS + CSS Variables (暗色主题)
+- **样式**: 纯 CSS + CSS Variables
 - **图标**: Lucide Vue
 
 ---
@@ -376,7 +351,11 @@ A: 使用 `http://host.docker.internal:11434/v1` 作为 Base URL。注意：
 
 ### Q: FFmpeg 未安装或找不到？
 
-A: 确保 FFmpeg 已安装并在 PATH 环境变量中。运行 `ffmpeg -version` 验证。Docker 部署已内置 FFmpeg。
+A: 无需安装。项目内置 `ffmpeg-static` / `ffprobe-static` 二进制（本地与 Docker 均是）。如自定义 `PATH` 中的系统 FFmpeg 也不会冲突，代码优先使用内置二进制。
+
+### Q: 页面顶部提示「尚未配置模型」？
+
+A: 这是正常的首次部署引导。前往「设置」页，用「火宝快捷配置」粘贴 API Key 一键写入，或通过「手动模板」按厂商添加。文本、图片、视频三类均有启用中的配置后横幅自动消失。
 
 ### Q: 前端无法连接后端 API？
 
@@ -389,6 +368,25 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 ---
 
 ## 📋 更新日志
+
+### v1.0.5 (2026-08)
+
+#### 🚀 部署与体验优化
+
+- Docker 部署就绪改造
+  - MySQL / 应用健康检查，应用等待数据库就绪后启动
+  - 数据库初始化增加重试，容器编排下首次部署零人工干预
+  - 移除系统 FFmpeg 依赖，全面使用内置二进制
+  - Agent skills 目录 volume 持久化（设置页在线编辑不丢失）
+  - 新增 `docker/init.sql` 及导出脚本（DBA 审核 / 预建表）
+- 首次使用引导
+  - 未配置 AI 服务时全站顶部横幅提示并引导至设置页
+  - 设置页新增「火宝快捷配置」：一个 Key 写入文本/图片/视频三条推荐配置
+  - 未配置模型的报错中文化并指引设置页
+- 视频模型默认调整为 Seedance 2.0 Fast
+- 厂商收敛：仅保留 OpenAI / Gemini / 火山引擎
+- 工作台：任务列表抽屉、流水线大环节状态、选择性拼接（拼接前校验视频文件存在）
+- 素材库改版、@提及优化、剧集列表重构
 
 ### v2.0.0 (2026-04)
 
@@ -458,14 +456,3 @@ cd ../frontend && npm run build
 - [LINUX DO](https://linux.do/) — 真正的开源精神，共建共享的技术社区
 
 ---
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助，请给一个 Star！**
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=chatfire-AI/huobao-drama&type=date&legend=top-left)](https://www.star-history.com/#chatfire-AI/huobao-drama&type=date&legend=top-left)
-Made with ❤️ by Huobao Team
-
-</div>
