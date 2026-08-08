@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Huobao Drama 初始化 SQL
 -- 由 backend/scripts/export-init-sql.ts 从 backend/src/db/mysql-schema.ts 生成
--- 生成时间: 2026-08-08T14:35:02.119Z
+-- 生成时间: 2026-08-08T15:00:54.313Z
 --
 -- 注意: 应用启动时会自动执行同等初始化(幂等),本文件不是部署必需,
 --       仅供 DBA 审核或在应用外预建表使用
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS dramas (
     title TEXT NOT NULL,
     description TEXT,
     genre TEXT,
-    style VARCHAR(64) DEFAULT 'realistic',
+    style VARCHAR(64) DEFAULT '3d',
     aspect_ratio VARCHAR(16) DEFAULT '16:9',
     total_episodes INT DEFAULT 1,
     total_duration INT DEFAULT 0,
@@ -99,14 +99,12 @@ CREATE TABLE IF NOT EXISTS storyboards (
     shot_type TEXT,
     angle TEXT,
     movement TEXT,
-    action TEXT,
     result TEXT,
     atmosphere TEXT,
     image_prompt TEXT,
     video_prompt TEXT,
     bgm_prompt TEXT,
     sound_effect TEXT,
-    dialogue TEXT,
     description TEXT,
     duration INT DEFAULT 0,
     composed_image TEXT,
@@ -296,49 +294,10 @@ CREATE TABLE IF NOT EXISTS assets (
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
--- 2. 废弃表清理
+-- 2. 种子数据: 风格预设(幂等,只补缺失行)
 -- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `image_generations`;
-DROP TABLE IF EXISTS `video_generations`;
-DROP TABLE IF EXISTS `ai_voices`;
-
--- ----------------------------------------------------------------------------
--- 3. 历史数据迁移清理(对全新数据库为 no-op,与应用启动行为保持一致)
--- ----------------------------------------------------------------------------
-UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE e.`image_config_id` IS NOT NULL AND c.`id` IS NULL;
-UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE e.`video_config_id` IS NOT NULL AND c.`id` IS NULL;
-UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` = 'minimax';
-UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE c.`provider` = 'minimax';
-DELETE FROM `ai_service_configs` WHERE `provider` = 'minimax';
-DELETE FROM `ai_service_providers` WHERE `provider` = 'minimax';
-UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` IN ('ali', 'vidu');
-UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE c.`provider` IN ('ali', 'vidu');
-DELETE FROM `ai_service_configs` WHERE `provider` IN ('deepseek', 'ali', 'vidu');
-DELETE FROM `ai_service_providers` WHERE `provider` IN ('deepseek', 'ali', 'vidu');
-UPDATE `dramas` SET `style` = 'realistic' WHERE `style` = 'cinematic';
-UPDATE `storyboards` SET `video_prompt` = REPLACE(`video_prompt`, '<n>', CHAR(10)) WHERE `video_prompt` LIKE '%<n>%';
-DROP TABLE IF EXISTS `agent_configs`;
-UPDATE `ai_service_configs` SET `model` = '["doubao-seedance-2-0-fast-260128","doubao-seedance-2-0-260128","doubao-seedance-2-0-mini-260615"]' WHERE `service_type` = 'video' AND `provider` = 'volcengine' AND `model` NOT LIKE '%doubao-seedance-2-0%';
-
--- ----------------------------------------------------------------------------
--- 4. 种子数据: 风格预设(幂等,只补缺失行)
--- ----------------------------------------------------------------------------
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '3D', '3d', '3D render, Pixar-style animation, soft studio lighting, high detail, subsurface scattering', '三维渲染卡通质感，适合轻松明快的短剧', 1, 1, '2026-08-08T14:35:02.118Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = '3d');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '动漫', 'anime', 'anime style, cel shading, vibrant colors, clean line art, Japanese animation', '日式赛璐璐动画风格', 2, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'anime');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '写实电影', 'realistic', 'photorealistic, cinematic film still, 35mm, natural lighting, shallow depth of field, high detail', '电影级真人写实质感', 3, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'realistic');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '吉卜力', 'ghibli', 'Studio Ghibli style, hand-painted, soft watercolor background, warm nostalgic tone', '吉卜力手绘治愈风', 4, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'ghibli');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '水彩', 'watercolor', 'watercolor illustration, soft washes, visible paper texture, delicate brush strokes', '水彩插画质感', 5, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'watercolor');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '漫画', 'comic', 'comic book style, bold outlines, halftone shading, dynamic colors, flat graphic look', '美式漫画粗线条风格', 6, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'comic');
-
--- ----------------------------------------------------------------------------
--- 附: 列补齐语句(仅用于老库升级;新建表已包含全部列,无需执行)
--- 代码中通过 SHOW COLUMNS 检查后按需执行,MySQL 不支持 ADD COLUMN IF NOT EXISTS
--- ----------------------------------------------------------------------------
--- ALTER TABLE `dramas` ADD COLUMN `aspect_ratio` VARCHAR(16) DEFAULT '16:9';
--- ALTER TABLE `episodes` ADD COLUMN `resolution` VARCHAR(16) DEFAULT '720p';
--- ALTER TABLE `characters` ADD COLUMN `styling` TEXT;
--- ALTER TABLE `characters` ADD COLUMN `final_prompt` TEXT;
--- ALTER TABLE `characters` ADD COLUMN `personality` TEXT;
--- ALTER TABLE `props` ADD COLUMN `final_prompt` TEXT;
--- ALTER TABLE `scenes` ADD COLUMN `lighting` TEXT;
--- ALTER TABLE `scenes` ADD COLUMN `final_prompt` TEXT;
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '3D 漫剧', '3d', '3D CG animation style, game-engine quality render, semi-realistic stylized characters, refined facial features, detailed materials and textures, cinematic lighting, high detail', '游戏引擎级 3D 渲染，半写实角色，当前短剧主流的 3D 漫剧质感', 1, 1, '2026-08-08T15:00:54.312Z', '2026-08-08T15:00:54.313Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = '3d');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '日漫赛璐璐', 'anime', 'Japanese anime style, cel shading, clean crisp line art, vivid saturated colors, expressive character designs, detailed painted backgrounds', '日式赛璐璐动画风格', 2, 1, '2026-08-08T15:00:54.313Z', '2026-08-08T15:00:54.313Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'anime');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '吉卜力手绘', 'ghibli', 'Studio Ghibli style, hand-drawn animation, soft watercolor painted backgrounds, warm nostalgic lighting, gentle natural palette, whimsical cozy atmosphere', '吉卜力手绘治愈风', 3, 1, '2026-08-08T15:00:54.313Z', '2026-08-08T15:00:54.313Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'ghibli');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '水彩绘本', 'watercolor', 'watercolor illustration style, soft translucent washes, visible paper texture, delicate fluid brushwork, light airy atmosphere, hand-painted storybook feel', '水彩插画质感', 4, 1, '2026-08-08T15:00:54.313Z', '2026-08-08T15:00:54.313Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'watercolor');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '美式漫画', 'comic', 'Western comic book style, bold black ink outlines, halftone dot shading, dynamic saturated colors, dramatic contrast lighting, flat graphic novel look', '美式漫画粗线条风格', 5, 1, '2026-08-08T15:00:54.313Z', '2026-08-08T15:00:54.313Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'comic');

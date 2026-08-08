@@ -510,7 +510,6 @@
                         <span v-else class="shot-avatars-empty">0 角色</span>
                       </div>
                       <div class="shot-flags">
-                        <span class="shot-flag flag-dialogue" :class="{ on: !!sb.dialogue }" :title="sb.dialogue ? '有对白' : '无对白'"><i class="dot"></i>白</span>
                         <span class="shot-flag flag-video" :class="{ on: hasVid(sb) }" :title="hasVid(sb) ? '已生成视频' : '未生成视频'"><i class="dot"></i>视</span>
                       </div>
                     </div>
@@ -569,27 +568,13 @@
                         <span class="detail-section-title">分镜描述</span>
                       </div>
                       <label class="field">
-                        <span class="field-label">画面描述</span>
-                        <textarea :value="selectedSb.description || ''" class="textarea" rows="4" @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="分镜画面描述" />
+                        <span class="field-label">画面描述 <span class="dim">(按【镜头1】【镜头2】…逐子镜头描述；台词写「角色名说：「台词」」，旁白写「旁白：内容」)</span></span>
+                        <textarea :value="selectedSb.description || ''" class="textarea" rows="8" @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="分镜画面描述" />
                       </label>
-                      <div class="field-grid field-grid-2">
-                        <label class="field">
-                          <span class="field-label">动作</span>
-                          <textarea :value="selectedSb.action || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'action', $event.target.value)" placeholder="角色动作与表演" />
-                        </label>
-                        <label class="field">
-                          <span class="field-label">氛围</span>
-                          <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" placeholder="光线、色调、空气感、环境氛围" />
-                        </label>
-                      </div>
-                      <label v-if="dialogueOpen || selectedSb.dialogue" class="field">
-                        <span class="field-label">对白 / 旁白</span>
-                        <textarea :value="selectedSb.dialogue || ''" class="textarea" rows="2" @blur="updateField(selectedSb, 'dialogue', $event.target.value)" placeholder="角色名：台词内容 或 旁白：内容" />
+                      <label class="field">
+                        <span class="field-label">氛围</span>
+                        <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" placeholder="光线、色调、空气感、环境氛围" />
                       </label>
-                      <button v-else type="button" class="dialogue-add" @click="dialogueOpen = true">
-                        <MessageSquarePlus :size="12" />
-                        添加对白 / 旁白
-                      </button>
                     </div>
 
                     <div class="detail-section">
@@ -605,7 +590,7 @@
                           {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
                         </button>
                       </div>
-                      <div class="detail-section-copy">根据当前分镜的画面描述、动作、氛围以及对白 / 旁白生成</div>
+                      <div class="detail-section-copy">根据当前分镜的画面描述（含台词/旁白）与氛围生成</div>
                       <MentionTextarea
                         :model-value="selectedSb.video_prompt || selectedSb.videoPrompt || ''"
                         :options="mentionOptions"
@@ -1535,7 +1520,7 @@
 import { toast } from 'vue-sonner'
 import {
   Users, Video, FileText, FolderKanban, Clapperboard, Download, Loader2,
-  MapPin, Play, MessageSquarePlus, Plus, X, ListTodo,
+  MapPin, Play, Plus, X, ListTodo,
 } from 'lucide-vue-next'
 import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
@@ -2507,7 +2492,6 @@ const sceneOptions = computed(() => [
   ...scenes.value.map(s => ({ label: `${s.location} · ${s.time || '未设时间'}`, value: s.id })),
 ])
 
-const dialogueOpen = ref(false)
 
 function sceneShotCount(sceneId) {
   return sbs.value.filter(sb => String(sb?.scene_id || sb?.sceneId || '') === String(sceneId)).length
@@ -2743,7 +2727,7 @@ function genVideoPrompt(sb) {
 
 该分镜信息:时长 ${sb.duration || 10}s;场景:${getSceneName(sb) || '未绑定'};角色:${charNames};道具:${propNames}。
 
-请先调用 read_storyboard_context 获取该分镜的画面描述、动作、氛围、对白/旁白,据此生成 video_prompt(按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。只更新 video_prompt 字段,不要改动其他字段,不要重新拆分整集。`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
+请先调用 read_storyboard_context 获取该分镜的画面描述(含【镜头N】子镜头与台词/旁白)、氛围及时长,据此生成 video_prompt(按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材；段落内允许多镜头切镜,但不跨场景,切镜点对齐 description 的【镜头N】结构),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。只更新 video_prompt 字段,不要改动其他字段,不要重新拆分整集。`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
 }
 
 function sleep(ms) {
@@ -3147,7 +3131,6 @@ watch(selectedSb, (sb) => {
   videoRefAudioUrls.value = []
   videoRefImageUrls.value = []
   videoDuration.value = Number(sb?.duration || 10)
-  dialogueOpen.value = false
 })
 
 function pickFile(accept, cb) {
@@ -4128,27 +4111,6 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 }
 .storyboard-ref-thumb:disabled { cursor: default; }
 .storyboard-ref-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* 对白折叠入口 */
-.dialogue-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 1px dashed var(--surface-outline);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--text-3);
-  font-size: 12px;
-  cursor: pointer;
-  transition: color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), background 0.16s var(--ease-out);
-}
-.dialogue-add:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
 .storyboard-ref-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .storyboard-ref-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .storyboard-ref-name {
@@ -4268,14 +4230,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 }
 .shot-flag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--bg-3); flex-shrink: 0; }
 .shot-flag.on { color: var(--text-2); }
-.shot-flag.flag-dialogue.on .dot { background: var(--warning); }
 .shot-flag.flag-video.on .dot { background: var(--info); }
-.shot-dialogue {
-  font-size: 10px; color: var(--text-3); margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding-left: 2px; border-left: 2px solid var(--border);
-  padding-left: 6px;
-}
 
 .detail-panel { flex: 1; display: flex; flex-direction: column; overflow-y: auto; min-width: 0; }
 .detail-head { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }

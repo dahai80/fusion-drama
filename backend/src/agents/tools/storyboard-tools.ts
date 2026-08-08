@@ -192,9 +192,7 @@ const readStoryboardContext = createTool({
           prop_ids: sbPropLinks.map(link => link.propId),
           shot_type: sb.shotType || '',
           duration: sb.duration || 0,
-          action: sb.action || '',
           description: sb.description || '',
-          dialogue: sb.dialogue || '',
           atmosphere: sb.atmosphere || '',
           video_prompt: sb.videoPrompt || '',
         }
@@ -238,8 +236,6 @@ const saveStoryboards = createTool({
       movement: z.string().optional(),
       location: z.string().optional(),
       time: z.string().optional(),
-      action: z.string().optional(),
-      dialogue: z.string().optional(),
       description: z.string().optional(),
       result: z.string().optional(),
       atmosphere: z.string().optional(),
@@ -284,7 +280,6 @@ const saveStoryboards = createTool({
         title: sb.title, shotType: sb.shot_type,
         angle: sb.angle, movement: sb.movement,
         location: sb.location, time: sb.time,
-        action: sb.action, dialogue: sb.dialogue,
         description: sb.description, result: sb.result,
         atmosphere: sb.atmosphere, imagePrompt: sb.image_prompt,
         videoPrompt: sb.video_prompt, bgmPrompt: sb.bgm_prompt,
@@ -321,7 +316,6 @@ const updateStoryboard = createTool({
     movement: z.string().optional(),
     location: z.string().optional(),
     time: z.string().optional(),
-    action: z.string().optional(),
     result: z.string().optional(),
     atmosphere: z.string().optional(),
     image_prompt: z.string().optional(),
@@ -329,7 +323,6 @@ const updateStoryboard = createTool({
     bgm_prompt: z.string().optional(),
     sound_effect: z.string().optional(),
     description: z.string().optional(),
-    dialogue: z.string().optional(),
     scene_id: z.number().nullable().optional(),
     character_ids: z.array(z.number()).optional(),
     prop_ids: z.array(z.number()).optional(),
@@ -374,7 +367,6 @@ const updateStoryboard = createTool({
     if ('movement' in fields) updates.movement = fields.movement
     if ('location' in fields) updates.location = fields.location
     if ('time' in fields) updates.time = fields.time
-    if ('action' in fields) updates.action = fields.action
     if ('result' in fields) updates.result = fields.result
     if ('atmosphere' in fields) updates.atmosphere = fields.atmosphere
     if ('image_prompt' in fields) updates.imagePrompt = fields.image_prompt
@@ -382,7 +374,6 @@ const updateStoryboard = createTool({
     if ('bgm_prompt' in fields) updates.bgmPrompt = fields.bgm_prompt
     if ('sound_effect' in fields) updates.soundEffect = fields.sound_effect
     if ('description' in fields) updates.description = fields.description
-    if ('dialogue' in fields) updates.dialogue = fields.dialogue
     if ('scene_id' in fields) updates.sceneId = fields.scene_id
     if ('duration' in fields) updates.duration = fields.duration
     await db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, storyboard_id))

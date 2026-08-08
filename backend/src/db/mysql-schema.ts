@@ -6,7 +6,7 @@ export const mysqlSchemaStatements = [
     title TEXT NOT NULL,
     description TEXT,
     genre TEXT,
-    style VARCHAR(64) DEFAULT 'realistic',
+    style VARCHAR(64) DEFAULT '3d',
     aspect_ratio VARCHAR(16) DEFAULT '16:9',
     total_episodes INT DEFAULT 1,
     total_duration INT DEFAULT 0,
@@ -88,14 +88,12 @@ export const mysqlSchemaStatements = [
     shot_type TEXT,
     angle TEXT,
     movement TEXT,
-    action TEXT,
     result TEXT,
     atmosphere TEXT,
     image_prompt TEXT,
     video_prompt TEXT,
     bgm_prompt TEXT,
     sound_effect TEXT,
-    dialogue TEXT,
     description TEXT,
     duration INT DEFAULT 0,
     composed_image TEXT,
@@ -285,106 +283,15 @@ export const mysqlSchemaStatements = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 ]
 
-export const mysqlColumnBackfillStatements = [
-  { table: 'dramas', column: 'aspect_ratio', sql: "ALTER TABLE `dramas` ADD COLUMN `aspect_ratio` VARCHAR(16) DEFAULT '16:9'" },
-  { table: 'episodes', column: 'resolution', sql: "ALTER TABLE `episodes` ADD COLUMN `resolution` VARCHAR(16) DEFAULT '720p'" },
-  { table: 'characters', column: 'styling', sql: 'ALTER TABLE `characters` ADD COLUMN `styling` TEXT' },
-  { table: 'characters', column: 'final_prompt', sql: 'ALTER TABLE `characters` ADD COLUMN `final_prompt` TEXT' },
-  { table: 'characters', column: 'personality', sql: 'ALTER TABLE `characters` ADD COLUMN `personality` TEXT' },
-  { table: 'props', column: 'final_prompt', sql: 'ALTER TABLE `props` ADD COLUMN `final_prompt` TEXT' },
-  { table: 'scenes', column: 'lighting', sql: 'ALTER TABLE `scenes` ADD COLUMN `lighting` TEXT' },
-  { table: 'scenes', column: 'final_prompt', sql: 'ALTER TABLE `scenes` ADD COLUMN `final_prompt` TEXT' },
-]
-
-// 废弃表清理：image_generations / video_generations 已并入 sys_task（不迁移历史）；
-// ai_voices 为 TTS 功能移除后的孤儿表
-export const mysqlDropTableStatements = [
-  'DROP TABLE IF EXISTS `image_generations`',
-  'DROP TABLE IF EXISTS `video_generations`',
-  'DROP TABLE IF EXISTS `ai_voices`',
-]
-
-export const mysqlDataCleanupStatements = [
-  // 悬空配置引用清理：集锁定的 image/video 配置已被删除时置空，让生成回退到当前启用配置
-  {
-    sql: 'UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE e.`image_config_id` IS NOT NULL AND c.`id` IS NULL',
-    params: [],
-  },
-  {
-    sql: 'UPDATE `episodes` e LEFT JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE e.`video_config_id` IS NOT NULL AND c.`id` IS NULL',
-    params: [],
-  },
-  // 厂商收敛：彻底移除 minimax（含历史遗留的 audio 配置，按 provider 全量清理）
-  {
-    sql: 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` = ?',
-    params: ['minimax'],
-  },
-  {
-    sql: 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE c.`provider` = ?',
-    params: ['minimax'],
-  },
-  {
-    sql: 'DELETE FROM `ai_service_configs` WHERE `provider` = ?',
-    params: ['minimax'],
-  },
-  {
-    sql: 'DELETE FROM `ai_service_providers` WHERE `provider` = ?',
-    params: ['minimax'],
-  },
-  // 厂商收敛：仅保留 openai / gemini / volcengine，移除 deepseek、ali、vidu
-  {
-    sql: 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` IN (?, ?)',
-    params: ['ali', 'vidu'],
-  },
-  {
-    sql: 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE c.`provider` IN (?, ?)',
-    params: ['ali', 'vidu'],
-  },
-  {
-    sql: 'DELETE FROM `ai_service_configs` WHERE `provider` IN (?, ?, ?)',
-    params: ['deepseek', 'ali', 'vidu'],
-  },
-  {
-    sql: 'DELETE FROM `ai_service_providers` WHERE `provider` IN (?, ?, ?)',
-    params: ['deepseek', 'ali', 'vidu'],
-  },
-  // 旧硬编码风格值归并：cinematic 并入写实电影
-  {
-    sql: 'UPDATE `dramas` SET `style` = ? WHERE `style` = ?',
-    params: ['realistic', 'cinematic'],
-  },
-  // 视频提示词格式收敛：旧的 <n> 时间段分隔符统一替换为换行
-  {
-    sql: "UPDATE `storyboards` SET `video_prompt` = REPLACE(`video_prompt`, '<n>', CHAR(10)) WHERE `video_prompt` LIKE '%<n>%'",
-    params: [],
-  },
-  // agent_configs 表已废弃：Agent prompt 改为 workspace/prompts/*.md 文件维护，清理老库
-  {
-    sql: 'DROP TABLE IF EXISTS `agent_configs`',
-    params: [],
-  },
-  // 视频模型收敛：Seedance 2.0 三个官方型号，默认 doubao-seedance-2-0-fast-260128（数组首位即生效模型）
-  {
-    sql: 'UPDATE `ai_service_configs` SET `model` = ? WHERE `service_type` = ? AND `provider` = ? AND `model` NOT LIKE ?',
-    params: [
-      '["doubao-seedance-2-0-fast-260128","doubao-seedance-2-0-260128","doubao-seedance-2-0-mini-260615"]',
-      'video',
-      'volcengine',
-      '%doubao-seedance-2-0%',
-    ],
-  },
-]
-
 /**
  * 风格预设种子数据 — value 存入 dramas.style，prompt 注入生图提示词
  */
 export const stylePresetSeeds = [
-  { name: '3D', value: '3d', sortOrder: 1, prompt: '3D render, Pixar-style animation, soft studio lighting, high detail, subsurface scattering', description: '三维渲染卡通质感，适合轻松明快的短剧' },
-  { name: '动漫', value: 'anime', sortOrder: 2, prompt: 'anime style, cel shading, vibrant colors, clean line art, Japanese animation', description: '日式赛璐璐动画风格' },
-  { name: '写实电影', value: 'realistic', sortOrder: 3, prompt: 'photorealistic, cinematic film still, 35mm, natural lighting, shallow depth of field, high detail', description: '电影级真人写实质感' },
-  { name: '吉卜力', value: 'ghibli', sortOrder: 4, prompt: 'Studio Ghibli style, hand-painted, soft watercolor background, warm nostalgic tone', description: '吉卜力手绘治愈风' },
-  { name: '水彩', value: 'watercolor', sortOrder: 5, prompt: 'watercolor illustration, soft washes, visible paper texture, delicate brush strokes', description: '水彩插画质感' },
-  { name: '漫画', value: 'comic', sortOrder: 6, prompt: 'comic book style, bold outlines, halftone shading, dynamic colors, flat graphic look', description: '美式漫画粗线条风格' },
+  { name: '3D 漫剧', value: '3d', sortOrder: 1, prompt: '3D CG animation style, game-engine quality render, semi-realistic stylized characters, refined facial features, detailed materials and textures, cinematic lighting, high detail', description: '游戏引擎级 3D 渲染，半写实角色，当前短剧主流的 3D 漫剧质感' },
+  { name: '日漫赛璐璐', value: 'anime', sortOrder: 2, prompt: 'Japanese anime style, cel shading, clean crisp line art, vivid saturated colors, expressive character designs, detailed painted backgrounds', description: '日式赛璐璐动画风格' },
+  { name: '吉卜力手绘', value: 'ghibli', sortOrder: 3, prompt: 'Studio Ghibli style, hand-drawn animation, soft watercolor painted backgrounds, warm nostalgic lighting, gentle natural palette, whimsical cozy atmosphere', description: '吉卜力手绘治愈风' },
+  { name: '水彩绘本', value: 'watercolor', sortOrder: 4, prompt: 'watercolor illustration style, soft translucent washes, visible paper texture, delicate fluid brushwork, light airy atmosphere, hand-painted storybook feel', description: '水彩插画质感' },
+  { name: '美式漫画', value: 'comic', sortOrder: 5, prompt: 'Western comic book style, bold black ink outlines, halftone dot shading, dynamic saturated colors, dramatic contrast lighting, flat graphic novel look', description: '美式漫画粗线条风格' },
 ]
 
 // INSERT ... SELECT WHERE NOT EXISTS → 幂等：只补缺失行，不覆盖用户编辑，
@@ -394,24 +301,9 @@ export const mysqlDataSeedStatements = stylePresetSeeds.map((s) => ({
   params: [s.name, s.value, s.prompt, s.description, s.sortOrder, new Date().toISOString(), new Date().toISOString(), s.value],
 }))
 
-export async function ensureMySqlColumn(pool: Pool, table: string, column: string, alterSql: string) {
-  const [rows] = await pool.query(`SHOW COLUMNS FROM \`${table}\` LIKE ?`, [column]) as any[]
-  if (Array.isArray(rows) && rows.length) return
-  await pool.query(alterSql)
-}
-
 export async function initMySqlSchema(pool: Pool) {
   for (const statement of mysqlSchemaStatements) {
     await pool.query(statement)
-  }
-  for (const statement of mysqlColumnBackfillStatements) {
-    await ensureMySqlColumn(pool, statement.table, statement.column, statement.sql)
-  }
-  for (const statement of mysqlDropTableStatements) {
-    await pool.query(statement)
-  }
-  for (const cleanup of mysqlDataCleanupStatements) {
-    await pool.query(cleanup.sql, cleanup.params)
   }
   for (const seed of mysqlDataSeedStatements) {
     await pool.query(seed.sql, seed.params)

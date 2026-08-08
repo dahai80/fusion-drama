@@ -93,8 +93,6 @@ app.post('/', async (c) => {
     storyboardNumber: body.storyboard_number || 1,
     title: body.title,
     description: body.description,
-    action: body.action,
-    dialogue: body.dialogue,
     sceneId: body.scene_id,
     duration: body.duration || 10,
     createdAt: ts,
@@ -131,8 +129,8 @@ app.put('/:id', async (c) => {
 
   const fieldMap: Record<string, string> = {
     title: 'title', description: 'description', shot_type: 'shotType',
-    angle: 'angle', movement: 'movement', action: 'action',
-    dialogue: 'dialogue', duration: 'duration', video_prompt: 'videoPrompt',
+    angle: 'angle', movement: 'movement', duration: 'duration',
+    video_prompt: 'videoPrompt',
     image_prompt: 'imagePrompt', scene_id: 'sceneId', location: 'location',
     time: 'time', atmosphere: 'atmosphere', result: 'result',
     bgm_prompt: 'bgmPrompt', sound_effect: 'soundEffect',

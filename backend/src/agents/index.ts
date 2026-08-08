@@ -87,22 +87,20 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 - prop_ids：当前段落出现的关键道具 ID 列表（道具在画面中被看到、使用或特写时绑定），可以为空；必须从 props 中选择
 - scene_id：若可匹配到 scenes 中已有场景，必须填写正确 scene_id；无匹配时置空
 - duration：段落总时长 8-15 秒
-- action：按【镜头1】【镜头2】…逐子镜头写角色动作与表演（谁+怎么做+肢体细节+表情）
-- description：按【镜头N】逐子镜头描述观众实际看到的画面内容
-- dialogue：该段落实际发生的对白或旁白；旁白可写为“旁白：内容”
+- description：画面描述，按【镜头1】【镜头2】…逐子镜头描述观众实际看到和听到的内容——画面（谁+具体动作+肢体细节+表情）写在前；该子镜头有台词时以「角色名说：「台词」」写在对应【镜头N】内，旁白写「旁白：内容」
 - atmosphere：氛围、光线、色调、环境感受
 
 时长规则（硬约束）：
 - 总量锚定：目标总时长 = 剧本字数 ÷ 500字/分钟，段落数 ≈ 目标总时长 ÷ 12秒，允许 ±20% 浮动
 - 节奏分层：过渡段（赶路/空镜/转场）8-10 秒；叙事段 10-15 秒；爆点段（特写/规则揭示/情感爆发/反转）12-15 秒且子镜头节奏放慢
-- 对白下限：段落时长 ≥ 段内对白总字数 ÷ 4.5字/秒 + 2秒表演余量，装不下的对白拆到下一个段落
+- 台词下限：段落时长 ≥ 段内台词与旁白总字数（写在 description 中的部分）÷ 4.5字/秒 + 2秒表演余量，装不下的台词拆到下一个段落
 
 额外要求：
 - 优先复用 read_storyboard_context 返回的 scene_id，不要凭空创造新场景
 - 段落角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜段落可传空数组
 - 段落道具绑定必须来自 read_storyboard_context 返回的道具列表；道具被使用、特写、交接或在画面中明显可见时绑定，与剧情无关的背景物品不要绑定；没有道具出现可传空数组
 - 段落描述必须能支撑后续视频生成和导出流程
-- 若一个段落没有对白，可将 dialogue 置空，但 description / action / atmosphere 仍必须完整
+- 若一个段落没有台词，description 中不写台词即可，但画面描述与 atmosphere 仍必须完整
 - 如果已有 existing_storyboards，仅在用户明确要求增量修改时参考；默认按当前剧本重新完整生成并保存整集分镜。`,
   },
   prompt_generator: {
@@ -125,8 +123,8 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 用户请求会告知要为哪个分镜生成视频提示词（附带分镜 ID）。
 
 工作流程：
-1. 调用 read_storyboard_context 读取该分镜的 action、description、dialogue、atmosphere、duration 及绑定的场景/角色
-2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；内容覆盖动作、画面描述、对白/旁白、氛围。一个分镜段落内允许切镜（换景别/角度/对象），段与段之间可以是不同镜头，但不跨场景；切镜点对齐分镜 action 的【镜头N】结构
+1. 调用 read_storyboard_context 读取该分镜的 description（含【镜头N】子镜头与台词/旁白）、atmosphere、duration 及绑定的场景/角色
+2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；description 的每个【镜头N】映射为 1-2 个连续 3 秒段（顺序一致、不遗漏、不新增子镜头），台词/旁白从对应【镜头N】内的「角色名说：「…」」「旁白：…」提取，不要创作 description 之外的新台词；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；氛围光线取自 atmosphere。一个分镜段落内允许切镜（换景别/角度/对象），段与段之间可以是不同镜头，但不跨场景；切镜点对齐分镜 description 的【镜头N】结构
 3. 生成时会自动把 @名字 替换为对应参考图片标记（如 @志远 → @图片1志远），因此名字必须精确匹配场景/角色列表，不要缩写或加额外符号
 4. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
 

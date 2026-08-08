@@ -1,23 +1,18 @@
 /**
- * 导出初始化 SQL — 把 src/db/mysql-schema.ts 中的内嵌 DDL/DML 生成为独立 init.sql
+ * 导出初始化 SQL — 把 src/db/mysql-schema.ts 中的内嵌 DDL/种子生成为独立 init.sql
  *
  * 用法: npx tsx scripts/export-init-sql.ts [输出路径]
  * 默认输出: <repo>/docker/init.sql
  *
  * 说明:
- * - 应用启动时本就会自动执行同样的初始化(initMySqlSchema),该文件是可选产物,
+ * - 应用启动时本就会自动执行同样的初始化(initMySqlSchema: 建表 + 种子),该文件是可选产物,
  *   用于 DBA 审核、预建表或挂到 MySQL 容器的 /docker-entrypoint-initdb.d/
- * - 列补齐(backfill)语句在代码里是幂等的(SHOW COLUMNS 检查后才 ALTER),
- *   MySQL 不支持 ADD COLUMN IF NOT EXISTS,且新建表已包含全部列,故仅以注释形式导出
  */
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import {
   mysqlSchemaStatements,
-  mysqlColumnBackfillStatements,
-  mysqlDropTableStatements,
-  mysqlDataCleanupStatements,
   mysqlDataSeedStatements,
 } from '../src/db/mysql-schema.js'
 
@@ -58,31 +53,12 @@ ${mysqlSchemaStatements.map(s => `${s};`).join('\n\n')}
 `)
 
 sections.push(`-- ----------------------------------------------------------------------------
--- 2. 废弃表清理
--- ----------------------------------------------------------------------------
-${mysqlDropTableStatements.map(s => `${s};`).join('\n')}
-`)
-
-sections.push(`-- ----------------------------------------------------------------------------
--- 3. 历史数据迁移清理(对全新数据库为 no-op,与应用启动行为保持一致)
--- ----------------------------------------------------------------------------
-${mysqlDataCleanupStatements.map(s => `${inlineParams(s.sql, s.params)};`).join('\n')}
-`)
-
-sections.push(`-- ----------------------------------------------------------------------------
--- 4. 种子数据: 风格预设(幂等,只补缺失行)
+-- 2. 种子数据: 风格预设(幂等,只补缺失行)
 -- ----------------------------------------------------------------------------
 ${mysqlDataSeedStatements.map(s => `${inlineParams(s.sql, s.params)};`).join('\n')}
-`)
-
-sections.push(`-- ----------------------------------------------------------------------------
--- 附: 列补齐语句(仅用于老库升级;新建表已包含全部列,无需执行)
--- 代码中通过 SHOW COLUMNS 检查后按需执行,MySQL 不支持 ADD COLUMN IF NOT EXISTS
--- ----------------------------------------------------------------------------
-${mysqlColumnBackfillStatements.map(s => `-- ${s.sql};`).join('\n')}
 `)
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, sections.join('\n'), 'utf8')
 console.log(`✅ 已导出: ${outPath}`)
-console.log(`   建表 ${mysqlSchemaStatements.length} 条, 清理 ${mysqlDataCleanupStatements.length} 条, 种子 ${mysqlDataSeedStatements.length} 条`)
+console.log(`   建表 ${mysqlSchemaStatements.length} 条, 种子 ${mysqlDataSeedStatements.length} 条`)
