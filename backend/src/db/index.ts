@@ -1,13 +1,19 @@
 import 'dotenv/config'
+import fs from 'fs'
 import mysql from 'mysql2/promise'
 import { drizzle } from 'drizzle-orm/mysql2'
 import * as schema from './schema.js'
 import { initMySqlSchema } from './mysql-schema.js'
 
+// 容器内 127.0.0.1 指向容器自身;未显式配置时默认指向宿主机
+// (Linux 需 --add-host=host.docker.internal:host-gateway 才能解析)
+const inContainer = fs.existsSync('/.dockerenv')
+const usingDefaultHost = !process.env.DATABASE_URL && !process.env.MYSQL_HOST
+
 function databaseUrl() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
 
-  const host = process.env.MYSQL_HOST || '127.0.0.1'
+  const host = process.env.MYSQL_HOST || (inContainer ? 'host.docker.internal' : '127.0.0.1')
   const port = process.env.MYSQL_PORT || '3306'
   const user = encodeURIComponent(process.env.MYSQL_USER || 'huobao')
   const password = encodeURIComponent(process.env.MYSQL_PASSWORD || 'huobao')
@@ -34,6 +40,10 @@ export async function initDb(retries = 10, delayMs = 3000) {
     } catch (err) {
       if (attempt >= retries) throw err
       console.warn(`[db] init failed (attempt ${attempt}/${retries}), retrying in ${delayMs}ms: ${(err as Error).message}`)
+      if (attempt === 1 && usingDefaultHost && inContainer) {
+        console.warn('[db] 未配置数据库连接:容器内默认尝试宿主机 host.docker.internal:3306。' +
+          '如使用独立 MySQL 容器或外部数据库,请设置 DATABASE_URL 或 MYSQL_HOST 环境变量')
+      }
       await sleep(delayMs)
     }
   }
