@@ -233,23 +233,25 @@ docker compose down
 | `./backend/workspace` | Agent 技能文件（设置页可在线编辑） |
 | `mysql-data`(命名卷) | MySQL 数据 |
 
-> **提示**：构建过程需从外网下载 `ffmpeg-static` / `sharp` 预编译二进制，网络受限环境请先配置 npm 镜像或代理。
+> **提示**：compose 为源码构建方式，构建过程需从外网下载 `ffmpeg-static` / `sharp` 预编译二进制，网络受限环境请先配置 npm 镜像或代理；想跳过构建可直接使用方式二的 Docker Hub 预构建镜像。
 
-#### 方式二：Docker 命令
+#### 方式二：Docker 命令（Docker Hub 镜像）
+
+已发布多架构镜像（`linux/amd64` + `linux/arm64`，x86 服务器与 ARM 设备均自动匹配），无需克隆仓库、无需本地构建：
 
 ```bash
-# 本地构建
-docker build -t huobao-drama:latest .
+# 拉取镜像
+docker pull huobao/huobao-drama:3.0.0
 
-# 运行(MySQL 需另行准备,通过 DATABASE_URL 指向)
+# 运行(MySQL 需另行准备,通过 DATABASE_URL 指向;命名卷自动从镜像初始化 skills 等内容)
 docker run -d \
   --name huobao-drama \
   -p 5679:5679 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/backend/workspace:/app/backend/workspace \
+  -v huobao-data:/app/data \
+  -v huobao-workspace:/app/backend/workspace \
   -e DATABASE_URL=mysql://huobao:huobao@host.docker.internal:3306/huobao_drama \
   --restart unless-stopped \
-  huobao-drama:latest
+  huobao/huobao-drama:3.0.0
 
 # 查看日志
 docker logs -f huobao-drama
@@ -257,8 +259,15 @@ docker logs -f huobao-drama
 
 > **注意**：Linux 用户需添加 `--add-host=host.docker.internal:host-gateway` 以访问宿主机服务
 
+**从源码构建**（可选，需克隆仓库）：
+
+```bash
+docker build -t huobao-drama:latest .
+```
+
 **Docker 部署优势：**
 
+- ✅ Docker Hub 预构建多架构镜像（amd64 / arm64），免构建即拉即用
 - ✅ 开箱即用，内置 FFmpeg 二进制，无需系统安装
 - ✅ 前后端合并为单镜像、单端口
 - ✅ MySQL 健康检查 + 应用启动重试，首次部署零人工干预
