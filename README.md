@@ -440,6 +440,15 @@ cd ../frontend && npm run build
 
 ---
 
+## ☕ 捐赠支持
+
+如果这个项目对你有帮助，欢迎扫码请作者喝杯咖啡 ☕，你的支持是持续更新的动力！
+
+<div align="center">
+  <img src="donate.jpg" alt="支付宝捐赠二维码" width="240" />
+</div>
+
+---
 
 > _"让 AI 帮我们做更有创造力的事"_
 
