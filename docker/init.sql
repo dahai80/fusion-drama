@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Huobao Drama 初始化 SQL
 -- 由 backend/scripts/export-init-sql.ts 从 backend/src/db/mysql-schema.ts 生成
--- 生成时间: 2026-08-07T18:14:59.082Z
+-- 生成时间: 2026-08-08T14:35:02.119Z
 --
 -- 注意: 应用启动时会自动执行同等初始化(幂等),本文件不是部署必需,
 --       仅供 DBA 审核或在应用外预建表使用
@@ -10,7 +10,7 @@
 SET NAMES utf8mb4;
 
 -- ----------------------------------------------------------------------------
--- 1. 建表(18 张)
+-- 1. 建表(17 张)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS dramas (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -208,22 +208,6 @@ CREATE TABLE IF NOT EXISTS style_presets (
     UNIQUE KEY uk_style_presets_value (value)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS agent_configs (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    agent_type VARCHAR(64) NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    model TEXT,
-    system_prompt TEXT,
-    temperature DOUBLE,
-    max_tokens INT,
-    max_iterations INT,
-    is_active TINYINT(1) DEFAULT 1,
-    created_at VARCHAR(64) NOT NULL,
-    updated_at VARCHAR(64) NOT NULL,
-    deleted_at VARCHAR(64)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS sys_task (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     type VARCHAR(16) NOT NULL,
@@ -333,21 +317,18 @@ DELETE FROM `ai_service_configs` WHERE `provider` IN ('deepseek', 'ali', 'vidu')
 DELETE FROM `ai_service_providers` WHERE `provider` IN ('deepseek', 'ali', 'vidu');
 UPDATE `dramas` SET `style` = 'realistic' WHERE `style` = 'cinematic';
 UPDATE `storyboards` SET `video_prompt` = REPLACE(`video_prompt`, '<n>', CHAR(10)) WHERE `video_prompt` LIKE '%<n>%';
-UPDATE `agent_configs` SET `agent_type` = 'image_prompt_generator' WHERE `agent_type` = 'grid_prompt_generator';
-UPDATE `agent_configs` SET `name` = '提示词生成' WHERE `agent_type` = 'image_prompt_generator' AND `name` = '图片提示词生成';
-UPDATE `agent_configs` SET `agent_type` = 'prompt_generator' WHERE `agent_type` = 'image_prompt_generator';
-UPDATE `agent_configs` SET `name` = '提示词' WHERE `agent_type` = 'prompt_generator' AND `name` = '提示词生成';
+DROP TABLE IF EXISTS `agent_configs`;
 UPDATE `ai_service_configs` SET `model` = '["doubao-seedance-2-0-fast-260128","doubao-seedance-2-0-260128","doubao-seedance-2-0-mini-260615"]' WHERE `service_type` = 'video' AND `provider` = 'volcengine' AND `model` NOT LIKE '%doubao-seedance-2-0%';
 
 -- ----------------------------------------------------------------------------
 -- 4. 种子数据: 风格预设(幂等,只补缺失行)
 -- ----------------------------------------------------------------------------
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '3D', '3d', '3D render, Pixar-style animation, soft studio lighting, high detail, subsurface scattering', '三维渲染卡通质感，适合轻松明快的短剧', 1, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = '3d');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '动漫', 'anime', 'anime style, cel shading, vibrant colors, clean line art, Japanese animation', '日式赛璐璐动画风格', 2, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'anime');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '写实电影', 'realistic', 'photorealistic, cinematic film still, 35mm, natural lighting, shallow depth of field, high detail', '电影级真人写实质感', 3, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'realistic');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '吉卜力', 'ghibli', 'Studio Ghibli style, hand-painted, soft watercolor background, warm nostalgic tone', '吉卜力手绘治愈风', 4, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'ghibli');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '水彩', 'watercolor', 'watercolor illustration, soft washes, visible paper texture, delicate brush strokes', '水彩插画质感', 5, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'watercolor');
-INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '漫画', 'comic', 'comic book style, bold outlines, halftone shading, dynamic colors, flat graphic look', '美式漫画粗线条风格', 6, 1, '2026-08-07T18:14:59.081Z', '2026-08-07T18:14:59.081Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'comic');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '3D', '3d', '3D render, Pixar-style animation, soft studio lighting, high detail, subsurface scattering', '三维渲染卡通质感，适合轻松明快的短剧', 1, 1, '2026-08-08T14:35:02.118Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = '3d');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '动漫', 'anime', 'anime style, cel shading, vibrant colors, clean line art, Japanese animation', '日式赛璐璐动画风格', 2, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'anime');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '写实电影', 'realistic', 'photorealistic, cinematic film still, 35mm, natural lighting, shallow depth of field, high detail', '电影级真人写实质感', 3, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'realistic');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '吉卜力', 'ghibli', 'Studio Ghibli style, hand-painted, soft watercolor background, warm nostalgic tone', '吉卜力手绘治愈风', 4, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'ghibli');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '水彩', 'watercolor', 'watercolor illustration, soft washes, visible paper texture, delicate brush strokes', '水彩插画质感', 5, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'watercolor');
+INSERT INTO `style_presets` (`name`, `value`, `prompt`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) SELECT '漫画', 'comic', 'comic book style, bold outlines, halftone shading, dynamic colors, flat graphic look', '美式漫画粗线条风格', 6, 1, '2026-08-08T14:35:02.119Z', '2026-08-08T14:35:02.119Z' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `style_presets` WHERE `value` = 'comic');
 
 -- ----------------------------------------------------------------------------
 -- 附: 列补齐语句(仅用于老库升级;新建表已包含全部列,无需执行)

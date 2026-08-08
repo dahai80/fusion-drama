@@ -1,15 +1,13 @@
 /**
  * Mastra Agent 注册表
  * 启动时注册静态 Agent；instructions/model 用 DynamicArgument 按请求解析
- * （DB 配置 + RequestContext 中的 model/config_id 覆盖），episodeId/dramaId
- * 由工具从 RequestContext 读取
+ * （workspace/prompts/<agent_type>.md 文件 + RequestContext 中的 model/config_id 覆盖），
+ * episodeId/dramaId 由工具从 RequestContext 读取
  */
 import { Agent } from '@mastra/core/agent'
 import type { RequestContext } from '@mastra/core/request-context'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
-import { eq, isNull, and } from 'drizzle-orm'
-import { db, schema } from '../db/index.js'
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
 import { logTaskProgress } from '../utils/task-logger.js'
 import { scriptTools } from './tools/script-tools.js'
@@ -17,9 +15,10 @@ import { extractTools } from './tools/extract-tools.js'
 import { storyboardTools } from './tools/storyboard-tools.js'
 import { imagePromptTools } from './tools/image-prompt-tools.js'
 import { loadAgentSkills, skillWorkspaces } from './skills.js'
+import { loadAgentPromptFile } from './prompts.js'
 
-// Default prompts (used when DB has no config)
-const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = {
+// Default prompts (used when workspace/prompts/<type>.md 文件缺失时兜底)
+export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = {
   script_rewriter: {
     name: '剧本改写',
     instructions: `你是专业编剧，擅长将小说改编为短剧剧本。
@@ -75,28 +74,35 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
     name: '分镜拆解',
     instructions: `你是资深影视分镜师，擅长将剧本拆解为分镜方案。
 
+核心定义：一个分镜 = 一个「分镜段落」= 一个视频生成任务。每个段落 8-15 秒，内部承载 2-4 个子镜头；子镜头之间可以切镜（换景别/角度/对象），但不跨场景。
+
 工作流程：
 1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表
-2. 将剧本拆解为镜头序列（每个镜头 10-15 秒，总体保持剧情完整连续）
-3. 为每个镜头补全生产字段（拆分时不需要生成 video_prompt，该字段由提示词 Agent 在视频生成阶段生成）
-4. 调用 save_storyboards 保存所有分镜
+2. 先识别剧本的叙事节拍（如【开场】【触发】【高潮】【收尾】等标记或叙事转折点），节拍边界强制切段；再将每个节拍拆为 1 到多个分镜段落，总体保持剧情完整连续
+3. 为每个段落补全生产字段（拆分时不需要生成 video_prompt，该字段由提示词 Agent 在视频生成阶段生成）
+4. 调用 save_storyboards 保存所有分镜段落
 
-每个镜头只需要填写以下字段：
-- character_ids：当前镜头涉及的角色 ID 列表，可以为空，也可以包含多个角色；必须从 characters 中选择
-- prop_ids：当前镜头出现的关键道具 ID 列表（道具在画面中被看到、使用或特写时绑定），可以为空；必须从 props 中选择
+每个段落只需要填写以下字段：
+- character_ids：当前段落涉及的角色 ID 列表，可以为空，也可以包含多个角色；必须从 characters 中选择
+- prop_ids：当前段落出现的关键道具 ID 列表（道具在画面中被看到、使用或特写时绑定），可以为空；必须从 props 中选择
 - scene_id：若可匹配到 scenes 中已有场景，必须填写正确 scene_id；无匹配时置空
-- duration：镜头时长，优先 10-15 秒
-- action：角色动作与表演
-- description：画面描述，说明观众实际看到的画面内容
-- dialogue：该镜头实际发生的对白或旁白；旁白可写为“旁白：内容”
+- duration：段落总时长 8-15 秒
+- action：按【镜头1】【镜头2】…逐子镜头写角色动作与表演（谁+怎么做+肢体细节+表情）
+- description：按【镜头N】逐子镜头描述观众实际看到的画面内容
+- dialogue：该段落实际发生的对白或旁白；旁白可写为“旁白：内容”
 - atmosphere：氛围、光线、色调、环境感受
+
+时长规则（硬约束）：
+- 总量锚定：目标总时长 = 剧本字数 ÷ 500字/分钟，段落数 ≈ 目标总时长 ÷ 12秒，允许 ±20% 浮动
+- 节奏分层：过渡段（赶路/空镜/转场）8-10 秒；叙事段 10-15 秒；爆点段（特写/规则揭示/情感爆发/反转）12-15 秒且子镜头节奏放慢
+- 对白下限：段落时长 ≥ 段内对白总字数 ÷ 4.5字/秒 + 2秒表演余量，装不下的对白拆到下一个段落
 
 额外要求：
 - 优先复用 read_storyboard_context 返回的 scene_id，不要凭空创造新场景
-- 镜头角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜头可传空数组
-- 镜头道具绑定必须来自 read_storyboard_context 返回的道具列表；道具被使用、特写、交接或在画面中明显可见时绑定，与剧情无关的背景物品不要绑定；没有道具出现可传空数组
-- 镜头描述必须能支撑后续视频生成和导出流程
-- 若一个镜头没有对白，可将 dialogue 置空，但 description / action / atmosphere 仍必须完整
+- 段落角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜段落可传空数组
+- 段落道具绑定必须来自 read_storyboard_context 返回的道具列表；道具被使用、特写、交接或在画面中明显可见时绑定，与剧情无关的背景物品不要绑定；没有道具出现可传空数组
+- 段落描述必须能支撑后续视频生成和导出流程
+- 若一个段落没有对白，可将 dialogue 置空，但 description / action / atmosphere 仍必须完整
 - 如果已有 existing_storyboards，仅在用户明确要求增量修改时参考；默认按当前剧本重新完整生成并保存整集分镜。`,
   },
   prompt_generator: {
@@ -120,7 +126,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 
 工作流程：
 1. 调用 read_storyboard_context 读取该分镜的 action、description、dialogue、atmosphere、duration 及绑定的场景/角色
-2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；内容覆盖动作、画面描述、对白/旁白、氛围
+2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；内容覆盖动作、画面描述、对白/旁白、氛围。一个分镜段落内允许切镜（换景别/角度/对象），段与段之间可以是不同镜头，但不跨场景；切镜点对齐分镜 action 的【镜头N】结构
 3. 生成时会自动把 @名字 替换为对应参考图片标记（如 @志远 → @图片1志远），因此名字必须精确匹配场景/角色列表，不要缩写或加额外符号
 4. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
 
@@ -133,21 +139,73 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 
 export const validAgentTypes = Object.keys(DEFAULT_PROMPTS)
 
-async function getAgentConfig(agentType: string) {
-  const rows = await db.select().from(schema.agentConfigs)
-    .where(and(eq(schema.agentConfigs.agentType, agentType), isNull(schema.agentConfigs.deletedAt)))
-
-  // Return active one, or first one
-  return rows.find(r => r.isActive) || rows[0] || null
-}
-
 // Agent 每一步都会重新解析模型，相同端点只打一次日志避免刷屏
 let lastLoggedTextEndpointKey = ''
 
-async function getModel(dbConfig: any, modelOverride?: string, textConfigId?: number) {
+/**
+ * 关闭思考(thinking)模式
+ *
+ * 背景：new-api 类中转站对 thinking 模型强制要求多轮请求回传 reasoning_content,
+ * 而 Agent 多轮工具调用无法回传,会被中转站 400 拒绝
+ * ("The `reasoning_content` in the thinking mode must be passed back to the API")。
+ * 这里在请求体注入各厂商风格的关思考参数,让模型不产出 reasoning_content。
+ *
+ * - 默认开启;AI_DISABLE_THINKING=false 可关闭注入
+ * - 官方 OpenAI / Gemini 端点跳过(官方 API 会拒绝未知参数)
+ * - AI_THINKING_OFF_PATCH 可传 JSON 覆盖注入的 OpenAI 风格参数(适配不同中转站)
+ */
+const thinkingOffEnabled = (process.env.AI_DISABLE_THINKING ?? 'true').toLowerCase() !== 'false'
+
+function isOfficialTextHost(baseURL: string) {
+  return /api\.openai\.com|generativelanguage\.googleapis\.com/.test(baseURL)
+}
+
+function openaiThinkingOffPatch(): Record<string, any> {
+  const fallback = {
+    thinking: { type: 'disabled' },   // new-api 通用 / DeepSeek
+    enable_thinking: false,           // Qwen / 阿里系
+    reasoning_effort: 'none',         // OpenAI 风格枚举(Gemini 渠道映射为 budget 0)
+  }
+  const raw = process.env.AI_THINKING_OFF_PATCH
+  if (!raw) return fallback
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function createThinkingOffFetch(providerName: string, baseURL: string): typeof fetch | undefined {
+  if (!thinkingOffEnabled || isOfficialTextHost(baseURL)) return undefined
+  const openaiPatch = openaiThinkingOffPatch()
+
+  return async (input: any, init?: any) => {
+    try {
+      if (init?.body && typeof init.body === 'string') {
+        const body = JSON.parse(init.body)
+        if (providerName === 'gemini' && Array.isArray(body?.contents)) {
+          // Gemini 原生格式
+          body.generationConfig = {
+            ...(body.generationConfig || {}),
+            thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
+          }
+          init = { ...init, body: JSON.stringify(body) }
+        } else if (Array.isArray(body?.messages)) {
+          // OpenAI 兼容格式
+          Object.assign(body, openaiPatch)
+          init = { ...init, body: JSON.stringify(body) }
+        }
+      }
+    } catch { /* 解析失败则原样透传 */ }
+    return fetch(input, init)
+  }
+}
+
+async function getModel(fileModel: string | undefined, modelOverride?: string, textConfigId?: number) {
   // 请求可指定文本配置（含其 provider/baseUrl/apiKey），否则回退到当前启用配置
   const textConfig = (textConfigId ? await getConfigById(textConfigId) : null) || await getTextConfig()
-  const modelName = modelOverride || dbConfig?.model || textConfig.model
+  const modelName = modelOverride || fileModel || textConfig.model
   const providerName = textConfig.provider.toLowerCase()
   const resolvedBaseURL = getTextProviderBaseUrl(textConfig)
   const endpointKey = `${providerName}|${resolvedBaseURL}|${modelName}`
@@ -164,6 +222,7 @@ async function getModel(dbConfig: any, modelOverride?: string, textConfigId?: nu
     const googleProvider = createGoogleGenerativeAI({
       apiKey: textConfig.apiKey,
       baseURL: resolvedBaseURL,
+      fetch: createThinkingOffFetch(providerName, resolvedBaseURL),
     })
     return googleProvider(modelName)
   }
@@ -171,6 +230,7 @@ async function getModel(dbConfig: any, modelOverride?: string, textConfigId?: nu
   const provider = createOpenAI({
     baseURL: resolvedBaseURL,
     apiKey: textConfig.apiKey,
+    fetch: createThinkingOffFetch(providerName, resolvedBaseURL),
   } as any)
   return provider.chat(modelName)
 }
@@ -186,12 +246,12 @@ const AGENT_TOOLS: Record<string, Record<string, any>> = {
   },
 }
 
-/** instructions 按请求解析：DB prompt（或默认）+ 技能全文拼接 */
+/** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 */
 function buildInstructions(type: string) {
   return async () => {
     const defaults = DEFAULT_PROMPTS[type]
-    const dbConfig = await getAgentConfig(type)
-    const baseInstructions = dbConfig?.systemPrompt?.trim() || defaults.instructions
+    const promptFile = await loadAgentPromptFile(type)
+    const baseInstructions = promptFile?.instructions || defaults.instructions
     const skillInstructions = await loadAgentSkills(type)
     return skillInstructions
       ? [baseInstructions, '', skillInstructions].join('\n')
@@ -199,13 +259,13 @@ function buildInstructions(type: string) {
   }
 }
 
-/** model 按请求解析：DB 配置 + RequestContext 的 modelOverride/textConfigId 覆盖 */
+/** model 按请求解析：prompt 文件 frontmatter + RequestContext 的 modelOverride/textConfigId 覆盖 */
 function buildModel(type: string) {
   return async ({ requestContext }: { requestContext?: RequestContext }) => {
-    const dbConfig = await getAgentConfig(type)
+    const promptFile = await loadAgentPromptFile(type)
     const modelOverride = requestContext?.get('modelOverride' as never) as string | undefined
     const textConfigId = requestContext?.get('textConfigId' as never) as number | undefined
-    return getModel(dbConfig, modelOverride, textConfigId)
+    return getModel(promptFile?.model || undefined, modelOverride, textConfigId)
   }
 }
 

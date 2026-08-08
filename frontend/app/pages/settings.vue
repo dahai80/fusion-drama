@@ -56,7 +56,7 @@
               </button>
             </div>
             <div class="huobao-quick-models">
-              <div v-for="q in huobaoQuickConfigs" :key="q.service_type" class="hqm-row">
+              <div v-for="q in huobaoQuickConfigs" :key="q.name" class="hqm-row">
                 <span class="hqm-label">{{ serviceMeta[q.service_type].label }}</span>
                 <span class="hqm-models mono">
                   <span v-for="(m, i) in q.model" :key="m" :class="['hqm-model', { 'is-default': i === 0 }]">
@@ -166,7 +166,7 @@
                   <div class="agent-card-title">{{ a.label }}</div>
                   <div class="agent-card-type dim">{{ a.type }}</div>
                 </div>
-                <span v-if="getAgentCfg(a.type)" class="tag tag-success">已配置</span>
+                <span v-if="getAgentCfg(a.type) && !getAgentCfg(a.type).is_default" class="tag tag-success">自定义</span>
                 <span v-else class="tag">默认</span>
                 <ChevronDown :size="14" :style="{ transform: editingAgent === a.type ? 'rotate(180deg)' : '', transition: '0.2s' }" />
               </div>
@@ -175,18 +175,8 @@
                   <span class="field-label">模型 <span class="dim">(留空使用 AI 服务默认)</span></span>
                   <BaseSelect v-model="agentForm.model" :options="textModelSelectOptions" placeholder="— 使用 AI 服务默认 —" searchable />
                 </label>
-                <div class="field-row">
-                  <label class="field">
-                    <span class="field-label">Temperature</span>
-                    <input v-model.number="agentForm.temperature" class="input" type="number" min="0" max="2" step="0.1" />
-                  </label>
-                  <label class="field">
-                    <span class="field-label">Max Tokens</span>
-                    <input v-model.number="agentForm.max_tokens" class="input" type="number" min="100" max="32000" />
-                  </label>
-                </div>
                 <label class="field">
-                  <span class="field-label">System Prompt</span>
+                  <span class="field-label">System Prompt <span class="dim">(保存为 workspace/prompts/{{ a.type }}.md)</span></span>
                   <textarea v-model="agentForm.system_prompt" class="textarea" rows="12" placeholder="Agent 系统提示词..." />
                 </label>
                 <div class="agent-card-foot">
@@ -430,7 +420,7 @@
 import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
-import { aiConfigAPI, agentConfigAPI, skillsAPI, stylePresetAPI } from '~/composables/useApi'
+import { aiConfigAPI, promptAPI, skillsAPI, stylePresetAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/huobao-logo.png'
 
 const showBrandImage = ref(true)
@@ -479,7 +469,8 @@ const providerPresets = {
   },
 }
 const huobaoQuickConfigs = [
-  { service_type: 'text', provider: 'openai', name: '火宝文本服务', base_url: 'https://api.chatfire.site', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gpt-5.6-terra', 'deepseek-v4-flash'], priority: 100 },
+  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.chatfire.site', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
+  { service_type: 'text', provider: 'openai', name: '火宝文本服务', base_url: 'https://api.chatfire.site', model: ['deepseek-v4-flash', 'gpt-5.6-terra'], priority: 95 },
   { service_type: 'image', provider: 'openai', name: '火宝图片服务', base_url: 'https://api.chatfire.site', model: ['gpt-image-2', 'gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 99 },
   { service_type: 'video', provider: 'volcengine', name: '火宝视频服务', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-mini-260615'], priority: 98 },
 ]
@@ -510,7 +501,7 @@ async function applyHuobaoQuickConfig() {
   try {
     for (const preset of huobaoQuickConfigs) {
       const payload = { ...preset, api_key: apiKey }
-      const existing = cfgs.value.find(c => c.name === preset.name || (c.service_type === preset.service_type && c.base_url === preset.base_url))
+      const existing = cfgs.value.find(c => c.name === preset.name || (c.service_type === preset.service_type && c.provider === preset.provider && c.base_url === preset.base_url))
       if (existing) await aiConfigAPI.update(existing.id, payload)
       else await aiConfigAPI.create(payload)
     }
@@ -591,7 +582,7 @@ const agentCfgs = ref([])
 const editingAgent = ref(null)
 const agentSaving = ref(false)
 const agentSaved = ref(null)
-const agentForm = reactive({ model: '', temperature: 0.7, max_tokens: 4096, system_prompt: '' })
+const agentForm = reactive({ model: '', system_prompt: '' })
 
 const agentDefs = [
   { type: 'script_rewriter', label: '剧本改写', icon: '📝' },
@@ -599,105 +590,6 @@ const agentDefs = [
   { type: 'storyboard_breaker', label: '分镜拆解', icon: '🎬' },
   { type: 'prompt_generator', label: '提示词', icon: '🖼' },
 ]
-
-const defaultPrompts = {
-  script_rewriter: `你是专业编剧，擅长将小说改编为短剧剧本。
-
-工作流程：
-1. 调用 read_episode_script 读取原始内容
-2. 根据读取到的内容，自己进行改写（输出格式化剧本格式）
-3. 调用 save_script 保存改写后的完整剧本
-
-格式化剧本格式：
-- 场景头：## S编号 | 内景/外景 · 地点 | 时间段
-- 动作描写：自然段落，不包含镜头语言
-- 对白：角色名：（状态/表情）台词内容
-- 每个场景 30-60 秒内容`,
-  extractor: `你是制片助理，擅长从剧本中提取角色、场景和道具信息，并在提取时与项目已有数据进行智能去重。
-
-工作流程：
-1. 调用 read_script_for_extraction 读取格式化剧本
-2. 调用 read_existing_characters 读取项目中已存在的角色列表，以及当前集已关联角色
-3. 调用 read_existing_scenes 读取项目中已存在的场景列表，以及当前集已关联场景
-4. 调用 read_existing_props 读取项目中已存在的道具列表，以及当前集已关联道具
-5. 优先围绕当前集剧本，分析本集实际出现的角色、场景和道具
-6. 对每个角色：若同名已存在则合并更新，若不存在则新增
-7. 调用 save_dedup_characters 保存角色（去重合并，自动处理新增和更新，并关联到当前集）
-8. 分析剧本内容，提取本集涉及的所有场景信息
-9. 对每个场景：若同地点+时间段已存在则复用，若不存在则新增
-10. 调用 save_dedup_scenes 保存场景（去重合并，自动处理新增和复用，并关联到当前集）
-11. 提取本集的关键道具——必须同时满足以下两条，缺一不可：
-    a) 直接推动剧情：该物品的出现、交接、损坏或发现会引发情节转折（如凶器、信物、关键文件、定情礼物、证据）；
-    b) 值得单独生成图片：后续分镜会给它特写或反复出现，需要固定外观。
-    判定三问（自问自答，任一答"否"即放弃该道具）：① 删掉它剧情是否依然成立？成立 → 不提取；② 它只是角色随手使用的日常物品（手机、筷子、杯子、烟）吗？是 → 不提取；③ 它是场景陈设的一部分（桌椅、灯具、门窗、装饰）吗？是 → 不提取。
-    宁可少提，不要多提：一集通常 0-3 个关键道具，超过 3 个时按剧情重要性排序只保留前 3 个；没有符合条件的道具就一个都不要提取
-12. 对每个道具：若同名已存在则合并更新，若不存在则新增
-13. 调用 save_dedup_props 保存道具（去重合并，自动处理新增和更新，并关联到当前集）；若没有需要提取的道具，调用时传空数组即可，不要强行凑数
-
-去重规则：
-- 角色：按名字精确匹配，同名保留现有（合并信息）
-- 场景：按【地点+时间段】精确匹配；同地点不同时段视为新场景
-- 道具：按名字精确匹配，同名保留现有（合并信息）
-
-提取要求：
-- 只提取当前集真实出现或被明确提及、且对当前集叙事有效的角色、场景和道具
-- 角色只需要两个核心描述字段：appearance（样貌：年龄感、五官、体态、气质等，角色的性格特点要转化为外在气质与神态融入样貌描写，不要单独输出性格字段）和 styling（妆造：发型、服装、妆面、配饰等）
-- 场景只需要两个核心描述字段：prompt（场景描述：空间、陈设、年代质感、关键视觉元素等）和 lighting（场景光影：光源、色调、明暗、氛围等）
-- 道具字段：name（道具名）、type（类型：日常/武器/交通/装饰/文件等）、description（物品外貌：只描写物品本身的物理外观——材质、颜色、形状、大小、新旧程度、磨损痕迹等，不要写剧情用途，不要涉及与角色或其他事物的关联）。道具不需要输出图片提示词，最终提示词由提示词生成 Agent 后续专门生成
-- 不要遗漏任何有台词或重要动作的角色`,
-  storyboard_breaker: `你是资深影视分镜师，擅长将剧本拆解为分镜方案。
-
-工作流程：
-1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表
-2. 将剧本拆解为镜头序列（每个镜头 10-15 秒，总体保持剧情完整连续）
-3. 为每个镜头补全生产字段（拆分时不需要生成 video_prompt，该字段由提示词 Agent 在视频生成阶段生成）
-4. 调用 save_storyboards 保存所有分镜
-
-每个镜头只需要填写以下字段：
-- character_ids：当前镜头涉及的角色 ID 列表，可以为空，也可以包含多个角色；必须从 characters 中选择
-- prop_ids：当前镜头出现的关键道具 ID 列表（道具在画面中被看到、使用或特写时绑定），可以为空；必须从 props 中选择
-- scene_id：若可匹配到 scenes 中已有场景，必须填写正确 scene_id；无匹配时置空
-- duration：镜头时长，优先 10-15 秒
-- action：角色动作与表演
-- description：画面描述，说明观众实际看到的画面内容
-- dialogue：该镜头实际发生的对白或旁白；旁白可写为“旁白：内容”
-- atmosphere：氛围、光线、色调、环境感受
-
-额外要求：
-- 优先复用 read_storyboard_context 返回的 scene_id，不要凭空创造新场景
-- 镜头角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜头可传空数组
-- 镜头道具绑定必须来自 read_storyboard_context 返回的道具列表；道具被使用、特写、交接或在画面中明显可见时绑定，与剧情无关的背景物品不要绑定；没有道具出现可传空数组
-- 镜头描述必须能支撑后续视频生成和导出流程
-- 若一个镜头没有对白，可将 dialogue 置空，但 description / action / atmosphere 仍必须完整
-- 如果已有 existing_storyboards，仅在用户明确要求增量修改时参考；默认按当前剧本重新完整生成并保存整集分镜。`,
-  prompt_generator: `你是专业的 AI 提示词工程师，负责两类提示词的创作与保存：
-1. 角色/场景/道具的「最终提示词」，供生图直接使用
-2. 分镜的「视频提示词」（video_prompt），供视频生成直接使用
-
-## 图片最终提示词
-
-用户请求会告知要为哪些角色、场景或道具生成最终提示词（附带 character_id / scene_id / prop_id）。
-
-工作流程：
-1. 调用 read_characters / read_scenes / read_props 读取资产信息
-2. 按对应资产的技能规范（角色三视图 / 场景固定视角 / 道具白底单品）创作最终提示词
-3. 调用 save_character_final_prompt / save_scene_final_prompt / save_prop_final_prompt 逐个保存
-
-## 视频提示词
-
-用户请求会告知要为哪个分镜生成视频提示词（附带分镜 ID）。
-
-工作流程：
-1. 调用 read_storyboard_context 读取该分镜的 action、description、dialogue、atmosphere、duration 及绑定的场景/角色
-2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；内容覆盖动作、画面描述、对白/旁白、氛围
-3. 生成时会自动把 @名字 替换为对应参考图片标记（如 @志远 → @图片1志远），因此名字必须精确匹配场景/角色列表，不要缩写或加额外符号
-4. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
-
-通用规范：
-- 所有提示词只输出中文，单段连贯描述，不要分点，不要混入英文词汇
-- 项目设定的视觉风格描述会由工具在保存图片提示词时自动注入到最终提示词的最前方，不要自行添加风格词
-- 必须实际调用保存工具，不要只在回复中给出提示词`,
-}
 
 function getAgentCfg(type) {
   return agentCfgs.value.find(a => a.agent_type === type)
@@ -721,44 +613,41 @@ const textModelSelectOptions = computed(() =>
 )
 
 async function loadAgents() {
-  try { agentCfgs.value = await agentConfigAPI.list() }
+  try { agentCfgs.value = await promptAPI.list() }
   catch (e) { toast.error(e.message) }
 }
 
-function toggleAgentEdit(type) {
+async function toggleAgentEdit(type) {
   if (editingAgent.value === type) { editingAgent.value = null; return }
-  const cfg = getAgentCfg(type)
-  agentForm.model = cfg?.model || ''
-  agentForm.temperature = cfg?.temperature ?? 0.7
-  agentForm.max_tokens = cfg?.max_tokens ?? 4096
-  agentForm.system_prompt = cfg?.system_prompt || defaultPrompts[type] || ''
-  agentSaved.value = null
-  editingAgent.value = type
+  try {
+    const cfg = await promptAPI.get(type)
+    agentForm.model = cfg.model || ''
+    agentForm.system_prompt = cfg.system_prompt || ''
+    agentSaved.value = null
+    editingAgent.value = type
+  } catch (e) { toast.error(e.message) }
 }
 
-function resetAgentPrompt(type) {
-  agentForm.system_prompt = defaultPrompts[type] || ''
-  toast.info('已恢复默认提示词，点击保存生效')
+async function resetAgentPrompt(type) {
+  try {
+    await promptAPI.reset(type)
+    await loadAgents()
+    const cfg = await promptAPI.get(type)
+    agentForm.model = cfg.model || ''
+    agentForm.system_prompt = cfg.system_prompt || ''
+    toast.success('已恢复默认提示词（prompt 文件已删除）')
+  } catch (e) { toast.error(e.message) }
 }
 
 async function saveAgentCfg(type) {
   agentSaving.value = true
   agentSaved.value = null
   try {
-    const existing = getAgentCfg(type)
-    const data = {
-      agent_type: type,
+    await promptAPI.update(type, {
       name: agentDefs.find(a => a.type === type)?.label || type,
       model: agentForm.model,
-      temperature: agentForm.temperature,
-      max_tokens: agentForm.max_tokens,
       system_prompt: agentForm.system_prompt,
-    }
-    if (existing) {
-      await agentConfigAPI.update(existing.id, data)
-    } else {
-      await agentConfigAPI.create(data)
-    }
+    })
     await loadAgents()
     agentSaved.value = type
     toast.success(`${agentDefs.find(a => a.type === type)?.label} 配置已保存`)

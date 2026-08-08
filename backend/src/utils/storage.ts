@@ -84,6 +84,30 @@ export async function saveBase64Image(base64Data: string, mimeType: string, subD
   return `static/${subDir}/${filename}`
 }
 
+/** 由图片相对路径推导缩略图路径：static/images/x.png → static/images/x_thumb.webp */
+export function thumbPathFor(relativePath: string): string {
+  return relativePath.replace(/\.[^./]+$/, '_thumb.webp')
+}
+
+/**
+ * 为已落盘图片生成列表页缩略图（宽 400 WebP，与原图同目录）。
+ * 失败（文件损坏/格式异常等）返回 null，不阻断主流程。
+ */
+export async function generateImageThumb(relativePath: string): Promise<string | null> {
+  try {
+    const thumbRel = thumbPathFor(relativePath)
+    await sharp(getAbsolutePath(relativePath))
+      .rotate()
+      .resize({ width: 400, withoutEnlargement: true })
+      .webp({ quality: 78 })
+      .toFile(getAbsolutePath(thumbRel))
+    return thumbRel
+  } catch (err) {
+    console.warn(`[storage] 缩略图生成失败 ${relativePath}:`, (err as Error).message)
+    return null
+  }
+}
+
 export function readImageAsDataUrl(relativePath: string): string {
   const filePath = getAbsolutePath(relativePath)
   const buffer = fs.readFileSync(filePath)

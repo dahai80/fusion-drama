@@ -309,6 +309,19 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # 参考视频/音频上传最大 50MB
+    client_max_body_size 100m;
+
+    # 生成的图片/视频直连磁盘，不经过 Node：sendfile 零拷贝 + 长缓存
+    # （产物按 uuid 命名、内容不变，可安全 immutable 缓存）
+    location /static/ {
+        alias /path/to/huobao-drama/data/static/;
+        sendfile on;
+        tcp_nopush on;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
     location / {
         proxy_pass http://localhost:5679;
         proxy_set_header Host $host;
@@ -317,6 +330,8 @@ server {
     }
 }
 ```
+
+> 媒体加载优化：生成图片时后端会自动产出 400px 缩略图（`*_thumb.webp`）供列表页加载，视频会抽取海报帧（`*_poster.jpg`）作为封面，前端仅在点开大图/播放时才加载原文件。历史存量文件可在 `backend/` 下执行 `npm run backfill-artwork` 一次性补齐。
 
 ---
 

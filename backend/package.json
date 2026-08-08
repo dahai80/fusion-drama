@@ -9,7 +9,8 @@
     "build": "tsc",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backfill-artwork": "tsx scripts/backfill-artwork.ts"
   },
   "keywords": [],
   "author": "",

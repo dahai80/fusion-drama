@@ -197,22 +197,6 @@ export const mysqlSchemaStatements = [
     UNIQUE KEY uk_style_presets_value (value)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
-  `CREATE TABLE IF NOT EXISTS agent_configs (
-    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    agent_type VARCHAR(64) NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    model TEXT,
-    system_prompt TEXT,
-    temperature DOUBLE,
-    max_tokens INT,
-    max_iterations INT,
-    is_active TINYINT(1) DEFAULT 1,
-    created_at VARCHAR(64) NOT NULL,
-    updated_at VARCHAR(64) NOT NULL,
-    deleted_at VARCHAR(64)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
   `CREATE TABLE IF NOT EXISTS sys_task (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     type VARCHAR(16) NOT NULL,
@@ -374,25 +358,10 @@ export const mysqlDataCleanupStatements = [
     sql: "UPDATE `storyboards` SET `video_prompt` = REPLACE(`video_prompt`, '<n>', CHAR(10)) WHERE `video_prompt` LIKE '%<n>%'",
     params: [],
   },
-  // Agent 重命名：grid_prompt_generator（宫格图时代遗留）→ image_prompt_generator
+  // agent_configs 表已废弃：Agent prompt 改为 workspace/prompts/*.md 文件维护，清理老库
   {
-    sql: 'UPDATE `agent_configs` SET `agent_type` = ? WHERE `agent_type` = ?',
-    params: ['image_prompt_generator', 'grid_prompt_generator'],
-  },
-  // Agent 显示名收敛：图片提示词生成 → 提示词生成
-  {
-    sql: 'UPDATE `agent_configs` SET `name` = ? WHERE `agent_type` = ? AND `name` = ?',
-    params: ['提示词生成', 'image_prompt_generator', '图片提示词生成'],
-  },
-  // Agent 重命名：image_prompt_generator → prompt_generator（职责扩展到视频提示词）
-  {
-    sql: 'UPDATE `agent_configs` SET `agent_type` = ? WHERE `agent_type` = ?',
-    params: ['prompt_generator', 'image_prompt_generator'],
-  },
-  // Agent 显示名收敛：提示词生成 → 提示词
-  {
-    sql: 'UPDATE `agent_configs` SET `name` = ? WHERE `agent_type` = ? AND `name` = ?',
-    params: ['提示词', 'prompt_generator', '提示词生成'],
+    sql: 'DROP TABLE IF EXISTS `agent_configs`',
+    params: [],
   },
   // 视频模型收敛：Seedance 2.0 三个官方型号，默认 doubao-seedance-2-0-fast-260128（数组首位即生效模型）
   {

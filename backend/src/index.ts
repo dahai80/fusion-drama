@@ -15,7 +15,7 @@ import tasks from './routes/tasks.js'
 import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
 import stylePresets from './routes/stylePresets.js'
-import agentConfigs from './routes/agentConfigs.js'
+import prompts from './routes/prompts.js'
 import agent from './routes/agent.js'
 import merge from './routes/merge.js'
 import skills from './routes/skills.js'
@@ -50,7 +50,7 @@ api.route('/upload', upload)
 api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
 api.route('/style-presets', stylePresets)
-api.route('/agent-configs', agentConfigs)
+api.route('/prompts', prompts)
 api.route('/agent', agent)
 api.route('/merge', merge)
 api.route('/skills', skills)
@@ -59,6 +59,11 @@ api.route('/props', props)
 app.route('/api/v1', api)
 
 // Serve static files (storage)
+// 生成的图片/视频按 uuid 命名、内容不变，标记为 immutable 让浏览器长缓存
+app.use('/static/*', async (c, next) => {
+  await next()
+  if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable')
+})
 app.use('/static/*', serveStatic({ root: path.join(projectRoot, 'data') }))
 
 // Serve frontend (production build)

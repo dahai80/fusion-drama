@@ -6,7 +6,8 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
-import { downloadFile, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
+import { downloadFile, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
+import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
@@ -386,6 +387,8 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
 
 async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
   const localPath = await downloadFile(imageUrl, 'images')
+  // 列表页缩略图（前端按命名约定推导地址，失败不影响主流程）
+  await generateImageThumb(localPath)
 
   await db.update(schema.sysTask)
     .set({ resultUrl: imageUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
@@ -398,6 +401,7 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
 
 async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: string, mimeType: string) {
   const localPath = await saveBase64Image(base64Data, mimeType, 'images')
+  await generateImageThumb(localPath)
 
   await db.update(schema.sysTask)
     .set({ localPath, status: 'completed', completedAt: now(), updatedAt: now() })
@@ -431,6 +435,8 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
 
 async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
   const localPath = await downloadFile(videoUrl, 'videos')
+  // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频
+  await extractVideoPoster(localPath)
   await db.update(schema.sysTask)
     .set({ resultUrl: videoUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(eq(schema.sysTask.id, record.id))

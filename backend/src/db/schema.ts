@@ -197,22 +197,6 @@ export const stylePresets = mysqlTable('style_presets', {
   // 注意: 此表无 deleted_at（硬删除），value 列有唯一索引（见 DDL）
 })
 
-export const agentConfigs = mysqlTable('agent_configs', {
-  id: int('id').primaryKey().autoincrement(),
-  agentType: varchar('agent_type', { length: 64 }).notNull(),
-  name: text('name').notNull(),
-  description: text('description'),
-  model: text('model'),
-  systemPrompt: text('system_prompt'),
-  temperature: double('temperature'),
-  maxTokens: int('max_tokens'),
-  maxIterations: int('max_iterations'),
-  isActive: boolean('is_active').default(true),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
-})
-
 // 统一生成任务表：图片/视频生成共用，type 区分，生成参数存 params(JSON)
 export const sysTask = mysqlTable('sys_task', {
   id: int('id').primaryKey().autoincrement(),

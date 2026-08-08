@@ -30,7 +30,7 @@
               @mousemove="highlightIdx = flatIndex(gi, oi)"
             >
               <span :class="['mention-avatar', `mention-avatar-${opt.group === '场景' ? 'scene' : (opt.group === '道具' ? 'prop' : 'role')}`]">
-                <img v-if="opt.image" :src="opt.image" alt="" />
+                <img v-if="opt.image" :src="opt.image" alt="" @error="$event.target.style.display = 'none'" />
                 <component v-else :is="groupIcon(opt.group)" :size="12" :stroke-width="2" />
               </span>
               <span class="mention-name">@{{ opt.label }}</span>

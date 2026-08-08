@@ -12,6 +12,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { extractVideoPoster } from '../utils/video-poster.js'
 
 // ffprobe-static 无类型声明,用 createRequire 引入(仓库 .gitignore 忽略 *.d.ts)
 const ffprobeStatic = createRequire(import.meta.url)('ffprobe-static') as { path: string }
@@ -135,6 +136,9 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
   const duration = await getVideoDuration(outputPath)
 
   const mergedRelative = `static/merged/${outputFilename}`
+
+  // 成片海报帧（导出页封面用）
+  await extractVideoPoster(mergedRelative)
 
   // 更新 merge 记录
   await db.update(schema.videoMerges)

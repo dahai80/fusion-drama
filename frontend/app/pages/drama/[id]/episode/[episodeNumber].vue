@@ -14,7 +14,7 @@
           <div class="studio-meta-row">
             <span class="studio-meta-pill">{{ currentSubStageLabel }}</span>
             <span class="studio-meta-pill is-progress">{{ pipelineProgress }}/{{ pipelineTotal }}</span>
-            <span class="studio-meta-inline">{{ chars.length }} 角色 · {{ sbs.length }} 镜头</span>
+            <span class="studio-meta-inline">{{ chars.length }} 角色 · {{ sbs.length }} 段落</span>
           </div>
         </div>
       </div>
@@ -286,8 +286,10 @@
                   <div class="character-asset-overview"><div class="character-portrait">
                       <img
                         v-if="c.image_url || c.imageUrl"
-                        :src="assetImageSrc(c)"
+                        :src="thumbOf(assetImageSrc(c))"
                         class="previewable-image"
+                        loading="lazy"
+                        @error="thumbFallback($event, assetImageSrc(c))"
                         @click.stop="openImageViewer(assetImageSrc(c), `${c.name} 角色形象`)"
                       />
                       <div v-else class="character-portrait-empty">
@@ -344,8 +346,10 @@
                 <div class="asset-cover wide">
                   <img
                     v-if="s.image_url || s.imageUrl"
-                    :src="assetImageSrc(s)"
+                    :src="thumbOf(assetImageSrc(s))"
                     class="previewable-image"
+                    loading="lazy"
+                    @error="thumbFallback($event, assetImageSrc(s))"
                     @click.stop="openImageViewer(assetImageSrc(s), `${s.location} 场景图`)"
                   />
                   <div v-else class="asset-cover-empty">
@@ -392,8 +396,10 @@
                 <div class="asset-cover wide">
                   <img
                     v-if="p.image_url || p.imageUrl"
-                    :src="assetImageSrc(p)"
+                    :src="thumbOf(assetImageSrc(p))"
                     class="previewable-image"
+                    loading="lazy"
+                    @error="thumbFallback($event, assetImageSrc(p))"
                     @click.stop="openImageViewer(assetImageSrc(p), `${p.name} 道具图`)"
                   />
                   <div v-else class="asset-cover-empty">
@@ -429,7 +435,7 @@
           <div v-if="prodTab === 'storyboard'" class="prod-content">
             <div class="prod-section-bar">
               <span class="dim" style="font-size:12px">分镜拆分</span>
-              <span class="tag mono">{{ sbs.length }} 镜头 · {{ totalDuration }}s</span>
+              <span class="tag mono">{{ sbs.length }} 段落 · {{ totalDuration }}s</span>
               <span class="tag">{{ lockedVideoConfigLabel }}</span>
               <div class="ml-auto flex gap-1">
                 <button class="btn btn-sm" :disabled="rn" @click="doBreakdown">
@@ -496,7 +502,7 @@
                             class="shot-avatar"
                             :title="c.name"
                           >
-                            <img v-if="assetImageSrc(c)" :src="assetImageSrc(c)" :alt="c.name" />
+                            <img v-if="assetImageSrc(c)" :src="thumbOf(assetImageSrc(c))" :alt="c.name" loading="lazy" @error="thumbFallback($event, assetImageSrc(c))" />
                             <template v-else>{{ (c.name || '?').slice(0, 1) }}</template>
                           </span>
                           <span v-if="getStoryboardCharacters(sb).length > 3" class="shot-avatar shot-avatar-more">+{{ getStoryboardCharacters(sb).length - 3 }}</span>
@@ -638,7 +644,7 @@
                           :disabled="!asset.ready"
                           @click.stop="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
                         >
-                          <img v-if="asset.ready" :src="assetImageSrc({ imageUrl: asset.imageUrl })" class="previewable-image" />
+                          <img v-if="asset.ready" :src="thumbOf(assetImageSrc({ imageUrl: asset.imageUrl }))" class="previewable-image" loading="lazy" @error="thumbFallback($event, assetImageSrc({ imageUrl: asset.imageUrl }))" />
                           <span v-else>{{ asset.type === '场景' ? '景' : asset.type === '道具' ? '具' : '角' }}</span>
                         </button>
                         <div class="storyboard-ref-main">
@@ -738,7 +744,8 @@
                     <video
                       v-if="hasVid(task.storyboard)"
                       :src="'/' + getVideoUrl(task.storyboard)"
-                      preload="metadata"
+                      :poster="posterOf('/' + getVideoUrl(task.storyboard)) || undefined"
+                      preload="none"
                       playsinline
                       muted
                       tabindex="-1"
@@ -810,6 +817,7 @@
                     v-if="previewVideoUrl || hasVid(selectedSb)"
                     :key="previewVideoUrl || getVideoUrl(selectedSb)"
                     :src="'/' + (previewVideoUrl || getVideoUrl(selectedSb))"
+                    :poster="posterOf('/' + (previewVideoUrl || getVideoUrl(selectedSb))) || undefined"
                     controls
                     preload="metadata"
                     playsinline
@@ -846,7 +854,7 @@
                     @click="previewHistoryVideo(t)"
                     @keydown.enter.prevent="previewHistoryVideo(t)"
                   >
-                    <video :src="'/' + taskVideoPath(t)" preload="metadata" muted playsinline tabindex="-1" />
+                    <video :src="'/' + taskVideoPath(t)" :poster="posterOf('/' + taskVideoPath(t)) || undefined" preload="none" muted playsinline tabindex="-1" />
                     <span class="video-history-time">{{ formatHistoryTime(taskCreatedAt(t)) }}</span>
                     <span v-if="isCurrentVideo(t)" class="video-history-badge">当前</span>
                     <button v-else type="button" class="video-history-del" title="删除该记录" @click.stop="removeHistoryVideo(t)">×</button>
@@ -890,7 +898,7 @@
                         :disabled="!asset.ready"
                         @click="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
                       >
-                        <img v-if="asset.ready" :src="assetImageSrc({ imageUrl: asset.imageUrl })" :alt="asset.name" />
+                        <img v-if="asset.ready" :src="thumbOf(assetImageSrc({ imageUrl: asset.imageUrl }))" :alt="asset.name" loading="lazy" @error="thumbFallback($event, assetImageSrc({ imageUrl: asset.imageUrl }))" />
                         <span v-else>{{ asset.type }}</span>
                         <small>{{ asset.name }}</small>
                       </button>
@@ -995,7 +1003,8 @@
                     <video
                       v-if="m.status === 'completed' && m.merged_url"
                       :src="'/' + m.merged_url"
-                      preload="metadata"
+                      :poster="posterOf('/' + m.merged_url) || undefined"
+                      preload="none"
                       muted
                       playsinline
                       tabindex="-1"
@@ -1059,7 +1068,8 @@
                     <video
                       v-if="hasVid(sb)"
                       :src="'/' + getVideoUrl(sb)"
-                      preload="metadata"
+                      :poster="posterOf('/' + getVideoUrl(sb)) || undefined"
+                      preload="none"
                       muted
                       playsinline
                       tabindex="-1"
@@ -1122,15 +1132,17 @@
                 <video
                   v-if="row.previewUrl && (row.kind === 'video' || row.kind === 'merge')"
                   :src="genTaskPreviewSrc(row.previewUrl)"
+                  :poster="posterOf(genTaskPreviewSrc(row.previewUrl)) || undefined"
                   controls
-                  preload="metadata"
+                  preload="none"
                   playsinline
                 />
                 <img
                   v-else-if="row.previewUrl"
-                  :src="genTaskPreviewSrc(row.previewUrl)"
+                  :src="thumbOf(genTaskPreviewSrc(row.previewUrl))"
                   :alt="row.targetLabel"
                   loading="lazy"
+                  @error="thumbFallback($event, genTaskPreviewSrc(row.previewUrl))"
                   @click="openImageViewer(genTaskPreviewSrc(row.previewUrl), row.targetLabel)"
                 />
                 <div v-else class="video-task-empty">
@@ -1261,8 +1273,9 @@
                 >
                   <img
                     v-if="assetImageSrc(assetDetail.item)"
-                    :src="assetImageSrc(assetDetail.item)"
+                    :src="thumbOf(assetImageSrc(assetDetail.item))"
                     class="previewable-image"
+                    @error="thumbFallback($event, assetImageSrc(assetDetail.item))"
                   />
                   <span v-else class="asset-detail-media-empty">
                     <svg v-if="assetDetail.type === 'character'" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -3059,19 +3072,19 @@ const mentionOptions = computed(() => {
       label: c.name,
       value: c.name,
       group: '角色',
-      image: assetImageSrc(c),
+      image: thumbOf(assetImageSrc(c)),
     })),
     ...(scene ? [{
       label: `${scene.location} · ${scene.time || '未设时间'}`,
       value: scene.location,
       group: '场景',
-      image: assetImageSrc(scene),
+      image: thumbOf(assetImageSrc(scene)),
     }] : []),
     ...getStoryboardProps(sb).map(p => ({
       label: p.name,
       value: p.name,
       group: '道具',
-      image: assetImageSrc(p),
+      image: thumbOf(assetImageSrc(p)),
     })),
   ]
 })

@@ -136,12 +136,11 @@ export const aiConfigAPI = {
   test: (d: any) => api.post('/ai-configs/test', d),
 }
 
-export const agentConfigAPI = {
-  list: () => api.get('/agent-configs'),
-  get: (id: number) => api.get(`/agent-configs/${id}`),
-  create: (d: any) => api.post('/agent-configs', d),
-  update: (id: number, d: any) => api.put(`/agent-configs/${id}`, d),
-  del: (id: number) => api.del(`/agent-configs/${id}`),
+export const promptAPI = {
+  list: () => api.get('/prompts'),
+  get: (type: string) => api.get(`/prompts/${type}`),
+  update: (type: string, d: any) => api.put(`/prompts/${type}`, d),
+  reset: (type: string) => api.post(`/prompts/${type}/reset`),
 }
 
 export const skillsAPI = {
