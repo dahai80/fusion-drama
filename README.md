@@ -10,6 +10,12 @@
 
 [功能特性](#功能特性) • [快速开始](#快速开始) • [部署指南](#部署指南)
 
+> ## 🔑 [获取 Huobao API Key 👉 api.chatfire.site](https://api.chatfire.site)
+>
+> **文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
+>
+> 部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
+
 > 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
 
 </div>
@@ -19,9 +25,6 @@
 ## 📖 项目简介
 
 Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
-
-火宝短剧商业版地址：[火宝短剧商业版](https://drama.chatfire.site/shortvideo)
-火宝小说生成：[火宝小说生成](https://marketing.chatfire.site/huobao-novel/)
 
 ### 🎯 核心价值
 
