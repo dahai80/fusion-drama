@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { success, badRequest } from '../utils/response.js'
-import { saveUploadedFile } from '../utils/storage.js'
+import { saveUploadedFile, generateImageThumb } from '../utils/storage.js'
 
 const app = new Hono()
 
@@ -15,6 +15,8 @@ app.post('/image', async (c) => {
 
   const buffer = await file.arrayBuffer()
   const path = await saveUploadedFile(buffer, 'uploads', file.name)
+  // 同步生成列表页缩略图，上传图与生图走同一套展示链路（失败不影响上传结果）
+  await generateImageThumb(path)
   return success(c, { url: `/${path}`, path })
 })
 
