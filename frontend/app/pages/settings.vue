@@ -40,7 +40,13 @@
               <div class="setup-title">火宝快捷配置</div>
               <span class="tag tag-accent">推荐</span>
             </div>
-            <p class="setup-desc">输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。</p>
+            <p class="setup-desc">
+              输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。
+              <a class="huobao-site-link" href="https://api.chatfire.site" target="_blank" rel="noopener noreferrer">
+                前往 api.chatfire.site 获取 Key
+                <ExternalLink :size="12" :stroke-width="1.8" />
+              </a>
+            </p>
             <div class="huobao-quick-row">
               <input v-model="huobaoApiKey" class="input" type="password" placeholder="Huobao API Key" />
               <button class="btn btn-primary" :disabled="huobaoSaving" @click="applyHuobaoQuickConfig">
@@ -421,7 +427,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { aiConfigAPI, agentConfigAPI, skillsAPI, stylePresetAPI } from '~/composables/useApi'
@@ -1008,6 +1014,13 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadStylePresets() 
 .quick-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .setup-title { font-size: 15px; font-weight: 700; color: var(--text-0); }
 .setup-desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 14px; }
+.huobao-site-link {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 6px;
+  color: var(--accent); text-decoration: none;
+  font-weight: 600; white-space: nowrap;
+}
+.huobao-site-link:hover { text-decoration: underline; }
 .huobao-quick-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
