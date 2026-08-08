@@ -370,7 +370,9 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         }
       }
       if (pollResp.status === 'failed') {
-        throw new Error(pollResp.error || 'Generation failed')
+        // 上游明确失败（如内容审核拦截）属终态：立即落库，不重试不等待超时
+        await failTask(record.id, pollResp.error || 'Generation failed')
+        return
       }
     } catch (err: any) {
       const exhausted = i === profile.attempts - 1

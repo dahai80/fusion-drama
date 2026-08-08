@@ -78,7 +78,11 @@ export class VolcEngineImageAdapter implements ImageProviderAdapter {
       }
     }
     if (status === 'failed') {
-      return { status: 'failed', error: result.error || 'Generation failed' }
+      // 上游 error 可能是对象 { code, message }，规范成字符串
+      const err = result.error
+      const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Generation failed')
+      const code = err && typeof err === 'object' && err.code ? `[${err.code}] ` : ''
+      return { status: 'failed', error: `${code}${msg}` }
     }
     return { status: status || 'processing' }
   }
