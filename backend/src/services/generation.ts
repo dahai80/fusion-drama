@@ -59,7 +59,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
   const config = params.configId
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('image')
     : await getActiveConfig('image')
-  if (!config) throw new Error('No active image AI config')
+  if (!config) throw new Error('未配置图片模型，请先到「设置」页添加并启用 AI 服务')
 
   const id = await createTask('image', config, {
     storyboardId: params.storyboardId,
@@ -97,7 +97,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
   const config = params.configId
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('video')
     : await getActiveConfig('video')
-  if (!config) throw new Error('No active video AI config')
+  if (!config) throw new Error('未配置视频模型，请先到「设置」页添加并启用 AI 服务')
 
   const id = await createTask('video', config, {
     storyboardId: params.storyboardId,

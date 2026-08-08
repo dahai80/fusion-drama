@@ -83,7 +83,7 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
 
 export async function getTextConfig(): Promise<AIConfig> {
   const config = await getActiveConfig('text')
-  if (!config) throw new Error('No active text AI config')
+  if (!config) throw new Error('未配置文本模型，请先到「设置」页添加并启用 AI 服务')
   return config
 }
 

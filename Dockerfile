@@ -23,10 +23,8 @@ RUN npm ci --omit=dev
 # ── Stage 3: Production image (lean) ────────────────────────
 FROM node:20-slim
 
-# ffmpeg (runtime) + tsx (runs TS directly)
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm i -g tsx
+# tsx 直接运行 TS 源码;ffmpeg 用 npm 包 ffmpeg-static/ffprobe-static 内置二进制,无需系统安装
+RUN npm i -g tsx
 
 WORKDIR /app
 
@@ -43,9 +41,6 @@ COPY --from=frontend-build /app/frontend/.output/public ./frontend/dist
 
 # Skills
 COPY backend/workspace/skills/ ./backend/workspace/skills/
-
-# Config
-COPY configs/config.example.yaml ./configs/config.yaml
 
 RUN mkdir -p data/static
 

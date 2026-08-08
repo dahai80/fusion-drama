@@ -394,11 +394,11 @@ export const mysqlDataCleanupStatements = [
     sql: 'UPDATE `agent_configs` SET `name` = ? WHERE `agent_type` = ? AND `name` = ?',
     params: ['提示词', 'prompt_generator', '提示词生成'],
   },
-  // 视频模型收敛：Seedance 2.0 三个官方型号，默认 doubao-seedance-2-0-260128（数组首位即生效模型）
+  // 视频模型收敛：Seedance 2.0 三个官方型号，默认 doubao-seedance-2-0-fast-260128（数组首位即生效模型）
   {
     sql: 'UPDATE `ai_service_configs` SET `model` = ? WHERE `service_type` = ? AND `provider` = ? AND `model` NOT LIKE ?',
     params: [
-      '["doubao-seedance-2-0-260128","doubao-seedance-2-0-fast-260128","doubao-seedance-2-0-mini-260615"]',
+      '["doubao-seedance-2-0-fast-260128","doubao-seedance-2-0-260128","doubao-seedance-2-0-mini-260615"]',
       'video',
       'volcengine',
       '%doubao-seedance-2-0%',

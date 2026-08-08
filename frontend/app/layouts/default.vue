@@ -27,6 +27,13 @@
       </nav>
     </header>
 
+    <!-- AI 服务未配置引导横幅(缺任一类型即提示) -->
+    <div v-if="missingConfigLabels.length" class="config-banner">
+      <TriangleAlert :size="14" :stroke-width="1.8" />
+      <span>尚未配置{{ missingConfigLabels.join('、') }}模型,AI 功能无法使用</span>
+      <NuxtLink to="/settings" class="config-banner-link">前往设置</NuxtLink>
+    </div>
+
     <main class="content">
       <slot />
     </main>
@@ -34,11 +41,28 @@
 </template>
 
 <script setup>
-import { LayoutGrid, Settings } from 'lucide-vue-next'
+import { LayoutGrid, Settings, TriangleAlert } from 'lucide-vue-next'
+import { aiConfigAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/huobao-logo.png'
 
 const route = useRoute()
 const showBrandImage = ref(true)
+
+const SERVICE_TYPE_LABELS = { text: '文本', image: '图片', video: '视频' }
+const missingConfigLabels = ref([])
+
+async function checkAiConfigs() {
+  try {
+    const configs = await aiConfigAPI.list()
+    missingConfigLabels.value = Object.entries(SERVICE_TYPE_LABELS)
+      .filter(([type]) => !configs.some(c => c.service_type === type && c.is_active))
+      .map(([, label]) => label)
+  } catch { /* 配置检查失败不阻塞页面 */ }
+}
+
+onMounted(checkAiConfigs)
+// 设置页保存配置后返回时重新检查(布局跨页面复用,onMounted 只触发一次)
+watch(() => route.path, checkAiConfigs)
 </script>
 
 <style scoped>
@@ -131,6 +155,26 @@ const showBrandImage = ref(true)
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
+
+/* Config banner — AI 服务未配置引导 */
+.config-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 24px; flex-shrink: 0;
+  font-size: 12.5px; color: #92400e;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  position: relative; z-index: 9;
+}
+.config-banner-link {
+  margin-left: auto;
+  font-size: 12.5px; font-weight: 600;
+  color: #b45309; text-decoration: none;
+  padding: 2px 10px; border-radius: var(--radius-pill);
+  border: 1px solid #fcd34d;
+  transition: all 0.18s var(--ease-out);
+  line-height: 1.6;
+}
+.config-banner-link:hover { background: #fef3c7; color: #92400e; }
 
 /* Content */
 .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }

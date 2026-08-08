@@ -11,6 +11,11 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-phuobao_root"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
   huobao-drama:
@@ -19,13 +24,20 @@ services:
       - "5679:5679"
     volumes:
       - ./data:/app/data
-      - ./configs/config.yaml:/app/configs/config.yaml
+      # skills 可在设置页在线编辑,且 workspace 是 Agent 文件读写 jail 根,需持久化
+      - ./backend/workspace:/app/backend/workspace
     environment:
       - NODE_ENV=production
       - PORT=5679
       - DATABASE_URL=mysql://huobao:huobao@mysql:3306/huobao_drama
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5679/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
     restart: unless-stopped
 
 volumes:

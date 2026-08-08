@@ -23,8 +23,20 @@ export const pool = mysql.createPool({
   charset: 'utf8mb4',
 })
 
-export async function initDb() {
-  await initMySqlSchema(pool)
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+/** 启动建表带重试：Docker 部署时 MySQL 容器就绪晚于应用启动，直接失败会导致进程崩溃 */
+export async function initDb(retries = 10, delayMs = 3000) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await initMySqlSchema(pool)
+      return
+    } catch (err) {
+      if (attempt >= retries) throw err
+      console.warn(`[db] init failed (attempt ${attempt}/${retries}), retrying in ${delayMs}ms: ${(err as Error).message}`)
+      await sleep(delayMs)
+    }
+  }
 }
 
 export function getInsertId(result: unknown) {

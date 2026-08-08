@@ -469,13 +469,13 @@ const providerPresets = {
     openai: { label: 'OpenAI 官方', baseUrl: 'https://api.openai.com', models: ['gpt-image-2'] },
   },
   video: {
-    volcengine: { label: 'Seedance 2.0 官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-mini-260615'] },
+    volcengine: { label: 'Seedance 2.0 官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-mini-260615'] },
   },
 }
 const huobaoQuickConfigs = [
   { service_type: 'text', provider: 'openai', name: '火宝文本服务', base_url: 'https://api.chatfire.site', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview', 'gpt-5.6-terra', 'deepseek-v4-flash'], priority: 100 },
   { service_type: 'image', provider: 'openai', name: '火宝图片服务', base_url: 'https://api.chatfire.site', model: ['gpt-image-2', 'gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 99 },
-  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-mini-260615'], priority: 98 },
+  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-mini-260615'], priority: 98 },
 ]
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }
