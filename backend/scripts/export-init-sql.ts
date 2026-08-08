@@ -1,11 +1,11 @@
 /**
- * 导出初始化 SQL — 把 src/db/mysql-schema.ts 中的内嵌 DDL/种子生成为独立 init.sql
+ * 导出初始化 SQL — 把 src/db/mysql-schema.ts 中的内嵌 DDL/DML 生成为独立 init.sql
  *
  * 用法: npx tsx scripts/export-init-sql.ts [输出路径]
  * 默认输出: <repo>/docker/init.sql
  *
  * 说明:
- * - 应用启动时本就会自动执行同样的初始化(initMySqlSchema: 建表 + 种子),该文件是可选产物,
+ * - 应用启动时本就会自动执行同样的初始化(initMySqlSchema),该文件是可选产物,
  *   用于 DBA 审核、预建表或挂到 MySQL 容器的 /docker-entrypoint-initdb.d/
  */
 import fs from 'fs'
