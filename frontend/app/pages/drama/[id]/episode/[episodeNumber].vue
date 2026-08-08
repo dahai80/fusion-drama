@@ -1547,7 +1547,14 @@ const dramaId = Number(route.params.id)
 const episodeNumber = Number(route.params.episodeNumber)
 
 const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), propItems = ref([]), sbs = ref([]), mergeData = ref(null)
-const panel = ref('script')
+// 工作台面板位置记忆（按剧集隔离）：刷新后回到上次所在步骤，而不是总是退回「改写」
+const PANEL_STORE_KEY = `huobao:workbench:panel:${dramaId}:${episodeNumber}`
+const storedPanel = (() => {
+  try { return JSON.parse(localStorage.getItem(PANEL_STORE_KEY) || 'null') } catch { return null }
+})()
+// 首个 refresh 时若已恢复面板位置，跳过按内容自动重置 scriptStep
+let panelRestored = !!storedPanel
+const panel = ref(['production', 'export'].includes(storedPanel?.panel) ? storedPanel.panel : 'script')
 const { running: rn, runningType: rt, run: runAgent } = useAgent()
 
 const localRaw = ref(''), localScript = ref('')
@@ -1592,8 +1599,12 @@ async function loadExportMerges() {
   try { exportMerges.value = await mergeAPI.list(epId.value) || [] } catch { /* 静默 */ }
 }
 
-const scriptStep = ref(0)
-const prodTab = ref('assets')
+const scriptStep = ref(storedPanel ? (storedPanel.scriptStep === 0 ? 0 : 1) : 0)
+const prodTab = ref(['assets', 'storyboard', 'videos'].includes(storedPanel?.prodTab) ? storedPanel.prodTab : 'assets')
+// 面板位置变化即持久化
+watch([panel, scriptStep, prodTab], ([p, s, t]) => {
+  try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: t })) } catch { /* 静默 */ }
+})
 const activeExtractTab = ref('characters')
 const prodTabIdx = computed({
   get: () => prodTabDefs.value.findIndex(t => t.id === prodTab.value),
@@ -2526,7 +2537,10 @@ async function refresh() {
       const epHasContent = !!(episode.value?.content)
       const epHasScript = !!(episode.value?.script_content || episode.value?.scriptContent)
 
-      if (epHasScript || epHasContent) scriptStep.value = 1
+      if (panelRestored) {
+        // 已恢复到上次所在步骤，跳过自动重置（仅首次加载生效）
+        panelRestored = false
+      } else if (epHasScript || epHasContent) scriptStep.value = 1
       else scriptStep.value = 0
     }
   } catch (e) {
