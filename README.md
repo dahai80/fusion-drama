@@ -451,7 +451,7 @@ cd ../frontend && npm run build
 如果这个项目对你有帮助，欢迎扫码请作者喝杯咖啡 ☕，你的支持是持续更新的动力！
 
 <div align="center">
-  <img src="donate.jpg" alt="支付宝捐赠二维码" width="240" />
+  <img src="donate.png" alt="支付宝捐赠二维码" width="240" />
 </div>
 
 ---
