@@ -46,11 +46,21 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
   }
 
   // 允许部分拼接:按镜号顺序拼接已生成的镜头,未生成的跳过
-  const videos = storyboards
-    .map(sb => sb.videoUrl || sb.composedVideoUrl)
-    .filter(Boolean) as string[]
+  const clips = storyboards
+    .map(sb => ({ sb, url: sb.videoUrl || sb.composedVideoUrl }))
+    .filter(c => Boolean(c.url)) as { sb: typeof storyboards[number]; url: string }[]
 
-  if (videos.length === 0) throw new Error('所选镜头还没有可拼接的视频')
+  if (clips.length === 0) throw new Error('所选镜头还没有可拼接的视频')
+
+  // 校验视频文件真实存在:DB 里的 video_url 可能指向已被清理的文件,
+  // 直接拼会得到 ffmpeg 的 "No such file or directory" 晦涩报错
+  const missing = clips.filter(c => !fs.existsSync(toAbsPath(c.url)))
+  if (missing.length > 0) {
+    const nums = missing.map(c => `S${c.sb.storyboardNumber}`).join('、')
+    throw new Error(`镜头 ${nums} 的视频文件已丢失（本地文件不存在），请重新生成这些镜头的视频，或在拼接时取消勾选`)
+  }
+
+  const videos = clips.map(c => c.url)
 
   logTaskStart('MergeTask', 'episode-merge', { episodeId, dramaId, clips: videos.length })
 
