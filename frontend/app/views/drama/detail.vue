@@ -234,6 +234,11 @@
                         <span v-if="isPending(m)" class="ring-spinner sm"></span>
                         {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
                       </button>
+                      <button class="btn btn-sm" type="button" title="上传角色形象图" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
+                        <span v-if="isUploading(m)" class="ring-spinner sm"></span>
+                        <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        上传
+                      </button>
                     </div>
                   </div>
                   <div class="asset-final-prompt" :title="m.finalPrompt || ''">
@@ -286,7 +291,12 @@
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', matHasImage(m) && 'ok', isPending(m) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
+                  <button class="btn btn-sm ml-auto" type="button" title="上传图片" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
+                    <span v-if="isUploading(m)" class="ring-spinner sm"></span>
+                    <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    上传
+                  </button>
+                  <button class="btn btn-sm" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
                     <span v-if="isPending(m)" class="ring-spinner sm"></span>
                     {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
                   </button>
@@ -463,6 +473,15 @@
             <div class="mat-detail-primary-actions">
               <button
                 class="btn"
+                :disabled="isUploading(editTarget)"
+                @click="uploadMaterial(editTarget)"
+              >
+                <span v-if="isUploading(editTarget)" class="ring-spinner sm"></span>
+                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                上传图片
+              </button>
+              <button
+                class="btn"
                 :disabled="isPending(editTarget)"
                 @click="generateMaterial(editTarget)"
               >
@@ -532,7 +551,7 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
-import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI } from '~/composables/useApi'
+import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
 const route = useRoute()
@@ -753,6 +772,42 @@ async function pollMaterial(m) {
 
 function switchToAssets() {
   activeTab.value = 'assets'
+}
+
+/* ===== 素材图片手动上传（角色形象 / 场景图 / 道具图） ===== */
+const uploadingMaterials = ref(new Set())
+function isUploading(m) { return uploadingMaterials.value.has(pendingKey(m)) }
+
+function uploadMaterial(m) {
+  const key = pendingKey(m)
+  if (uploadingMaterials.value.has(key)) return
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    uploadingMaterials.value = new Set(uploadingMaterials.value).add(key)
+    try {
+      const res = await uploadAPI.image(file)
+      // 与生图回写保持一致：存相对路径（static/...），展示时补前导斜杠
+      const payload = { image_url: res.path, local_path: res.path }
+      if (m.kindKey === 'character') await characterAPI.update(m.id, payload)
+      else if (m.kindKey === 'scene') await sceneAPI.update(m.id, payload)
+      else await propAPI.update(m.id, payload)
+      toast.success(`${m.kind}「${m.name}」图片已上传`)
+      await load()
+      // 详情弹窗打开时同步刷新预览
+      if (editTarget.value && editTarget.value.kindKey === m.kindKey && editTarget.value.id === m.id) {
+        editTarget.value = { ...editTarget.value, image_url: res.path, local_path: res.path }
+      }
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      uploadingMaterials.value = new Set([...uploadingMaterials.value].filter(k => k !== key))
+    }
+  }
+  input.click()
 }
 
 function openAssetViewer(m) {

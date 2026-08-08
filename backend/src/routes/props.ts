@@ -53,6 +53,11 @@ app.put('/:id', async (c) => {
   if (body.name !== undefined) updates.name = body.name
   if (body.type !== undefined) updates.type = body.type
   if (body.description !== undefined) updates.description = body.description
+  // 用户上传道具图：直接写入图片地址与本地路径
+  if (body.image_url !== undefined) updates.imageUrl = body.image_url
+  else if (body.imageUrl !== undefined) updates.imageUrl = body.imageUrl
+  if (body.local_path !== undefined) updates.localPath = body.local_path
+  else if (body.localPath !== undefined) updates.localPath = body.localPath
   // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null

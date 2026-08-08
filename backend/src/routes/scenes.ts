@@ -48,6 +48,14 @@ app.put('/:id', async (c) => {
   if (body.prompt !== undefined) updates.prompt = body.prompt
   if (body.description !== undefined) updates.prompt = body.description
   if (body.lighting !== undefined) updates.lighting = body.lighting
+  // 用户上传场景图：直接写入图片地址与本地路径
+  const uploadedImage = body.image_url ?? body.imageUrl
+  if (uploadedImage !== undefined) {
+    updates.imageUrl = uploadedImage
+    if (uploadedImage) updates.status = 'completed'
+  }
+  if (body.local_path !== undefined) updates.localPath = body.local_path
+  else if (body.localPath !== undefined) updates.localPath = body.localPath
   // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null

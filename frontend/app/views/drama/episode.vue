@@ -315,6 +315,11 @@
                         <Loader2 v-if="isPendingCharImage(c.id)" :size="11" class="animate-spin" />
                         {{ (c.image_url || c.imageUrl) ? '重绘' : (isPendingCharImage(c.id) ? '生成中' : '生成') }}
                       </button>
+                      <button class="btn btn-sm" title="上传角色形象图" :disabled="isUploadingAsset('character', c.id)" @click.stop="uploadAssetImage('character', c.id)">
+                        <Loader2 v-if="isUploadingAsset('character', c.id)" :size="11" class="animate-spin" />
+                        <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        上传
+                      </button>
                     </div>
                   </div>
                   <div class="asset-final-prompt" :title="c.final_prompt || c.finalPrompt || ''">
@@ -368,7 +373,12 @@
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (s.image_url || s.imageUrl) && 'ok', isPendingSceneImage(s.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" :disabled="isPendingSceneImage(s.id)" @click.stop="genSceneImg(s.id)">
+                  <button class="btn btn-sm ml-auto" title="上传场景图" :disabled="isUploadingAsset('scene', s.id)" @click.stop="uploadAssetImage('scene', s.id)">
+                    <Loader2 v-if="isUploadingAsset('scene', s.id)" :size="11" class="animate-spin" />
+                    <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    上传
+                  </button>
+                  <button class="btn btn-sm" :disabled="isPendingSceneImage(s.id)" @click.stop="genSceneImg(s.id)">
                     <Loader2 v-if="isPendingSceneImage(s.id)" :size="11" class="animate-spin" />
                     {{ (s.image_url || s.imageUrl) ? '重绘' : (isPendingSceneImage(s.id) ? '生成中' : '生成') }}
                   </button>
@@ -420,7 +430,12 @@
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (p.image_url || p.imageUrl) && 'ok', isPendingPropImage(p.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" :disabled="isPendingPropImage(p.id)" @click.stop="genPropImg(p.id)">
+                  <button class="btn btn-sm ml-auto" title="上传道具图" :disabled="isUploadingAsset('prop', p.id)" @click.stop="uploadAssetImage('prop', p.id)">
+                    <Loader2 v-if="isUploadingAsset('prop', p.id)" :size="11" class="animate-spin" />
+                    <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    上传
+                  </button>
+                  <button class="btn btn-sm" :disabled="isPendingPropImage(p.id)" @click.stop="genPropImg(p.id)">
                     <Loader2 v-if="isPendingPropImage(p.id)" :size="11" class="animate-spin" />
                     {{ (p.image_url || p.imageUrl) ? '重绘' : (isPendingPropImage(p.id) ? '生成中' : '生成') }}
                   </button>
@@ -583,10 +598,10 @@
                         <button
                           type="button"
                           class="btn btn-sm"
-                          :disabled="rn || videoPromptBatch.running"
+                          :disabled="videoPromptGeneratingIds.includes(selectedSb?.id) || videoPromptBatch.running"
                           @click="genVideoPrompt(selectedSb)"
                         >
-                          <Loader2 v-if="rn && rt === 'prompt_generator'" :size="11" class="animate-spin" />
+                          <Loader2 v-if="videoPromptGeneratingIds.includes(selectedSb?.id)" :size="11" class="animate-spin" />
                           {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
                         </button>
                       </div>
@@ -596,7 +611,7 @@
                         :options="mentionOptions"
                         :rows="12"
                         input-class="textarea"
-                        placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材（如 @志远、@电子厂车间、@扳手），按 3 秒一段换行描述画面运动与镜头；也可点 AI 生成由提示词 Agent 自动创作…"
+                        placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材，按 3 秒一段换行描述画面运动与镜头；也可点 AI 生成由提示词 Agent 自动创作…"
                         @commit="v => updateField(selectedSb, 'video_prompt', v)"
                       />
                     </div>
@@ -855,10 +870,10 @@
                       <button
                         type="button"
                         class="btn btn-sm"
-                        :disabled="rn || videoPromptBatch.running"
+                        :disabled="videoPromptGeneratingIds.includes(selectedSb?.id) || videoPromptBatch.running"
                         @click="genVideoPrompt(selectedSb)"
                       >
-                        <Loader2 v-if="rn && rt === 'prompt_generator'" :size="11" class="animate-spin" />
+                        <Loader2 v-if="videoPromptGeneratingIds.includes(selectedSb?.id)" :size="11" class="animate-spin" />
                         {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
                       </button>
                     </div>
@@ -867,7 +882,7 @@
                       :options="mentionOptions"
                       :rows="9"
                       input-class="textarea video-inspector-prompt"
-                      placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材（如 @志远、@电子厂车间、@扳手），生成时自动映射为参考图片；再按时间段描述画面运动与镜头…"
+                      placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…"
                       @commit="v => updateField(selectedSb, 'video_prompt', v)"
                     />
                   </section>
@@ -1394,6 +1409,15 @@
             </div>
             <div class="asset-detail-primary-actions">
               <button
+                class="btn"
+                :disabled="isUploadingAsset(assetDetail.type, assetDetail.item.id)"
+                @click="uploadAssetImage(assetDetail.type, assetDetail.item.id)"
+              >
+                <Loader2 v-if="isUploadingAsset(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
+                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                上传图片
+              </button>
+              <button
                 v-if="assetDetail.type === 'character'"
                 class="btn"
                 :disabled="isPendingCharImage(assetDetail.item.id)"
@@ -1522,7 +1546,7 @@ import {
   Users, Video, FileText, FolderKanban, Clapperboard, Download, Loader2,
   MapPin, Play, Plus, X, ListTodo,
 } from 'lucide-vue-next'
-import { dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
+import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
 
 definePageMeta({ layout: 'studio' })
@@ -2618,6 +2642,8 @@ async function syncExtractStatus() {
 
 // ─── 批量视频提示词：后端异步逐分镜生成，前端轮询进度 ──────────
 const videoPromptBatch = ref({ running: false, total: 0, completed: 0 })
+// 单个视频提示词生成：按分镜 ID 跟踪，允许不同分镜并行生成（不走全局 rn 锁）
+const videoPromptGeneratingIds = ref([])
 // 分镜勾选：勾选后批量生成只处理所选（已有提示词也会重新生成）；未勾选时处理全部缺失
 const selectedSbIds = ref([])
 // 多选模式：进入后点击卡片=勾选/取消，底部操作条确认生成
@@ -2716,18 +2742,33 @@ function doBreakdown() {
 }
 
 // 按需为单个分镜生成视频提示词：由 prompt_generator 读取分镜字段生成并保存到 video_prompt
-function genVideoPrompt(sb) {
-  if (!sb) return
+async function genVideoPrompt(sb) {
+  if (!sb || videoPromptGeneratingIds.value.includes(sb.id)) return
   const idx = sbs.value.indexOf(sb) + 1
   const cfg = videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)
   const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
   const charNames = getStoryboardCharacters(sb).map(c => c.name).join('、') || '无'
   const propNames = getStoryboardProps(sb).map(p => p.name).join('、') || '无'
-  runAgent('prompt_generator', `请为分镜 #${idx}(ID:${sb.id})生成视频提示词(video_prompt)。视频模型:${label},请根据该模型的特性和时长限制生成。
+  videoPromptGeneratingIds.value.push(sb.id)
+  try {
+    await api.post(`/agent/prompt_generator/chat`, {
+      message: `请为分镜 #${idx}(ID:${sb.id})生成视频提示词(video_prompt)。视频模型:${label},请根据该模型的特性和时长限制生成。
 
 该分镜信息:时长 ${sb.duration || 10}s;场景:${getSceneName(sb) || '未绑定'};角色:${charNames};道具:${propNames}。
 
-请先调用 read_storyboard_context 获取该分镜的画面描述(含【镜头N】子镜头与台词/旁白)、氛围及时长,据此生成 video_prompt(按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材；段落内允许多镜头切镜,但不跨场景,切镜点对齐 description 的【镜头N】结构),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。只更新 video_prompt 字段,不要改动其他字段,不要重新拆分整集。`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
+请先调用 read_storyboard_context 获取该分镜的画面描述(含【镜头N】子镜头与台词/旁白)、氛围及时长,据此生成 video_prompt(按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材；段落内允许多镜头切镜,但不跨场景,切镜点对齐 description 的【镜头N】结构),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。只更新 video_prompt 字段,不要改动其他字段,不要重新拆分整集。`,
+      drama_id: dramaId,
+      episode_id: epId.value,
+      model: chatModelOverride() || undefined,
+      config_id: chatConfigId() || undefined,
+    })
+    toast.success(`分镜 #${idx} 视频提示词已生成`)
+    await refresh()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    videoPromptGeneratingIds.value = videoPromptGeneratingIds.value.filter(id => id !== sb.id)
+  }
 }
 
 function sleep(ms) {
@@ -3139,6 +3180,31 @@ function pickFile(accept, cb) {
   input.accept = accept
   input.onchange = () => { const f = input.files?.[0]; if (f) cb(f) }
   input.click()
+}
+
+// ===== 资产图片手动上传（角色形象 / 场景图 / 道具图）=====
+const ASSET_UPLOAD_LABELS = { character: '角色形象', scene: '场景图', prop: '道具图' }
+const uploadingAssetKeys = ref([])
+function isUploadingAsset(kind, id) { return uploadingAssetKeys.value.includes(`${kind}:${id}`) }
+function uploadAssetImage(kind, id) {
+  pickFile('image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp', async (file) => {
+    const key = `${kind}:${id}`
+    if (!uploadingAssetKeys.value.includes(key)) uploadingAssetKeys.value.push(key)
+    try {
+      const res = await uploadAPI.image(file)
+      // 与生图回写保持一致：存相对路径（static/...），前端展示时补前导斜杠
+      const payload = { image_url: res.path, local_path: res.path }
+      if (kind === 'character') await characterAPI.update(id, payload)
+      else if (kind === 'scene') await sceneAPI.update(id, payload)
+      else await propAPI.update(id, payload)
+      toast.success(`${ASSET_UPLOAD_LABELS[kind]}已上传`)
+      await refresh()
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      uploadingAssetKeys.value = uploadingAssetKeys.value.filter(k => k !== key)
+    }
+  })
 }
 
 function uploadRefMedia(kind) {
@@ -6064,10 +6130,16 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   }
 
   .video-task-side .video-task-inspector {
+    flex: none; /* 窄屏下由外层 workbench 整体滚动，检查器按内容撑开，不参与 flex 收缩 */
     border-top: 0;
   }
 
+  .video-task-player {
+    flex: none; /* 禁止收缩：否则 stage 的 min-height 会使其溢出播放器并遮挡下方检查器 */
+  }
+
   .video-player-stage {
+    flex: none;
     min-height: 240px;
   }
 
