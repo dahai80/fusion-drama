@@ -161,7 +161,10 @@ npm run dev
 # 1. 构建前端
 cd frontend && npm run generate
 
-# 2. 启动后端
+# 2. 复制构建产物到后端读取的目录（generate 产物在 .output/public，后端只读取 frontend/dist）
+cp -r .output/public dist
+
+# 3. 启动后端
 cd ../backend && npm start
 ```
 
@@ -281,9 +284,12 @@ docker build -t huobao-drama:latest .
 
 ```bash
 # 1. 构建前端
-cd frontend && npm run generate && cd ..
+cd frontend && npm run generate
 
-# 2. 启动后端
+# 2. 复制构建产物（generate 产物在 frontend/.output/public，后端只读取 frontend/dist，缺此步 API 正常但页面 404）
+cp -r .output/public dist && cd ..
+
+# 3. 启动后端
 cd backend && npm start
 ```
 
