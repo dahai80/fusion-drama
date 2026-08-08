@@ -257,7 +257,7 @@
                     placeholder="编写 SKILL.md 内容..."
                   />
                   <div class="skill-card-foot">
-                    <span class="dim" style="font-size:11px">skills/{{ selectedAgentType }}/{{ s.id }}/SKILL.md</span>
+                    <span class="dim" style="font-size:11px">skills/{{ s.id }}/SKILL.md</span>
                     <span v-if="skillSaved === s.id" class="tag tag-success" style="margin-left:8px">
                       <Check :size="10" /> 已保存
                     </span>
@@ -673,12 +673,19 @@ const selectedAgentType = computed(() => selectedAgent.value)
 const selectedAgentLabel = computed(() => agentDefs.find(a => a.type === selectedAgent.value)?.label || '')
 const selectedAgentIcon = computed(() => agentDefs.find(a => a.type === selectedAgent.value)?.icon || '')
 
+// agent type 用下划线（script_rewriter），skill 目录按 Mastra 规范用连字符（script-rewriter）
+const skillDirOf = (type) => type.replace(/_/g, '-')
+const skillBelongsTo = (skillId, type) => {
+  const dir = skillDirOf(type)
+  return skillId === dir || skillId.startsWith(dir + '/')
+}
+
 function agentSkillCount(type) {
-  return allSkills.value.filter(s => s.id === type || s.id.startsWith(type + '/')).length
+  return allSkills.value.filter(s => skillBelongsTo(s.id, type)).length
 }
 
 const currentSkills = computed(() =>
-  allSkills.value.filter(s => s.id === selectedAgent.value || s.id.startsWith(selectedAgent.value + '/'))
+  allSkills.value.filter(s => skillBelongsTo(s.id, selectedAgent.value))
 )
 
 async function loadAllSkills() {
@@ -700,7 +707,7 @@ function startAddSkill() {
 
 async function confirmAddSkill() {
   if (!newSkillForm.id) return
-  const skillId = `${selectedAgent.value}/${newSkillForm.id}`
+  const skillId = `${skillDirOf(selectedAgent.value)}/${newSkillForm.id}`
   try {
     await skillsAPI.create({ id: skillId, name: newSkillForm.name, description: newSkillForm.description })
     addSkillDialog.value = false

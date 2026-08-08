@@ -31,15 +31,17 @@ const AGENT_SKILL_MAP: Record<string, string[]> = {
   ],
 }
 
-/** 每个 Agent 的 Workspace（filesystem 工作目录 + 原生技能注册） */
+/** 每个 Agent 的 Workspace（filesystem 工作目录 + 原生技能注册）
+ *  skills 用动态解析器按目录前缀匹配：设置页新建的子技能无需重启即可被发现 */
 export const skillWorkspaces: Record<string, Workspace> = Object.fromEntries(
-  Object.entries(AGENT_SKILL_MAP).map(([agentType, relPaths]) => [
+  Object.entries(AGENT_SKILL_MAP).map(([agentType, prefixes]) => [
     agentType,
     new Workspace({
       id: `workspace-${agentType}`,
       name: `${agentType} workspace`,
       filesystem: new LocalFilesystem({ basePath: WORKSPACE_DIR }),
-      skills: relPaths.map(rel => `skills/${rel}`),
+      skills: () => scanSkillPaths().filter(p =>
+        prefixes.some(prefix => p === `skills/${prefix}` || p.startsWith(`skills/${prefix}/`))),
     }),
   ]),
 )
@@ -76,11 +78,17 @@ function formatSkillSection(skillId: string, content: string): string {
   return [`## Skill: ${skillId}`, content].join('\n')
 }
 
-/** 读取 Agent 专属技能全文（经 workspace.skills API，保持原注入格式） */
+/** 读取 Agent 专属技能全文（经 workspace.skills API，保持原注入格式）
+ *  AGENT_SKILL_MAP 的目录按前缀匹配：目录自身及其子目录下所有 SKILL.md 都会注入，
+ *  因此设置页新建的子技能（如 storyboard-breaker/xxx）无需改代码即可生效 */
 export async function loadAgentSkills(agentType: string): Promise<string> {
   const workspace = skillWorkspaces[agentType]
-  const relPaths = AGENT_SKILL_MAP[agentType] || []
-  if (!workspace || !relPaths.length) return ''
+  const prefixes = AGENT_SKILL_MAP[agentType] || []
+  if (!workspace || !prefixes.length) return ''
+
+  const allPaths = scanSkillPaths().map(p => p.replace(/^skills\//, ''))
+  const relPaths = allPaths.filter(p =>
+    prefixes.some(prefix => p === prefix || p.startsWith(prefix + '/')))
 
   const contents: string[] = []
   for (const relPath of relPaths) {
