@@ -10,13 +10,11 @@
 
 [功能特性](#功能特性) • [快速开始](#快速开始) • [部署指南](#部署指南)
 
-> ## 🔑 [获取 Huobao API Key 👉 api.chatfire.site](https://api.chatfire.site)
->
-> **文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
->
-> 部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
+<h2>🔑 <a href="https://api.chatfire.site">获取 Huobao API Key 👉 立即查看</a></h2>
 
-> 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
+**文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
+
+部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
 
 </div>
 
@@ -43,23 +41,7 @@ data/       — 生成资源文件
 docker/     — init.sql 数据库初始化脚本(可选，启动时自动建表)
 ```
 
-### 🎥 作品展示 / Demo Videos
-
-体验 AI 短剧生成效果：
-
-<div align="center">
-
-**示例作品 1**
-
-<video src="https://ffile.chatfire.site/cf/public/20260114094337396.mp4" controls width="640"></video>
-
-**示例作品 2**
-
-<video src="https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4" controls width="640"></video>
-
-[点击观看视频 1](https://ffile.chatfire.site/cf/public/20260114094337396.mp4) | [点击观看视频 2](https://ffile.chatfire.site/cf/public/fcede75e8aeafe22031dbf78f86285b8.mp4)
-
-</div>
+> 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
 
 ---
 
