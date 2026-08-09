@@ -13,6 +13,19 @@ export interface AIConfig {
   baseUrl: string
   apiKey: string
   model: string
+  /** 采样温度，null 表示不设置（跟随服务商默认）。存于 ai_service_configs.settings JSON */
+  temperature?: number | null
+}
+
+/** 从 settings JSON 解析 temperature；非法值一律视为未设置 */
+export function parseConfigTemperature(settingsRaw: string | null | undefined): number | null {
+  if (!settingsRaw) return null
+  try {
+    const t = JSON.parse(settingsRaw)?.temperature
+    return typeof t === 'number' && Number.isFinite(t) ? t : null
+  } catch {
+    return null
+  }
 }
 
 export const officialProviders: Record<ServiceType, readonly string[]> = {
@@ -78,6 +91,7 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
     baseUrl: active.baseUrl,
     apiKey: active.apiKey,
     model: models[0] || '',
+    temperature: parseConfigTemperature(active.settings),
   }
 }
 
@@ -130,5 +144,6 @@ export async function getConfigById(id: number): Promise<AIConfig | null> {
     baseUrl: row.baseUrl,
     apiKey: row.apiKey,
     model: models[0] || '',
+    temperature: parseConfigTemperature(row.settings),
   }
 }
