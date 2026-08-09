@@ -1,9 +1,6 @@
 /**
  * FFmpeg 多镜头拼接 — 将所有生成后的镜头视频拼接为一集
  */
-import ffmpeg from 'fluent-ffmpeg'
-import ffmpegPath from 'ffmpeg-static'
-import { createRequire } from 'module'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -13,13 +10,7 @@ import { eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
-
-// ffprobe-static 无类型声明,用 createRequire 引入(仓库 .gitignore 忽略 *.d.ts)
-const ffprobeStatic = createRequire(import.meta.url)('ffprobe-static') as { path: string }
-
-// 系统未安装 ffmpeg 时使用项目内置二进制
-if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
-if (ffprobeStatic?.path) ffmpeg.setFfprobePath(ffprobeStatic.path)
+import { ffmpeg, checkFfmpegSuite } from '../utils/ffmpeg.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../../data/static')
@@ -52,6 +43,13 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
     .filter(c => Boolean(c.url)) as { sb: typeof storyboards[number]; url: string }[]
 
   if (clips.length === 0) throw new Error('所选镜头还没有可拼接的视频')
+
+  // 拼接前探测 ffmpeg：二进制损坏时 fluent-ffmpeg 的同步 EFTYPE 会崩掉整个进程，
+  // 这里提前拦截并给出可操作的修复指引（路由层会作为 400 返回前端）
+  const suite = await checkFfmpegSuite()
+  if (!suite.ffmpeg || !suite.ffprobe) {
+    throw new Error('本机 ffmpeg 不可用，无法拼接视频（常见于 node_modules 跨平台拷贝或 ffmpeg-static 下载损坏）。请删除 node_modules 后在本机重新 npm install，或设置 FFMPEG_BIN 指向有效的 ffmpeg 可执行文件后重启服务')
+  }
 
   // 校验视频文件真实存在:DB 里的 video_url 可能指向已被清理的文件,
   // 直接拼会得到 ffmpeg 的 "No such file or directory" 晦涩报错
