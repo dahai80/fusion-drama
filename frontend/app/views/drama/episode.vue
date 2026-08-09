@@ -2006,7 +2006,8 @@ const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
     duration: Number.isFinite(duration) ? duration : 5,
     referenceCount,
     state: videoTaskState(sb),
-    error: videoFailMessage(sb.id),
+    // 只有当前处于失败状态才显示错误,避免重试成功的分镜残留历史错误信息
+    error: videoTaskState(sb) === 'failed' ? videoFailMessage(sb.id) : '',
   }
 }))
 const videoTaskDoneCount = computed(() => videoTaskRows.value.filter(task => task.state === 'done').length)
@@ -2077,6 +2078,25 @@ async function loadGenTasks() {
     const data = await taskAPI.listByEpisode(epId.value)
     genTasks.value = data?.tasks || []
     genMerges.value = data?.merges || []
+
+    // 生成中/失败状态只存在内存里,页面刷新后丢失;从 sys_task 记录按分镜恢复,
+    // 否则已失败的镜头刷新后会退化成"待生成"
+    const videoTasks = genTasks.value
+      .filter(t => t.type === 'video' && t.storyboard_id)
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+    const pending = new Set(pendingVideoIds.value)
+    const failed = { ...failedVideoMessages.value }
+    for (const t of videoTasks) {
+      const sbId = t.storyboard_id
+      if (t.status === 'processing' && !hasVid(sbs.value.find(s => s.id === sbId))) {
+        pending.add(sbId)
+      } else if (t.status === 'failed' && !(sbId in failed) && !hasVid(sbs.value.find(s => s.id === sbId))) {
+        // 分镜已有视频(失败后重试成功)时不再报历史错误
+        failed[sbId] = t.error_msg || '生成失败'
+      }
+    }
+    pendingVideoIds.value = [...pending]
+    failedVideoMessages.value = failed
   } catch { /* 静默失败,不打断其他刷新 */ }
 }
 
