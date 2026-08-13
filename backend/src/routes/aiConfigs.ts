@@ -69,6 +69,16 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
     }
   }
 
+  if (p === 'minimax') {
+    // MiniMax 仅提供视频服务，空请求体探测鉴权/端点连通性
+    return {
+      method: 'POST',
+      url: joinProviderUrl(baseUrl, '/v2', '/video_generation'),
+      headers: bearerHeaders(apiKey, true),
+      body: {},
+    }
+  }
+
   return {
     method: 'GET',
     url: joinProviderUrl(baseUrl, '', m ? `/${m}` : '/'),

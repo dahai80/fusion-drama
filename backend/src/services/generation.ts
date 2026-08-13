@@ -116,7 +116,8 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     generateAudio: params.generateAudio === false ? 0 : 1,
     duration: params.duration || 5,
     aspectRatio: params.aspectRatio || '16:9',
-    resolution: params.resolution === '480p' ? '480p' : '720p',
+    // 保留高分辨率档位透传（MiniMax 768P/2K），火山等适配器内部自行归并
+    resolution: ['480p', '720p', '1080p', '2K'].includes(params.resolution || '') ? params.resolution : '720p',
   })
 
   logTaskStart('VideoTask', 'enqueue', {
