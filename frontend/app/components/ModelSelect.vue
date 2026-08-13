@@ -2,6 +2,7 @@
   <div class="model-select" ref="rootEl">
     <span class="model-select-label">{{ label }}</span>
     <button type="button" class="model-select-trigger" :class="{ open: isOpen }" @click="toggle">
+      <span v-if="currentOption?.provider" class="model-select-provider">{{ currentOption.provider }}</span>
       <span class="model-select-value">{{ currentLabel }}</span>
       <ChevronDown :size="11" class="model-select-arrow" />
     </button>
@@ -18,13 +19,14 @@
         </button>
         <button
           v-for="o in options"
-          :key="o.model"
+          :key="o.key || o.model"
           type="button"
-          :class="['model-select-option', { selected: modelValue === o.model }]"
-          @click="pick(o.model)"
+          :class="['model-select-option', { selected: modelValue === (o.key || o.model) }]"
+          @click="pick(o.key || o.model)"
         >
           <Check :size="12" class="opt-check" />
           <span class="opt-model">{{ o.model }}</span>
+          <span v-if="o.provider" class="opt-provider">{{ o.provider }}</span>
           <span v-if="showConfig" class="opt-config">{{ o.configName }}</span>
         </button>
       </div>
@@ -39,8 +41,8 @@ import { ChevronDown, Check } from 'lucide-vue-next'
 
 const props = defineProps({
   label: { type: String, required: true },          // 改写 / 图片 / 视频
-  modelValue: { type: String, default: '' },        // '' = 默认（配置首个模型）
-  options: { type: Array, default: () => [] },      // [{ model, configId, configName }]
+  modelValue: { type: String, default: '' },        // '' = 默认（配置首个模型）；选中值为 'provider/model' 复合键
+  options: { type: Array, default: () => [] },      // [{ key, model, provider, configId, configName }]
   defaultLabel: { type: String, default: '默认' },
   showConfig: { type: Boolean, default: false },    // 多配置时显示来源配置名
 })
@@ -51,7 +53,8 @@ const rootEl = ref()
 const menuEl = ref()
 const menuStyle = ref({})
 
-const currentLabel = computed(() => props.modelValue || props.defaultLabel)
+const currentOption = computed(() => props.options.find(o => (o.key || o.model) === props.modelValue) || null)
+const currentLabel = computed(() => currentOption.value?.model || props.defaultLabel)
 
 function toggle() { isOpen.value ? close() : open() }
 
@@ -141,6 +144,17 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.model-select-provider {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--accent-bg, rgba(0,113,227,0.10));
+  color: var(--accent, #0071e3);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 .model-select-arrow {
   flex-shrink: 0;
   color: var(--text-3);
@@ -202,9 +216,20 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 .model-select-option .opt-model.dim { color: var(--text-3); }
-.model-select-option .opt-config {
+.model-select-option .opt-provider {
   flex-shrink: 0;
   margin-left: auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-3, rgba(0,0,0,0.06));
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.model-select-option .opt-config {
+  flex-shrink: 0;
   font-size: 10px;
   color: var(--text-3);
 }

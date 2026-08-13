@@ -1556,9 +1556,14 @@ const dramaId = Number(route.params.id)
 const episodeNumber = Number(route.params.episodeNumber)
 
 const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), propItems = ref([]), sbs = ref([]), mergeData = ref(null)
-// 工作台面板位置记忆（按剧集隔离）：刷新后回到上次所在步骤，而不是总是退回「改写」
+// 工作台面板位置记忆（按剧集隔离）：仅页面刷新(reload)时恢复到上次所在步骤；
+// 从列表/详情页点击进入时始终默认「剧本」面板
 const PANEL_STORE_KEY = `huobao:workbench:panel:${dramaId}:${episodeNumber}`
+const isPageReload = (() => {
+  try { return performance.getEntriesByType('navigation')[0]?.type === 'reload' } catch { return false }
+})()
 const storedPanel = (() => {
+  if (!isPageReload) return null
   try { return JSON.parse(localStorage.getItem(PANEL_STORE_KEY) || 'null') } catch { return null }
 })()
 // 首个 refresh 时若已恢复面板位置，跳过按内容自动重置 scriptStep
@@ -1640,7 +1645,7 @@ persistModel(chatModel, MODEL_STORE_KEYS.chat)
 persistModel(imageModel, MODEL_STORE_KEYS.image)
 persistModel(videoModel, MODEL_STORE_KEYS.video)
 /** 顶栏文本模型覆盖参数：未选择时为 undefined，后端回退到 Agent/文本配置默认 */
-function chatModelOverride() { return chatModel.value || undefined }
+function chatModelOverride() { return bareModelName(chatModel.value) || undefined }
 function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel.value) }
 const pendingCharImageIds = ref([])
 const pendingSceneImageIds = ref([])
@@ -2032,22 +2037,30 @@ function configModels(cfg) {
   if (Array.isArray(raw)) return raw.filter(Boolean)
   try { const m = JSON.parse(raw); return Array.isArray(m) ? m.filter(Boolean) : [m].filter(Boolean) } catch { return [raw].filter(Boolean) }
 }
-// 汇总该类型全部启用配置的模型（去重，按优先级排序），选中模型时连同所属配置一起调用
+// 汇总该类型全部启用配置的模型（按 厂商+模型 去重，按优先级排序），选中模型时连同所属配置一起调用
+// 选中值使用 'provider/model' 复合键：同名模型可能来自不同厂商（如中转站与官方），必须区分
 function collectModelOptions(cfgs) {
   const seen = new Set()
   const out = []
   const sorted = [...cfgs].filter(c => c.is_active).sort((a, b) => (b.priority || 0) - (a.priority || 0))
   for (const c of sorted) {
     for (const m of configModels(c)) {
-      if (seen.has(m)) continue
-      seen.add(m)
-      out.push({ model: m, configId: c.id, configName: c.name || c.provider })
+      const key = `${c.provider}/${m}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ key, model: m, provider: c.provider, configId: c.id, configName: c.name || c.provider })
     }
   }
   return out
 }
-function ownerConfigId(options, model) {
-  return model ? (options.find(o => o.model === model)?.configId || undefined) : undefined
+// 复合键 → 裸模型名（后端适配器按厂商校验模型名，不能带 provider 前缀）
+function bareModelName(key) {
+  if (!key) return ''
+  const i = key.indexOf('/')
+  return i >= 0 ? key.slice(i + 1) : key
+}
+function ownerConfigId(options, key) {
+  return key ? (options.find(o => o.key === key)?.configId || undefined) : undefined
 }
 function hasMultiConfigs(options) {
   return new Set(options.map(o => o.configId)).size > 1
@@ -2059,7 +2072,11 @@ const videoModelOptions = computed(() => collectModelOptions(videoConfigs.value)
 // 配置变化后校验持久化的模型是否仍存在（配置被删/模型被移除时回退默认，避免把失效模型传给后端）
 function pruneStaleModel(modelRef, optionsRef) {
   watch(optionsRef, opts => {
-    if (modelRef.value && opts.length && !opts.some(o => o.model === modelRef.value)) modelRef.value = ''
+    if (!modelRef.value || !opts.length) return
+    if (opts.some(o => o.key === modelRef.value)) return
+    // 旧版本地存储只有裸模型名：能对上则升级为复合键，对不上回退默认
+    const legacy = opts.filter(o => o.model === modelRef.value)
+    modelRef.value = legacy.length ? legacy[0].key : ''
   }, { immediate: true })
 }
 pruneStaleModel(chatModel, textModelOptions)
@@ -2795,7 +2812,7 @@ async function genCharImg(id) {
         await ensureAssetPrompt('character', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await characterAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success('角色图片生成中')
     await refresh()
     watchAsyncResult(() => {
@@ -2813,7 +2830,7 @@ function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info('所有角色图片已生成'); return }
   pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
-  characterAPI.batchImages(ids, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
+  characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
     toast.success('角色图片批量生成中')
     await refresh()
     watchAsyncResult(() => ids.every(id => {
@@ -2837,7 +2854,7 @@ async function genSceneImg(id) {
         await ensureAssetPrompt('scene', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await sceneAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success('场景图片生成中')
     await refresh()
     watchAsyncResult(() => {
@@ -2864,7 +2881,7 @@ async function genPropImg(id) {
         await ensureAssetPrompt('prop', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
-    await propAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
+    await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
     toast.success('道具图片生成中')
     await refresh()
     watchAsyncResult(() => {
@@ -2882,7 +2899,7 @@ function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info('所有场景图片已生成'); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
+  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
   toast.success('场景图片批量生成中')
   watchAsyncResult(() => ids.every(id => {
     const scene = scenes.value.find(s => s.id === id)
@@ -2895,7 +2912,7 @@ function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info('所有道具图片已生成'); return }
   pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
-  ids.forEach(id => { propAPI.generateImage(id, epId.value, imageModel.value || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
+  ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
   toast.success('道具图片批量生成中')
   watchAsyncResult(() => ids.every(id => {
     const prop = propItems.value.find(p => p.id === id)
@@ -3249,7 +3266,7 @@ async function genVid(sb) {
     duration: Number(videoDuration.value || sb.duration || 10),
     aspect_ratio: dramaAspectRatio.value,
     generate_audio: true,
-    model: videoModel.value || undefined,
+    model: bareModelName(videoModel.value) || undefined,
     config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
     reference_image_urls: referenceImages,
     reference_video_urls: videoRefVideoUrls.value,
