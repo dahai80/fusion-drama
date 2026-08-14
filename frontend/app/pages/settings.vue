@@ -101,8 +101,20 @@
                   <div class="config-line">
                     <span class="config-name">{{ c.name || `${c.provider}-${c.service_type}` }}</span>
                     <span :class="['tag', c.api_key ? 'tag-success' : 'tag-error']">{{ c.api_key ? '已配置' : '无密钥' }}</span>
+                    <span v-if="!c.is_active" class="tag">已停用</span>
                   </div>
-                  <div class="config-sub mono truncate">{{ fmtModel(c.model) }} · {{ c.base_url || '未设置 Base URL' }}</div>
+                  <div class="config-models">
+                    <button
+                      v-for="m in c.model" :key="m" type="button"
+                      :class="['cfg-model-chip mono', { 'is-default': isDefaultModel(st.type, c, m) }]"
+                      :title="isDefaultModel(st.type, c, m) ? '当前默认模型' : '设为该类型默认模型'"
+                      @click="setDefaultModel(st.type, c, m)"
+                    >
+                      <Star v-if="isDefaultModel(st.type, c, m)" :size="9" class="cfg-model-star" />
+                      {{ m }}
+                    </button>
+                  </div>
+                  <div class="config-sub mono truncate">{{ c.base_url || '未设置 Base URL' }}</div>
                 </div>
                 <button v-if="st.type === 'text'" class="btn btn-ghost btn-sm" @click="testExistingCfg(c)">测试</button>
                 <label class="config-switch">
@@ -418,7 +430,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { aiConfigAPI, promptAPI, skillsAPI, stylePresetAPI } from '~/composables/useApi'
@@ -496,6 +508,39 @@ function applyProviderPreset(type, provider) {
 }
 
 async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toast.error(e.message) } }
+
+// ===== 默认模型选择 =====
+// 默认解析规则与工作台/后端一致：启用配置中优先级最高者的模型列表首位
+function defaultModelOf(type) {
+  const active = cfgs.value.filter(c => c.service_type === type && c.is_active)
+  if (!active.length) return null
+  const top = [...active].sort((a, b) => (b.priority || 0) - (a.priority || 0))[0]
+  const first = Array.isArray(top.model) ? top.model[0] : null
+  return first ? { configId: top.id, model: first } : null
+}
+function isDefaultModel(type, c, m) {
+  const d = defaultModelOf(type)
+  return !!d && d.configId === c.id && d.model === m
+}
+const defaultSaving = ref(false)
+async function setDefaultModel(type, c, m) {
+  if (defaultSaving.value || isDefaultModel(type, c, m)) return
+  defaultSaving.value = true
+  try {
+    const models = [m, ...(Array.isArray(c.model) ? c.model : []).filter(x => x !== m)]
+    const maxPriority = Math.max(0, ...cfgs.value.filter(x => x.service_type === type).map(x => x.priority || 0))
+    const payload = { model: models }
+    if ((c.priority || 0) < maxPriority) payload.priority = maxPriority + 1
+    if (!c.is_active) payload.is_active = true // 停用配置无法成为默认,选择即启用
+    await aiConfigAPI.update(c.id, payload)
+    toast.success(`默认${serviceMeta[type].label}模型已切换为 ${m}`)
+    await loadCfgs()
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    defaultSaving.value = false
+  }
+}
 async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
 async function delCfg(id) { await aiConfigAPI.del(id); toast.success('已删除'); loadCfgs() }
 async function applyHuobaoQuickConfig() {
@@ -1028,6 +1073,29 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadStylePresets() 
 .config-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .config-name { font-size: 13.5px; font-weight: 650; color: var(--text-0); }
 .config-sub { font-size: 11.5px; color: var(--text-3); }
+.config-models { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0; }
+.cfg-model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cfg-model-chip:hover { border-color: var(--accent); color: var(--accent); }
+.cfg-model-chip.is-default {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(0,113,227,0.10));
+  color: var(--accent);
+  font-weight: 600;
+  cursor: default;
+}
+.cfg-model-star { fill: currentColor; }
 .config-empty { font-size: 12px; color: var(--text-3); padding: 14px 20px; }
 .config-switch { display: inline-flex; flex-shrink: 0; cursor: pointer; }
 .config-switch input:focus-visible + .switch { box-shadow: 0 0 0 3.5px var(--button-focus); }
