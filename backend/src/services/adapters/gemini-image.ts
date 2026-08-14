@@ -21,9 +21,12 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
     // Gemini 模型名格式: "models/gemini-3-pro-image" 或直接 "gemini-3-pro-image"
     const modelName = record.model || config.model || 'gemini-3-pro-image'
+    // interactions 端点仅官方 API 可用;中转站(new-api 类)普遍未配置该端点类型,
+    // 会报 "endpointType=GEMINI_INTERACTIONS 未启用",此类端点回退到 generateContent 分支
     const isGemini3Image = /gemini-3.*image/.test(modelName)
+    const isOfficialHost = /generativelanguage\.googleapis\.com/.test(config.baseUrl || '')
 
-    if (isGemini3Image) {
+    if (isGemini3Image && isOfficialHost) {
       return {
         url: joinProviderUrl(config.baseUrl, '/v1beta', '/interactions'),
         method: 'POST',

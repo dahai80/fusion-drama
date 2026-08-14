@@ -30,20 +30,18 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   const m = model || ''
 
   if (p === 'gemini') {
+    // 探针统一走 generateContent:文本运行时(AI SDK)走的就是它,官方与中转站都支持;
+    // interactions 端点很多中转站未配置,探它会误报 500。
+    // 用最小合法请求体而非空体——空体在部分中转站会触发上游认证失败的误报
     const modelName = m || 'gemini-3.1-pro-preview'
-    if (modelName.startsWith('gemini-3')) {
-      return {
-        method: 'POST',
-        url: joinProviderUrl(baseUrl, '/v1beta', '/interactions'),
-        headers: geminiHeaders(apiKey, true),
-        body: serviceType === 'image'
-          ? { model: modelName, input: 'test', response_format: { type: 'image' } }
-          : { model: modelName, input: 'test' },
-      }
-    }
     const url = new URL(joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:generateContent`))
     if (apiKey) url.searchParams.set('key', apiKey)
-    return { method: 'POST', url: url.toString(), headers: geminiHeaders(apiKey, true), body: {} }
+    return {
+      method: 'POST',
+      url: url.toString(),
+      headers: geminiHeaders(apiKey, true),
+      body: { contents: [{ parts: [{ text: 'hi' }] }] },
+    }
   }
 
   if (p === 'openai') {
