@@ -2011,7 +2011,8 @@ const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
     duration: Number.isFinite(duration) ? duration : 5,
     referenceCount,
     state: videoTaskState(sb),
-    error: videoFailMessage(sb.id),
+    // 只有当前处于失败状态才显示错误,避免重试成功的分镜残留历史错误信息
+    error: videoTaskState(sb) === 'failed' ? videoFailMessage(sb.id) : '',
   }
 }))
 const videoTaskDoneCount = computed(() => videoTaskRows.value.filter(task => task.state === 'done').length)
@@ -2094,6 +2095,37 @@ async function loadGenTasks() {
     const data = await taskAPI.listByEpisode(epId.value)
     genTasks.value = data?.tasks || []
     genMerges.value = data?.merges || []
+
+    // 生成中/失败状态只存在内存里,页面刷新后丢失;从 sys_task 记录按分镜恢复,
+    // 否则已失败的镜头刷新后会退化成"待生成"
+    const videoTasks = genTasks.value.filter(t => t.type === 'video' && t.storyboard_id)
+    // 每个分镜只取最新一条任务(created_at 降序、id 兜底),旧任务不干预当前状态
+    const latestBySb = new Map()
+    for (const t of videoTasks) {
+      const prev = latestBySb.get(t.storyboard_id)
+      if (!prev
+        || String(t.created_at || '') > String(prev.created_at || '')
+        || (String(t.created_at || '') === String(prev.created_at || '') && t.id > prev.id)) {
+        latestBySb.set(t.storyboard_id, t)
+      }
+    }
+    // pending/failed 全量重建而非与现有值并集——否则刷新恢复的"生成中"在任务失败后
+    // 永不消退(videoTaskState 中 pending 优先于 failed,重试按钮还被禁用)
+    const pending = new Set()
+    const failed = {}
+    for (const [sbId, t] of latestBySb) {
+      // 分镜已有视频(失败后重试成功)时不再报历史错误
+      if (hasVid(sbs.value.find(s => s.id === sbId))) continue
+      if (t.status === 'processing') pending.add(sbId)
+      else if (t.status === 'failed') failed[sbId] = t.error_msg || '生成失败'
+    }
+    // 刚点击提交、任务记录尚未加载出来的本地状态保留,避免状态闪退
+    for (const id of pendingVideoIds.value) if (!latestBySb.has(id)) pending.add(id)
+    for (const id of Object.keys(failedVideoMessages.value)) {
+      if (!latestBySb.has(Number(id))) failed[id] = failedVideoMessages.value[id]
+    }
+    pendingVideoIds.value = [...pending]
+    failedVideoMessages.value = failed
   } catch { /* 静默失败,不打断其他刷新 */ }
 }
 

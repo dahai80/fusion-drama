@@ -10,8 +10,12 @@ import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuc
 
 const app = new Hono()
 
+// Mastra v1.17 的 ToolCallChunk / ToolResultChunk 结构：
+// { type: 'tool-call', payload: { toolCallId, toolName, args } }
+// { type: 'tool-result', payload: { toolCallId, toolName, result, isError } }
 function normalizeToolName(entry: any) {
-  return entry?.toolName
+  return entry?.payload?.toolName
+    || entry?.toolName
     || entry?.tool?.toolName
     || entry?.tool?.id
     || entry?.name
@@ -20,7 +24,7 @@ function normalizeToolName(entry: any) {
 }
 
 function normalizeToolResult(entry: any) {
-  const result = entry?.result ?? entry?.output ?? entry?.data ?? null
+  const result = entry?.payload?.result ?? entry?.result ?? entry?.payload?.output ?? entry?.output ?? entry?.data ?? null
   return typeof result === 'string' ? result : JSON.stringify(result)
 }
 
@@ -75,7 +79,7 @@ app.post('/:type/chat', async (c) => {
     const toolResults = result.toolResults || []
     const normalizedToolCalls = toolCalls.map((tc: any) => ({
       toolName: normalizeToolName(tc),
-      args: tc?.args ?? tc?.input ?? null,
+      args: tc?.payload?.args ?? tc?.args ?? tc?.input ?? null,
     }))
     const normalizedToolResults = toolResults.map((tr: any) => ({
       toolName: normalizeToolName(tr),

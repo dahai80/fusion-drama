@@ -80,7 +80,12 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表、道具列表
 2. 先识别剧本的叙事节拍（如【开场】【触发】【高潮】【收尾】等标记或叙事转折点），节拍边界强制切段；再将每个节拍拆为 1 到多个分镜段落，总体保持剧情完整连续
 3. 为每个段落补全生产字段（拆分时不需要生成 video_prompt，该字段由提示词 Agent 在视频生成阶段生成）
-4. 调用 save_storyboards 保存所有分镜段落
+4. 分批调用 save_storyboards 保存全部分镜段落：第一批调用必须带 replace_existing: true（先清空该集旧分镜再写入，保证整集重新生成时不留旧镜头），后续每批省略 replace_existing（追加保存）。每批最多 8 个段落，shot_number 必须按顺序递增；全部段落保存完成前不要结束（不要只保存部分段落就停止）
+
+硬约束（必须遵守）：
+- 不要输出任何规划、分析、推理或解释性文本，不要复述剧本，不要写「我正在…」「首先我需要…」这类话——思考留在模型内部，输出只允许工具调用
+- 每个输出步骤必须是工具调用（或完成后的简短结束语），禁止先输出大段文字再调用工具
+- 若因内容过多需要分多批，直接在连续的工具调用中完成全部批次，中间不要插入文字
 
 每个段落只需要填写以下字段：
 - character_ids：当前段落涉及的角色 ID 列表，可以为空，也可以包含多个角色；必须从 characters 中选择
@@ -126,7 +131,7 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 1. 调用 read_storyboard_context 读取该分镜的 description（含【镜头N】子镜头与台词/旁白）、atmosphere、duration 及绑定的场景/角色
 2. 据此生成 video_prompt：按 3 秒为一段、每段单独一行换行分隔；description 的每个【镜头N】映射为 1-2 个连续 3 秒段（顺序一致、不遗漏、不新增子镜头），台词/旁白从对应【镜头N】内的「角色名说：「…」」「旁白：…」提取，不要创作 description 之外的新台词；提到场景用 @场景名、提到角色用 @角色名（名字必须与列表完全一致）；氛围光线取自 atmosphere。一个分镜段落内允许切镜（换景别/角度/对象），段与段之间可以是不同镜头，但不跨场景；切镜点对齐分镜 description 的【镜头N】结构
 3. 生成时会自动把 @名字 替换为对应参考图片标记（如 @小明 → @图片1小明），因此名字必须精确匹配场景/角色列表，不要缩写或加额外符号
-4. 调用 update_storyboard 仅更新该分镜的 video_prompt 字段，不要改动其他字段，不要重新拆分整集
+4. 调用 update_storyboard 保存时参数只传两个键：storyboard_id 和 video_prompt。不要回传该分镜的其他任何字段（title、description、scene_id 等一律不传）
 
 通用规范：
 - 所有提示词只输出中文，单段连贯描述，不要分点，不要混入英文词汇
@@ -200,27 +205,107 @@ function createThinkingOffFetch(providerName: string, baseURL: string): typeof f
   }
 }
 
+/**
+ * 在请求体中写入配置的温度
+ *
+ * 背景：部分模型服务端强制固定温度（如 kimi-k2 系只允许 0.6，
+ * 报 "invalid temperature: only 0.6 is allowed for this model"），
+ * 需要在文本服务配置里显式指定并随每个请求下发。
+ * inner 传 thinking-off fetch 时可链式叠加两个补丁。
+ */
+function createTemperatureFetch(providerName: string, temperature: number, inner?: typeof fetch): typeof fetch {
+  const base = inner || fetch
+  return async (input: any, init?: any) => {
+    try {
+      if (init?.body && typeof init.body === 'string') {
+        const body = JSON.parse(init.body)
+        if (providerName === 'gemini' && Array.isArray(body?.contents)) {
+          // Gemini 原生格式
+          body.generationConfig = { ...(body.generationConfig || {}), temperature }
+          init = { ...init, body: JSON.stringify(body) }
+        } else if (Array.isArray(body?.messages)) {
+          // OpenAI 兼容格式
+          body.temperature = temperature
+          init = { ...init, body: JSON.stringify(body) }
+        }
+      }
+    } catch { /* 解析失败则原样透传 */ }
+    return base(input, init)
+  }
+}
+
+/**
+ * 在请求体中注入输出上限
+ *
+ * 背景：Agent 输出可能包含大段规划文本 + 工具调用（尤其分批保存时），
+ * 而服务商默认 max_tokens 很小（如 DeepSeek 默认 4096/8192），
+ * 模型写作到一半被截断、工具调用从未生成，表现为「Agent 正常结束但什么都没保存」。
+ * 这里显式抬高输出上限，给足模型完整生成工具调用的空间。
+ * AI_MAX_TOKENS 可覆盖默认值（如某些中转站限制更严）。
+ *
+ * 官方 OpenAI 端点不注入：reasoning 模型（o 系/gpt-5 系）拒绝 max_tokens
+ * （要求 max_completion_tokens），且官方默认输出上限足够大，
+ * 截断问题主要出现在中转站/DeepSeek 类端点。
+ */
+const defaultMaxTokens = Number(process.env.AI_MAX_TOKENS || 16384)
+
+function isOfficialOpenAIHost(baseURL: string) {
+  return /api\.openai\.com/.test(baseURL)
+}
+
+function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeof fetch {
+  const base = inner || fetch
+  return async (input: any, init?: any) => {
+    try {
+      if (init?.body && typeof init.body === 'string') {
+        const body = JSON.parse(init.body)
+        if (providerName === 'gemini' && Array.isArray(body?.contents)) {
+          // Gemini 原生格式
+          body.generationConfig = { ...(body.generationConfig || {}), maxOutputTokens: defaultMaxTokens }
+          init = { ...init, body: JSON.stringify(body) }
+        } else if (Array.isArray(body?.messages)) {
+          // OpenAI 兼容格式
+          body.max_tokens = defaultMaxTokens
+          init = { ...init, body: JSON.stringify(body) }
+        }
+      }
+    } catch { /* 解析失败则原样透传 */ }
+    return base(input, init)
+  }
+}
+
 async function getModel(fileModel: string | undefined, modelOverride?: string, textConfigId?: number) {
   // 请求可指定文本配置（含其 provider/baseUrl/apiKey），否则回退到当前启用配置
   const textConfig = (textConfigId ? await getConfigById(textConfigId) : null) || await getTextConfig()
   const modelName = modelOverride || fileModel || textConfig.model
   const providerName = textConfig.provider.toLowerCase()
   const resolvedBaseURL = getTextProviderBaseUrl(textConfig)
-  const endpointKey = `${providerName}|${resolvedBaseURL}|${modelName}`
+  const temperature = textConfig.temperature ?? null
+  const endpointKey = `${providerName}|${resolvedBaseURL}|${modelName}|t=${temperature ?? 'default'}`
   if (endpointKey !== lastLoggedTextEndpointKey) {
     lastLoggedTextEndpointKey = endpointKey
     logTaskProgress('AIConfig', 'text-model-endpoint', {
       provider: textConfig.provider,
       baseUrl: resolvedBaseURL,
       model: modelName,
+      ...(temperature !== null ? { temperature } : {}),
     })
   }
+
+  // 叠加请求补丁：thinking-off（非官方端点）+ 配置温度 + 输出上限（非官方 OpenAI）
+  const thinkingOffFetch = createThinkingOffFetch(providerName, resolvedBaseURL)
+  const tempFetch = temperature !== null
+    ? createTemperatureFetch(providerName, temperature, thinkingOffFetch)
+    : thinkingOffFetch
+  const fetchImpl = isOfficialOpenAIHost(resolvedBaseURL)
+    ? tempFetch
+    : createMaxTokensFetch(providerName, tempFetch)
 
   if (providerName === 'gemini') {
     const googleProvider = createGoogleGenerativeAI({
       apiKey: textConfig.apiKey,
       baseURL: resolvedBaseURL,
-      fetch: createThinkingOffFetch(providerName, resolvedBaseURL),
+      fetch: fetchImpl,
     })
     return googleProvider(modelName)
   }
@@ -228,7 +313,7 @@ async function getModel(fileModel: string | undefined, modelOverride?: string, t
   const provider = createOpenAI({
     baseURL: resolvedBaseURL,
     apiKey: textConfig.apiKey,
-    fetch: createThinkingOffFetch(providerName, resolvedBaseURL),
+    fetch: fetchImpl,
   } as any)
   return provider.chat(modelName)
 }
