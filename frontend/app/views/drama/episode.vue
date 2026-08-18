@@ -2081,19 +2081,31 @@ async function loadGenTasks() {
 
     // 生成中/失败状态只存在内存里,页面刷新后丢失;从 sys_task 记录按分镜恢复,
     // 否则已失败的镜头刷新后会退化成"待生成"
-    const videoTasks = genTasks.value
-      .filter(t => t.type === 'video' && t.storyboard_id)
-      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
-    const pending = new Set(pendingVideoIds.value)
-    const failed = { ...failedVideoMessages.value }
+    const videoTasks = genTasks.value.filter(t => t.type === 'video' && t.storyboard_id)
+    // 每个分镜只取最新一条任务(created_at 降序、id 兜底),旧任务不干预当前状态
+    const latestBySb = new Map()
     for (const t of videoTasks) {
-      const sbId = t.storyboard_id
-      if (t.status === 'processing' && !hasVid(sbs.value.find(s => s.id === sbId))) {
-        pending.add(sbId)
-      } else if (t.status === 'failed' && !(sbId in failed) && !hasVid(sbs.value.find(s => s.id === sbId))) {
-        // 分镜已有视频(失败后重试成功)时不再报历史错误
-        failed[sbId] = t.error_msg || '生成失败'
+      const prev = latestBySb.get(t.storyboard_id)
+      if (!prev
+        || String(t.created_at || '') > String(prev.created_at || '')
+        || (String(t.created_at || '') === String(prev.created_at || '') && t.id > prev.id)) {
+        latestBySb.set(t.storyboard_id, t)
       }
+    }
+    // pending/failed 全量重建而非与现有值并集——否则刷新恢复的"生成中"在任务失败后
+    // 永不消退(videoTaskState 中 pending 优先于 failed,重试按钮还被禁用)
+    const pending = new Set()
+    const failed = {}
+    for (const [sbId, t] of latestBySb) {
+      // 分镜已有视频(失败后重试成功)时不再报历史错误
+      if (hasVid(sbs.value.find(s => s.id === sbId))) continue
+      if (t.status === 'processing') pending.add(sbId)
+      else if (t.status === 'failed') failed[sbId] = t.error_msg || '生成失败'
+    }
+    // 刚点击提交、任务记录尚未加载出来的本地状态保留,避免状态闪退
+    for (const id of pendingVideoIds.value) if (!latestBySb.has(id)) pending.add(id)
+    for (const id of Object.keys(failedVideoMessages.value)) {
+      if (!latestBySb.has(Number(id))) failed[id] = failedVideoMessages.value[id]
     }
     pendingVideoIds.value = [...pending]
     failedVideoMessages.value = failed

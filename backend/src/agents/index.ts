@@ -242,8 +242,16 @@ function createTemperatureFetch(providerName: string, temperature: number, inner
  * 模型写作到一半被截断、工具调用从未生成，表现为「Agent 正常结束但什么都没保存」。
  * 这里显式抬高输出上限，给足模型完整生成工具调用的空间。
  * AI_MAX_TOKENS 可覆盖默认值（如某些中转站限制更严）。
+ *
+ * 官方 OpenAI 端点不注入：reasoning 模型（o 系/gpt-5 系）拒绝 max_tokens
+ * （要求 max_completion_tokens），且官方默认输出上限足够大，
+ * 截断问题主要出现在中转站/DeepSeek 类端点。
  */
 const defaultMaxTokens = Number(process.env.AI_MAX_TOKENS || 16384)
+
+function isOfficialOpenAIHost(baseURL: string) {
+  return /api\.openai\.com/.test(baseURL)
+}
 
 function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeof fetch {
   const base = inner || fetch
@@ -284,12 +292,14 @@ async function getModel(fileModel: string | undefined, modelOverride?: string, t
     })
   }
 
-  // 叠加请求补丁：thinking-off（非官方端点）+ 配置温度 + 输出上限
+  // 叠加请求补丁：thinking-off（非官方端点）+ 配置温度 + 输出上限（非官方 OpenAI）
   const thinkingOffFetch = createThinkingOffFetch(providerName, resolvedBaseURL)
   const tempFetch = temperature !== null
     ? createTemperatureFetch(providerName, temperature, thinkingOffFetch)
     : thinkingOffFetch
-  const fetchImpl = createMaxTokensFetch(providerName, tempFetch)
+  const fetchImpl = isOfficialOpenAIHost(resolvedBaseURL)
+    ? tempFetch
+    : createMaxTokensFetch(providerName, tempFetch)
 
   if (providerName === 'gemini') {
     const googleProvider = createGoogleGenerativeAI({
