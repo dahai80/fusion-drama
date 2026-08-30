@@ -122,8 +122,9 @@ async function bootstrap() {
       FRONTEND_DIST: frontendDist,
     }
     if (app.isPackaged) {
-      env.FFMPEG_BIN = path.join(resources, 'bin', 'ffmpeg')
-      env.FFPROBE_BIN = path.join(resources, 'bin', 'ffprobe')
+      const exe = process.platform === 'win32' ? '.exe' : ''
+      env.FFMPEG_BIN = path.join(resources, 'bin', `ffmpeg${exe}`)
+      env.FFPROBE_BIN = path.join(resources, 'bin', `ffprobe${exe}`)
     }
 
     backend = utilityProcess.fork(BACKEND_BUNDLE, [], {

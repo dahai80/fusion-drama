@@ -28,3 +28,15 @@ mac:
   # 先出未签名包：正式分发需 Apple Developer 签名 + notarize（配置位已留）
   identity: null
   icon: assets/icon.icns
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  # 未签名：Windows SmartScreen 会提示，正式分发需代码签名证书
+  signAndEditExecutable: false
+  icon: assets/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  shortcutName: HuobaoDrama

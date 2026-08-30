@@ -203,18 +203,22 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts          # 目标库非�
 
 ```bash
 # 一键打包（前端 generate → 后端 esbuild → electron-builder）
-npm run dist
+npm run dist        # macOS dmg（arm64 + Intel）
+npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉打包）
 
 # 产物
-# desktop/release/HuobaoDrama-<版本>-arm64.dmg   (Apple Silicon)
-# desktop/release/HuobaoDrama-<版本>.dmg          (Intel)
+# desktop/release/HuobaoDrama-<版本>-arm64.dmg        (Apple Silicon)
+# desktop/release/HuobaoDrama-<版本>.dmg              (Intel)
+# desktop/release/HuobaoDrama Setup <版本>.exe        (Windows)
 ```
 
 安装说明：
 
-- 未签名包首次打开需右键 → 打开，或执行 `xattr -cr /Applications/HuobaoDrama.app`
+- macOS 未签名包首次打开需右键 → 打开，或执行 `xattr -cr /Applications/HuobaoDrama.app`
+- Windows 未签名包 SmartScreen 会提示「更多信息 → 仍要运行」；正式分发需代码签名证书
 - 用户数据目录：`~/Library/Application Support/HuobaoDrama/`（数据库、生成的媒体、技能在线编辑的副本）
 - 内置 FFmpeg/FFprobe 二进制，无需系统安装
+- Electron 锁定 37.x：better-sqlite3 的 win32 预编译最高覆盖到该版本的 ABI（交叉打包免编译的关键）
 - 正式分发需配置 Apple Developer 签名 + 公证（`desktop/electron-builder.yml` 的 `identity`）
 
 桌面版开发调试：

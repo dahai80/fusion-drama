@@ -32,7 +32,9 @@ const workspaceSrc = path.join(REPO, 'backend', 'workspace')
 fs.cpSync(workspaceSrc, path.join(RES, 'workspace-template'), { recursive: true })
 console.log('resources/workspace-template ✓')
 
-// 3. ffmpeg 二进制
+// 3. ffmpeg 二进制（macOS/Linux 用 ffmpeg-static 当前平台的产物；
+//    Windows 交叉打包：ffmpeg.exe 从 ffmpeg-static GitHub release 获取（本地缓存），
+//    ffprobe.exe 直接用 ffprobe-static 自带的 win32/x64 产物）
 const req = createRequire(import.meta.url)
 const binDir = path.join(RES, 'bin')
 fs.mkdirSync(binDir, { recursive: true })
@@ -47,3 +49,17 @@ fs.copyFileSync(ffprobePath, path.join(binDir, 'ffprobe'))
 fs.chmodSync(path.join(binDir, 'ffmpeg'), 0o755)
 fs.chmodSync(path.join(binDir, 'ffprobe'), 0o755)
 console.log('resources/bin ✓')
+
+// 3b. Windows 二进制（打 win 包用；不打 win 包时缺失不报错，仅提示）
+const winBinDir = path.join(DESKTOP, 'build', 'win-bin')
+const ffmpegWin = path.join(winBinDir, 'ffmpeg.exe')
+const ffprobeWinSrc = path.join(path.dirname(req.resolve('ffprobe-static/package.json')), 'bin', 'win32', 'x64', 'ffprobe.exe')
+if (!fs.existsSync(ffmpegWin)) {
+  console.warn('提示: 缺少 build/win-bin/ffmpeg.exe，Windows 包将无法内置 ffmpeg。' +
+    '获取: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-win32-x64')
+}
+if (fs.existsSync(ffmpegWin) && fs.existsSync(ffprobeWinSrc)) {
+  fs.copyFileSync(ffmpegWin, path.join(binDir, 'ffmpeg.exe'))
+  fs.copyFileSync(ffprobeWinSrc, path.join(binDir, 'ffprobe.exe'))
+  console.log('resources/bin (win64) ✓')
+}
