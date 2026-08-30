@@ -17,4 +17,15 @@ contextBridge.exposeInMainWorld('huobaoDesktop', {
     ipcRenderer.on('huobao:migrate-progress', listener)
     return () => ipcRenderer.removeListener('huobao:migrate-progress', listener)
   },
+  // ---- 应用内更新 ----
+  getUpdateState: () => ipcRenderer.invoke('huobao:update-state'),
+  checkUpdate: () => ipcRenderer.invoke('huobao:update-check'),
+  downloadUpdate: () => ipcRenderer.invoke('huobao:update-download'),
+  applyUpdate: () => ipcRenderer.invoke('huobao:update-apply'),
+  /** 订阅更新下载进度（0-100）；返回取消订阅函数 */
+  onUpdateProgress: (cb: (percent: number) => void) => {
+    const listener = (_event: unknown, percent: number) => cb(percent)
+    ipcRenderer.on('huobao:update-progress', listener)
+    return () => ipcRenderer.removeListener('huobao:update-progress', listener)
+  },
 })

@@ -213,6 +213,71 @@
           </section>
         </div>
 
+        <!-- ===== 关于更新 ===== -->
+        <div v-else-if="tab === 'about'" class="settings-scroll">
+          <div class="settings-head">
+            <h2 class="settings-title">关于更新</h2>
+            <p class="settings-desc">从发布清单拉取新版本，本地 sha256 校验后自动换包重启。用户数据与配置保存在系统数据目录，不受更新影响。</p>
+          </div>
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">当前版本 v{{ updateState?.currentVersion || '…' }}</span>
+                <div v-if="updateState?.latestVersion" class="svc-group-sub">最新版本 v{{ updateState.latestVersion }}</div>
+              </div>
+              <button class="btn btn-primary btn-sm ml-auto" :disabled="updateChecking || !desktopBridge" @click="checkUpdate">
+                <Loader2 v-if="updateChecking" :size="13" class="animate-spin" />
+                <RefreshCw v-else :size="13" />
+                检查更新
+              </button>
+            </div>
+
+            <div v-if="!desktopBridge" class="config-row">
+              <div class="config-main"><div class="config-sub">当前为浏览器 / 服务器模式，应用内更新仅桌面版可用。</div></div>
+            </div>
+            <div v-else-if="updateState?.status === 'up-to-date'" class="config-row">
+              <div class="provider-badge style-badge"><Check :size="15" /></div>
+              <div class="config-main"><div class="config-line"><span class="config-name">已是最新版本</span></div></div>
+            </div>
+            <div v-else-if="updateState?.status === 'available' || updateState?.status === 'downloading'" class="config-row">
+              <div class="provider-badge style-badge"><Sparkles :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">发现新版本 v{{ updateState.latestVersion }}</span></div>
+                <div v-if="updateState.notes" class="config-sub">{{ updateState.notes }}</div>
+                <div v-if="updateState.status === 'downloading' || updateDownloading" class="update-bar">
+                  <div class="update-bar-fill" :style="{ width: `${updateProgress}%` }"></div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="updateDownloading" @click="downloadUpdate">
+                <Loader2 v-if="updateDownloading" :size="13" class="animate-spin" />
+                <Download v-else :size="13" />
+                {{ updateDownloading ? `下载中 ${updateProgress}%` : '下载更新' }}
+              </button>
+            </div>
+            <div v-else-if="updateState?.status === 'downloaded'" class="config-row">
+              <div class="provider-badge style-badge"><Download :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">更新包已就绪</span></div>
+                <div class="config-sub">点击后将退出应用并自动完成安装，随后重新打开。</div>
+              </div>
+              <button class="btn btn-primary btn-sm" :disabled="updateApplying" @click="applyUpdate">
+                <Loader2 v-if="updateApplying" :size="13" class="animate-spin" />
+                重启并安装
+              </button>
+            </div>
+            <div v-else-if="updateState?.status === 'error'" class="config-row">
+              <div class="provider-badge style-badge"><RefreshCw :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">检查失败</span></div>
+                <div class="config-sub">{{ updateState.error }}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" @click="checkUpdate">重试</button>
+            </div>
+            <p v-else class="config-empty">点击「检查更新」获取最新版本。</p>
+          </section>
+          <p class="config-empty">说明：macOS 上更新通过目录替换完成（与 Tauri 同类方案），无需 Apple 签名；Windows 上下载安装器静默安装。</p>
+        </div>
+
         <!-- ===== Agent 配置 ===== -->
         <div v-else-if="tab === 'agents'" class="settings-scroll">
           <div class="settings-head">
@@ -514,7 +579,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI } from '~/composables/useApi'
@@ -529,6 +594,7 @@ const baseTabs = [
   { id: 'ai', label: 'AI 服务', icon: Cpu },
   { id: 'styles', label: '风格预设', icon: Palette },
   { id: 'storage', label: '存储位置', icon: HardDrive },
+  { id: 'about', label: '关于更新', icon: RefreshCw },
 ]
 const advancedTabs = [
   { id: 'agents', label: 'Agent 配置', icon: Bot },
@@ -1062,6 +1128,62 @@ function formatBytes(n) {
   return `${n} B`
 }
 
+// ===== 应用内更新 =====
+const updateState = ref(null)
+const updateChecking = ref(false)
+const updateDownloading = ref(false)
+const updateProgress = ref(0)
+const updateApplying = ref(false)
+
+async function refreshUpdateState() {
+  try { updateState.value = await desktopBridge.getUpdateState() } catch { /* 静默 */ }
+}
+
+async function checkUpdate() {
+  if (!desktopBridge) return
+  updateChecking.value = true
+  try {
+    updateState.value = await desktopBridge.checkUpdate()
+    if (updateState.value?.status === 'up-to-date') toast.success('已是最新版本')
+  } catch (e) {
+    toast.error(e?.message || '检查更新失败')
+    refreshUpdateState()
+  } finally { updateChecking.value = false }
+}
+
+async function downloadUpdate() {
+  if (!desktopBridge) return
+  updateDownloading.value = true
+  updateProgress.value = 0
+  const unProgress = desktopBridge.onUpdateProgress((p) => { updateProgress.value = p })
+  try {
+    updateState.value = await desktopBridge.downloadUpdate()
+    toast.success('更新包下载完成，可以安装')
+  } catch (e) {
+    toast.error(e?.message || '下载失败')
+    refreshUpdateState()
+  } finally {
+    unProgress()
+    updateDownloading.value = false
+  }
+}
+
+async function applyUpdate() {
+  if (!desktopBridge) return
+  updateApplying.value = true
+  try {
+    await desktopBridge.applyUpdate()
+    // 成功路径：应用退出并由更新后的版本接管，不会走到这里
+  } catch (e) {
+    updateApplying.value = false
+    toast.error(e?.message || '安装失败')
+  }
+}
+
+watch(tab, (t) => {
+  if (t === 'about') refreshUpdateState()
+})
+
 onBeforeUnmount(stopUsagePoll)
 </script>
 
@@ -1402,5 +1524,19 @@ onBeforeUnmount(stopUsagePoll)
 }
 .migrate-warn {
   color: var(--danger, #ff6b6b);
+}
+.update-bar {
+  width: 220px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border, #2a3140);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.update-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent, #4f7cff);
+  transition: width 0.2s ease;
 }
 </style>

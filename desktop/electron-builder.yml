@@ -24,6 +24,9 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+    # 应用内更新器用的 zip 产物（.app 目录归档），与 dmg 一并产出
+    - target: zip
+      arch: [arm64, x64]
   category: public.app-category.productivity
   # 先出未签名包：正式分发需 Apple Developer 签名 + notarize（配置位已留）
   identity: null

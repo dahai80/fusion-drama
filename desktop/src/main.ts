@@ -15,6 +15,7 @@ import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as path from 'path'
 import { registerMigrationIpc } from './migrate'
+import { registerUpdater, markQuitting } from './updater'
 
 // 主进程打 CJS 产物，__dirname 天然可用（import.meta.url 在 CJS 下为 undefined）
 declare const __dirname: string
@@ -305,9 +306,11 @@ const migrationDeps = {
   normCase,
 }
 registerMigrationIpc(migrationDeps)
+registerUpdater(() => mainWindow)
 
 app.on('before-quit', () => {
   quitting = true
+  markQuitting()
   backend?.kill()
 })
 

@@ -221,6 +221,23 @@ npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉�
 - Electron 锁定 37.x：better-sqlite3 的 win32 预编译最高覆盖到该版本的 ABI（交叉打包免编译的关键）
 - 正式分发需配置 Apple Developer 签名 + 公证（`desktop/electron-builder.yml` 的 `identity`）
 
+#### 🔄 应用内更新（无需 Apple 签名）
+
+桌面版内置更新器（与 Tauri 同类方案：macOS 目录替换 / Windows 静默安装，本地 sha256 校验）。发布新版流程：
+
+```bash
+# 1. 改 desktop/package.json 的 version，然后打包
+npm run dist        # macOS（产出 dmg + 更新用 zip）
+npm run dist:win    # Windows（产出 Setup.exe）
+
+# 2. 生成版本清单 release/latest.json（含各平台产物 sha256）
+cd desktop && npm run feed
+
+# 3. 发布：把 latest.json + 安装包 + zip 上传到 GitHub Release（tag 形如 v1.0.1）
+```
+
+已安装的客户端会在启动后自动检查清单（也可在「设置 → 关于更新」手动检查），发现新版即提示下载安装。自定义清单地址：`HUOBAO_UPDATE_FEED` 环境变量。
+
 桌面版开发调试：
 
 ```bash
