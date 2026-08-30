@@ -50,3 +50,10 @@ temp/
 # Agent workspace (skills 保持跟踪，其余产出忽略)
 backend/workspace/*
 !backend/workspace/skills/
+
+# Desktop (Electron) build artifacts
+desktop/node_modules/
+desktop/build/
+desktop/dist/
+desktop/release/
+desktop/resources/
