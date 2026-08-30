@@ -35,10 +35,10 @@ Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本
 
 ```
 frontend/   — Nuxt 3 + Vue 3 + TypeScript (纯 CSS，无 UI 框架)
-backend/    — Hono + Drizzle ORM + Mastra AI Agents + mysql2
+backend/    — Hono + Drizzle ORM + Mastra AI Agents + better-sqlite3
 backend/workspace/skills/ — Agent 技能定义 (SKILL.md，支持界面在线编辑)
-data/       — 生成资源文件
-docker/     — init.sql 数据库初始化脚本(可选，启动时自动建表)
+desktop/    — Electron 桌面版（主进程 + esbuild 打包 + electron-builder 出 dmg）
+data/       — 生成资源文件与 SQLite 数据库
 ```
 
 > 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
@@ -100,9 +100,9 @@ docker/     — init.sql 数据库初始化脚本(可选，启动时自动建表
 |---|---|---|
 | **Node.js** | 20+ | 前后端运行环境 |
 | **npm** | 9+ | 包管理工具 |
-| **MySQL** | 8.0+ | 数据库（Docker 部署已内置，无需单独安装） |
 
-> **FFmpeg 无需安装**：项目通过 `ffmpeg-static` / `ffprobe-static` npm 包内置二进制，本地与 Docker 均开箱即用。
+> **数据库零安装**：内置 SQLite（单文件，随项目数据目录存放），无需安装任何数据库服务。
+> **FFmpeg 无需安装**：项目通过 `ffmpeg-static` / `ffprobe-static` npm 包内置二进制，开箱即用。
 
 ### ⚙️ 环境变量
 
@@ -110,12 +110,14 @@ docker/     — init.sql 数据库初始化脚本(可选，启动时自动建表
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `DATABASE_URL` | — | 完整 MySQL 连接串（优先） |
-| `MYSQL_HOST` / `MYSQL_PORT` | `127.0.0.1` / `3306` | 未设 `DATABASE_URL` 时分项配置 |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | `huobao` / `huobao` | 同上 |
-| `MYSQL_DATABASE` | `huobao_drama` | 同上 |
+| `SQLITE_PATH` | `<仓库根>/data/huobao.sqlite3` | SQLite 数据库文件位置 |
 | `PORT` | `5679` | 后端服务端口 |
-| `STORAGE_PATH` | `./data/static` | 生成文件存储目录 |
+| `STORAGE_PATH` | `<仓库根>/data/static` | 生成文件存储目录 |
+| `HUOBAO_DATA_DIR` | — | 桌面版由 Electron 主进程注入（userData 数据根） |
+| `WORKSPACE_PATH` | `backend/workspace` | Agent 技能/提示词目录（桌面版指向 userData 可写副本） |
+| `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
+| `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
+| `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
 
 > **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
 
@@ -172,13 +174,14 @@ cd ../backend && npm start
 
 ### 🗄️ 数据库
 
-数据库表在首次启动时自动创建（幂等，每次启动自动重放初始化与迁移）。默认连接读取 `DATABASE_URL`，也可以通过 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DATABASE` 分项配置：
+内置 SQLite（`better-sqlite3` + WAL 模式），数据库表在首次启动时自动创建（幂等重放 DDL 与种子数据），默认文件位于 `data/huobao.sqlite3`，可通过 `SQLITE_PATH` 重定向。桌面版数据存放在用户数据目录（`~/Library/Application Support/HuobaoDrama/data/`）。
+
+从旧版 MySQL 迁移数据：
 
 ```bash
-DATABASE_URL=mysql://huobao:huobao@127.0.0.1:3306/huobao_drama npm start
+# MySQL 仍可通过环境变量（或 backend/.env）连接，将全部表数据导入 SQLite
+cd backend && npx tsx scripts/import-mysql-to-sqlite.ts          # 目标库非空需加 --force
 ```
-
-如需在应用外预建表（如 DBA 审核场景），可使用 `docker/init.sql`；schema 变更后通过 `cd backend && npx tsx scripts/export-init-sql.ts` 重新生成。
 
 ### 🔑 首次使用：配置 AI 服务
 
@@ -194,93 +197,38 @@ DATABASE_URL=mysql://huobao:huobao@127.0.0.1:3306/huobao_drama npm start
 
 ## 📦 部署指南
 
-### 🐳 Docker 部署（推荐）
+### 🖥️ 桌面应用（推荐）
 
-#### 方式一：Docker Compose（推荐）
-
-一条命令拉起应用 + MySQL 8.4，含健康检查与启动顺序编排（应用等待 MySQL 就绪后启动，建表自动完成）：
+双击安装、开箱即用的 macOS 桌面版：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
 
 ```bash
-# 构建并启动
-docker compose up -d --build
+# 一键打包（前端 generate → 后端 esbuild → electron-builder）
+npm run dist
 
-# 查看日志
-docker compose logs -f
-
-# 停止服务
-docker compose down
+# 产物
+# desktop/release/HuobaoDrama-<版本>-arm64.dmg   (Apple Silicon)
+# desktop/release/HuobaoDrama-<版本>.dmg          (Intel)
 ```
 
-访问: `http://localhost:5679`
+安装说明：
 
-持久化数据：
+- 未签名包首次打开需右键 → 打开，或执行 `xattr -cr /Applications/HuobaoDrama.app`
+- 用户数据目录：`~/Library/Application Support/HuobaoDrama/`（数据库、生成的媒体、技能在线编辑的副本）
+- 内置 FFmpeg/FFprobe 二进制，无需系统安装
+- 正式分发需配置 Apple Developer 签名 + 公证（`desktop/electron-builder.yml` 的 `identity`）
 
-| 挂载 | 内容 |
-|---|---|
-| `./data` | 生成的图片/视频等文件 |
-| `./backend/workspace` | Agent 技能文件（设置页可在线编辑） |
-| `mysql-data`(命名卷) | MySQL 数据 |
-
-> **提示**：compose 为源码构建方式，构建过程需从外网下载 `ffmpeg-static` / `sharp` 预编译二进制，网络受限环境请先配置 npm 镜像或代理；想跳过构建可直接使用方式二的 Docker Hub 预构建镜像。
-
-#### 方式二：Docker 命令（Docker Hub 镜像）
-
-已发布多架构镜像（`linux/amd64` + `linux/arm64`，x86 服务器与 ARM 设备均自动匹配），无需克隆仓库、无需本地构建：
+桌面版开发调试：
 
 ```bash
-# 拉取镜像
-docker pull huobao/huobao-drama:3.0.0
-
-# 运行(MySQL 需另行准备,通过 DATABASE_URL 指向;命名卷自动从镜像初始化 skills 等内容)
-docker run -d \
-  --name huobao-drama \
-  -p 5679:5679 \
-  -v huobao-data:/app/data \
-  -v huobao-workspace:/app/backend/workspace \
-  -e DATABASE_URL=mysql://huobao:huobao@host.docker.internal:3306/huobao_drama \
-  --restart unless-stopped \
-  huobao/huobao-drama:3.0.0
-
-# 查看日志
-docker logs -f huobao-drama
+npm run build:frontend   # 前端静态产物（frontend/.output/public）
+cd desktop && npm run dev  # 打包后端 bundle 并以 Electron 窗口运行
 ```
 
-> **注意**：Linux 用户需添加 `--add-host=host.docker.internal:host-gateway` 以访问宿主机服务
-
-**从源码构建**（可选，需克隆仓库）：
-
-```bash
-docker build -t huobao-drama:latest .
-```
-
-**Docker 部署优势：**
-
-- ✅ Docker Hub 预构建多架构镜像（amd64 / arm64），免构建即拉即用
-- ✅ 开箱即用，内置 FFmpeg 二进制，无需系统安装
-- ✅ 前后端合并为单镜像、单端口
-- ✅ MySQL 健康检查 + 应用启动重试，首次部署零人工干预
-- ✅ `data/` 与 `workspace/` 目录 volume 挂载，数据与技能持久化
-
-#### 🔗 访问宿主机服务（Ollama / 本地模型）
-
-容器内可通过 `http://host.docker.internal:端口号` 访问宿主机服务。
-
-**配置步骤：**
-
-1. 宿主机启动服务（监听所有接口）：
-
-   ```bash
-   export OLLAMA_HOST=0.0.0.0:11434 && ollama serve
-   ```
-
-2. 在 Web 界面「设置 → AI 服务配置」中填写：
-   - Base URL: `http://host.docker.internal:11434/v1`
-   - Provider: `openai`
-   - Model: `qwen2.5:latest`
+> 已知限制：Seedance 视频模型引用本地参考资源时需要 `PUBLIC_BASE_URL` 公网地址，桌面版无公网入口，该场景会得到明确的中文报错；文生视频/图片等其余能力不受影响。
 
 ---
 
-### 🏭 传统部署方式
+### 🏭 服务器部署方式
 
 ```bash
 # 1. 构建前端
@@ -341,10 +289,15 @@ server {
 
 - **运行时**: Node.js 20+
 - **Web 框架**: Hono
-- **ORM**: Drizzle ORM + mysql2
+- **ORM**: Drizzle ORM + better-sqlite3（WAL 模式）
 - **AI Agent**: Mastra + AI SDK (OpenAI compatible)
-- **视频处理**: FFmpeg (fluent-ffmpeg)
+- **视频处理**: FFmpeg (fluent-ffmpeg + 内置二进制)
 - **图片处理**: Sharp
+
+### 桌面端
+
+- **壳**: Electron（utilityProcess 承载后端，BrowserWindow 同源加载）
+- **打包**: esbuild（后端单文件 bundle）+ electron-builder（dmg，arm64/x64）
 
 ### 前端
 
@@ -358,15 +311,17 @@ server {
 
 ## 📝 常见问题
 
-### Q: Docker 容器如何访问宿主机的 Ollama？
+### Q: 桌面版数据存在哪里？
 
-A: 使用 `http://host.docker.internal:11434/v1` 作为 Base URL。注意：
-1. 宿主机 Ollama 需监听 `0.0.0.0`：`export OLLAMA_HOST=0.0.0.0:11434 && ollama serve`
-2. Linux 用户使用 `docker run` 需添加：`--add-host=host.docker.internal:host-gateway`
+A: `~/Library/Application Support/HuobaoDrama/data/`（SQLite 数据库 + 生成的图片/视频），技能在线编辑的副本在同级 `workspace/` 目录。开发模式下则使用仓库 `data/` 目录。
+
+### Q: 旧版 MySQL 数据怎么迁移到 SQLite？
+
+A: 保持 MySQL 可连接（环境变量或 `backend/.env`），执行 `cd backend && npx tsx scripts/import-mysql-to-sqlite.ts`，脚本会自动建表、逐表导入并校验行数（目标库非空需加 `--force`，写入前自动备份）。
 
 ### Q: FFmpeg 未安装或找不到？
 
-A: 无需安装。项目内置 `ffmpeg-static` / `ffprobe-static` 二进制（本地与 Docker 均是）。如自定义 `PATH` 中的系统 FFmpeg 也不会冲突，代码优先使用内置二进制。
+A: 无需安装。项目内置 `ffmpeg-static` / `ffprobe-static` 二进制（桌面版随包携带）。系统 `PATH` 中的 FFmpeg 也不会冲突，也可通过 `FFMPEG_BIN`/`FFPROBE_BIN` 显式指定。
 
 ### Q: 页面顶部提示「尚未配置模型」？
 
@@ -383,6 +338,20 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 ---
 
 ## 📋 更新日志
+
+### v4.0.0 (2026-08)
+
+#### 🖥️ 桌面应用 + 数据库迁移
+
+- Electron 桌面版（macOS dmg，arm64/x64 双架构）
+  - 双击安装、开箱即用：自动选择端口、单实例锁、崩溃隔离的后端子进程
+  - 用户数据隔离：SQLite 库 / 生成媒体 / 技能副本均存放于 userData 目录
+  - 内置 FFmpeg/FFprobe 随包分发；workspace 技能模板首启动拷贝、升级只补缺不覆盖
+- 数据库从 MySQL 完全迁移到 SQLite（better-sqlite3 + WAL）
+  - 业务代码零改动（Drizzle 查询层天然可移植），DDL 幂等重放
+  - 新增一次性导入脚本 `import-mysql-to-sqlite.ts`（逐表行数校验 + 自动备份）
+- 后端 esbuild 单文件打包（externals：sharp/better-sqlite3/ffmpeg 二进制包）
+- 移除 Docker/MySQL 部署方式（git 历史可找回）
 
 ### v3.0.0 (2026-08)
 
