@@ -1,65 +1,44 @@
 import 'dotenv/config'
 import fs from 'fs'
-import mysql from 'mysql2/promise'
-import { drizzle } from 'drizzle-orm/mysql2'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema.js'
-import { initMySqlSchema } from './mysql-schema.js'
+import { initSqliteSchema } from './sqlite-schema.js'
 
-// 容器内 127.0.0.1 指向容器自身;未显式配置时默认指向宿主机
-// (Linux 需 --add-host=host.docker.internal:host-gateway 才能解析)
-const inContainer = fs.existsSync('/.dockerenv')
-const usingDefaultHost = !process.env.DATABASE_URL && !process.env.MYSQL_HOST
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+// src/db → 上三级为仓库根（与 utils/paths.ts 的推断层级一致）
+const repoRoot = path.resolve(__dirname, '../../..')
 
-function databaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL
+// 桌面版由 Electron 主进程注入 SQLITE_PATH（userData 下）；dev 默认仓库根 data/
+// 注意：勿沿用旧文件名 huobao_drama.db —— 那是早期 SQLite 时代的遗留库，表名重叠但列不同
+const dbPath = process.env.SQLITE_PATH || path.join(repoRoot, 'data', 'huobao.sqlite3')
+fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
-  const host = process.env.MYSQL_HOST || (inContainer ? 'host.docker.internal' : '127.0.0.1')
-  const port = process.env.MYSQL_PORT || '3306'
-  const user = encodeURIComponent(process.env.MYSQL_USER || 'huobao')
-  const password = encodeURIComponent(process.env.MYSQL_PASSWORD || 'huobao')
-  const database = process.env.MYSQL_DATABASE || 'huobao_drama'
-  return `mysql://${user}:${password}@${host}:${port}/${database}`
+const sqlite = new Database(dbPath)
+
+// WAL：生成任务轮询与页面读并发时不互相阻塞；busy_timeout 兜底写锁竞争
+sqlite.pragma('journal_mode = WAL')
+sqlite.pragma('busy_timeout = 5000')
+sqlite.pragma('synchronous = NORMAL')
+
+/** 启动建表（DDL 幂等重放 + 种子补缺）。SQLite 无连接就绪问题，无需重试 */
+export function initDb() {
+  initSqliteSchema(sqlite)
 }
 
-export const pool = mysql.createPool({
-  uri: databaseUrl(),
-  waitForConnections: true,
-  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 10),
-  queueLimit: 0,
-  charset: 'utf8mb4',
-})
+initDb()
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-
-/** 启动建表带重试：Docker 部署时 MySQL 容器就绪晚于应用启动，直接失败会导致进程崩溃 */
-export async function initDb(retries = 10, delayMs = 3000) {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await initMySqlSchema(pool)
-      return
-    } catch (err) {
-      if (attempt >= retries) throw err
-      console.warn(`[db] init failed (attempt ${attempt}/${retries}), retrying in ${delayMs}ms: ${(err as Error).message}`)
-      if (attempt === 1 && usingDefaultHost && inContainer) {
-        console.warn('[db] 未配置数据库连接:容器内默认尝试宿主机 host.docker.internal:3306。' +
-          '如使用独立 MySQL 容器或外部数据库,请设置 DATABASE_URL 或 MYSQL_HOST 环境变量')
-      }
-      await sleep(delayMs)
-    }
-  }
-}
-
+/** better-sqlite3 的 lastInsertRowid 可能是 bigint，统一转 number */
 export function getInsertId(result: unknown) {
-  const packet = Array.isArray(result) ? result[0] : result
-  const insertId = (packet as { insertId?: number | string } | undefined)?.insertId
-  if (insertId === undefined || insertId === null) {
-    throw new Error('MySQL insert did not return an insertId')
+  const res = result as { lastInsertRowid?: number | bigint } | undefined
+  if (res?.lastInsertRowid === undefined || res.lastInsertRowid === null) {
+    throw new Error('SQLite insert did not return lastInsertRowid')
   }
-  return Number(insertId)
+  return Number(res.lastInsertRowid)
 }
 
-await initDb()
-
-export const db = drizzle(pool, { schema, mode: 'default' })
+export const db = drizzle(sqlite, { schema })
 export { schema }
 export type DB = typeof db

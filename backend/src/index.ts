@@ -83,7 +83,7 @@ db.update(schema.sysTask)
   .set({ status: 'failed', errorMsg: '服务重启，生成任务中断，请重试', updatedAt: now() })
   .where(eq(schema.sysTask.status, 'processing'))
   .then(res => {
-    const affected = (Array.isArray(res) ? res[0] : res)?.affectedRows ?? 0
+    const affected = res?.changes ?? 0
     if (affected > 0) console.log(`🔁 已清理 ${affected} 个中断的生成任务`)
   })
   .catch(err => console.error('清理中断任务失败:', err?.message))

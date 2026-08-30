@@ -10,12 +10,9 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { generateImageThumb, thumbPathFor, getAbsolutePath } from '../src/utils/storage.js'
 import { extractVideoPoster, posterPathFor } from '../src/utils/video-poster.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../data/static')
+import { STORAGE_ROOT } from '../src/utils/paths.js'
 
 const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
 const VIDEO_EXTS = new Set(['.mp4', '.webm', '.mov'])

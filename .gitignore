@@ -29,6 +29,9 @@ data/drama_generator.db-shm
 data/huobao_drama.db
 data/huobao_drama.db-wal
 data/huobao_drama.db-shm
+data/*.sqlite3
+data/*.sqlite3-wal
+data/*.sqlite3-shm
 data/public.sql
 data/*.bak*
 data/static/
