@@ -14,6 +14,7 @@ import * as net from 'net'
 import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as path from 'path'
+import { registerMigrationIpc } from './migrate'
 
 // 主进程打 CJS 产物，__dirname 天然可用（import.meta.url 在 CJS 下为 undefined）
 declare const __dirname: string
@@ -140,6 +141,21 @@ function resolveResourceDir(): string {
 }
 
 // ---- 后端进程（可重启） ----
+
+/** 停后端并等待退出（kill 后等 exit 事件，5s 超时补刀）；置 backendRestarting 抑制致命弹窗 */
+function stopBackend(): Promise<void> {
+  return new Promise((resolve) => {
+    const cur = backend
+    if (!cur) return resolve()
+    backendRestarting = true
+    const timer = setTimeout(() => cur.kill(), 5000)
+    cur.once('exit', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+    cur.kill()
+  })
+}
 
 function startBackend(): void {
   const resources = resolveResourceDir()
@@ -273,7 +289,22 @@ ipcMain.handle('huobao:pick-directory', async () => {
   return { ok: true, path: target, freeBytes }
 })
 
-// 'huobao:start-migration' 由 migrate.ts（阶段③）注册
+// 存储迁移 IPC（校验/搬移/重启序列见 migrate.ts）
+const migrationDeps = {
+  getWindow: () => mainWindow,
+  getDataDir: () => currentDataDir,
+  setDataDir: (d: string) => { currentDataDir = d },
+  getPort: () => backendPort,
+  isBackendAlive: () => backend !== null,
+  stopBackend,
+  startBackend,
+  waitHealthy,
+  markRestartingFalse: () => { backendRestarting = false },
+  writeConfig: writeStorageConfig,
+  configPath: storageConfigPath,
+  normCase,
+}
+registerMigrationIpc(migrationDeps)
 
 app.on('before-quit', () => {
   quitting = true
