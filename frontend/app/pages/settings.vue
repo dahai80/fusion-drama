@@ -165,6 +165,54 @@
           </section>
         </div>
 
+        <!-- ===== 存储位置 ===== -->
+        <div v-else-if="tab === 'storage'" class="settings-scroll">
+          <div class="settings-head">
+            <h2 class="settings-title">存储位置</h2>
+            <p class="settings-desc">数据库与生成文件（图片/视频/拼接/上传）所在的目录。更改位置会短暂停止后台服务并迁移数据。</p>
+          </div>
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">当前数据目录</span>
+                <div v-if="storageInfo?.computedAt" class="svc-group-sub">统计于 {{ new Date(storageInfo.computedAt).toLocaleString() }}</div>
+              </div>
+              <button v-if="isDesktopMode" class="btn btn-primary btn-sm ml-auto" :disabled="migrating" @click="pickTarget">
+                <HardDrive :size="13" /> 更改位置
+              </button>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge style-badge"><HardDrive :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">数据目录</span><span class="tag mono">{{ storageInfo?.mode === 'desktop' ? '桌面版' : '服务器模式' }}</span></div>
+                <div class="config-sub mono truncate">{{ storageInfo?.dataDir || '加载中…' }}</div>
+                <div class="config-sub mono truncate">{{ storageInfo?.sqlitePath || '' }}</div>
+              </div>
+            </div>
+            <div v-if="storageInfo?.usage" class="config-row">
+              <div class="provider-badge style-badge"><Database :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line">
+                  <span class="config-name">总占用 {{ formatBytes(storageInfo.usage.total) }}</span>
+                  <span v-if="storageInfo.usageStale" class="tag">统计中…</span>
+                </div>
+                <div class="storage-breakdown">
+                  <span class="tag mono">数据库 {{ formatBytes(storageInfo.usage.db) }}</span>
+                  <span class="tag mono">图片 {{ formatBytes(storageInfo.usage.images) }}</span>
+                  <span class="tag mono">视频 {{ formatBytes(storageInfo.usage.videos) }}</span>
+                  <span class="tag mono">拼接 {{ formatBytes(storageInfo.usage.merged) }}</span>
+                  <span class="tag mono">上传 {{ formatBytes(storageInfo.usage.uploads) }}</span>
+                  <span v-if="storageInfo.usage.temp" class="tag mono">临时 {{ formatBytes(storageInfo.usage.temp) }}</span>
+                  <span v-if="storageInfo.usage.other" class="tag mono">其他 {{ formatBytes(storageInfo.usage.other) }}</span>
+                </div>
+                <div v-if="storageInfo.freeBytes != null" class="config-sub">磁盘剩余 {{ formatBytes(storageInfo.freeBytes) }}</div>
+              </div>
+            </div>
+            <p class="config-empty">数据目录包含 SQLite 数据库与全部生成媒体；Agent 技能（workspace）不在此列，不随迁移。</p>
+            <p v-if="!isDesktopMode" class="config-empty">服务器部署请通过 STORAGE_PATH / SQLITE_PATH 环境变量配置存储位置，改后重启服务生效。</p>
+          </section>
+        </div>
+
         <!-- ===== Agent 配置 ===== -->
         <div v-else-if="tab === 'agents'" class="settings-scroll">
           <div class="settings-head">
@@ -415,6 +463,37 @@
         </div>
       </form>
     </div>
+    <!-- 迁移确认（自建 dialog：ConfirmDialog 的删除语义/Enter 快捷键不合此处） -->
+    <div v-if="migrateDialog" class="overlay" @click.self="!migrating && (migrateDialog = false)">
+      <form class="dialog" @submit.prevent="startMigrate">
+        <div class="dialog-head"><span class="dialog-title">更改存储位置</span></div>
+        <div class="dialog-body">
+          <div class="field">
+            <span class="field-label">新目录</span>
+            <div class="input mono" style="word-break: break-all">{{ migrateTarget }}</div>
+          </div>
+          <div class="field">
+            <span class="field-label">待迁移数据</span>
+            <div class="field-hint">
+              约 {{ formatBytes(storageInfo?.usage?.total || 0) }}<template v-if="migrateTargetFree != null"> · 目标盘剩余 {{ formatBytes(migrateTargetFree) }}</template>
+            </div>
+          </div>
+          <label class="field" style="display:flex; align-items:center; gap:8px; cursor:pointer">
+            <input v-model="migrateFiles" type="checkbox" :disabled="migrating" />
+            <span class="field-label" style="margin:0">迁移已有数据（数据库与全部生成文件）</span>
+          </label>
+          <p v-if="!migrateFiles" class="field-hint migrate-warn">警告：应用将以全新的空数据库启动，旧目录中的数据会保留但不再被使用。</p>
+          <p class="field-hint">迁移期间后台服务会短暂停止，进行中的生成任务会被中断；完成后页面自动刷新。</p>
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="btn" :disabled="migrating" @click="migrateDialog = false">取消</button>
+          <button type="submit" class="btn btn-primary" :disabled="migrating">
+            <Loader2 v-if="migrating" :size="12" class="animate-spin" />
+            开始迁移
+          </button>
+        </div>
+      </form>
+    </div>
     <ConfirmDialog
       :open="!!styleToDelete"
       title="删除风格预设"
@@ -435,10 +514,12 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
-import { aiConfigAPI, promptAPI, skillsAPI, stylePresetAPI } from '~/composables/useApi'
+import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI } from '~/composables/useApi'
+import { useDesktopBridge } from '~/composables/useDesktopBridge'
+import { useMigrateState } from '~/composables/useMigrateState'
 import brandLogo from '~/assets/huobao-logo.png'
 
 const showBrandImage = ref(true)
@@ -447,6 +528,7 @@ const showAdvanced = ref(false)
 const baseTabs = [
   { id: 'ai', label: 'AI 服务', icon: Cpu },
   { id: 'styles', label: '风格预设', icon: Palette },
+  { id: 'storage', label: '存储位置', icon: HardDrive },
 ]
 const advancedTabs = [
   { id: 'agents', label: 'Agent 配置', icon: Bot },
@@ -903,6 +985,84 @@ async function saveStyle() {
 }
 
 onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadStylePresets() })
+
+// ===== 存储位置 =====
+const desktopBridge = useDesktopBridge()
+const { begin: beginMigrate, update: updateMigrate, end: endMigrate } = useMigrateState()
+
+const storageInfo = ref(null)
+const migrateDialog = ref(false)
+const migrateTarget = ref('')
+const migrateTargetFree = ref(null)
+const migrateFiles = ref(true)
+const migrating = ref(false)
+
+const isDesktopMode = computed(() => storageInfo.value?.mode === 'desktop' && !!desktopBridge)
+
+let usagePollTimer = null
+
+function stopUsagePoll() {
+  if (usagePollTimer) { clearInterval(usagePollTimer); usagePollTimer = null }
+}
+
+async function loadStorage() {
+  try {
+    storageInfo.value = await storageAPI.info()
+    // 占用为空或统计已过期时 2s 轮询至新鲜（后端 stale-while-revalidate）
+    stopUsagePoll()
+    if (storageInfo.value?.usageStale || !storageInfo.value?.usage) {
+      usagePollTimer = setInterval(async () => {
+        try {
+          storageInfo.value = await storageAPI.info()
+          if (storageInfo.value?.usage && !storageInfo.value?.usageStale) stopUsagePoll()
+        } catch { /* 轮询错误静默 */ }
+      }, 2000)
+    }
+  } catch (e) { toast.error(e?.message || '加载存储信息失败') }
+}
+
+watch(tab, (t) => {
+  if (t === 'storage') loadStorage()
+  else stopUsagePoll()
+})
+
+async function pickTarget() {
+  if (!desktopBridge) return
+  const res = await desktopBridge.pickDirectory()
+  if (res.canceled) return
+  if (!res.ok || !res.path) { toast.error(res.error || '选择目录失败'); return }
+  migrateTarget.value = res.path
+  migrateTargetFree.value = res.freeBytes ?? null
+  migrateFiles.value = true
+  migrateDialog.value = true
+}
+
+async function startMigrate() {
+  if (!desktopBridge || !migrateTarget.value) return
+  migrating.value = true
+  beginMigrate()
+  try {
+    await desktopBridge.startMigration({ targetDir: migrateTarget.value, migrateFiles: migrateFiles.value })
+    // 成功的完成提示与页面刷新由全局进度订阅（app.vue）处理
+  } catch (e) {
+    endMigrate()
+    toast.error(e?.message || '迁移失败，已恢复原存储位置')
+  } finally {
+    migrating.value = false
+    migrateDialog.value = false
+    stopUsagePoll()
+  }
+}
+
+function formatBytes(n) {
+  if (!Number.isFinite(n)) return '—'
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`
+  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(0)} MB`
+  if (n >= 1024) return `${(n / 1024).toFixed(0)} KB`
+  return `${n} B`
+}
+
+onBeforeUnmount(stopUsagePoll)
 </script>
 
 <style scoped>
@@ -1231,5 +1391,16 @@ onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadStylePresets() 
   font-size: 11px;
   color: var(--text-2);
   word-break: break-all;
+}
+
+/* 存储位置 */
+.storage-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.migrate-warn {
+  color: var(--danger, #ff6b6b);
 }
 </style>

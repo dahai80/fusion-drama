@@ -157,3 +157,7 @@ export const stylePresetAPI = {
   update: (id: number, d: any) => api.put(`/style-presets/${id}`, d),
   del: (id: number) => api.del(`/style-presets/${id}`),
 }
+
+export const storageAPI = {
+  info: () => api.get('/storage'),
+}
