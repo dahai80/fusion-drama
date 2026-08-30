@@ -26,6 +26,13 @@ let mainWindow: BrowserWindow | null = null
 let backend: UtilityProcess | null = null
 let quitting = false
 
+// userData 显式按模式区分：打包版 / dev 版互不干扰（数据库、上传文件、单实例锁均隔离），
+// 不依赖 package.json 命名（打包后与 dev 同名会导致单实例锁误杀）
+app.setPath('userData', path.join(
+  app.getPath('appData'),
+  app.isPackaged ? 'HuobaoDrama' : 'HuobaoDrama-Dev',
+))
+
 if (!app.requestSingleInstanceLock()) {
   // 双开会抢 SQLite 写锁；让已有实例聚焦窗口即可
   app.quit()
