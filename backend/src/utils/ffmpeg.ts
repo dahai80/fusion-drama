@@ -17,8 +17,9 @@ import { createRequire } from 'module'
 const ffprobeStatic = createRequire(import.meta.url)('ffprobe-static') as { path: string }
 
 // ffmpeg-static 类型声明为 string,实际平台不支持时为 null
-const ffmpegPath = ffmpegPathImport as string | null
-const ffprobePath = (ffprobeStatic?.path as string | null) || null
+// 桌面版通过 FFMPEG_BIN/FFPROBE_BIN 指向随包二进制（resources/bin），优先于 npm 内置
+const ffmpegPath = process.env.FFMPEG_BIN || (ffmpegPathImport as string | null)
+const ffprobePath = process.env.FFPROBE_BIN || (ffprobeStatic?.path as string | null) || null
 
 // 系统未安装 ffmpeg 时使用项目内置二进制
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
@@ -72,7 +73,7 @@ export async function checkFfmpegSuite(): Promise<FfmpegSuite> {
     console.warn(
       `[ffmpeg] 内置二进制不可用 (ffmpeg=${ffmpegOk ? 'ok' : 'FAIL'}, ffprobe=${ffprobeOk ? 'ok' : 'FAIL'})。` +
       `海报帧提取与视频拼接将跳过/失败。修复：删除 node_modules 后在本机重新 npm install，` +
-      `或设置 FFMPEG_BIN 指向有效的 ffmpeg 可执行文件`
+      `或设置 FFMPEG_BIN/FFPROBE_BIN 指向有效的可执行文件`
     )
   }
   return suite

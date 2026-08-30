@@ -12,11 +12,19 @@ import { Workspace, LocalFilesystem } from '@mastra/core/workspace'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const WORKSPACE_DIR = path.resolve(__dirname, '../../workspace')
+// 桌面版由 Electron 主进程注入 WORKSPACE_PATH（userData 下的可写副本）；dev 锚定 backend/workspace
+const WORKSPACE_DIR = process.env.WORKSPACE_PATH
+  ? path.resolve(process.env.WORKSPACE_PATH)
+  : path.resolve(__dirname, '../../workspace')
 const SKILLS_DIR = path.join(WORKSPACE_DIR, 'skills')
 
 // 启动时确保工作目录存在（Agent 文件读写的 jail 根）
-fs.mkdirSync(SKILLS_DIR, { recursive: true })
+// 桌面版打包后模块可能仍从只读位置加载，失败不阻断启动（路由层会给出明确报错）
+try {
+  fs.mkdirSync(SKILLS_DIR, { recursive: true })
+} catch (err) {
+  console.warn(`[skills] 工作目录创建失败（只读环境？）: ${(err as Error).message}`)
+}
 
 /** 每个 Agent 注册的 skill 目录（相对 workspace/skills/，含子规范目录；目录名需符合 Agent Skills 规范：小写+连字符） */
 const AGENT_SKILL_MAP: Record<string, string[]> = {
