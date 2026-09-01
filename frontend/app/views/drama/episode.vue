@@ -6,15 +6,15 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          返回项目
+          {{ t('episode.topbar.back') }}
         </button>
         <div class="studio-identity">
           <h1 class="studio-title">{{ drama.title }}</h1>
-          <span class="studio-episode-chip">第 {{ episodeNumber }} 集</span>
+          <span class="studio-episode-chip">{{ t('episode.topbar.episodeN', { n: episodeNumber }) }}</span>
           <div class="studio-meta-row">
             <span class="studio-meta-pill">{{ currentSubStageLabel }}</span>
             <span class="studio-meta-pill is-progress">{{ pipelineProgress }}/{{ pipelineTotal }}</span>
-            <span class="studio-meta-inline">{{ chars.length }} 角色 · {{ sbs.length }} 段落</span>
+            <span class="studio-meta-inline">{{ t('episode.topbar.meta', { roles: chars.length, shots: sbs.length }) }}</span>
           </div>
         </div>
       </div>
@@ -24,41 +24,42 @@
           <ModelSelect
             v-if="textModelOptions.length"
             v-model="chatModel"
-            label="文本"
+            :label="t('common.serviceType.text')"
             :options="textModelOptions"
-            :default-label="`默认 · ${textModelOptions[0].model}`"
+            :default-label="t('episode.model.defaultWith', { model: textModelOptions[0].model })"
             :show-config="textModelMultiCfg"
           />
           <ModelSelect
             v-if="imageModelOptions.length"
             v-model="imageModel"
-            label="图片"
+            :label="t('common.serviceType.image')"
             :options="imageModelOptions"
-            :default-label="`默认 · ${imageModelOptions[0].model}`"
+            :default-label="t('episode.model.defaultWith', { model: imageModelOptions[0].model })"
             :show-config="imageModelMultiCfg"
           />
           <ModelSelect
             v-if="videoModelOptions.length"
             v-model="videoModel"
-            label="视频"
+            :label="t('common.serviceType.video')"
             :options="videoModelOptions"
-            :default-label="`默认 · ${videoModelOptions[0].model}`"
+            :default-label="t('episode.model.defaultWith', { model: videoModelOptions[0].model })"
             :show-config="videoModelMultiCfg"
           />
         </div>
         <div class="studio-actions">
+          <LocaleSwitcher />
           <button class="btn" @click="refresh">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            刷新
+            {{ t('common.refresh') }}
           </button>
           <button class="btn task-drawer-trigger" @click="openTaskDrawer">
             <ListTodo :size="12" />
-            任务
+            {{ t('episode.topbar.tasks') }}
             <span v-if="genTaskActiveCount" class="task-drawer-badge">{{ genTaskActiveCount }}</span>
           </button>
           <button class="btn btn-primary" @click="panel = mergeUrl ? 'export' : (sbs.length ? 'production' : 'script')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            {{ mergeUrl ? '查看成片' : (sbs.length ? '继续制作' : '开始制作') }}
+            {{ mergeUrl ? t('episode.topbar.viewFilm') : (sbs.length ? t('episode.topbar.continue') : t('episode.topbar.start')) }}
           </button>
         </div>
       </div>
@@ -80,7 +81,7 @@
               <span v-else class="pipe-section-dot" />
             </span>
             <span>{{ section.label }}</span>
-            <span v-if="sectionState(section.id) === 'active'" class="pipe-section-tag">进行中</span>
+            <span v-if="sectionState(section.id) === 'active'" class="pipe-section-tag">{{ t('episode.sidebar.inProgress') }}</span>
           </div>
           <button
             v-for="item in section.items"
@@ -118,7 +119,7 @@
         </div>
         <button class="refresh-btn" @click="refresh">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          刷新数据
+          {{ t('episode.sidebar.refreshData') }}
         </button>
       </div>
     </aside>
@@ -133,21 +134,21 @@
             <div class="toolbar-left">
               <div class="step-indicator">
                 <span class="step-num">01</span>
-                <span class="step-name">原始内容</span>
+                <span class="step-name">{{ t('episode.script.raw') }}</span>
               </div>
             </div>
             <div class="toolbar-right">
-              <span v-if="rawLen" class="char-count">{{ rawLen }} 字</span>
-              <button class="btn btn-sm" @click="saveRaw(); toast.success('已保存')">
+              <span v-if="rawLen" class="char-count">{{ t('episode.script.charCount', { n: rawLen }) }}</span>
+              <button class="btn btn-sm" @click="saveRaw(); toast.success(t('episode.script.saved'))">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                保存
+                {{ t('common.save') }}
               </button>
             </div>
           </div>
           <textarea
             class="fill-textarea"
             v-model="localRaw"
-            placeholder="粘贴小说原文、故事大纲或分镜描述..."
+            :placeholder="t('episode.script.rawPlaceholder')"
           />
         </div>
 
@@ -157,19 +158,19 @@
             <div class="toolbar-left">
               <div class="step-indicator">
                 <span class="step-num">02</span>
-                <span class="step-name">AI 改写</span>
+                <span class="step-name">{{ t('episode.script.rewrite') }}</span>
               </div>
             </div>
             <div class="toolbar-right">
-              <span v-if="scriptLen" class="char-count">{{ scriptLen }} 字</span>
+              <span v-if="scriptLen" class="char-count">{{ t('episode.script.charCount', { n: scriptLen }) }}</span>
               <button v-if="rawContent" class="btn btn-sm" @click="skipRewrite">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M13 18l6-6-6-6"/></svg>
-                跳过改写
+                {{ t('episode.script.skipRewrite') }}
               </button>
               <button v-if="scriptContent" class="btn btn-sm" @click="doRewrite" :disabled="rn">
                 <Loader2 v-if="rn && rt === 'script_rewriter'" :size="11" class="animate-spin" />
                 <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                重新改写
+                {{ t('episode.script.rewriteAgain') }}
               </button>
             </div>
           </div>
@@ -180,24 +181,24 @@
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
               </svg>
             </div>
-            <div class="empty-title">AI 改写为格式化剧本</div>
-            <div class="empty-desc">你可以先用 AI 把原始内容整理成格式化剧本，也可以跳过这一步，直接进入资产制作。</div>
+            <div class="empty-title">{{ t('episode.script.emptyTitle') }}</div>
+            <div class="empty-desc">{{ t('episode.script.emptyDesc') }}</div>
             <div class="step-empty-actions">
               <button class="btn btn-primary" @click="doRewrite">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                开始改写
+                {{ t('episode.script.startRewrite') }}
               </button>
               <button class="btn" @click="skipRewrite">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="M13 18l6-6-6-6"/></svg>
-                跳过改写
+                {{ t('episode.script.skipRewrite') }}
               </button>
             </div>
           </div>
           <div v-else-if="rn && rt === 'script_rewriter'" class="step-loading">
             <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-            <div class="loading-text">正在改写剧本...</div>
+            <div class="loading-text">{{ t('episode.script.rewriting') }}</div>
           </div>
-          <textarea v-else class="fill-textarea" v-model="localScript" placeholder="格式化剧本内容..." />
+          <textarea v-else class="fill-textarea" v-model="localScript" :placeholder="t('episode.script.scriptPlaceholder')" />
         </div>
       </div>
 
@@ -208,7 +209,7 @@
           <div class="empty-visual">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           </div>
-          <div class="empty-title">尚未准备就绪</div>
+          <div class="empty-title">{{ t('episode.prod.notReady') }}</div>
           <div class="empty-desc">{{ productionBlockMessage }}</div>
           <button class="btn btn-primary" @click="goProductionBlockTarget">{{ productionBlockActionLabel }}</button>
         </div>
@@ -218,56 +219,56 @@
           <!-- Sub: Assets -->
           <div v-if="prodTab === 'assets'" class="prod-content">
             <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">资产</span>
-              <span class="tag mono">{{ assetReadyCount }}/{{ assetTotalCount }} 已就绪</span>
+              <span class="dim" style="font-size:12px">{{ t('episode.prod.assets') }}</span>
+              <span class="tag mono">{{ t('episode.prod.readyCount', { ready: assetReadyCount, total: assetTotalCount }) }}</span>
               <span class="tag">{{ lockedImageConfigLabel }}</span>
               <div class="ml-auto flex gap-1 asset-bar-actions">
                 <button
-                  v-for="t in EXTRACT_TARGETS"
-                  :key="t.key"
+                  v-for="et in EXTRACT_TARGETS"
+                  :key="et.key"
                   class="btn btn-sm asset-btn-extract"
-                  :disabled="isExtracting(t.key)"
-                  @click="doExtract(t.key)"
+                  :disabled="isExtracting(et.key)"
+                  @click="doExtract(et.key)"
                 >
-                  <Loader2 v-if="isExtracting(t.key)" :size="11" class="animate-spin" />
+                  <Loader2 v-if="isExtracting(et.key)" :size="11" class="animate-spin" />
                   <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  {{ (t.key === 'characters' ? chars.length : t.key === 'scenes' ? scenes.length : propItems.length) ? `重提${t.label}` : `提取${t.label}` }}
+                  {{ (et.key === 'characters' ? chars.length : et.key === 'scenes' ? scenes.length : propItems.length) ? t('episode.prod.reextract', { type: et.label }) : t('episode.prod.extract', { type: et.label }) }}
                 </button>
                 <span class="asset-bar-divider" />
                 <button class="btn btn-sm asset-btn-batch" @click="batchCharImages">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  批量角色
+                  {{ t('episode.prod.batchChar') }}
                 </button>
                 <button class="btn btn-sm asset-btn-batch" @click="batchSceneImages">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  批量场景
+                  {{ t('episode.prod.batchScene') }}
                 </button>
                 <button class="btn btn-sm asset-btn-batch" @click="batchPropImages">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  批量道具
+                  {{ t('episode.prod.batchProp') }}
                 </button>
               </div>
             </div>
             <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
               <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-              <div class="loading-text">正在提取{{ extractingLabels }}...</div>
+              <div class="loading-text">{{ t('episode.prod.extractingTypes', { types: extractingLabels }) }}</div>
             </div>
             <div v-else-if="!chars.length && !scenes.length && !propItems.length" class="step-empty asset-empty-state">
               <div class="empty-visual">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </div>
-              <div class="empty-title">开始提取资产</div>
-              <div class="empty-desc">角色、场景和道具会在提取后显示在这里，可分别单独提取，也可一键并行提取全部。</div>
+              <div class="empty-title">{{ t('episode.prod.emptyTitle') }}</div>
+              <div class="empty-desc">{{ t('episode.prod.emptyDesc') }}</div>
               <button class="btn btn-primary" :disabled="!!extractingTargets.length" @click="doExtractAll">
                 <Loader2 v-if="extractingTargets.length" :size="13" class="animate-spin" />
                 <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                {{ extractingTargets.length ? `正在提取${extractingLabels}…` : '开始提取' }}
+                {{ extractingTargets.length ? t('episode.prod.extractingTypesDots', { types: extractingLabels }) : t('episode.prod.startExtract') }}
               </button>
             </div>
             <template v-else>
             <div class="asset-section-title">
-              角色
-              <button class="asset-add-btn" @click="openAssetCreate('character')"><Plus :size="11" /> 新增</button>
+              {{ t('common.role') }}
+              <button class="asset-add-btn" @click="openAssetCreate('character')"><Plus :size="11" /> {{ t('common.add') }}</button>
             </div>
             <template v-if="visualChars.length">
             <div class="character-asset-grid">
@@ -281,7 +282,7 @@
                 @keydown.enter.prevent="openAssetDetail('character', c)"
                 @keydown.space.prevent="openAssetDetail('character', c)"
               >
-                <button class="asset-del-btn" title="删除角色" @click.stop="askDeleteAsset('character', c)"><X :size="11" /></button>
+                <button class="asset-del-btn" :title="t('episode.asset.delChar')" @click.stop="askDeleteAsset('character', c)"><X :size="11" /></button>
                 <div class="character-asset-main">
                   <div class="character-asset-overview"><div class="character-portrait">
                       <img
@@ -290,13 +291,13 @@
                         class="previewable-image"
                         loading="lazy"
                         @error="thumbFallback($event, assetImageSrc(c))"
-                        @click.stop="openImageViewer(assetImageSrc(c), `${c.name} 角色形象`)"
+                        @click.stop="openImageViewer(assetImageSrc(c), t('episode.asset.charImageTitle', { name: c.name }))"
                       />
                       <div v-else class="character-portrait-empty">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                       </div>
                       <span class="asset-cover-badge" :class="(c.image_url || c.imageUrl) ? 'is-ready' : (isPendingCharImage(c.id) ? 'is-pending' : '')">
-                        {{ (c.image_url || c.imageUrl) ? '形象已生成' : (isPendingCharImage(c.id) ? '形象生成中' : '形象待生成') }}
+                        {{ (c.image_url || c.imageUrl) ? t('episode.asset.portraitReady') : (isPendingCharImage(c.id) ? t('episode.asset.portraitPending') : t('episode.asset.portraitTodo')) }}
                       </span>
                     </div>
 
@@ -304,27 +305,27 @@
                       <div class="character-title-block">
                         <div class="character-name-row">
                           <strong class="character-name">{{ c.name }}</strong>
-                          <span class="tag">{{ c.role || '角色' }}</span>
+                          <span class="tag">{{ c.role || t('common.role') }}</span>
                         </div>
                         <div class="character-visual-summary" :title="characterVisualSummary(c)">
-                          <span>样貌：{{ characterAppearanceValue(c) }}</span>
-                          <span>妆造：{{ characterStylingValue(c) }}</span>
+                          <span>{{ t('episode.asset.appearance') }}{{ characterAppearanceValue(c) }}</span>
+                          <span>{{ t('episode.asset.styling') }}{{ characterStylingValue(c) }}</span>
                         </div>
                       </div>
                       <button class="btn btn-sm character-gen-btn" :disabled="isPendingCharImage(c.id)" @click.stop="genCharImg(c.id)">
                         <Loader2 v-if="isPendingCharImage(c.id)" :size="11" class="animate-spin" />
-                        {{ (c.image_url || c.imageUrl) ? '重绘' : (isPendingCharImage(c.id) ? '生成中' : '生成') }}
+                        {{ (c.image_url || c.imageUrl) ? t('episode.asset.regen') : (isPendingCharImage(c.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
                       </button>
-                      <button class="btn btn-sm" title="上传角色形象图" :disabled="isUploadingAsset('character', c.id)" @click.stop="uploadAssetImage('character', c.id)">
+                      <button class="btn btn-sm" :title="t('episode.asset.uploadCharImage')" :disabled="isUploadingAsset('character', c.id)" @click.stop="uploadAssetImage('character', c.id)">
                         <Loader2 v-if="isUploadingAsset('character', c.id)" :size="11" class="animate-spin" />
                         <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        上传
+                        {{ t('episode.asset.upload') }}
                       </button>
                     </div>
                   </div>
                   <div class="asset-final-prompt" :title="c.final_prompt || c.finalPrompt || ''">
-                    <span class="afp-label">最终提示词 · 三视图</span>
-                    <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || '首次生成形象时由提示词 Agent 自动生成' }}</span>
+                    <span class="afp-label">{{ t('episode.asset.finalPromptTurnaround') }}</span>
+                    <span :class="['afp-text', !(c.final_prompt || c.finalPrompt) && 'dim']">{{ c.final_prompt || c.finalPrompt || t('episode.asset.finalPromptAutoTurnaround') }}</span>
                   </div>
                 </div>
               </article>
@@ -332,8 +333,8 @@
             </template>
 
             <div class="asset-section-title">
-              场景
-              <button class="asset-add-btn" @click="openAssetCreate('scene')"><Plus :size="11" /> 新增</button>
+              {{ t('common.scene') }}
+              <button class="asset-add-btn" @click="openAssetCreate('scene')"><Plus :size="11" /> {{ t('common.add') }}</button>
             </div>
             <template v-if="scenes.length">
             <div class="asset-grid">
@@ -347,7 +348,7 @@
                 @keydown.enter.prevent="openAssetDetail('scene', s)"
                 @keydown.space.prevent="openAssetDetail('scene', s)"
               >
-                <button class="asset-del-btn" title="删除场景" @click.stop="askDeleteAsset('scene', s)"><X :size="11" /></button>
+                <button class="asset-del-btn" :title="t('episode.asset.delScene')" @click.stop="askDeleteAsset('scene', s)"><X :size="11" /></button>
                 <div class="asset-cover wide">
                   <img
                     v-if="s.image_url || s.imageUrl"
@@ -355,32 +356,32 @@
                     class="previewable-image"
                     loading="lazy"
                     @error="thumbFallback($event, assetImageSrc(s))"
-                    @click.stop="openImageViewer(assetImageSrc(s), `${s.location} 场景图`)"
+                    @click.stop="openImageViewer(assetImageSrc(s), t('episode.asset.sceneImageTitle', { name: s.location }))"
                   />
                   <div v-else class="asset-cover-empty">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                   </div>
-                  <span class="asset-cover-badge" :class="(s.image_url || s.imageUrl) ? 'is-ready' : (isPendingSceneImage(s.id) ? 'is-pending' : '')">{{ (s.image_url || s.imageUrl) ? '已生成' : (isPendingSceneImage(s.id) ? '生成中' : '待生成') }}</span>
+                  <span class="asset-cover-badge" :class="(s.image_url || s.imageUrl) ? 'is-ready' : (isPendingSceneImage(s.id) ? 'is-pending' : '')">{{ (s.image_url || s.imageUrl) ? t('episode.asset.ready') : (isPendingSceneImage(s.id) ? t('episode.asset.generating') : t('episode.asset.todo')) }}</span>
                 </div>
                 <div class="asset-body">
                   <div class="asset-name" :title="s.location">{{ s.location }}</div>
                   <div class="asset-meta asset-desc dim" :title="sceneDescriptionValue(s)">{{ sceneDescriptionValue(s) }}</div>
-                  <div v-if="sceneLightingValue(s)" class="asset-meta asset-light dim" :title="sceneLightingValue(s)">光照 · {{ sceneLightingValue(s) }}</div>
+                  <div v-if="sceneLightingValue(s)" class="asset-meta asset-light dim" :title="sceneLightingValue(s)">{{ t('episode.asset.lighting') }}{{ sceneLightingValue(s) }}</div>
                   <div class="asset-meta asset-final" :class="{ dim: !(s.final_prompt || s.finalPrompt) }" :title="s.final_prompt || s.finalPrompt || ''">
-                    <span class="afp-label">最终提示词 · 固定视角</span>
-                    {{ s.final_prompt || s.finalPrompt || '首次生成图片时由提示词 Agent 自动生成（前景/中景/后景）' }}
+                    <span class="afp-label">{{ t('episode.asset.finalPromptFixed') }}</span>
+                    {{ s.final_prompt || s.finalPrompt || t('episode.asset.finalPromptAutoFixed') }}
                   </div>
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (s.image_url || s.imageUrl) && 'ok', isPendingSceneImage(s.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" title="上传场景图" :disabled="isUploadingAsset('scene', s.id)" @click.stop="uploadAssetImage('scene', s.id)">
+                  <button class="btn btn-sm ml-auto" :title="t('episode.asset.uploadSceneImage')" :disabled="isUploadingAsset('scene', s.id)" @click.stop="uploadAssetImage('scene', s.id)">
                     <Loader2 v-if="isUploadingAsset('scene', s.id)" :size="11" class="animate-spin" />
                     <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    上传
+                    {{ t('episode.asset.upload') }}
                   </button>
                   <button class="btn btn-sm" :disabled="isPendingSceneImage(s.id)" @click.stop="genSceneImg(s.id)">
                     <Loader2 v-if="isPendingSceneImage(s.id)" :size="11" class="animate-spin" />
-                    {{ (s.image_url || s.imageUrl) ? '重绘' : (isPendingSceneImage(s.id) ? '生成中' : '生成') }}
+                    {{ (s.image_url || s.imageUrl) ? t('episode.asset.regen') : (isPendingSceneImage(s.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
                   </button>
                 </div>
               </div>
@@ -388,8 +389,8 @@
             </template>
 
             <div class="asset-section-title">
-              道具
-              <button class="asset-add-btn" @click="openAssetCreate('prop')"><Plus :size="11" /> 新增</button>
+              {{ t('common.prop') }}
+              <button class="asset-add-btn" @click="openAssetCreate('prop')"><Plus :size="11" /> {{ t('common.add') }}</button>
             </div>
             <div v-if="propItems.length" class="asset-grid">
               <div
@@ -402,7 +403,7 @@
                 @keydown.enter.prevent="openAssetDetail('prop', p)"
                 @keydown.space.prevent="openAssetDetail('prop', p)"
               >
-                <button class="asset-del-btn" title="删除道具" @click.stop="askDeleteAsset('prop', p)"><X :size="11" /></button>
+                <button class="asset-del-btn" :title="t('episode.asset.delProp')" @click.stop="askDeleteAsset('prop', p)"><X :size="11" /></button>
                 <div class="asset-cover wide">
                   <img
                     v-if="p.image_url || p.imageUrl"
@@ -410,58 +411,58 @@
                     class="previewable-image"
                     loading="lazy"
                     @error="thumbFallback($event, assetImageSrc(p))"
-                    @click.stop="openImageViewer(assetImageSrc(p), `${p.name} 道具图`)"
+                    @click.stop="openImageViewer(assetImageSrc(p), t('episode.asset.propImageTitle', { name: p.name }))"
                   />
                   <div v-else class="asset-cover-empty">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                   </div>
-                  <span class="asset-cover-badge" :class="(p.image_url || p.imageUrl) ? 'is-ready' : (isPendingPropImage(p.id) ? 'is-pending' : '')">{{ (p.image_url || p.imageUrl) ? '已生成' : (isPendingPropImage(p.id) ? '生成中' : '待生成') }}</span>
+                  <span class="asset-cover-badge" :class="(p.image_url || p.imageUrl) ? 'is-ready' : (isPendingPropImage(p.id) ? 'is-pending' : '')">{{ (p.image_url || p.imageUrl) ? t('episode.asset.ready') : (isPendingPropImage(p.id) ? t('episode.asset.generating') : t('episode.asset.todo')) }}</span>
                 </div>
                 <div class="asset-body">
                   <div class="prop-name-row">
                     <span class="asset-name" :title="p.name">{{ p.name }}</span>
-                    <span class="tag">{{ p.type || '道具' }}</span>
+                    <span class="tag">{{ p.type || t('common.prop') }}</span>
                   </div>
-                  <div class="asset-meta asset-desc dim" :title="p.description || ''">{{ p.description || '暂无描述' }}</div>
+                  <div class="asset-meta asset-desc dim" :title="p.description || ''">{{ p.description || t('episode.asset.noDescription') }}</div>
                   <div class="asset-meta asset-final" :class="{ dim: !(p.final_prompt || p.finalPrompt) }" :title="p.final_prompt || p.finalPrompt || ''">
-                    <span class="afp-label">最终提示词 · 白底单品</span>
-                    {{ p.final_prompt || p.finalPrompt || '首次生成图片时由提示词 Agent 自动生成（白底单品）' }}
+                    <span class="afp-label">{{ t('episode.asset.finalPromptWhiteBg') }}</span>
+                    {{ p.final_prompt || p.finalPrompt || t('episode.asset.finalPromptAutoWhiteBg') }}
                   </div>
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', (p.image_url || p.imageUrl) && 'ok', isPendingPropImage(p.id) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" title="上传道具图" :disabled="isUploadingAsset('prop', p.id)" @click.stop="uploadAssetImage('prop', p.id)">
+                  <button class="btn btn-sm ml-auto" :title="t('episode.asset.uploadPropImage')" :disabled="isUploadingAsset('prop', p.id)" @click.stop="uploadAssetImage('prop', p.id)">
                     <Loader2 v-if="isUploadingAsset('prop', p.id)" :size="11" class="animate-spin" />
                     <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    上传
+                    {{ t('episode.asset.upload') }}
                   </button>
                   <button class="btn btn-sm" :disabled="isPendingPropImage(p.id)" @click.stop="genPropImg(p.id)">
                     <Loader2 v-if="isPendingPropImage(p.id)" :size="11" class="animate-spin" />
-                    {{ (p.image_url || p.imageUrl) ? '重绘' : (isPendingPropImage(p.id) ? '生成中' : '生成') }}
+                    {{ (p.image_url || p.imageUrl) ? t('episode.asset.regen') : (isPendingPropImage(p.id) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
                   </button>
                 </div>
               </div>
             </div>
-            <div v-else class="asset-props-empty">本集暂无涉及事态发展的关键道具</div>
+            <div v-else class="asset-props-empty">{{ t('episode.asset.propsEmpty') }}</div>
             </template>
           </div>
 
           <!-- Sub: Storyboard Split -->
           <div v-if="prodTab === 'storyboard'" class="prod-content">
             <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">分镜拆分</span>
-              <span class="tag mono">{{ sbs.length }} 段落 · {{ totalDuration }}s</span>
+              <span class="dim" style="font-size:12px">{{ t('episode.sb.title') }}</span>
+              <span class="tag mono">{{ t('episode.sb.segmentStat', { n: sbs.length, dur: totalDuration }) }}</span>
               <span class="tag">{{ lockedVideoConfigLabel }}</span>
               <div class="ml-auto flex gap-1">
                 <button class="btn btn-sm" :disabled="rn" @click="doBreakdown">
                   <Loader2 v-if="rt === 'storyboard_breaker'" :size="11" class="animate-spin" />
                   <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  {{ sbs.length ? '重新拆分' : '开始拆分' }}
+                  {{ sbs.length ? t('episode.sb.rebreak') : t('episode.sb.startBreak') }}
                 </button>
                 <button class="btn btn-sm" :disabled="videoPromptBatch.running || !sbs.length" @click="batchVideoPrompts">
                   <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
                   <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                  {{ videoPromptBatch.running ? `提示词 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : (selectedSbIds.length ? `生成所选提示词(${selectedSbIds.length})` : '批量视频提示词') }}
+                  {{ videoPromptBatch.running ? t('episode.sb.promptProgress', { done: videoPromptBatch.completed, total: videoPromptBatch.total }) : (selectedSbIds.length ? t('episode.sb.promptSelected', { n: selectedSbIds.length }) : t('episode.sb.batchPrompts')) }}
                 </button>
               </div>
             </div>
@@ -471,16 +472,16 @@
                 <div class="shot-list-head">
                   <div class="shot-list-head-main">
                     <div class="shot-list-head-copy">
-                      <div class="shot-list-title">分镜列表</div>
-                      <div class="shot-list-sub">检查拆分描述和绑定的角色场景</div>
+                      <div class="shot-list-title">{{ t('episode.sb.listTitle') }}</div>
+                      <div class="shot-list-sub">{{ t('episode.sb.listSub') }}</div>
                     </div>
                     <span class="tag mono">{{ totalDuration }}s</span>
-                    <button v-if="!sbSelectMode && sbs.length" class="shot-quick-btn" @click="sbSelectMode = true">选择</button>
+                    <button v-if="!sbSelectMode && sbs.length" class="shot-quick-btn" @click="sbSelectMode = true">{{ t('episode.sb.select') }}</button>
                   </div>
                   <div v-if="sbSelectMode" class="shot-quick-actions">
-                    <button class="shot-quick-btn" @click="toggleSelectAllSbs">全选</button>
-                    <button class="shot-quick-btn" @click="selectMissingSbs">仅缺失</button>
-                    <button class="shot-quick-btn" @click="selectedSbIds = []">清空</button>
+                    <button class="shot-quick-btn" @click="toggleSelectAllSbs">{{ t('episode.sb.selectAll') }}</button>
+                    <button class="shot-quick-btn" @click="selectMissingSbs">{{ t('episode.sb.selectMissing') }}</button>
+                    <button class="shot-quick-btn" @click="selectedSbIds = []">{{ t('episode.sb.clear') }}</button>
                   </div>
                 </div>
                 <div class="shot-list-body">
@@ -503,10 +504,10 @@
                       <div class="shot-num">#{{ String(i + 1).padStart(2, '0') }}</div>
                       <span class="storyboard-shot-chip">{{ sb.duration || 10 }}s</span>
                       <span v-if="getSceneName(sb)" class="shot-location"><MapPin :size="9" />{{ getSceneName(sb) }}</span>
-                      <span v-if="hasVid(sb)" class="shot-chip-video" title="已生成视频"><Play :size="8" />已出片</span>
+                      <span v-if="hasVid(sb)" class="shot-chip-video" :title="t('episode.sb.hasVideo')"><Play :size="8" />{{ t('episode.sb.hasVideoShort') }}</span>
                     </div>
                     <div class="shot-body">
-                      <div class="shot-desc" :class="{ 'is-empty': !sb.description }">{{ sb.description || '暂无画面描述' }}</div>
+                      <div class="shot-desc" :class="{ 'is-empty': !sb.description }">{{ sb.description || t('episode.sb.noDescription') }}</div>
                     </div>
                     <div class="shot-meta">
                       <div class="shot-avatars">
@@ -522,22 +523,22 @@
                           </span>
                           <span v-if="getStoryboardCharacters(sb).length > 3" class="shot-avatar shot-avatar-more">+{{ getStoryboardCharacters(sb).length - 3 }}</span>
                         </template>
-                        <span v-else class="shot-avatars-empty">0 角色</span>
+                        <span v-else class="shot-avatars-empty">{{ t('episode.sb.zeroChars') }}</span>
                       </div>
                       <div class="shot-flags">
-                        <span class="shot-flag flag-video" :class="{ on: hasVid(sb) }" :title="hasVid(sb) ? '已生成视频' : '未生成视频'"><i class="dot"></i>视</span>
+                        <span class="shot-flag flag-video" :class="{ on: hasVid(sb) }" :title="hasVid(sb) ? t('episode.sb.hasVideo') : t('episode.sb.noVideo')"><i class="dot"></i>{{ t('episode.sb.videoFlag') }}</span>
                       </div>
                     </div>
                   </button>
                 </div>
                 <div v-if="sbSelectMode" class="shot-select-bar">
                   <div class="shot-select-info">
-                    <span class="shot-select-count">已选 {{ selectedSbIds.length }} 个</span>
-                    <button class="btn btn-sm" @click="exitSbSelectMode">取消</button>
+                    <span class="shot-select-count">{{ t('episode.sb.selectedCount', { n: selectedSbIds.length }) }}</span>
+                    <button class="btn btn-sm" @click="exitSbSelectMode">{{ t('common.cancel') }}</button>
                   </div>
                   <button class="btn btn-sm btn-primary shot-select-go" :disabled="!selectedSbIds.length || videoPromptBatch.running" @click="generateSelectedVideoPrompts">
                     <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
-                    {{ videoPromptBatch.running ? `生成中 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : `生成视频提示词(${selectedSbIds.length})` }}
+                    {{ videoPromptBatch.running ? t('episode.sb.generatingProgress', { done: videoPromptBatch.completed, total: videoPromptBatch.total }) : t('episode.sb.generateSelected', { n: selectedSbIds.length }) }}
                   </button>
                 </div>
               </aside>
@@ -554,8 +555,8 @@
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     </button>
                     <div class="detail-head-copy">
-                      <span class="detail-head-title">分镜 #{{ sbs.indexOf(selectedSb) + 1 }}</span>
-                      <span class="dim sb-header-total">/ 共 {{ sbs.length }} 个</span>
+                      <span class="detail-head-title">{{ t('episode.sb.shotN', { n: sbs.indexOf(selectedSb) + 1 }) }}</span>
+                      <span class="dim sb-header-total">/ {{ t('episode.sb.totalCount', { n: sbs.length }) }}</span>
                     </div>
                     <button
                       type="button"
@@ -568,7 +569,7 @@
                   </div>
                 </div>
                 <div class="sb-header-fields">
-                  <span class="sb-field-label">时长</span>
+                  <span class="sb-field-label">{{ t('episode.sb.duration') }}</span>
                   <span class="sb-duration-input">
                     <input :value="selectedSb.duration || 10" class="input" type="number" min="1" max="60" @blur="updateField(selectedSb, 'duration', Number($event.target.value))" />
                     <span class="sb-duration-unit">s</span>
@@ -580,21 +581,21 @@
                   <div class="sb-split">
                     <div class="detail-section">
                       <div class="detail-section-head">
-                        <span class="detail-section-title">分镜描述</span>
+                        <span class="detail-section-title">{{ t('episode.sb.descSection') }}</span>
                       </div>
                       <label class="field">
-                        <span class="field-label">画面描述 <span class="dim">(按【镜头1】【镜头2】…逐子镜头描述；台词写「角色名说：「台词」」，旁白写「旁白：内容」)</span></span>
-                        <textarea :value="selectedSb.description || ''" class="textarea" rows="8" @blur="updateField(selectedSb, 'description', $event.target.value)" placeholder="分镜画面描述" />
+                        <span class="field-label">{{ t('episode.sb.descLabel') }} <span class="dim">({{ t('episode.sb.descHint') }})</span></span>
+                        <textarea :value="selectedSb.description || ''" class="textarea" rows="8" @blur="updateField(selectedSb, 'description', $event.target.value)" :placeholder="t('episode.sb.descPlaceholder')" />
                       </label>
                       <label class="field">
-                        <span class="field-label">氛围</span>
-                        <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" placeholder="光线、色调、空气感、环境氛围" />
+                        <span class="field-label">{{ t('episode.sb.atmosphere') }}</span>
+                        <textarea :value="selectedSb.atmosphere || ''" class="textarea" rows="3" @blur="updateField(selectedSb, 'atmosphere', $event.target.value)" :placeholder="t('episode.sb.atmospherePlaceholder')" />
                       </label>
                     </div>
 
                     <div class="detail-section">
                       <div class="detail-section-head">
-                        <span class="detail-section-title">视频提示词</span>
+                        <span class="detail-section-title">{{ t('episode.sb.videoPromptSection') }}</span>
                         <button
                           type="button"
                           class="btn btn-sm"
@@ -602,16 +603,16 @@
                           @click="genVideoPrompt(selectedSb)"
                         >
                           <Loader2 v-if="videoPromptGeneratingIds.includes(selectedSb?.id)" :size="11" class="animate-spin" />
-                          {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
+                          {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? t('episode.sb.regenPrompt') : t('episode.sb.aiGenerate') }}
                         </button>
                       </div>
-                      <div class="detail-section-copy">根据当前分镜的画面描述（含台词/旁白）与氛围生成</div>
+                      <div class="detail-section-copy">{{ t('episode.sb.videoPromptCopy') }}</div>
                       <MentionTextarea
                         :model-value="selectedSb.video_prompt || selectedSb.videoPrompt || ''"
                         :options="mentionOptions"
                         :rows="12"
                         input-class="textarea"
-                        placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材，按 3 秒一段换行描述画面运动与镜头；也可点 AI 生成由提示词 Agent 自动创作…"
+                        :placeholder="t('episode.sb.videoPromptPlaceholder')"
                         @commit="v => updateField(selectedSb, 'video_prompt', v)"
                       />
                     </div>
@@ -622,46 +623,46 @@
               <aside class="storyboard-reference-panel" v-if="selectedSb">
                 <div class="storyboard-ref-head">
                   <div>
-                    <div class="storyboard-ref-title">参考素材</div>
-                    <div class="storyboard-ref-copy">绑定角色 / 场景 / 道具作为视频参考</div>
+                    <div class="storyboard-ref-title">{{ t('episode.ref.title') }}</div>
+                    <div class="storyboard-ref-copy">{{ t('episode.ref.copy') }}</div>
                   </div>
-                  <span class="tag mono">{{ refBindableAssets.filter(a => a.bound).length }}/{{ refBindableAssets.length }} 已绑定</span>
+                  <span class="tag mono">{{ t('episode.ref.boundCount', { bound: refBindableAssets.filter(a => a.bound).length, total: refBindableAssets.length }) }}</span>
                 </div>
                 <div class="storyboard-ref-list">
-                  <template v-for="group in ['角色', '场景', '道具']" :key="group">
-                    <div v-if="refBindableAssets.filter(a => a.type === group).length" class="storyboard-ref-group">
-                      <div class="storyboard-ref-group-label">{{ group }}</div>
+                  <template v-for="g in REF_KINDS" :key="g.kind">
+                    <div v-if="refBindableAssets.filter(a => a.kind === g.kind).length" class="storyboard-ref-group">
+                      <div class="storyboard-ref-group-label">{{ g.label }}</div>
                       <div
-                        v-for="asset in refBindableAssets.filter(a => a.type === group)"
+                        v-for="asset in refBindableAssets.filter(a => a.kind === g.kind)"
                         :key="asset.key"
                         :class="['storyboard-ref-item', { bound: asset.bound }]"
-                        :title="asset.bound ? '点击移出参考' : '点击添加为参考'"
+                        :title="asset.bound ? t('episode.ref.clickRemove') : t('episode.ref.clickAdd')"
                         @click="toggleShotBind(selectedSb, asset)"
                       >
                         <button
                           type="button"
                           class="storyboard-ref-thumb"
                           :disabled="!asset.ready"
-                          @click.stop="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
+                          @click.stop="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.typeLabel}`)"
                         >
                           <img v-if="asset.ready" :src="thumbOf(assetImageSrc({ imageUrl: asset.imageUrl }))" class="previewable-image" loading="lazy" @error="thumbFallback($event, assetImageSrc({ imageUrl: asset.imageUrl }))" />
-                          <span v-else>{{ asset.type === '场景' ? '景' : asset.type === '道具' ? '具' : '角' }}</span>
+                          <span v-else>{{ asset.kind === 'scene' ? t('episode.ref.shortScene') : asset.kind === 'prop' ? t('episode.ref.shortProp') : t('episode.ref.shortChar') }}</span>
                         </button>
                         <div class="storyboard-ref-main">
                           <div class="storyboard-ref-line">
                             <span class="storyboard-ref-name">{{ asset.name }}</span>
                             <span :class="['storyboard-ref-state', asset.bound && asset.ready ? 'is-ready' : '']">
-                              {{ asset.bound ? (asset.ready ? '可参考' : '未生成') : '未绑定' }}
+                              {{ asset.bound ? (asset.ready ? t('episode.ref.usable') : t('episode.ref.notReady')) : t('episode.ref.unbound') }}
                             </span>
                           </div>
-                          <div class="storyboard-ref-meta">{{ asset.type }} · {{ asset.meta }}</div>
-                          <button v-if="asset.bound && !asset.ready" type="button" class="storyboard-ref-goto" @click.stop="prodTab = 'assets'">去生成 →</button>
+                          <div class="storyboard-ref-meta">{{ asset.typeLabel }} · {{ asset.meta }}</div>
+                          <button v-if="asset.bound && !asset.ready" type="button" class="storyboard-ref-goto" @click.stop="prodTab = 'assets'">{{ t('episode.ref.gotoGenerate') }}</button>
                         </div>
                       </div>
                     </div>
                   </template>
                   <div v-if="!refBindableAssets.length" class="storyboard-ref-empty">
-                    当前集还没有场景、角色或道具，先到「资产」提取素材后即可绑定。
+                    {{ t('episode.ref.empty') }}
                   </div>
                 </div>
               </aside>
@@ -669,19 +670,19 @@
 
             <div v-else-if="rn && rt === 'storyboard_breaker'" class="step-loading">
               <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
-              <div class="loading-text">正在拆分分镜...</div>
+              <div class="loading-text">{{ t('episode.sb.breaking') }}</div>
             </div>
 
             <div v-else class="step-empty video-task-empty-state">
               <div class="empty-visual">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/></svg>
               </div>
-              <div class="empty-title">开始拆分分镜</div>
-              <div class="empty-desc">根据剧本、角色和场景拆分镜头，生成分镜描述和绑定信息。</div>
+              <div class="empty-title">{{ t('episode.sb.emptyTitle') }}</div>
+              <div class="empty-desc">{{ t('episode.sb.emptyDesc') }}</div>
               <button class="btn btn-primary" :disabled="rn" @click="doBreakdown">
                 <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
                 <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                开始拆分
+                {{ t('episode.sb.startBreak') }}
               </button>
             </div>
           </div>
@@ -689,17 +690,17 @@
           <!-- Sub: Videos -->
           <div v-if="prodTab === 'videos'" class="prod-content">
             <div class="prod-section-bar">
-              <span class="dim" style="font-size:12px">{{ sbs.length }} 个镜头</span>
-              <span class="tag mono">{{ shotVidCount }}/{{ sbs.length }} 已生成</span>
+              <span class="dim" style="font-size:12px">{{ t('episode.vid.shotCount', { n: sbs.length }) }}</span>
+              <span class="tag mono">{{ t('episode.vid.doneCount', { done: shotVidCount, total: sbs.length }) }}</span>
               <div class="ml-auto flex gap-1">
                 <button class="btn btn-sm" :disabled="videoPromptBatch.running || !sbs.length" @click="batchVideoPrompts">
                   <Loader2 v-if="videoPromptBatch.running" :size="11" class="animate-spin" />
                   <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                  {{ videoPromptBatch.running ? `提示词 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : (selectedSbIds.length ? `生成所选提示词(${selectedSbIds.length})` : '批量视频提示词') }}
+                  {{ videoPromptBatch.running ? t('episode.sb.promptProgress', { done: videoPromptBatch.completed, total: videoPromptBatch.total }) : (selectedSbIds.length ? t('episode.sb.promptSelected', { n: selectedSbIds.length }) : t('episode.sb.batchPrompts')) }}
                 </button>
                 <button class="btn btn-sm" :disabled="!sbs.length" @click="batchVideos">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                  批量视频
+                  {{ t('episode.vid.batchVideos') }}
                 </button>
               </div>
             </div>
@@ -707,26 +708,26 @@
               <div class="empty-visual">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
               </div>
-              <div class="empty-title">先生成分镜</div>
-              <div class="empty-desc">视频任务来自分镜拆分结果。先生成分镜描述和视频提示词，再批量生成视频。</div>
-              <div class="locked-config-banner">当前集视频模型：{{ lockedVideoConfigLabel }}</div>
+              <div class="empty-title">{{ t('episode.vid.emptyTitle') }}</div>
+              <div class="empty-desc">{{ t('episode.vid.emptyDesc') }}</div>
+              <div class="locked-config-banner">{{ t('episode.vid.lockedModel') }}{{ lockedVideoConfigLabel }}</div>
               <button class="btn btn-primary" :disabled="rn" @click="prodTab = 'storyboard'; doBreakdown()">
                 <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
                 <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                AI 生成分镜
+                {{ t('episode.vid.aiBreakdown') }}
               </button>
             </div>
             <div v-else class="video-task-workbench has-player">
               <section class="video-task-list">
                 <div class="video-task-head">
                 <div>
-                  <div class="video-task-title">视频任务列表</div>
-                  <div class="video-task-meta">按镜头顺序 · {{ videoTaskRows.length }} 个任务</div>
+                  <div class="video-task-title">{{ t('episode.vid.listTitle') }}</div>
+                  <div class="video-task-meta">{{ t('episode.vid.listMeta', { n: videoTaskRows.length }) }}</div>
                 </div>
                 <div class="video-task-metrics">
-                  <span class="video-task-metric is-pending">{{ pendingVideoIds.length }} 生成中</span>
-                  <span class="video-task-metric is-done">{{ videoTaskDoneCount }} 完成</span>
-                  <span class="video-task-metric is-failed">{{ videoTaskFailedCount }} 失败</span>
+                  <span class="video-task-metric is-pending">{{ t('episode.vid.metricPending', { n: pendingVideoIds.length }) }}</span>
+                  <span class="video-task-metric is-done">{{ t('episode.vid.metricDone', { n: videoTaskDoneCount }) }}</span>
+                  <span class="video-task-metric is-failed">{{ t('episode.vid.metricFailed', { n: videoTaskFailedCount }) }}</span>
                 </div>
                 </div>
                 <div class="video-task-table">
@@ -764,7 +765,7 @@
                       <span class="video-task-sep">·</span>
                       <span>{{ task.duration }}s</span>
                       <span class="video-task-sep">·</span>
-                      <span>参考 {{ task.referenceCount }}</span>
+                      <span>{{ t('episode.vid.references', { n: task.referenceCount }) }}</span>
                     </div>
                     <div v-if="task.error" class="video-task-error">{{ task.error }}</div>
                   </div>
@@ -788,7 +789,7 @@
               <aside class="video-task-player">
                 <div class="video-player-head">
                   <div class="video-player-head-info">
-                    <div class="video-player-title">分镜 {{ String(selectedVideoTaskNumber).padStart(2, '0') }}</div>
+                    <div class="video-player-title">{{ t('episode.vid.playerTitle', { n: String(selectedVideoTaskNumber).padStart(2, '0') }) }}</div>
                     <span :class="['video-task-status', 'is-' + videoTaskState(selectedSb)]">
                       <span :class="['dot', videoTaskState(selectedSb) === 'done' && 'ok', videoTaskState(selectedSb) === 'pending' && 'pending']" />
                       {{ videoTaskStatusLabel(selectedSb) }}
@@ -800,7 +801,7 @@
                     class="btn btn-sm btn-primary"
                     @click="setAsMainVideo"
                   >
-                    设为主视频
+                    {{ t('episode.vid.setMain') }}
                   </button>
                   <a
                     v-if="previewVideoUrl || hasVid(selectedSb)"
@@ -809,7 +810,7 @@
                     class="btn btn-sm"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    下载
+                    {{ t('common.download') }}
                   </a>
                 </div>
                 <div class="video-player-stage">
@@ -825,15 +826,15 @@
                   />
                   <div v-else class="video-player-empty">
                     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                    <div class="video-player-empty-title">{{ videoTaskState(selectedSb) === 'pending' ? '视频生成中…' : '尚未生成视频' }}</div>
-                    <div class="video-player-empty-desc">{{ videoTaskState(selectedSb) === 'pending' ? '生成完成后可在此播放预览' : '点击下方按钮为当前分镜生成视频' }}</div>
+                    <div class="video-player-empty-title">{{ videoTaskState(selectedSb) === 'pending' ? t('episode.vid.emptyGenerating') : t('episode.vid.emptyNoVideo') }}</div>
+                    <div class="video-player-empty-desc">{{ videoTaskState(selectedSb) === 'pending' ? t('episode.vid.emptyGeneratingDesc') : t('episode.vid.emptyNoVideoDesc') }}</div>
                     <button
                       v-if="videoTaskState(selectedSb) !== 'pending'"
                       class="btn btn-primary btn-sm"
                       style="margin-top:4px"
                       @click="genVid(selectedSb)"
                     >
-                      生成视频
+                      {{ t('episode.vid.generateVideo') }}
                     </button>
                   </div>
                 </div>
@@ -841,23 +842,23 @@
 
               <div v-if="sbVideoHistory.length" class="video-player-history">
                 <div class="video-player-history-head">
-                  <span>历史视频</span>
+                  <span>{{ t('episode.vid.history') }}</span>
                   <span class="video-player-history-count">{{ sbVideoHistory.length }}</span>
                 </div>
                 <div class="video-player-history-list">
                   <div
-                    v-for="t in sbVideoHistory"
-                    :key="t.id"
-                    :class="['video-history-item', { current: isCurrentVideo(t), viewing: !!previewVideoUrl && previewVideoUrl === taskVideoPath(t) }]"
+                    v-for="h in sbVideoHistory"
+                    :key="h.id"
+                    :class="['video-history-item', { current: isCurrentVideo(h), viewing: !!previewVideoUrl && previewVideoUrl === taskVideoPath(h) }]"
                     role="button"
                     tabindex="0"
-                    @click="previewHistoryVideo(t)"
-                    @keydown.enter.prevent="previewHistoryVideo(t)"
+                    @click="previewHistoryVideo(h)"
+                    @keydown.enter.prevent="previewHistoryVideo(h)"
                   >
-                    <video :src="'/' + taskVideoPath(t)" :poster="posterOf('/' + taskVideoPath(t)) || undefined" preload="none" muted playsinline tabindex="-1" />
-                    <span class="video-history-time">{{ formatHistoryTime(taskCreatedAt(t)) }}</span>
-                    <span v-if="isCurrentVideo(t)" class="video-history-badge">当前</span>
-                    <button v-else type="button" class="video-history-del" title="删除该记录" @click.stop="removeHistoryVideo(t)">×</button>
+                    <video :src="'/' + taskVideoPath(h)" :poster="posterOf('/' + taskVideoPath(h)) || undefined" preload="none" muted playsinline tabindex="-1" />
+                    <span class="video-history-time">{{ formatHistoryTime(taskCreatedAt(h)) }}</span>
+                    <span v-if="isCurrentVideo(h)" class="video-history-badge">{{ t('episode.vid.current') }}</span>
+                    <button v-else type="button" class="video-history-del" :title="t('episode.vid.deleteRecord')" @click.stop="removeHistoryVideo(h)">×</button>
                   </div>
                 </div>
               </div>
@@ -866,7 +867,7 @@
                 <div class="video-inspector-body">
                   <section class="video-inspector-section">
                     <div class="video-inspector-prompt-head">
-                      <span class="video-inspector-label video-inspector-label-hero">视频提示词</span>
+                      <span class="video-inspector-label video-inspector-label-hero">{{ t('episode.sb.videoPromptSection') }}</span>
                       <button
                         type="button"
                         class="btn btn-sm"
@@ -874,7 +875,7 @@
                         @click="genVideoPrompt(selectedSb)"
                       >
                         <Loader2 v-if="videoPromptGeneratingIds.includes(selectedSb?.id)" :size="11" class="animate-spin" />
-                        {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? '重新生成' : 'AI 生成' }}
+                        {{ (selectedSb.video_prompt || selectedSb.videoPrompt) ? t('episode.sb.regenPrompt') : t('episode.sb.aiGenerate') }}
                       </button>
                     </div>
                     <MentionTextarea
@@ -882,13 +883,13 @@
                       :options="mentionOptions"
                       :rows="9"
                       input-class="textarea video-inspector-prompt"
-                      placeholder="用 @角色名 / @场景名 / @道具名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…"
+                      :placeholder="t('episode.inspector.videoPromptPlaceholder')"
                       @commit="v => updateField(selectedSb, 'video_prompt', v)"
                     />
                   </section>
 
                   <section class="video-inspector-section">
-                    <span class="video-inspector-label">参考素材</span>
+                    <span class="video-inspector-label">{{ t('episode.ref.title') }}</span>
                     <div class="video-inspector-assets">
                       <button
                         v-for="asset in getShotReferenceAssets(selectedSb)"
@@ -896,56 +897,56 @@
                         type="button"
                         class="video-inspector-asset"
                         :disabled="!asset.ready"
-                        @click="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.type}`)"
+                        @click="asset.ready && openImageViewer(assetImageSrc({ imageUrl: asset.imageUrl }), `${asset.name} ${asset.typeLabel}`)"
                       >
                         <img v-if="asset.ready" :src="thumbOf(assetImageSrc({ imageUrl: asset.imageUrl }))" :alt="asset.name" loading="lazy" @error="thumbFallback($event, assetImageSrc({ imageUrl: asset.imageUrl }))" />
-                        <span v-else>{{ asset.type }}</span>
+                        <span v-else>{{ asset.typeLabel }}</span>
                         <small>{{ asset.name }}</small>
                       </button>
-                      <div v-if="!getShotReferenceAssets(selectedSb).length" class="video-inspector-empty">当前分镜未绑定参考素材</div>
+                      <div v-if="!getShotReferenceAssets(selectedSb).length" class="video-inspector-empty">{{ t('episode.inspector.noRefs') }}</div>
                     </div>
                   </section>
 
                   <section class="video-inspector-section">
-                    <span class="video-inspector-label">参考图片 / 视频 / 音频</span>
+                    <span class="video-inspector-label">{{ t('episode.inspector.refMedia') }}</span>
                     <div v-if="videoRefImageUrls.length || videoRefVideoUrls.length || videoRefAudioUrls.length" class="video-ref-media-list">
                       <span v-for="(url, i) in videoRefImageUrls" :key="'ref-i-' + i" class="video-ref-media-chip">
-                        图片 {{ i + 1 }}
+                        {{ t('episode.inspector.imageN', { n: i + 1 }) }}
                         <button type="button" class="video-ref-media-remove" @click="removeRefMedia('image', i)">×</button>
                       </span>
                       <span v-for="(url, i) in videoRefVideoUrls" :key="'ref-v-' + i" class="video-ref-media-chip">
-                        视频 {{ i + 1 }}
+                        {{ t('episode.inspector.videoN', { n: i + 1 }) }}
                         <button type="button" class="video-ref-media-remove" @click="removeRefMedia('video', i)">×</button>
                       </span>
                       <span v-for="(url, i) in videoRefAudioUrls" :key="'ref-a-' + i" class="video-ref-media-chip">
-                        音频 {{ i + 1 }}
+                        {{ t('episode.inspector.audioN', { n: i + 1 }) }}
                         <button type="button" class="video-ref-media-remove" @click="removeRefMedia('audio', i)">×</button>
                       </span>
                     </div>
                     <div class="video-ref-media-actions">
                       <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || refImageFull" @click="uploadRefMedia('image')">
-                        上传参考图片 ({{ refImageUsedCount }}/9)
+                        {{ t('episode.inspector.uploadRefImage', { used: refImageUsedCount }) }}
                       </button>
                       <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefVideoUrls.length >= 3" @click="uploadRefMedia('video')">
-                        上传参考视频 ({{ videoRefVideoUrls.length }}/3)
+                        {{ t('episode.inspector.uploadRefVideo', { used: videoRefVideoUrls.length }) }}
                       </button>
                       <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefAudioUrls.length >= 3" @click="uploadRefMedia('audio')">
-                        上传参考音频 ({{ videoRefAudioUrls.length }}/3)
+                        {{ t('episode.inspector.uploadRefAudio', { used: videoRefAudioUrls.length }) }}
                       </button>
                     </div>
                     <div
                       v-if="videoRefAudioUrls.length && !getShotReferenceImages(selectedSb).length && !videoRefVideoUrls.length"
                       class="video-ref-media-hint"
-                    >参考音频需至少 1 个参考图片或视频</div>
+                    >{{ t('episode.inspector.refAudioHint') }}</div>
                   </section>
 
                   <section class="video-inspector-section">
-                    <span class="video-inspector-label">生成参数</span>
+                    <span class="video-inspector-label">{{ t('episode.inspector.params') }}</span>
                     <div class="video-param-row">
-                      <span class="video-param-name">生成时长</span>
+                      <span class="video-param-name">{{ t('episode.inspector.duration') }}</span>
                       <span class="video-param-control">
                         <input v-model.number="videoDuration" type="number" min="4" max="15" class="input video-duration-input" />
-                        <span class="video-param-unit">s（4-15）</span>
+                        <span class="video-param-unit">{{ t('episode.inspector.durationUnit') }}</span>
                       </span>
                     </div>
                   </section>
@@ -973,20 +974,20 @@
           <div class="empty-visual">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </div>
-          <div class="empty-title">尚未准备就绪</div>
-          <div class="empty-desc">请先完成分镜和制作流程</div>
-          <button class="btn btn-primary" @click="panel = 'script'">前往剧本</button>
+          <div class="empty-title">{{ t('episode.prod.notReady') }}</div>
+          <div class="empty-desc">{{ t('episode.export.notReadyDesc') }}</div>
+          <button class="btn btn-primary" @click="panel = 'script'">{{ t('episode.export.gotoScript') }}</button>
         </div>
         <div v-else class="export-split">
           <div class="export-main">
             <!-- 上方:成片列表 -->
             <div class="export-section">
               <div class="export-section-head">
-                <span class="export-section-title">成片列表</span>
-                <span class="dim" style="font-size:11px">{{ exportMerges.length }} 个</span>
+                <span class="export-section-title">{{ t('episode.export.filmList') }}</span>
+                <span class="dim" style="font-size:11px">{{ t('episode.export.countN', { n: exportMerges.length }) }}</span>
                 <button class="btn btn-sm ml-auto" @click="loadExportMerges">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                  刷新
+                  {{ t('common.refresh') }}
                 </button>
               </div>
               <div v-if="exportMerges.length" class="export-merge-strip">
@@ -1010,7 +1011,7 @@
                       tabindex="-1"
                     />
                     <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']">
-                      {{ m.status === 'failed' ? (m.error_msg || '拼接失败') : '拼接中…' }}
+                      {{ m.status === 'failed' ? (m.error_msg || t('episode.export.mergeFailed')) : t('episode.export.merging') }}
                     </div>
                     <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -1027,22 +1028,22 @@
                       @click.stop
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      下载
+                      {{ t('common.download') }}
                     </a>
                   </div>
                 </div>
               </div>
-              <div v-else class="export-merge-empty">暂无成片，在下方勾选镜头后点击「拼接所选」</div>
+              <div v-else class="export-merge-empty">{{ t('episode.export.empty') }}</div>
             </div>
 
             <!-- 下方:镜头素材(可勾选) -->
             <div class="export-section export-section-grow">
               <div class="export-section-head">
-                <span class="export-section-title">镜头素材</span>
-                <span class="dim" style="font-size:11px">{{ shotVidCount }}/{{ sbs.length }} 已生成 · 已选 {{ exportSelectedReadyIds.length }}</span>
+                <span class="export-section-title">{{ t('episode.export.shotAssets') }}</span>
+                <span class="dim" style="font-size:11px">{{ t('episode.export.shotStat', { done: shotVidCount, total: sbs.length, selected: exportSelectedReadyIds.length }) }}</span>
                 <div class="ml-auto flex gap-1">
                   <button class="btn btn-sm" :disabled="!exportReadyIds.length" @click="toggleSelectAllExport">
-                    {{ exportSelectedReadyIds.length === exportReadyIds.length && exportReadyIds.length ? '清空选择' : '全选已生成' }}
+                    {{ exportSelectedReadyIds.length === exportReadyIds.length && exportReadyIds.length ? t('episode.export.clearSelection') : t('episode.export.selectAllReady') }}
                   </button>
                   <button
                     class="btn btn-sm btn-primary"
@@ -1050,7 +1051,7 @@
                     @click="doMerge(exportSelectedReadyIds)"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                    拼接所选 ({{ exportSelectedReadyIds.length }})
+                    {{ t('episode.export.mergeSelected', { n: exportSelectedReadyIds.length }) }}
                   </button>
                 </div>
               </div>
@@ -1096,31 +1097,31 @@
 
       <!-- ===== TASK DRAWER ===== -->
       <div v-if="taskDrawer" class="task-drawer-overlay" @click.self="closeTaskDrawer">
-        <aside class="task-drawer" role="dialog" aria-modal="true" aria-label="生成任务列表">
+        <aside class="task-drawer" role="dialog" aria-modal="true" :aria-label="t('episode.tasks.title')">
           <header class="task-drawer-head">
             <div>
-              <div class="video-task-title">生成任务列表</div>
-              <div class="video-task-meta">按创建时间倒序 · {{ genTaskRows.length }} 个任务</div>
+              <div class="video-task-title">{{ t('episode.tasks.title') }}</div>
+              <div class="video-task-meta">{{ t('episode.tasks.meta', { n: genTaskRows.length }) }}</div>
             </div>
             <div class="task-drawer-head-actions">
               <button class="btn btn-sm" @click="loadGenTasks">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                刷新
+                {{ t('common.refresh') }}
               </button>
               <button class="btn btn-ghost btn-icon" @click="closeTaskDrawer"><X :size="14" /></button>
             </div>
           </header>
           <div class="video-task-metrics task-drawer-metrics">
-            <span class="video-task-metric is-pending">{{ genTaskActiveCount }} 生成中</span>
-            <span class="video-task-metric is-done">{{ genTaskDoneCount }} 完成</span>
-            <span class="video-task-metric is-failed">{{ genTaskFailedCount }} 失败</span>
+            <span class="video-task-metric is-pending">{{ t('episode.vid.metricPending', { n: genTaskActiveCount }) }}</span>
+            <span class="video-task-metric is-done">{{ t('episode.vid.metricDone', { n: genTaskDoneCount }) }}</span>
+            <span class="video-task-metric is-failed">{{ t('episode.vid.metricFailed', { n: genTaskFailedCount }) }}</span>
           </div>
           <div v-if="!genTaskRows.length" class="step-empty task-drawer-empty">
             <div class="empty-visual">
               <ListTodo :size="32" />
             </div>
-            <div class="empty-title">暂无生成任务</div>
-            <div class="empty-desc">在资产、分镜或视频步骤中触发图片 / 视频生成后,任务会自动出现在这里。</div>
+            <div class="empty-title">{{ t('episode.tasks.emptyTitle') }}</div>
+            <div class="empty-desc">{{ t('episode.tasks.emptyDesc') }}</div>
           </div>
           <div v-else class="video-task-table task-drawer-body">
             <div
@@ -1159,7 +1160,7 @@
                   <span class="video-task-loc truncate">{{ row.provider }}{{ row.model ? ' · ' + row.model : '' }}</span>
                   <template v-if="genTaskDuration(row)">
                     <span class="video-task-sep">·</span>
-                    <span>耗时 {{ genTaskDuration(row) }}</span>
+                    <span>{{ t('episode.tasks.duration', { dur: genTaskDuration(row) }) }}</span>
                   </template>
                   <span class="video-task-sep">·</span>
                   <span>#{{ row.id }}</span>
@@ -1185,7 +1186,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          {{ prevStepLabel || '上一步' }}
+          {{ prevStepLabel || t('episode.nav.prev') }}
         </button>
         <button
           v-else-if="panel === 'production'"
@@ -1196,7 +1197,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
           </svg>
-          {{ prodTabDefs[Math.max(0, prodTabIdx - 1)]?.label || '上一步' }}
+          {{ prodTabDefs[Math.max(0, prodTabIdx - 1)]?.label || t('episode.nav.prev') }}
         </button>
 
         <div class="bubble-dots">
@@ -1215,7 +1216,7 @@
           :disabled="!canGoNext"
           @click="goNextStep"
         >
-          {{ nextStepLabel || '下一步' }}
+          {{ nextStepLabel || t('episode.nav.next') }}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
           </svg>
@@ -1226,7 +1227,7 @@
           :disabled="prodTab === 'videos' && !canExport"
           @click="goNextProd"
         >
-          {{ prodTabIdx < prodTabDefs.length - 1 ? (prodTabDefs[prodTabIdx + 1]?.label || '下一步') : '进入导出' }}
+          {{ prodTabIdx < prodTabDefs.length - 1 ? (prodTabDefs[prodTabIdx + 1]?.label || t('episode.nav.next')) : t('episode.nav.toExport') }}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
           </svg>
@@ -1238,7 +1239,7 @@
           class="dialog asset-detail-dialog"
           role="dialog"
           aria-modal="true"
-          :aria-label="(assetDetail.type === 'character' ? '角色' : assetDetail.type === 'scene' ? '场景' : '道具') + '详情'"
+          :aria-label="t('episode.asset.detailTitle', { type: assetTypeLabel(assetDetail.type) })"
         >
           <header class="dialog-head asset-detail-head">
             <div class="asset-detail-title-block">
@@ -1246,9 +1247,9 @@
               <h2 class="asset-detail-title">{{ assetDetailTitle(assetDetail) }}</h2>
             </div>
             <div class="asset-detail-head-actions">
-              <span class="tag" v-if="assetDetail.type === 'character'">{{ assetDetail.item.role || '角色' }}</span>
-              <span class="tag" v-else-if="assetDetail.type === 'prop'">{{ assetDetail.item.type || '道具' }}</span>
-              <span class="tag" v-else>{{ assetDetail.item.time || '未设时间' }}</span>
+              <span class="tag" v-if="assetDetail.type === 'character'">{{ assetDetail.item.role || t('common.role') }}</span>
+              <span class="tag" v-else-if="assetDetail.type === 'prop'">{{ assetDetail.item.type || t('common.prop') }}</span>
+              <span class="tag" v-else>{{ assetDetail.item.time || t('episode.asset.noTime') }}</span>
               <button class="btn btn-ghost btn-icon" @click="closeAssetDetail">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -1259,9 +1260,9 @@
             <div class="asset-detail-shell">
               <aside class="asset-detail-preview-panel">
                 <div class="asset-detail-section-title">
-                  <span>视觉预览</span>
+                  <span>{{ t('episode.asset.visualPreview') }}</span>
                   <span :class="['asset-detail-state', assetImageSrc(assetDetail.item) ? 'is-ready' : '']">
-                    {{ assetImageSrc(assetDetail.item) ? '已生成' : '待生成' }}
+                    {{ assetImageSrc(assetDetail.item) ? t('episode.asset.ready') : t('episode.asset.todo') }}
                   </span>
                 </div>
 
@@ -1269,7 +1270,7 @@
                   type="button"
                   class="asset-detail-media-frame"
                   :disabled="!assetImageSrc(assetDetail.item)"
-                  @click.stop="openImageViewer(assetImageSrc(assetDetail.item), `${assetDetailTitle(assetDetail)} ${assetDetail.type === 'character' ? '角色形象' : assetDetail.type === 'scene' ? '场景图' : '道具图'}`)"
+                  @click.stop="openImageViewer(assetImageSrc(assetDetail.item), assetDetailImageTitle(assetDetail))"
                 >
                   <img
                     v-if="assetImageSrc(assetDetail.item)"
@@ -1286,69 +1287,69 @@
 
                 <div class="asset-detail-meta-row">
                   <div class="asset-detail-meta-item">
-                    <span>类型</span>
-                    <strong>{{ assetDetail.type === 'character' ? '角色形象' : assetDetail.type === 'prop' ? '道具' : '场景图片' }}</strong>
+                    <span>{{ t('episode.asset.kindLabel') }}</span>
+                    <strong>{{ assetDetail.type === 'character' ? t('episode.asset.charPortrait') : assetDetail.type === 'prop' ? t('common.prop') : t('episode.asset.sceneImage') }}</strong>
                   </div>
                   <div class="asset-detail-meta-item">
-                    <span>{{ assetDetail.type === 'character' ? '定位' : assetDetail.type === 'prop' ? '道具类型' : '时间' }}</span>
-                    <strong>{{ assetDetail.type === 'character' ? (assetDetail.item.role || '角色') : assetDetail.type === 'prop' ? (assetDetail.item.type || '道具') : (assetDetail.item.time || '未设时间') }}</strong>
+                    <span>{{ assetDetail.type === 'character' ? t('episode.asset.roleLabel') : assetDetail.type === 'prop' ? t('episode.asset.propTypeLabel') : t('episode.asset.timeLabel') }}</span>
+                    <strong>{{ assetDetail.type === 'character' ? (assetDetail.item.role || t('common.role')) : assetDetail.type === 'prop' ? (assetDetail.item.type || t('common.prop')) : (assetDetail.item.time || t('episode.asset.noTime')) }}</strong>
                   </div>
                 </div>
               </aside>
 
               <section class="asset-detail-editor-panel">
                 <div class="asset-detail-section-title">
-                  <span>编辑信息</span>
-                  <span class="dim">{{ assetDetail.type === 'character' ? '样貌与妆造会影响角色形象' : assetDetail.type === 'prop' ? '物品外貌会影响道具图' : '空间与光影会影响场景图' }}</span>
+                  <span>{{ t('episode.asset.editInfo') }}</span>
+                  <span class="dim">{{ assetDetail.type === 'character' ? t('episode.asset.editHintChar') : assetDetail.type === 'prop' ? t('episode.asset.editHintProp') : t('episode.asset.editHintScene') }}</span>
                 </div>
 
                 <div v-if="assetDetail.type === 'prop'" class="asset-detail-edit-grid asset-detail-edit-grid--prop">
                   <label class="asset-detail-edit-field">
-                    <span>物品外貌</span>
+                    <span>{{ t('episode.asset.appearanceOfObject') }}</span>
                     <textarea
                       v-model="assetDetailDraft.description"
                       class="textarea asset-detail-textarea"
                       rows="6"
-                      placeholder="材质、颜色、形状、大小、新旧程度、磨损痕迹等"
+                      :placeholder="t('episode.asset.appearancePlaceholder')"
                     />
                   </label>
                 </div>
 
                 <div v-else :class="['asset-detail-edit-grid', `asset-detail-edit-grid--${assetDetail.type}`]">
                   <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
-                    <span>样貌</span>
+                    <span>{{ t('episode.asset.appearanceField') }}</span>
                     <textarea
                       v-model="assetDetailDraft.appearance"
                       class="textarea asset-detail-textarea"
                       rows="6"
-                      placeholder="年龄感、五官、体态、气质等"
+                      :placeholder="t('episode.asset.appearanceFieldPlaceholder')"
                     />
                   </label>
                   <label v-if="assetDetail.type === 'character'" class="asset-detail-edit-field">
-                    <span>妆造</span>
+                    <span>{{ t('episode.asset.stylingField') }}</span>
                     <textarea
                       v-model="assetDetailDraft.styling"
                       class="textarea asset-detail-textarea"
                       rows="6"
-                      placeholder="发型、服装、妆面、配饰等"
+                      :placeholder="t('episode.asset.stylingFieldPlaceholder')"
                     />
                   </label>
                   <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
-                    <span>场景描述</span>
+                    <span>{{ t('episode.asset.sceneDescField') }}</span>
                     <textarea
                       v-model="assetDetailDraft.prompt"
                       class="textarea asset-detail-textarea"
                       rows="5"
-                      placeholder="空间、陈设、年代质感、关键视觉元素等"
+                      :placeholder="t('episode.asset.sceneDescPlaceholder')"
                     />
                   </label>
                   <label v-if="assetDetail.type === 'scene'" class="asset-detail-edit-field">
-                    <span>场景光影</span>
+                    <span>{{ t('episode.asset.sceneLightField') }}</span>
                     <textarea
                       v-model="assetDetailDraft.lighting"
                       class="textarea asset-detail-textarea"
                       rows="5"
-                      placeholder="光源、色调、明暗、氛围等"
+                      :placeholder="t('episode.asset.sceneLightPlaceholder')"
                     />
                   </label>
                 </div>
@@ -1358,7 +1359,7 @@
 
             <section class="asset-detail-prompt-panel">
               <div class="asset-detail-section-title">
-                <span>{{ assetDetail.type === 'character' ? '最终提示词 · 三视图' : assetDetail.type === 'scene' ? '最终提示词 · 固定视角' : '最终提示词 · 白底单品' }}</span>
+                <span>{{ assetDetail.type === 'character' ? t('episode.asset.finalPromptTurnaround') : assetDetail.type === 'scene' ? t('episode.asset.finalPromptFixed') : t('episode.asset.finalPromptWhiteBg') }}</span>
                 <div class="asset-detail-prompt-head-actions">
                   <button
                     class="btn btn-sm"
@@ -1366,10 +1367,10 @@
                     @click="genAssetFinalPrompt"
                   >
                     <Loader2 v-if="isGeneratingPrompt(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
-                    {{ isGeneratingPrompt(assetDetail.type, assetDetail.item.id) ? '生成中' : (assetFinalPrompt ? '重新生成' : '生成提示词') }}
+                    {{ isGeneratingPrompt(assetDetail.type, assetDetail.item.id) ? t('episode.asset.generating') : (assetFinalPrompt ? t('episode.asset.regenPrompt') : t('episode.asset.genPrompt')) }}
                   </button>
                   <span :class="['asset-detail-state', assetFinalPrompt && 'is-ready']">
-                    {{ assetFinalPrompt ? '已生成' : '待生成' }}
+                    {{ assetFinalPrompt ? t('episode.asset.ready') : t('episode.asset.todo') }}
                   </span>
                   <button
                     v-if="assetPromptDraft"
@@ -1377,7 +1378,7 @@
                     @click="copyAssetFinalPrompt"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    复制
+                    {{ t('common.copy') }}
                   </button>
                 </div>
               </div>
@@ -1387,25 +1388,25 @@
                 class="textarea asset-detail-prompt-textarea"
                 rows="5"
                 :placeholder="assetDetail.type === 'character'
-                  ? '可手动编写三视图最终提示词，或点击「生成提示词」由 Agent 生成'
+                  ? t('episode.asset.promptPlaceholderChar')
                   : assetDetail.type === 'scene'
-                    ? '可手动编写固定视角最终提示词，或点击「生成提示词」由 Agent 生成'
-                    : '可手动编写白底单品最终提示词，或点击「生成提示词」由 Agent 生成'"
+                    ? t('episode.asset.promptPlaceholderScene')
+                    : t('episode.asset.promptPlaceholderProp')"
               />
               <p class="asset-detail-prompt-hint">
                 {{ assetDetail.type === 'character'
-                  ? '提示词可直接编辑，保存后生效；修改样貌或妆造并保存后，最终提示词将被清空，下次生成形象时由提示词 Agent 重新生成。'
+                  ? t('episode.asset.promptHintChar')
                   : assetDetail.type === 'scene'
-                    ? '提示词可直接编辑，保存后生效；修改场景描述或光影并保存后，最终提示词将被清空，下次生成场景图时由提示词 Agent 重新生成。'
-                    : '提示词可直接编辑，保存后生效；修改物品外貌并保存后，最终提示词将被清空，下次生成道具图时由提示词 Agent 重新生成。' }}
+                    ? t('episode.asset.promptHintScene')
+                    : t('episode.asset.promptHintProp') }}
               </p>
             </section>
           </div>
 
           <footer class="dialog-foot asset-detail-foot">
             <div class="asset-detail-secondary-actions">
-              <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">删除</button>
-              <button class="btn" @click="closeAssetDetail">关闭</button>
+              <button class="btn btn-danger" @click="askDeleteAsset(assetDetail.type, assetDetail.item)">{{ t('common.delete') }}</button>
+              <button class="btn" @click="closeAssetDetail">{{ t('common.close') }}</button>
             </div>
             <div class="asset-detail-primary-actions">
               <button
@@ -1415,7 +1416,7 @@
               >
                 <Loader2 v-if="isUploadingAsset(assetDetail.type, assetDetail.item.id)" :size="11" class="animate-spin" />
                 <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                上传图片
+                {{ t('episode.asset.uploadImage') }}
               </button>
               <button
                 v-if="assetDetail.type === 'character'"
@@ -1423,7 +1424,7 @@
                 :disabled="isPendingCharImage(assetDetail.item.id)"
                 @click="genCharImg(assetDetail.item.id)"
               >
-                {{ assetImageSrc(assetDetail.item) ? '重绘形象' : (isPendingCharImage(assetDetail.item.id) ? '生成中' : '生成形象') }}
+                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenPortrait') : (isPendingCharImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genPortrait')) }}
               </button>
               <button
                 v-else-if="assetDetail.type === 'scene'"
@@ -1431,7 +1432,7 @@
                 :disabled="isPendingSceneImage(assetDetail.item.id)"
                 @click="genSceneImg(assetDetail.item.id)"
               >
-                {{ assetImageSrc(assetDetail.item) ? '重绘场景' : (isPendingSceneImage(assetDetail.item.id) ? '生成中' : '生成场景') }}
+                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenScene') : (isPendingSceneImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genScene')) }}
               </button>
               <button
                 v-else-if="assetDetail.type === 'prop'"
@@ -1439,11 +1440,11 @@
                 :disabled="isPendingPropImage(assetDetail.item.id)"
                 @click="genPropImg(assetDetail.item.id)"
               >
-                {{ assetImageSrc(assetDetail.item) ? '重绘道具图' : (isPendingPropImage(assetDetail.item.id) ? '生成中' : '生成道具图') }}
+                {{ assetImageSrc(assetDetail.item) ? t('episode.asset.regenProp') : (isPendingPropImage(assetDetail.item.id) ? t('episode.asset.generating') : t('episode.asset.genProp')) }}
               </button>
               <button class="btn btn-primary" :disabled="savingAssetDetail" @click="saveAssetDetail">
                 <Loader2 v-if="savingAssetDetail" :size="12" class="animate-spin" />
-                保存修改
+                {{ t('episode.asset.saveChanges') }}
               </button>
             </div>
           </footer>
@@ -1453,13 +1454,13 @@
       <div v-if="imageViewer.open && imageViewer.src" class="overlay image-viewer-overlay" @click.self="closeImageViewer">
         <div class="dialog image-viewer-dialog">
           <div class="image-viewer-head">
-            <div class="image-viewer-title">{{ imageViewer.title || '图片预览' }}</div>
+            <div class="image-viewer-title">{{ imageViewer.title || t('episode.viewer.imagePreview') }}</div>
             <button class="btn btn-ghost btn-icon" @click="closeImageViewer">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
           <div class="image-viewer-body">
-            <img :src="imageViewer.src" :alt="imageViewer.title || '图片预览'" class="image-viewer-img" />
+            <img :src="imageViewer.src" :alt="imageViewer.title || t('episode.viewer.imagePreview')" class="image-viewer-img" />
           </div>
         </div>
       </div>
@@ -1467,11 +1468,11 @@
       <div v-if="activeMerge" class="overlay image-viewer-overlay" @click.self="activeMerge = null">
         <div class="dialog image-viewer-dialog merge-viewer-dialog">
           <div class="image-viewer-head">
-            <div class="image-viewer-title">成片预览</div>
+            <div class="image-viewer-title">{{ t('episode.viewer.filmPreview') }}</div>
             <span class="dim" style="font-size:11px">{{ formatHistoryTime(activeMerge.created_at) }}<template v-if="activeMerge.duration"> · {{ activeMerge.duration }}s</template></span>
             <a :href="'/' + activeMerge.merged_url" download class="btn btn-sm" style="margin-left:auto">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              下载成片
+              {{ t('episode.viewer.downloadFilm') }}
             </a>
             <button class="btn btn-ghost btn-icon" @click="activeMerge = null">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1493,35 +1494,35 @@
       <div v-if="assetCreate.open" class="overlay" @click.self="assetCreate.open = false">
         <div class="dialog asset-create-dialog">
           <header class="dialog-head">
-            <h2 class="dialog-title">新增{{ assetCreateTypeLabel }}</h2>
+            <h2 class="dialog-title">{{ t('episode.create.title', { type: assetCreateTypeLabel }) }}</h2>
             <button class="btn btn-ghost btn-icon" @click="assetCreate.open = false">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </header>
           <div class="dialog-body asset-create-body">
             <template v-if="assetCreate.type === 'character'">
-              <label class="field"><span class="field-label">名称</span><input v-model="assetCreateDraft.name" class="input" placeholder="角色名称" /></label>
-              <label class="field"><span class="field-label">角色定位</span><input v-model="assetCreateDraft.role" class="input" placeholder="如：主角 / 反派 / 配角" /></label>
-              <label class="field"><span class="field-label">样貌</span><textarea v-model="assetCreateDraft.appearance" class="textarea" rows="3" placeholder="外貌特征（可融入性格）" /></label>
-              <label class="field"><span class="field-label">妆造</span><textarea v-model="assetCreateDraft.styling" class="textarea" rows="2" placeholder="服装、妆容、配饰" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.name') }}</span><input v-model="assetCreateDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderChar')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.roleField') }}</span><input v-model="assetCreateDraft.role" class="input" :placeholder="t('episode.create.rolePlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.asset.appearanceField') }}</span><textarea v-model="assetCreateDraft.appearance" class="textarea" rows="3" :placeholder="t('episode.create.appearancePlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.asset.stylingField') }}</span><textarea v-model="assetCreateDraft.styling" class="textarea" rows="2" :placeholder="t('episode.create.stylingPlaceholder')" /></label>
             </template>
             <template v-else-if="assetCreate.type === 'scene'">
-              <label class="field"><span class="field-label">地点</span><input v-model="assetCreateDraft.location" class="input" placeholder="场景地点" /></label>
-              <label class="field"><span class="field-label">时间</span><input v-model="assetCreateDraft.time" class="input" placeholder="如：白天 / 夜晚" /></label>
-              <label class="field"><span class="field-label">场景描述</span><textarea v-model="assetCreateDraft.prompt" class="textarea" rows="3" placeholder="环境、陈设、氛围" /></label>
-              <label class="field"><span class="field-label">场景光影</span><input v-model="assetCreateDraft.lighting" class="input" placeholder="如：黄昏暖光、冷清顶光" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.location') }}</span><input v-model="assetCreateDraft.location" class="input" :placeholder="t('episode.create.locationPlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.time') }}</span><input v-model="assetCreateDraft.time" class="input" :placeholder="t('episode.create.timePlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.asset.sceneDescField') }}</span><textarea v-model="assetCreateDraft.prompt" class="textarea" rows="3" :placeholder="t('episode.create.sceneDescPlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.asset.sceneLightField') }}</span><input v-model="assetCreateDraft.lighting" class="input" :placeholder="t('episode.create.lightPlaceholder')" /></label>
             </template>
             <template v-else>
-              <label class="field"><span class="field-label">名称</span><input v-model="assetCreateDraft.name" class="input" placeholder="道具名称" /></label>
-              <label class="field"><span class="field-label">类型</span><input v-model="assetCreateDraft.type" class="input" placeholder="如：武器 / 信物 / 文件" /></label>
-              <label class="field"><span class="field-label">物品外貌</span><textarea v-model="assetCreateDraft.description" class="textarea" rows="3" placeholder="只描述物品的外观，与其他无关" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.name') }}</span><input v-model="assetCreateDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderProp')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.create.typeField') }}</span><input v-model="assetCreateDraft.type" class="input" :placeholder="t('episode.create.typePlaceholder')" /></label>
+              <label class="field"><span class="field-label">{{ t('episode.asset.appearanceOfObject') }}</span><textarea v-model="assetCreateDraft.description" class="textarea" rows="3" :placeholder="t('episode.create.appearanceOnlyPlaceholder')" /></label>
             </template>
           </div>
           <footer class="dialog-foot">
-            <button class="btn" @click="assetCreate.open = false">取消</button>
+            <button class="btn" @click="assetCreate.open = false">{{ t('common.cancel') }}</button>
             <button class="btn btn-primary" :disabled="assetCreate.saving" @click="saveAssetCreate">
               <Loader2 v-if="assetCreate.saving" :size="12" class="animate-spin" />
-              新增
+              {{ t('common.add') }}
             </button>
           </footer>
         </div>
@@ -1529,8 +1530,8 @@
 
       <ConfirmDialog
         :open="assetDelete.open"
-        :title="`删除${assetDeleteTypeLabel}`"
-        :message="`确定删除${assetDeleteTypeLabel}「${assetDeleteName}」吗？将从本剧所有集中移除。`"
+        :title="t('episode.delete.title', { type: assetDeleteTypeLabel })"
+        :message="t('episode.delete.message', { type: assetDeleteTypeLabel, name: assetDeleteName })"
         :loading="assetDelete.loading"
         @confirm="confirmDeleteAsset"
         @cancel="assetDelete.open = false"
@@ -1542,14 +1543,18 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { useI18n } from 'vue-i18n'
 import {
   Users, Video, FileText, FolderKanban, Clapperboard, Download, Loader2,
   MapPin, Play, Plus, X, ListTodo,
 } from 'lucide-vue-next'
 import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
+import LocaleSwitcher from '~/components/LocaleSwitcher.vue'
 
 definePageMeta({ layout: 'studio' })
+
+const { t } = useI18n()
 
 const route = useRoute()
 const dramaId = Number(route.params.id)
@@ -1616,12 +1621,12 @@ async function loadExportMerges() {
 const scriptStep = ref(storedPanel ? (storedPanel.scriptStep === 0 ? 0 : 1) : 0)
 const prodTab = ref(['assets', 'storyboard', 'videos'].includes(storedPanel?.prodTab) ? storedPanel.prodTab : 'assets')
 // 面板位置变化即持久化
-watch([panel, scriptStep, prodTab], ([p, s, t]) => {
-  try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: t })) } catch { /* 静默 */ }
+watch([panel, scriptStep, prodTab], ([p, s, pt]) => {
+  try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: pt })) } catch { /* 静默 */ }
 })
 const activeExtractTab = ref('characters')
 const prodTabIdx = computed({
-  get: () => prodTabDefs.value.findIndex(t => t.id === prodTab.value),
+  get: () => prodTabDefs.value.findIndex(d => d.id === prodTab.value),
   set: (v) => { prodTab.value = prodTabDefs.value[v]?.id || 'assets' },
 })
 const imageConfigs = ref([])
@@ -1681,7 +1686,7 @@ const assetPromptDirty = ref(false)
 const savingAssetDetail = ref(false)
 
 function configLabel(config) {
-  if (!config) return '未配置'
+  if (!config) return t('episode.model.notConfigured')
   const modelName = configModels(config)[0] || ''
   return modelName ? `${config.name} · ${modelName} (${config.provider})` : `${config.name} (${config.provider})`
 }
@@ -1721,10 +1726,18 @@ function closeAssetDetail() {
 }
 
 // ─── 手动新增资产 ────────────────────────────────────────────
-const ASSET_TYPE_SHORT = { character: '角色', scene: '场景', prop: '道具' }
+// 类型短显示名渲染时求值（不模块级固化），逻辑判断一律用 kind code
+const assetKindLabelMap = computed(() => ({
+  character: t('common.role'),
+  scene: t('common.scene'),
+  prop: t('common.prop'),
+}))
+function assetKindLabel(type) {
+  return assetKindLabelMap.value[type] || t('episode.asset.fallbackType')
+}
 const assetCreate = ref({ open: false, type: 'character', saving: false })
 const assetCreateDraft = ref({})
-const assetCreateTypeLabel = computed(() => ASSET_TYPE_SHORT[assetCreate.value.type] || '资产')
+const assetCreateTypeLabel = computed(() => assetKindLabel(assetCreate.value.type))
 
 function openAssetCreate(type) {
   assetCreateDraft.value = { name: '', role: '', appearance: '', styling: '', location: '', time: '', prompt: '', lighting: '', type: '', description: '' }
@@ -1736,7 +1749,7 @@ async function saveAssetCreate() {
   const type = assetCreate.value.type
   if (assetCreate.value.saving) return
   if (type === 'scene' ? !d.location?.trim() : !d.name?.trim()) {
-    toast.warning(type === 'scene' ? '请填写场景地点' : '请填写名称')
+    toast.warning(type === 'scene' ? t('episode.create.locationRequired') : t('episode.create.nameRequired'))
     return
   }
   assetCreate.value.saving = true
@@ -1745,7 +1758,7 @@ async function saveAssetCreate() {
     if (type === 'character') await characterAPI.create({ ...base, name: d.name, role: d.role, appearance: d.appearance, styling: d.styling })
     else if (type === 'scene') await sceneAPI.create({ ...base, location: d.location, time: d.time, prompt: d.prompt, lighting: d.lighting })
     else await propAPI.create({ ...base, name: d.name, type: d.type, description: d.description })
-    toast.success(`已新增${assetCreateTypeLabel.value}`)
+    toast.success(t('episode.create.created', { type: assetCreateTypeLabel.value }))
     assetCreate.value.open = false
     await refresh()
   } catch (e) {
@@ -1757,7 +1770,7 @@ async function saveAssetCreate() {
 
 // ─── 删除资产 ────────────────────────────────────────────────
 const assetDelete = ref({ open: false, type: '', item: null, loading: false })
-const assetDeleteTypeLabel = computed(() => ASSET_TYPE_SHORT[assetDelete.value.type] || '资产')
+const assetDeleteTypeLabel = computed(() => assetKindLabel(assetDelete.value.type))
 const assetDeleteName = computed(() => assetDelete.value.item?.name || assetDelete.value.item?.location || '')
 
 function askDeleteAsset(type, item) {
@@ -1772,7 +1785,7 @@ async function confirmDeleteAsset() {
     if (type === 'character') await characterAPI.del(item.id)
     else if (type === 'scene') await sceneAPI.del(item.id)
     else await propAPI.del(item.id)
-    toast.success(`已删除${assetDeleteTypeLabel.value}`)
+    toast.success(t('episode.delete.deleted', { type: assetDeleteTypeLabel.value }))
     assetDelete.value.open = false
     if (assetDetail.value.open && assetDetail.value.type === type && assetDetail.value.item?.id === item.id) closeAssetDetail()
     await refresh()
@@ -1845,12 +1858,12 @@ async function genAssetFinalPrompt() {
   const force = !!assetFinalPrompt.value
   try {
     const fp = await ensureAssetPrompt(detail.type, detail.item.id, force)
-    if (!fp) throw new Error('最终提示词生成失败，请重试')
+    if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     assetPromptDraft.value = fp
     assetPromptDirty.value = false
-    toast.success(force ? '最终提示词已重新生成' : '最终提示词已生成')
+    toast.success(force ? t('episode.asset.promptRegenerated') : t('episode.asset.promptGenerated'))
   } catch (e) {
-    toast.error(e.message || '最终提示词生成失败')
+    toast.error(e.message || t('episode.asset.promptGenFailed'))
   }
 }
 
@@ -1859,9 +1872,9 @@ async function copyAssetFinalPrompt() {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
-    toast.success('最终提示词已复制')
+    toast.success(t('episode.asset.promptCopied'))
   } catch {
-    toast.error('复制失败，请手动选择文本复制')
+    toast.error(t('episode.asset.copyFailed'))
   }
 }
 
@@ -1885,7 +1898,7 @@ async function saveAssetDetail() {
   // 手动编辑过最终提示词才提交；空串视为清空
   if (assetPromptDirty.value) payload.final_prompt = assetPromptDraft.value.trim() || ''
   if (!infoChanged && !assetPromptDirty.value) {
-    toast.info('没有需要保存的修改')
+    toast.info(t('episode.asset.noChanges'))
     return
   }
   savingAssetDetail.value = true
@@ -1902,9 +1915,9 @@ async function saveAssetDetail() {
     if (target) Object.assign(target, infoPatch, { final_prompt: promptValue, finalPrompt: promptValue })
     if (assetPromptDirty.value) assetPromptDraft.value = payload.final_prompt || ''
     assetPromptDirty.value = false
-    toast.success('修改已保存')
+    toast.success(t('episode.asset.saved'))
   } catch (e) {
-    toast.error(e.message || '保存失败')
+    toast.error(e.message || t('episode.asset.saveFailed'))
   } finally {
     savingAssetDetail.value = false
   }
@@ -1919,33 +1932,41 @@ function assetImageSrc(item) {
 
 function assetDetailTitle(detail) {
   if (!detail?.item) return ''
-  if (detail.type === 'character') return detail.item.name || '未命名角色'
-  if (detail.type === 'prop') return detail.item.name || '未命名道具'
-  return detail.item.location || '未命名场景'
+  if (detail.type === 'character') return detail.item.name || t('episode.asset.unnamedChar')
+  if (detail.type === 'prop') return detail.item.name || t('episode.asset.unnamedProp')
+  return detail.item.location || t('episode.asset.unnamedScene')
 }
 
+/** 资产详情弹窗 kicker / aria-label 用长标签 */
 function assetTypeLabel(type) {
-  return { character: '角色资产', scene: '场景资产', prop: '道具资产' }[type] || '资产'
+  return { character: t('episode.asset.typeChar'), scene: t('episode.asset.typeScene'), prop: t('episode.asset.typeProp') }[type] || t('episode.asset.fallbackType')
+}
+
+/** 资产详情预览图标题（角色形象/场景图/道具图） */
+function assetDetailImageTitle(detail) {
+  if (!detail?.item) return ''
+  const kindLabel = detail.type === 'character' ? t('episode.asset.charPortrait') : detail.type === 'scene' ? t('episode.asset.sceneImage') : t('common.prop')
+  return `${assetDetailTitle(detail)} ${kindLabel}`
 }
 
 function characterAppearanceValue(char) {
-  return char?.appearance || '样貌待补充'
+  return char?.appearance || t('episode.asset.appearanceTodo')
 }
 
 function characterStylingValue(char) {
-  return char?.styling || '妆造待补充'
+  return char?.styling || t('episode.asset.stylingTodo')
 }
 
 function characterVisualSummary(char) {
-  return `样貌：${characterAppearanceValue(char)} · 妆造：${characterStylingValue(char)}`
+  return `${t('episode.asset.appearance')}${characterAppearanceValue(char)} · ${t('episode.asset.styling')}${characterStylingValue(char)}`
 }
 
 function sceneDescriptionValue(scene) {
-  return scene?.prompt || scene?.description || '场景描述待补充'
+  return scene?.prompt || scene?.description || t('episode.asset.sceneDescTodo')
 }
 
 function sceneLightingValue(scene) {
-  return scene?.lighting || '场景光影待补充'
+  return scene?.lighting || t('episode.asset.sceneLightTodo')
 }
 
 function handleImageViewerKeydown(event) {
@@ -1985,17 +2006,17 @@ function videoTaskState(sb) {
 
 function videoTaskStatusLabel(sb) {
   const state = videoTaskState(sb)
-  if (state === 'done') return '已完成'
-  if (state === 'pending') return '生成中'
-  if (state === 'failed') return '失败'
-  return '待生成'
+  if (state === 'done') return t('episode.status.done')
+  if (state === 'pending') return t('episode.status.generating')
+  if (state === 'failed') return t('episode.status.failed')
+  return t('episode.status.todo')
 }
 
 function videoTaskActionLabel(sb) {
   const state = videoTaskState(sb)
-  if (state === 'done') return '重新生成'
-  if (state === 'pending') return '生成中'
-  return '生成'
+  if (state === 'done') return t('episode.asset.regen')
+  if (state === 'pending') return t('episode.asset.generating')
+  return t('episode.asset.generate')
 }
 
 const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
@@ -2006,8 +2027,8 @@ const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
     id: sb.id,
     index,
     storyboard: sb,
-    title: sb.description || `镜头 #${String(index + 1).padStart(2, '0')}`,
-    meta: sceneName || `${referenceCount} 个参考素材`,
+    title: sb.description || t('episode.vid.shotN', { n: String(index + 1).padStart(2, '0') }),
+    meta: sceneName || t('episode.vid.refCountMeta', { n: referenceCount }),
     duration: Number.isFinite(duration) ? duration : 5,
     referenceCount,
     state: videoTaskState(sb),
@@ -2018,9 +2039,10 @@ const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
 const videoTaskDoneCount = computed(() => videoTaskRows.value.filter(task => task.state === 'done').length)
 const videoTaskFailedCount = computed(() => videoTaskRows.value.filter(task => task.state === 'failed').length)
 
+// 旁白角色识别：按内容语言的关键词匹配（提取产物中的旁白角色不参与画面生成）
 function isNarratorCharacter(char) {
   const text = `${char?.name || ''} ${char?.role || ''}`.toLowerCase()
-  return text.includes('旁白') || text.includes('narrator') || text.includes('画外音')
+  return ['旁白', '画外音', 'narrator', 'ナレーター', 'ナレーション', '내레이션', '해설'].some(k => text.includes(k))
 }
 
 const visualChars = computed(() => chars.value.filter(c => !isNarratorCharacter(c)))
@@ -2117,7 +2139,7 @@ async function loadGenTasks() {
       // 分镜已有视频(失败后重试成功)时不再报历史错误
       if (hasVid(sbs.value.find(s => s.id === sbId))) continue
       if (t.status === 'processing') pending.add(sbId)
-      else if (t.status === 'failed') failed[sbId] = t.error_msg || '生成失败'
+      else if (t.status === 'failed') failed[sbId] = t.error_msg || t('episode.status.failed')
     }
     // 刚点击提交、任务记录尚未加载出来的本地状态保留,避免状态闪退
     for (const id of pendingVideoIds.value) if (!latestBySb.has(id)) pending.add(id)
@@ -2146,24 +2168,24 @@ const genTaskFailedCount = computed(() =>
   genMerges.value.filter(m => m.status === 'failed').length
 )
 
-function genTaskTargetLabel(t) {
-  if (t.storyboard_id) {
-    const sb = sbs.value.find(x => x.id === t.storyboard_id)
-    return `分镜 #${sb?.storyboard_number ?? sb?.storyboardNumber ?? t.storyboard_id}`
+function genTaskTargetLabel(task) {
+  if (task.storyboard_id) {
+    const sb = sbs.value.find(x => x.id === task.storyboard_id)
+    return t('episode.tasks.sbN', { n: sb?.storyboard_number ?? sb?.storyboardNumber ?? task.storyboard_id })
   }
-  if (t.character_id) {
-    const c = chars.value.find(x => x.id === t.character_id)
-    return `角色 · ${c?.name || t.character_id}`
+  if (task.character_id) {
+    const c = chars.value.find(x => x.id === task.character_id)
+    return `${t('common.role')} · ${c?.name || task.character_id}`
   }
-  if (t.scene_id) {
-    const s = scenes.value.find(x => x.id === t.scene_id)
-    return `场景 · ${s?.location || t.scene_id}`
+  if (task.scene_id) {
+    const s = scenes.value.find(x => x.id === task.scene_id)
+    return `${t('common.scene')} · ${s?.location || task.scene_id}`
   }
-  if (t.prop_id) {
-    const p = propItems.value.find(x => x.id === t.prop_id)
-    return `道具 · ${p?.name || t.prop_id}`
+  if (task.prop_id) {
+    const p = propItems.value.find(x => x.id === task.prop_id)
+    return `${t('common.prop')} · ${p?.name || task.prop_id}`
   }
-  return '通用'
+  return t('episode.tasks.generic')
 }
 
 // 统一行结构：image / video / merge 三类合并按时间倒序
@@ -2186,7 +2208,7 @@ const genTaskRows = computed(() => {
     key: `merge-${m.id}`,
     kind: 'merge',
     id: m.id,
-    targetLabel: '整集拼接',
+    targetLabel: t('episode.tasks.fullMerge'),
     provider: m.provider || 'ffmpeg',
     model: m.model || '',
     status: m.status || 'pending',
@@ -2200,13 +2222,13 @@ const genTaskRows = computed(() => {
 })
 
 function genTaskKindLabel(kind) {
-  return kind === 'image' ? '图片' : kind === 'video' ? '视频' : '合并'
+  return kind === 'image' ? t('common.serviceType.image') : kind === 'video' ? t('common.serviceType.video') : t('episode.tasks.mergeKind')
 }
 
 function genTaskStatusLabel(status) {
-  if (status === 'completed') return '已完成'
-  if (status === 'failed') return '失败'
-  return '生成中'
+  if (status === 'completed') return t('episode.status.done')
+  if (status === 'failed') return t('episode.status.failed')
+  return t('episode.status.generating')
 }
 
 // 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
@@ -2238,12 +2260,12 @@ watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
 })
 
 const productionBlockMessage = computed(() => {
-  if (!scriptContent.value) return '请先完成剧本编写'
+  if (!scriptContent.value) return t('episode.prod.scriptFirst')
   return ''
 })
 const productionBlockActionLabel = computed(() => {
-  if (!scriptContent.value) return '前往剧本'
-  return '返回处理'
+  if (!scriptContent.value) return t('episode.export.gotoScript')
+  return t('episode.prod.goBack')
 })
 function goProductionBlockTarget() {
   if (!scriptContent.value) {
@@ -2271,12 +2293,12 @@ function goNextProd() {
   }
 }
 
-// Script step navigation
-const stepLabels = ['原始内容', 'AI 改写']
-const prevStepLabel = computed(() => scriptStep.value > 0 ? stepLabels[scriptStep.value - 1] : '')
+// Script step navigation（渲染时求值，语言切换即时生效）
+const stepLabels = computed(() => [t('episode.script.raw'), t('episode.script.rewrite')])
+const prevStepLabel = computed(() => scriptStep.value > 0 ? stepLabels.value[scriptStep.value - 1] : '')
 const nextStepLabel = computed(() => {
-  if (scriptStep.value === 1) return '资产'
-  return stepLabels[scriptStep.value + 1] || ''
+  if (scriptStep.value === 1) return t('episode.prod.assets')
+  return stepLabels.value[scriptStep.value + 1] || ''
 })
 const canGoNext = computed(() => {
   if (scriptStep.value === 0) return !!localRaw.value.trim()
@@ -2309,42 +2331,42 @@ const assetTotalCount = computed(() => visualCharTotal.value + scenes.value.leng
 const assetReadyCount = computed(() => charImgCount.value + sceneImgCount.value + propImgCount.value)
 
 const prodTabDefs = computed(() => [
-  { id: 'assets', label: '资产', icon: FolderKanban, badge: assetTotalCount.value ? `${assetReadyCount.value}/${assetTotalCount.value}` : '' },
-  { id: 'storyboard', label: '分镜拆分', icon: Clapperboard, badge: sbs.value.length ? `${sbs.value.length}` : '' },
-  { id: 'videos', label: '视频生成', icon: Video, badge: shotVidCount.value ? `${shotVidCount.value}/${sbs.value.length}` : '' },
+  { id: 'assets', label: t('episode.prod.assets'), icon: FolderKanban, badge: assetTotalCount.value ? `${assetReadyCount.value}/${assetTotalCount.value}` : '' },
+  { id: 'storyboard', label: t('episode.sb.title'), icon: Clapperboard, badge: sbs.value.length ? `${sbs.value.length}` : '' },
+  { id: 'videos', label: t('episode.prod.videos'), icon: Video, badge: shotVidCount.value ? `${shotVidCount.value}/${sbs.value.length}` : '' },
 ])
 
-const mainStageDefs = [
-  { id: 'script', label: '剧本', desc: '内容改写与整理', icon: FileText },
-  { id: 'assets', label: '资产', desc: '角色 / 场景 / 道具', icon: FolderKanban },
-  { id: 'storyboard', label: '分镜', desc: '分镜拆分与提示词', icon: Clapperboard },
-  { id: 'videos', label: '视频', desc: '视频任务与生成', icon: Video },
-  { id: 'export', label: '导出', desc: '拼接与成片输出', icon: Download },
-]
+const mainStageDefs = computed(() => ([
+  { id: 'script', label: t('episode.stage.script'), desc: t('episode.stage.scriptDesc'), icon: FileText },
+  { id: 'assets', label: t('episode.prod.assets'), desc: t('episode.stage.assetsDesc'), icon: FolderKanban },
+  { id: 'storyboard', label: t('episode.stage.storyboard'), desc: t('episode.stage.storyboardDesc'), icon: Clapperboard },
+  { id: 'videos', label: t('episode.stage.videos'), desc: t('episode.stage.videosDesc'), icon: Video },
+  { id: 'export', label: t('episode.stage.export'), desc: t('episode.stage.exportDesc'), icon: Download },
+]))
 
 const sidebarSections = computed(() => ([
   {
     id: 'script',
-    label: '剧本',
+    label: t('episode.stage.script'),
     items: [
-      { key: 'script:raw', label: '原始内容', desc: '', icon: FileText },
-      { key: 'script:rewrite', label: 'AI 改写', desc: '', icon: FileText },
+      { key: 'script:raw', label: t('episode.script.raw'), desc: '', icon: FileText },
+      { key: 'script:rewrite', label: t('episode.script.rewrite'), desc: '', icon: FileText },
     ],
   },
   {
     id: 'production',
-    label: '制作',
+    label: t('episode.stage.production'),
     items: [
-      { key: 'prod:assets', label: '资产', desc: '', icon: Users },
-      { key: 'prod:storyboard', label: '分镜拆分', desc: '', icon: Clapperboard },
-      { key: 'prod:videos', label: '视频生成', desc: '', icon: Video },
+      { key: 'prod:assets', label: t('episode.prod.assets'), desc: '', icon: Users },
+      { key: 'prod:storyboard', label: t('episode.sb.title'), desc: '', icon: Clapperboard },
+      { key: 'prod:videos', label: t('episode.prod.videos'), desc: '', icon: Video },
     ],
   },
   {
     id: 'export',
-    label: '导出',
+    label: t('episode.stage.export'),
     items: [
-      { key: 'export:merge', label: '拼接导出', desc: '', icon: Download },
+      { key: 'export:merge', label: t('episode.stage.mergeExport'), desc: '', icon: Download },
     ],
   },
 ]))
@@ -2429,8 +2451,8 @@ const sidebarJumpSteps = computed(() => {
 const bubbleSteps = computed(() => {
   if (panel.value === 'script') {
     return [
-      { key: 'script:raw', label: '原始内容' },
-      { key: 'script:rewrite', label: 'AI 改写' },
+      { key: 'script:raw', label: t('episode.script.raw') },
+      { key: 'script:rewrite', label: t('episode.script.rewrite') },
     ]
   }
   if (panel.value === 'production') {
@@ -2474,14 +2496,14 @@ const pipelineProgress = computed(() =>
 )
 
 const currentStageLabel = computed(() => {
-  if (panel.value === 'script') return `剧本阶段 · ${stepLabels[scriptStep.value]}`
-  if (panel.value === 'production') return `制作阶段 · ${prodTabDefs.value[prodTabIdx.value]?.label || '制作'}`
-  return mergeUrl.value ? '导出阶段 · 成片已生成' : '导出阶段 · 等待拼接'
+  if (panel.value === 'script') return t('episode.stage.scriptStage', { step: stepLabels.value[scriptStep.value] })
+  if (panel.value === 'production') return t('episode.stage.prodStage', { step: prodTabDefs.value[prodTabIdx.value]?.label || t('episode.stage.production') })
+  return mergeUrl.value ? t('episode.stage.exportDone') : t('episode.stage.exportWaiting')
 })
 
 const currentMainStageLabel = computed(() => {
-  const current = mainStageDefs.find(stage => stage.id === activeMainStage.value)
-  return current?.label || '工作台'
+  const current = mainStageDefs.value.find(stage => stage.id === activeMainStage.value)
+  return current?.label || t('episode.stage.workbench')
 })
 
 const currentSubStageLabel = computed(() => currentStageLabel.value)
@@ -2557,12 +2579,12 @@ function toggleStoryboardProp(sb, propId) {
 function getSceneName(sb) {
   const scene = getStoryboardScene(sb)
   if (!scene) return ''
-  return `${scene.location} · ${scene.time || '未设时间'}`
+  return `${scene.location} · ${scene.time || t('episode.asset.noTime')}`
 }
 
 const sceneOptions = computed(() => [
-  { label: '未绑定场景', value: '' },
-  ...scenes.value.map(s => ({ label: `${s.location} · ${s.time || '未设时间'}`, value: s.id })),
+  { label: t('episode.sb.unboundScene'), value: '' },
+  ...scenes.value.map(s => ({ label: `${s.location} · ${s.time || t('episode.asset.noTime')}`, value: s.id })),
 ])
 
 
@@ -2609,27 +2631,30 @@ async function refresh() {
 
 function saveRaw() { episodeAPI.update(epId.value, { content: localRaw.value }); episode.value.content = localRaw.value }
 function saveScr() { episodeAPI.update(epId.value, { script_content: localScript.value }); episode.value.script_content = localScript.value }
+// 发给 Agent 的 message 是功能性提示词而非 UI 文案：产出语言由后端全局「内容语言」指令控制，
+// 这里保持中文不随界面语言变化
 function doRewrite() { saveRaw(); runAgent('script_rewriter', '请读取剧本并改写为格式化剧本，然后保存', dramaId, epId.value, refresh, chatModelOverride(), chatConfigId()) }
 function skipRewrite() {
   const raw = (localRaw.value || rawContent.value || '').trim()
   if (!raw) {
-    toast.warning('请先填写原始内容')
+    toast.warning(t('episode.script.rawRequired'))
     return
   }
   localScript.value = raw
   saveScr()
-  toast.success('已跳过 AI 改写，当前将直接使用原始内容')
+  toast.success(t('episode.script.skipDone'))
   panel.value = 'production'
   prodTab.value = 'assets'
 }
 // 资产提取：按类型独立的异步任务（后端任务表驱动），三类可并行；前端轮询状态直到完成
-const EXTRACT_TARGETS = [
-  { key: 'characters', label: '角色' },
-  { key: 'scenes', label: '场景' },
-  { key: 'props', label: '道具' },
-]
+// label 渲染时求值（语言切换即时生效），key 为逻辑值
+const EXTRACT_TARGETS = computed(() => [
+  { key: 'characters', label: t('common.role') },
+  { key: 'scenes', label: t('common.scene') },
+  { key: 'props', label: t('common.prop') },
+])
 const extractingTargets = ref([])
-const extractingLabels = computed(() => EXTRACT_TARGETS.filter(t => extractingTargets.value.includes(t.key)).map(t => t.label).join('、'))
+const extractingLabels = computed(() => EXTRACT_TARGETS.value.filter(x => extractingTargets.value.includes(x.key)).map(x => x.label).join(t('common.listJoin')))
 function isExtracting(target) { return extractingTargets.value.includes(target) }
 
 function doExtract(target) {
@@ -2639,31 +2664,31 @@ function doExtract(target) {
   episodeAPI.extract(epId.value, target, chatModelOverride(), chatConfigId())
     .then(() => pollExtractStatus(target))
     .catch(e => {
-      extractingTargets.value = extractingTargets.value.filter(t => t !== target)
+      extractingTargets.value = extractingTargets.value.filter(x => x !== target)
       toast.error(e.message)
     })
 }
-function doExtractAll() { EXTRACT_TARGETS.forEach(t => doExtract(t.key)) }
+function doExtractAll() { EXTRACT_TARGETS.value.forEach(x => doExtract(x.key)) }
 
 function pollExtractStatus(target, attempts = 150) {
-  const label = EXTRACT_TARGETS.find(t => t.key === target)?.label || target
+  const label = EXTRACT_TARGETS.value.find(x => x.key === target)?.label || target
   const tick = async (left) => {
     try {
       const st = await episodeAPI.extractStatus(epId.value)
       const task = st?.[target]
       if (task && task.status !== 'running') {
-        extractingTargets.value = extractingTargets.value.filter(t => t !== target)
+        extractingTargets.value = extractingTargets.value.filter(x => x !== target)
         if (task.status === 'done') {
-          toast.success(`${label}提取完成`)
+          toast.success(t('episode.extract.done', { type: label }))
           await refresh()
         } else {
-          toast.error(task.error || `${label}提取失败`)
+          toast.error(task.error || t('episode.extract.failed', { type: label }))
         }
         return
       }
     } catch {}
     if (left > 0) setTimeout(() => tick(left - 1), 2500)
-    else extractingTargets.value = extractingTargets.value.filter(t => t !== target)
+    else extractingTargets.value = extractingTargets.value.filter(x => x !== target)
   }
   setTimeout(() => tick(attempts), 2500)
 }
@@ -2673,10 +2698,10 @@ async function syncExtractStatus() {
   if (!epId.value) return
   try {
     const st = await episodeAPI.extractStatus(epId.value)
-    for (const t of EXTRACT_TARGETS) {
-      if (st?.[t.key]?.status === 'running' && !isExtracting(t.key)) {
-        extractingTargets.value.push(t.key)
-        pollExtractStatus(t.key)
+    for (const x of EXTRACT_TARGETS.value) {
+      if (st?.[x.key]?.status === 'running' && !isExtracting(x.key)) {
+        extractingTargets.value.push(x.key)
+        pollExtractStatus(x.key)
       }
     }
   } catch {}
@@ -2723,7 +2748,7 @@ function generateSelectedVideoPrompts() {
 
 async function batchVideoPrompts() {
   if (videoPromptBatch.value.running || !epId.value) return
-  if (!sbs.value.length) { toast.warning('请先拆分分镜'); return }
+  if (!sbs.value.length) { toast.warning(t('episode.sb.breakFirst')); return }
   const ids = selectedSbIds.value.length ? [...selectedSbIds.value] : undefined
   try {
     const res = await episodeAPI.generateVideoPrompts(epId.value, chatModelOverride(), chatConfigId(), ids)
@@ -2731,11 +2756,11 @@ async function batchVideoPrompts() {
       if (res?.already_running) {
         videoPromptBatch.value = { running: true, total: 0, completed: 0 }
         pollVideoPromptBatch()
-      } else toast.info(ids ? '所选分镜不存在' : '所有分镜已有视频提示词')
+      } else toast.info(ids ? t('episode.sb.selectedMissing') : t('episode.sb.allHavePrompts'))
       return
     }
     videoPromptBatch.value = { running: true, total: res.total, completed: 0 }
-    toast.info(`开始生成 ${res.total} 个分镜的视频提示词…`)
+    toast.info(t('episode.sb.batchStarted', { n: res.total }))
     pollVideoPromptBatch()
   } catch (e) {
     toast.error(e.message)
@@ -2750,9 +2775,9 @@ function pollVideoPromptBatch(attempts = 240) {
         videoPromptBatch.value = { running: false, total: 0, completed: 0 }
         await refresh()
         if (st.status === 'done') {
-          toast.success(st.failed ? `视频提示词批量生成完成，${st.failed} 个失败` : '视频提示词批量生成完成')
+          toast.success(st.failed ? t('episode.sb.batchDoneFailed', { n: st.failed }) : t('episode.sb.batchDone'))
         } else {
-          toast.error(st.error || '视频提示词批量生成失败')
+          toast.error(st.error || t('episode.sb.batchFailed'))
         }
         return
       }
@@ -2811,7 +2836,7 @@ async function genVideoPrompt(sb) {
       model: chatModelOverride() || undefined,
       config_id: chatConfigId() || undefined,
     })
-    toast.success(`分镜 #${idx} 视频提示词已生成`)
+    toast.success(t('episode.sb.promptGenerated', { n: idx }))
     await refresh()
   } catch (e) {
     toast.error(e.message)
@@ -2839,13 +2864,13 @@ async function genCharImg(id) {
     if (!isPendingCharImage(id)) pendingCharImageIds.value.push(id)
     const char = chars.value.find(c => c.id === id)
     if (char && !(char.final_prompt || char.finalPrompt)) {
-      toast.info('正在生成最终提示词…')
+      toast.info(t('episode.asset.generatingPrompt'))
       try {
         await ensureAssetPrompt('character', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
     await characterAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success('角色图片生成中')
+    toast.success(t('episode.image.generatingChar'))
     await refresh()
     watchAsyncResult(() => {
       const char = chars.value.find(c => c.id === id)
@@ -2860,10 +2885,10 @@ async function genCharImg(id) {
 }
 function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
-  if (!ids.length) { toast.info('所有角色图片已生成'); return }
+  if (!ids.length) { toast.info(t('episode.image.allCharsDone')); return }
   pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
   characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
-    toast.success('角色图片批量生成中')
+    toast.success(t('episode.image.batchGeneratingChar'))
     await refresh()
     watchAsyncResult(() => ids.every(id => {
       const char = chars.value.find(c => c.id === id)
@@ -2881,13 +2906,13 @@ async function genSceneImg(id) {
     if (!isPendingSceneImage(id)) pendingSceneImageIds.value.push(id)
     const scene = scenes.value.find(s => s.id === id)
     if (scene && !(scene.final_prompt || scene.finalPrompt)) {
-      toast.info('正在生成最终提示词…')
+      toast.info(t('episode.asset.generatingPrompt'))
       try {
         await ensureAssetPrompt('scene', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
     await sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success('场景图片生成中')
+    toast.success(t('episode.image.generatingScene'))
     await refresh()
     watchAsyncResult(() => {
       const scene = scenes.value.find(s => s.id === id)
@@ -2908,13 +2933,13 @@ async function genPropImg(id) {
     if (!isPendingPropImage(id)) pendingPropImageIds.value.push(id)
     const prop = propItems.value.find(p => p.id === id)
     if (prop && !(prop.final_prompt || prop.finalPrompt)) {
-      toast.info('正在生成最终提示词…')
+      toast.info(t('episode.asset.generatingPrompt'))
       try {
         await ensureAssetPrompt('prop', id)
       } catch {} // 提示词生成失败不阻断：后端生图前会再兜底生成或回退本地拼接
     }
     await propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId())
-    toast.success('道具图片生成中')
+    toast.success(t('episode.image.generatingProp'))
     await refresh()
     watchAsyncResult(() => {
       const prop = propItems.value.find(p => p.id === id)
@@ -2929,10 +2954,10 @@ async function genPropImg(id) {
 }
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
-  if (!ids.length) { toast.info('所有场景图片已生成'); return }
+  if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
   ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
-  toast.success('场景图片批量生成中')
+  toast.success(t('episode.image.batchGeneratingScene'))
   watchAsyncResult(() => ids.every(id => {
     const scene = scenes.value.find(s => s.id === id)
     const done = !!(scene?.image_url || scene?.imageUrl)
@@ -2942,10 +2967,10 @@ function batchSceneImages() {
 }
 function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
-  if (!ids.length) { toast.info('所有道具图片已生成'); return }
+  if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
   pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
   ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
-  toast.success('道具图片批量生成中')
+  toast.success(t('episode.image.batchGeneratingProp'))
   watchAsyncResult(() => ids.every(id => {
     const prop = propItems.value.find(p => p.id === id)
     const done = !!(prop?.image_url || prop?.imageUrl)
@@ -2989,8 +3014,8 @@ async function setAsMainVideo() {
     await storyboardAPI.update(sb.id, { video_url: previewVideoUrl.value })
     sb.video_url = previewVideoUrl.value
     sb.videoUrl = previewVideoUrl.value
-    toast.success('已设为主视频')
-  } catch (e) { toast.error(e.message || '设置失败') }
+    toast.success(t('episode.vid.setMainDone'))
+  } catch (e) { toast.error(e.message || t('episode.vid.setMainFailed')) }
 }
 
 async function removeHistoryVideo(t) {
@@ -2998,8 +3023,8 @@ async function removeHistoryVideo(t) {
     await taskAPI.del(t.id)
     sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== t.id)
     if (previewVideoUrl.value === taskVideoPath(t)) previewVideoUrl.value = ''
-    toast.success('已删除该历史记录')
-  } catch (e) { toast.error(e.message || '删除失败') }
+    toast.success(t('episode.vid.historyDeleted'))
+  } catch (e) { toast.error(e.message || t('common.deleteFailed')) }
 }
 
 function formatHistoryTime(iso) {
@@ -3036,9 +3061,10 @@ function getShotReferenceAssets(sb) {
     const imageUrl = scene.image_url || scene.imageUrl || ''
     assets.push({
       key: `scene-${scene.id}`,
-      type: '场景',
-      name: scene.location || '未命名场景',
-      meta: scene.time || '场景图',
+      kind: 'scene',
+      typeLabel: t('common.scene'),
+      name: scene.location || t('episode.asset.unnamedScene'),
+      meta: scene.time || t('episode.asset.sceneImage'),
       imageUrl,
       ready: !!imageUrl,
     })
@@ -3047,9 +3073,10 @@ function getShotReferenceAssets(sb) {
     const imageUrl = char.image_url || char.imageUrl || ''
     assets.push({
       key: `character-${char.id}`,
-      type: '角色',
-      name: char.name || '未命名角色',
-      meta: char.role || '角色形象',
+      kind: 'character',
+      typeLabel: t('common.role'),
+      name: char.name || t('episode.asset.unnamedChar'),
+      meta: char.role || t('episode.asset.charPortrait'),
       imageUrl,
       ready: !!imageUrl,
     })
@@ -3058,9 +3085,10 @@ function getShotReferenceAssets(sb) {
     const imageUrl = prop.image_url || prop.imageUrl || ''
     assets.push({
       key: `prop-${prop.id}`,
-      type: '道具',
-      name: prop.name || '未命名道具',
-      meta: prop.type || '道具单品图',
+      kind: 'prop',
+      typeLabel: t('common.prop'),
+      name: prop.name || t('episode.asset.unnamedProp'),
+      meta: prop.type || t('episode.asset.propSingleImage'),
       imageUrl,
       ready: !!imageUrl,
     })
@@ -3069,6 +3097,7 @@ function getShotReferenceAssets(sb) {
 }
 
 // 右侧参考素材面板：本集全部可绑定素材（场景单选、角色/道具多选），bound 标记是否已绑定
+// kind 为英文 code（逻辑值）；typeLabel 为显示名（渲染时求值）
 function shotBindableAssets(sb) {
   const out = []
   for (const char of visualChars.value) {
@@ -3076,9 +3105,10 @@ function shotBindableAssets(sb) {
     out.push({
       key: `character-${char.id}`,
       id: char.id,
-      type: '角色',
-      name: char.name || '未命名角色',
-      meta: char.role || '角色形象',
+      kind: 'character',
+      typeLabel: t('common.role'),
+      name: char.name || t('episode.asset.unnamedChar'),
+      meta: char.role || t('episode.asset.charPortrait'),
       imageUrl,
       ready: !!imageUrl,
       bound: getStoryboardCharacterIds(sb).includes(char.id),
@@ -3089,9 +3119,10 @@ function shotBindableAssets(sb) {
     out.push({
       key: `scene-${scene.id}`,
       id: scene.id,
-      type: '场景',
-      name: `${scene.location} · ${scene.time || '未设时间'}`,
-      meta: scene.time || '场景图',
+      kind: 'scene',
+      typeLabel: t('common.scene'),
+      name: `${scene.location} · ${scene.time || t('episode.asset.noTime')}`,
+      meta: scene.time || t('episode.asset.sceneImage'),
       imageUrl,
       ready: !!imageUrl,
       bound: (sb?.scene_id || sb?.sceneId) === scene.id,
@@ -3102,9 +3133,10 @@ function shotBindableAssets(sb) {
     out.push({
       key: `prop-${prop.id}`,
       id: prop.id,
-      type: '道具',
-      name: prop.name || '未命名道具',
-      meta: prop.type || '道具单品图',
+      kind: 'prop',
+      typeLabel: t('common.prop'),
+      name: prop.name || t('episode.asset.unnamedProp'),
+      meta: prop.type || t('episode.asset.propSingleImage'),
       imageUrl,
       ready: !!imageUrl,
       bound: getStoryboardPropIds(sb).includes(prop.id),
@@ -3120,14 +3152,21 @@ const refBindableAssets = computed(() => {
   return sb ? shotBindableAssets(sb) : []
 })
 
-// 右侧面板切换绑定：场景单选（切换/解绑），角色/道具多选
+// 参考面板分组顺序（kind code 驱动，label 渲染时求值）
+const REF_KINDS = computed(() => ([
+  { kind: 'character', label: t('common.role') },
+  { kind: 'scene', label: t('common.scene') },
+  { kind: 'prop', label: t('common.prop') },
+]))
+
+// 右侧面板切换绑定：场景单选（切换/解绑），角色/道具多选（kind code 判断，不依赖显示文案）
 function toggleShotBind(sb, asset) {
-  if (asset.type === '场景') {
+  if (asset.kind === 'scene') {
     const current = sb?.scene_id || sb?.sceneId
     updateField(sb, 'scene_id', current === asset.id ? null : asset.id)
     return
   }
-  if (asset.type === '角色') {
+  if (asset.kind === 'character') {
     toggleStoryboardCharacter(sb, asset.id)
     return
   }
@@ -3151,6 +3190,7 @@ const refImageUsedCount = computed(() => Math.min(9, autoReferenceImageCount.val
 const refImageFull = computed(() => refImageUsedCount.value >= 9)
 
 // 视频提示词 @ 引用候选：仅当前分镜已绑定的角色与道具（按名字引用）、场景（按地点引用），展示顺序：角色 → 场景 → 道具
+// kind 为逻辑值（MentionTextarea 按 kind 着色/选图标），group 为显示文案
 const mentionOptions = computed(() => {
   const sb = selectedSb.value
   if (!sb) return []
@@ -3159,19 +3199,22 @@ const mentionOptions = computed(() => {
     ...getStoryboardCharacters(sb).map(c => ({
       label: c.name,
       value: c.name,
-      group: '角色',
+      kind: 'character',
+      group: t('common.role'),
       image: thumbOf(assetImageSrc(c)),
     })),
     ...(scene ? [{
-      label: `${scene.location} · ${scene.time || '未设时间'}`,
+      label: `${scene.location} · ${scene.time || t('episode.asset.noTime')}`,
       value: scene.location,
-      group: '场景',
+      kind: 'scene',
+      group: t('common.scene'),
       image: thumbOf(assetImageSrc(scene)),
     }] : []),
     ...getStoryboardProps(sb).map(p => ({
       label: p.name,
       value: p.name,
-      group: '道具',
+      kind: 'prop',
+      group: t('common.prop'),
       image: thumbOf(assetImageSrc(p)),
     })),
   ]
@@ -3232,7 +3275,12 @@ function pickFile(accept, cb) {
 }
 
 // ===== 资产图片手动上传（角色形象 / 场景图 / 道具图）=====
-const ASSET_UPLOAD_LABELS = { character: '角色形象', scene: '场景图', prop: '道具图' }
+// 上传类型显示名渲染时求值
+const assetUploadLabelMap = computed(() => ({
+  character: t('episode.asset.charPortrait'),
+  scene: t('episode.asset.sceneImage'),
+  prop: t('episode.asset.propImage'),
+}))
 const uploadingAssetKeys = ref([])
 function isUploadingAsset(kind, id) { return uploadingAssetKeys.value.includes(`${kind}:${id}`) }
 function uploadAssetImage(kind, id) {
@@ -3246,7 +3294,7 @@ function uploadAssetImage(kind, id) {
       if (kind === 'character') await characterAPI.update(id, payload)
       else if (kind === 'scene') await sceneAPI.update(id, payload)
       else await propAPI.update(id, payload)
-      toast.success(`${ASSET_UPLOAD_LABELS[kind]}已上传`)
+      toast.success(t('episode.upload.assetDone', { type: assetUploadLabelMap.value[kind] || '' }))
       await refresh()
     } catch (e) {
       toast.error(e.message)
@@ -3258,28 +3306,28 @@ function uploadAssetImage(kind, id) {
 
 function uploadRefMedia(kind) {
   if (kind === 'image') {
-    if (refImageFull.value) { toast.info('参考图片已达上限（含场景/角色素材）'); return }
+    if (refImageFull.value) { toast.info(t('episode.upload.refImageFull')); return }
     pickFile('image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp', async (file) => {
       uploadingRefMedia.value = true
       try {
         const res = await uploadAPI.image(file)
         videoRefImageUrls.value = [...videoRefImageUrls.value, res.url]
-        toast.success('参考图片已上传')
+        toast.success(t('episode.upload.refImageDone'))
       } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
     })
     return
   }
   const isVideo = kind === 'video'
   const list = isVideo ? videoRefVideoUrls : videoRefAudioUrls
-  const label = isVideo ? '视频' : '音频'
-  if (list.value.length >= 3) { toast.info(`参考${label}最多 3 个`); return }
+  const label = isVideo ? t('common.serviceType.video') : t('episode.upload.audio')
+  if (list.value.length >= 3) { toast.info(t('episode.upload.refMax3', { type: label })); return }
   const accept = isVideo ? 'video/mp4,video/quicktime,video/webm,.m4v' : 'audio/mpeg,audio/wav,audio/mp4,.aac'
   pickFile(accept, async (file) => {
     uploadingRefMedia.value = true
     try {
       const res = isVideo ? await uploadAPI.video(file) : await uploadAPI.audio(file)
       list.value = [...list.value, res.url]
-      toast.success(`参考${label}已上传`)
+      toast.success(t('episode.upload.refDone', { type: label }))
     } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
   })
 }
@@ -3305,25 +3353,25 @@ async function genVid(sb) {
     reference_audio_urls: videoRefAudioUrls.value,
   }
   if (params.reference_audio_urls.length && !referenceImages.length && !params.reference_video_urls.length) {
-    toast.error('参考音频需要至少 1 个参考图片或视频')
+    toast.error(t('episode.upload.refAudioNeed'))
     return
   }
   if (!params.prompt && !referenceImages.length && !params.reference_video_urls.length && !params.reference_audio_urls.length) {
-    toast.error('需要至少一个参考素材或视频提示词')
+    toast.error(t('episode.vid.needRefOrPrompt'))
     return
   }
   try {
     delete failedVideoMessages.value[sb.id]
     if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
     const generation = await taskAPI.generate({ type: 'video', ...params })
-    toast.success('视频生成中')
+    toast.success(t('episode.vid.generating'))
     await refresh()
     pollVideoGeneration(generation?.id, sb.id)
   } catch (e) {
     pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== sb.id)
     failedVideoMessages.value = {
       ...failedVideoMessages.value,
-      [sb.id]: e.message || '视频生成失败',
+      [sb.id]: e.message || t('episode.vid.genFailed'),
     }
     toast.error(e.message)
   }
@@ -3346,14 +3394,14 @@ async function pollVideoGeneration(generationId, storyboardId) {
       if (res?.status === 'completed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
         delete failedVideoMessages.value[storyboardId]
-        toast.success('视频生成完成')
+        toast.success(t('episode.vid.genDone'))
         return
       }
       if (res?.status === 'failed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
         failedVideoMessages.value = {
           ...failedVideoMessages.value,
-          [storyboardId]: res?.error_msg || res?.errorMsg || '视频生成失败',
+          [storyboardId]: res?.error_msg || res?.errorMsg || t('episode.vid.genFailed'),
         }
         toast.error(failedVideoMessages.value[storyboardId])
         return
@@ -3363,14 +3411,14 @@ async function pollVideoGeneration(generationId, storyboardId) {
   pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
   failedVideoMessages.value = {
     ...failedVideoMessages.value,
-    [storyboardId]: '视频生成超时',
+    [storyboardId]: t('episode.vid.genTimeout'),
   }
-  toast.error('视频生成超时')
+  toast.error(t('episode.vid.genTimeout'))
 }
 function batchVideos() {
   const missing = sbs.value.filter(s => !hasVid(s) && !isPendingVideo(s.id))
   if (!missing.length) {
-    toast.info('所有镜头视频已生成')
+    toast.info(t('episode.vid.allDone'))
     return
   }
   const pendingIds = missing.map(s => s.id)
@@ -3391,14 +3439,14 @@ function batchVideos() {
 async function doMerge(ids) {
   const storyboardIds = Array.isArray(ids) ? ids : undefined
   if (storyboardIds && !storyboardIds.length) {
-    toast.error('请先勾选至少一个已生成视频的镜头')
+    toast.error(t('episode.export.selectFirst'))
     return
   }
   try {
     await mergeAPI.merge(epId.value, storyboardIds)
-    toast.success('拼接中...')
+    toast.success(t('episode.export.mergingToast'))
   } catch (e) {
-    toast.error(e.message || '拼接失败')
+    toast.error(e.message || t('episode.export.mergeFailed'))
     return
   }
   const poll = setInterval(async () => {
@@ -3406,10 +3454,10 @@ async function doMerge(ids) {
     if (mergeData.value?.status === 'completed' || mergeData.value?.status === 'failed') {
       clearInterval(poll)
       if (mergeData.value.status === 'completed') {
-        toast.success('拼接完成')
+        toast.success(t('episode.export.mergeDone'))
         loadExportMerges()
       } else {
-        toast.error(mergeData.value?.error_msg || mergeData.value?.errorMsg || '拼接失败')
+        toast.error(mergeData.value?.error_msg || mergeData.value?.errorMsg || t('episode.export.mergeFailed'))
       }
     }
   }, 3000)

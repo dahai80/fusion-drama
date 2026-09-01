@@ -9,9 +9,15 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { Toaster, toast } from 'vue-sonner'
+import { useI18n } from 'vue-i18n'
 import MigrateOverlay from '~/components/MigrateOverlay.vue'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
+
+const { t } = useI18n()
+
+// 响应式文档标题（nuxt.config.ts 的静态 title 仅作 SSR/兜底）
+useHead(() => ({ title: t('app.title') }))
 
 const bridge = useDesktopBridge()
 const { state, begin, update, end } = useMigrateState()
@@ -38,7 +44,7 @@ onMounted(() => {
     try {
       const s = await bridge.getUpdateState()
       if (s?.status === 'available') {
-        toast.info(`发现新版本 v${s.latestVersion}，可在「设置 → 关于更新」中升级`, { duration: 8000 })
+        toast.info(t('app.updateAvailable', { version: s.latestVersion }), { duration: 8000 })
       }
     } catch { /* 静默 */ }
   }, 25_000)

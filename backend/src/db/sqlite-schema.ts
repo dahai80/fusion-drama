@@ -287,6 +287,13 @@ export const sqliteSchemaStatements = [
     updated_at TEXT NOT NULL,
     deleted_at TEXT
   )`,
+
+  // 应用级全局设置（key-value，如 AI 内容语言 content_language）
+  `CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
 ]
 
 /**

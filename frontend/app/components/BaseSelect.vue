@@ -2,7 +2,7 @@
   <div class="base-select" ref="rootEl">
     <!-- Trigger -->
     <button type="button" class="base-select-trigger" :class="{ open: isOpen }" @click="toggle">
-      <span :class="selectedLabel ? '' : 'placeholder'" class="base-select-label">{{ selectedLabel || placeholder }}</span>
+      <span :class="selectedLabel ? '' : 'placeholder'" class="base-select-label">{{ selectedLabel || effectivePlaceholder }}</span>
       <ChevronDown :size="13" class="base-select-arrow" />
     </button>
 
@@ -16,7 +16,7 @@
             ref="searchInputEl"
             v-model="searchQuery"
             class="base-select-search-input"
-            placeholder="搜索..."
+            :placeholder="t('components.baseSelect.search')"
             @keydown="onSearchKeydown"
           />
         </div>
@@ -36,7 +36,7 @@
               >{{ opt.label }}</button>
             </template>
           </template>
-          <div v-else class="base-select-empty">无匹配结果</div>
+          <div v-else class="base-select-empty">{{ t('components.baseSelect.noMatch') }}</div>
         </div>
       </div>
     </Teleport>
@@ -55,10 +55,13 @@ import { ChevronDown, Search } from 'lucide-vue-next'
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   options: { type: Array, default: () => [] }, // [{ label, value, group? }, ...] or [{ label, group, options: [] }]
-  placeholder: { type: String, default: '请选择...' },
+  placeholder: { type: String, default: '' },  // 缺省回退 t('components.baseSelect.placeholder')
   searchable: { type: Boolean, default: true },
 })
 const emit = defineEmits(['update:modelValue'])
+
+const { t } = useI18n()
+const effectivePlaceholder = computed(() => props.placeholder || t('components.baseSelect.placeholder'))
 
 const isOpen = ref(false)
 const searchQuery = ref('')

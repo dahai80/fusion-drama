@@ -3,12 +3,12 @@
     <div v-if="state.active" class="migrate-overlay">
       <div class="migrate-box">
         <Loader2 :size="26" class="animate-spin" />
-        <div class="migrate-title">正在切换存储位置</div>
+        <div class="migrate-title">{{ t('migrate.title') }}</div>
         <div class="migrate-msg">{{ state.message }}</div>
         <div class="migrate-bar">
           <div class="migrate-bar-fill" :style="{ width: `${state.percent}%` }"></div>
         </div>
-        <div class="migrate-hint">迁移期间请勿关闭应用</div>
+        <div class="migrate-hint">{{ t('migrate.hint') }}</div>
       </div>
     </div>
   </Teleport>
@@ -16,8 +16,10 @@
 
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { useMigrateState } from '~/composables/useMigrateState'
 
+const { t } = useI18n()
 const { state } = useMigrateState()
 </script>
 

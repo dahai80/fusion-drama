@@ -1,49 +1,82 @@
 <template>
   <div class="settings-page">
-    <h1 class="page-title">设置中心</h1>
+    <h1 class="page-title">{{ t('settings.pageTitle') }}</h1>
     <div class="settings-layout">
       <aside class="settings-nav">
         <div class="nav-group">
-          <div class="nav-group-label">基础</div>
-          <button v-for="t in baseTabs" :key="t.id" :class="['nav-item', { active: tab === t.id }]" @click="tab = t.id">
-            <component :is="t.icon" :size="14" />
-            {{ t.label }}
+          <div class="nav-group-label">{{ t('settings.groupBase') }}</div>
+          <button v-for="nt in baseTabs" :key="nt.id" :class="['nav-item', { active: tab === nt.id }]" @click="tab = nt.id">
+            <component :is="nt.icon" :size="14" />
+            {{ nt.label }}
           </button>
         </div>
         <div class="nav-advanced">
           <label class="advanced-toggle">
-            <span>Agent 高级配置</span>
+            <span>{{ t('settings.advancedToggle') }}</span>
             <input type="checkbox" v-model="showAdvanced" class="sr-only" />
             <span class="switch" :class="{ on: showAdvanced }"></span>
           </label>
-          <p class="advanced-note">仅展开 Agent 配置与 Skills。工作台功能和分镜字段保持默认可见。</p>
+          <p class="advanced-note">{{ t('settings.advancedNote') }}</p>
         </div>
         <div v-if="showAdvanced" class="nav-group">
-          <div class="nav-group-label">高级</div>
-          <button v-for="t in advancedTabs" :key="t.id" :class="['nav-item', { active: tab === t.id }]" @click="tab = t.id">
-            <component :is="t.icon" :size="14" />
-            {{ t.label }}
+          <div class="nav-group-label">{{ t('settings.groupAdvanced') }}</div>
+          <button v-for="nt in advancedTabs" :key="nt.id" :class="['nav-item', { active: tab === nt.id }]" @click="tab = nt.id">
+            <component :is="nt.icon" :size="14" />
+            {{ nt.label }}
           </button>
         </div>
       </aside>
 
       <div class="settings-content">
 
+        <!-- ===== 通用（内容语言） ===== -->
+        <div v-if="tab === 'general'" class="settings-scroll">
+          <div class="settings-head">
+            <h2 class="settings-title">{{ t('settings.general.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.general.desc') }}</p>
+          </div>
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.general.contentLanguage') }}</span>
+                <div class="svc-group-sub">{{ t('settings.general.contentLanguageSub') }}</div>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge" style="background:var(--accent-bg);color:var(--accent)"><Languages :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">{{ t('settings.general.languageLabel') }}</span></div>
+                <div class="config-sub">{{ t('settings.general.languageNote') }}</div>
+              </div>
+              <div class="lang-picker">
+                <button
+                  v-for="l in contentLangOptions"
+                  :key="l.value"
+                  type="button"
+                  :class="['lang-option', { on: contentLanguage === l.value }]"
+                  @click="setContentLanguage(l.value)"
+                >{{ l.label }}</button>
+              </div>
+            </div>
+            <p class="config-empty">{{ t('settings.general.languageHint') }}</p>
+          </section>
+        </div>
+
         <!-- ===== AI 服务配置 ===== -->
         <div v-if="tab === 'ai'" class="settings-scroll">
           <div class="settings-head">
-            <h2 class="settings-title">AI 服务配置</h2>
-            <p class="settings-desc">先用推荐模板快速落配置，再按服务类型微调。工作台创建集时会锁定所选图片和视频能力。</p>
+            <h2 class="settings-title">{{ t('settings.ai.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.ai.desc') }}</p>
           </div>
           <section class="card quick-card">
             <div class="quick-card-head">
-              <div class="setup-title">火宝快捷配置</div>
-              <span class="tag tag-accent">推荐</span>
+              <div class="setup-title">{{ t('settings.ai.quickTitle') }}</div>
+              <span class="tag tag-accent">{{ t('settings.ai.recommended') }}</span>
             </div>
             <p class="setup-desc">
-              输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。
+              {{ t('settings.ai.quickDesc') }}
               <a class="huobao-site-link" href="https://api.chatfire.site" target="_blank" rel="noopener noreferrer">
-                前往 api.chatfire.site 获取 Key
+                {{ t('settings.ai.getKey') }}
                 <ExternalLink :size="12" :stroke-width="1.8" />
               </a>
             </p>
@@ -52,7 +85,7 @@
               <button class="btn btn-primary" :disabled="huobaoSaving" @click="applyHuobaoQuickConfig">
                 <Loader2 v-if="huobaoSaving" :size="13" class="animate-spin" />
                 <Sparkles v-else :size="13" />
-                写入火宝配置
+                {{ t('settings.ai.applyQuick') }}
               </button>
             </div>
             <div class="huobao-quick-models">
@@ -61,7 +94,7 @@
                 <span class="hqm-provider">{{ q.provider }}</span>
                 <span class="hqm-models mono">
                   <span v-for="(m, i) in q.model" :key="m" :class="['hqm-model', { 'is-default': i === 0 }]">
-                    {{ m }}<em v-if="i === 0">默认</em>
+                    {{ m }}<em v-if="i === 0">{{ t('common.default') }}</em>
                   </span>
                 </span>
               </div>
@@ -70,8 +103,8 @@
           <section class="card setup-panel">
             <div class="setup-panel-head compact">
               <div>
-                <div class="setup-title">手动模板</div>
-                <div class="setup-desc">选择服务类型后，直接用模板填充推荐的 `provider / base URL / model`。</div>
+                <div class="setup-title">{{ t('settings.ai.manualTitle') }}</div>
+                <div class="setup-desc">{{ t('settings.ai.manualDesc') }}</div>
               </div>
             </div>
             <div class="template-row">
@@ -92,31 +125,31 @@
                   <span class="svc-group-title">{{ st.label }}</span>
                   <div class="svc-group-sub">{{ serviceMeta[st.type].desc }}</div>
                 </div>
-                <span v-if="countActive(st.type)" class="tag tag-accent">{{ countActive(st.type) }} 已启用</span>
-                <button class="btn btn-ghost btn-sm ml-auto" @click="startAddCfg(st.type)"><Plus :size="13" /> 添加</button>
+                <span v-if="countActive(st.type)" class="tag tag-accent">{{ t('settings.ai.activeCount', { n: countActive(st.type) }) }}</span>
+                <button class="btn btn-ghost btn-sm ml-auto" @click="startAddCfg(st.type)"><Plus :size="13" /> {{ t('common.add') }}</button>
               </div>
               <div v-for="c in byType(st.type)" :key="c.id" class="config-row">
                 <div class="provider-badge" :data-provider="c.provider">{{ c.provider.slice(0, 1).toUpperCase() }}</div>
                 <div class="config-main">
                   <div class="config-line">
                     <span class="config-name">{{ c.name || `${c.provider}-${c.service_type}` }}</span>
-                    <span :class="['tag', c.api_key ? 'tag-success' : 'tag-error']">{{ c.api_key ? '已配置' : '无密钥' }}</span>
-                    <span v-if="!c.is_active" class="tag">已停用</span>
+                    <span :class="['tag', c.api_key ? 'tag-success' : 'tag-error']">{{ c.api_key ? t('settings.ai.hasKey') : t('settings.ai.noKey') }}</span>
+                    <span v-if="!c.is_active" class="tag">{{ t('settings.common.disabled') }}</span>
                   </div>
                   <div class="config-models">
                     <button
                       v-for="m in c.model" :key="m" type="button"
                       :class="['cfg-model-chip mono', { 'is-default': isDefaultModel(st.type, c, m) }]"
-                      :title="isDefaultModel(st.type, c, m) ? '当前默认模型' : '设为该类型默认模型'"
+                      :title="isDefaultModel(st.type, c, m) ? t('settings.ai.currentDefault') : t('settings.ai.setDefault')"
                       @click="setDefaultModel(st.type, c, m)"
                     >
                       <Star v-if="isDefaultModel(st.type, c, m)" :size="9" class="cfg-model-star" />
                       {{ m }}
                     </button>
                   </div>
-                  <div class="config-sub mono truncate">{{ c.base_url || '未设置 Base URL' }}</div>
+                  <div class="config-sub mono truncate">{{ c.base_url || t('settings.ai.noBaseUrl') }}</div>
                 </div>
-                <button v-if="st.type === 'text'" class="btn btn-ghost btn-sm" @click="testExistingCfg(c)">测试</button>
+                <button v-if="st.type === 'text'" class="btn btn-ghost btn-sm" @click="testExistingCfg(c)">{{ t('settings.ai.test') }}</button>
                 <label class="config-switch">
                   <input type="checkbox" class="sr-only" :checked="c.is_active" @change="toggleCfg(c)">
                   <span class="switch" :class="{ on: c.is_active }"></span>
@@ -124,7 +157,7 @@
                 <button class="btn btn-ghost btn-icon btn-sm" @click="startEditCfg(c)"><Pencil :size="13" /></button>
                 <button class="btn btn-danger btn-icon btn-sm" @click="delCfg(c.id)"><Trash2 :size="13" /></button>
               </div>
-              <p v-if="!byType(st.type).length" class="config-empty">暂无配置</p>
+              <p v-if="!byType(st.type).length" class="config-empty">{{ t('settings.common.empty') }}</p>
             </section>
           </div>
         </div>
@@ -132,16 +165,16 @@
         <!-- ===== 风格预设 ===== -->
         <div v-else-if="tab === 'styles'" class="settings-scroll">
           <div class="settings-head">
-            <h2 class="settings-title">风格预设</h2>
-            <p class="settings-desc">创建项目时选择的视觉风格，其英文提示词片段会自动注入角色图与场景图生成。停用的风格不出现在创建选项中。</p>
+            <h2 class="settings-title">{{ t('settings.styles.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.styles.desc') }}</p>
           </div>
           <section class="card svc-group">
             <div class="svc-group-head">
               <div class="svc-group-heading">
-                <span class="svc-group-title">全部风格</span>
-                <div class="svc-group-sub">{{ stylePresets.filter(p => p.is_active).length }} 个启用 · {{ stylePresets.length }} 个总计</div>
+                <span class="svc-group-title">{{ t('settings.styles.allTitle') }}</span>
+                <div class="svc-group-sub">{{ t('settings.styles.count', { active: stylePresets.filter(p => p.is_active).length, total: stylePresets.length }) }}</div>
               </div>
-              <button class="btn btn-ghost btn-sm ml-auto" @click="startAddStyle"><Plus :size="13" /> 添加</button>
+              <button class="btn btn-ghost btn-sm ml-auto" @click="startAddStyle"><Plus :size="13" /> {{ t('common.add') }}</button>
             </div>
             <div v-for="p in stylePresets" :key="p.id" class="config-row">
               <div class="provider-badge style-badge"><Palette :size="15" /></div>
@@ -149,7 +182,7 @@
                 <div class="config-line">
                   <span class="config-name">{{ p.name }}</span>
                   <span class="tag mono">{{ p.value }}</span>
-                  <span v-if="!p.is_active" class="tag">已停用</span>
+                  <span v-if="!p.is_active" class="tag">{{ t('settings.common.disabled') }}</span>
                 </div>
                 <div class="config-sub mono truncate">{{ p.prompt }}</div>
                 <div v-if="p.description" class="config-sub truncate">{{ p.description }}</div>
@@ -161,31 +194,31 @@
               <button class="btn btn-ghost btn-icon btn-sm" @click="startEditStyle(p)"><Pencil :size="13" /></button>
               <button class="btn btn-danger btn-icon btn-sm" @click="styleToDelete = p"><Trash2 :size="13" /></button>
             </div>
-            <p v-if="!stylePresets.length" class="config-empty">暂无风格预设</p>
+            <p v-if="!stylePresets.length" class="config-empty">{{ t('settings.styles.empty') }}</p>
           </section>
         </div>
 
         <!-- ===== 存储位置 ===== -->
         <div v-else-if="tab === 'storage'" class="settings-scroll">
           <div class="settings-head">
-            <h2 class="settings-title">存储位置</h2>
-            <p class="settings-desc">数据库与生成文件（图片/视频/拼接/上传）所在的目录。更改位置会短暂停止后台服务并迁移数据。</p>
+            <h2 class="settings-title">{{ t('settings.storage.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.storage.desc') }}</p>
           </div>
           <section class="card svc-group">
             <div class="svc-group-head">
               <div class="svc-group-heading">
-                <span class="svc-group-title">当前数据目录</span>
-                <div v-if="storageInfo?.computedAt" class="svc-group-sub">统计于 {{ new Date(storageInfo.computedAt).toLocaleString() }}</div>
+                <span class="svc-group-title">{{ t('settings.storage.currentDir') }}</span>
+                <div v-if="storageInfo?.computedAt" class="svc-group-sub">{{ t('settings.storage.computedAt', { time: new Date(storageInfo.computedAt).toLocaleString() }) }}</div>
               </div>
               <button v-if="isDesktopMode" class="btn btn-primary btn-sm ml-auto" :disabled="migrating" @click="pickTarget">
-                <HardDrive :size="13" /> 更改位置
+                <HardDrive :size="13" /> {{ t('settings.storage.changeLocation') }}
               </button>
             </div>
             <div class="config-row">
               <div class="provider-badge style-badge"><HardDrive :size="15" /></div>
               <div class="config-main">
-                <div class="config-line"><span class="config-name">数据目录</span><span class="tag mono">{{ storageInfo?.mode === 'desktop' ? '桌面版' : '服务器模式' }}</span></div>
-                <div class="config-sub mono truncate">{{ storageInfo?.dataDir || '加载中…' }}</div>
+                <div class="config-line"><span class="config-name">{{ t('settings.storage.dataDir') }}</span><span class="tag mono">{{ storageInfo?.mode === 'desktop' ? t('settings.storage.desktopMode') : t('settings.storage.serverMode') }}</span></div>
+                <div class="config-sub mono truncate">{{ storageInfo?.dataDir || t('common.loading') }}</div>
                 <div class="config-sub mono truncate">{{ storageInfo?.sqlitePath || '' }}</div>
               </div>
             </div>
@@ -193,56 +226,56 @@
               <div class="provider-badge style-badge"><Database :size="15" /></div>
               <div class="config-main">
                 <div class="config-line">
-                  <span class="config-name">总占用 {{ formatBytes(storageInfo.usage.total) }}</span>
-                  <span v-if="storageInfo.usageStale" class="tag">统计中…</span>
+                  <span class="config-name">{{ t('settings.storage.totalUsage', { size: formatBytes(storageInfo.usage.total) }) }}</span>
+                  <span v-if="storageInfo.usageStale" class="tag">{{ t('settings.storage.counting') }}</span>
                 </div>
                 <div class="storage-breakdown">
-                  <span class="tag mono">数据库 {{ formatBytes(storageInfo.usage.db) }}</span>
-                  <span class="tag mono">图片 {{ formatBytes(storageInfo.usage.images) }}</span>
-                  <span class="tag mono">视频 {{ formatBytes(storageInfo.usage.videos) }}</span>
-                  <span class="tag mono">拼接 {{ formatBytes(storageInfo.usage.merged) }}</span>
-                  <span class="tag mono">上传 {{ formatBytes(storageInfo.usage.uploads) }}</span>
-                  <span v-if="storageInfo.usage.temp" class="tag mono">临时 {{ formatBytes(storageInfo.usage.temp) }}</span>
-                  <span v-if="storageInfo.usage.other" class="tag mono">其他 {{ formatBytes(storageInfo.usage.other) }}</span>
+                  <span class="tag mono">{{ t('settings.storage.breakdown.db') }} {{ formatBytes(storageInfo.usage.db) }}</span>
+                  <span class="tag mono">{{ t('settings.storage.breakdown.images') }} {{ formatBytes(storageInfo.usage.images) }}</span>
+                  <span class="tag mono">{{ t('settings.storage.breakdown.videos') }} {{ formatBytes(storageInfo.usage.videos) }}</span>
+                  <span class="tag mono">{{ t('settings.storage.breakdown.merged') }} {{ formatBytes(storageInfo.usage.merged) }}</span>
+                  <span class="tag mono">{{ t('settings.storage.breakdown.uploads') }} {{ formatBytes(storageInfo.usage.uploads) }}</span>
+                  <span v-if="storageInfo.usage.temp" class="tag mono">{{ t('settings.storage.breakdown.temp') }} {{ formatBytes(storageInfo.usage.temp) }}</span>
+                  <span v-if="storageInfo.usage.other" class="tag mono">{{ t('settings.storage.breakdown.other') }} {{ formatBytes(storageInfo.usage.other) }}</span>
                 </div>
-                <div v-if="storageInfo.freeBytes != null" class="config-sub">磁盘剩余 {{ formatBytes(storageInfo.freeBytes) }}</div>
+                <div v-if="storageInfo.freeBytes != null" class="config-sub">{{ t('settings.storage.diskFree', { size: formatBytes(storageInfo.freeBytes) }) }}</div>
               </div>
             </div>
-            <p class="config-empty">数据目录包含 SQLite 数据库与全部生成媒体；Agent 技能（workspace）不在此列，不随迁移。</p>
-            <p v-if="!isDesktopMode" class="config-empty">服务器部署请通过 STORAGE_PATH / SQLITE_PATH 环境变量配置存储位置，改后重启服务生效。</p>
+            <p class="config-empty">{{ t('settings.storage.note') }}</p>
+            <p v-if="!isDesktopMode" class="config-empty">{{ t('settings.storage.serverNote') }}</p>
           </section>
         </div>
 
         <!-- ===== 关于更新 ===== -->
         <div v-else-if="tab === 'about'" class="settings-scroll">
           <div class="settings-head">
-            <h2 class="settings-title">关于更新</h2>
-            <p class="settings-desc">从发布清单拉取新版本，本地 sha256 校验后自动换包重启。用户数据与配置保存在系统数据目录，不受更新影响。</p>
+            <h2 class="settings-title">{{ t('settings.about.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.about.desc') }}</p>
           </div>
           <section class="card svc-group">
             <div class="svc-group-head">
               <div class="svc-group-heading">
-                <span class="svc-group-title">当前版本 v{{ updateState?.currentVersion || '…' }}</span>
-                <div v-if="updateState?.latestVersion" class="svc-group-sub">最新版本 v{{ updateState.latestVersion }}</div>
+                <span class="svc-group-title">{{ t('settings.about.currentVersion', { v: updateState?.currentVersion || '…' }) }}</span>
+                <div v-if="updateState?.latestVersion" class="svc-group-sub">{{ t('settings.about.latestVersion', { v: updateState.latestVersion }) }}</div>
               </div>
               <button class="btn btn-primary btn-sm ml-auto" :disabled="updateChecking || !desktopBridge" @click="checkUpdate">
                 <Loader2 v-if="updateChecking" :size="13" class="animate-spin" />
                 <RefreshCw v-else :size="13" />
-                检查更新
+                {{ t('settings.about.check') }}
               </button>
             </div>
 
             <div v-if="!desktopBridge" class="config-row">
-              <div class="config-main"><div class="config-sub">当前为浏览器 / 服务器模式，应用内更新仅桌面版可用。</div></div>
+              <div class="config-main"><div class="config-sub">{{ t('settings.about.webMode') }}</div></div>
             </div>
             <div v-else-if="updateState?.status === 'up-to-date'" class="config-row">
               <div class="provider-badge style-badge"><Check :size="15" /></div>
-              <div class="config-main"><div class="config-line"><span class="config-name">已是最新版本</span></div></div>
+              <div class="config-main"><div class="config-line"><span class="config-name">{{ t('settings.about.upToDate') }}</span></div></div>
             </div>
             <div v-else-if="updateState?.status === 'available' || updateState?.status === 'downloading'" class="config-row">
               <div class="provider-badge style-badge"><Sparkles :size="15" /></div>
               <div class="config-main">
-                <div class="config-line"><span class="config-name">发现新版本 v{{ updateState.latestVersion }}</span></div>
+                <div class="config-line"><span class="config-name">{{ t('settings.about.found', { v: updateState.latestVersion }) }}</span></div>
                 <div v-if="updateState.notes" class="config-sub">{{ updateState.notes }}</div>
                 <div v-if="updateState.status === 'downloading' || updateDownloading" class="update-bar">
                   <div class="update-bar-fill" :style="{ width: `${updateProgress}%` }"></div>
@@ -251,38 +284,38 @@
               <button class="btn btn-primary btn-sm" :disabled="updateDownloading" @click="downloadUpdate">
                 <Loader2 v-if="updateDownloading" :size="13" class="animate-spin" />
                 <Download v-else :size="13" />
-                {{ updateDownloading ? `下载中 ${updateProgress}%` : '下载更新' }}
+                {{ updateDownloading ? t('settings.about.downloading', { p: updateProgress }) : t('settings.about.download') }}
               </button>
             </div>
             <div v-else-if="updateState?.status === 'downloaded'" class="config-row">
               <div class="provider-badge style-badge"><Download :size="15" /></div>
               <div class="config-main">
-                <div class="config-line"><span class="config-name">更新包已就绪</span></div>
-                <div class="config-sub">点击后将退出应用并自动完成安装，随后重新打开。</div>
+                <div class="config-line"><span class="config-name">{{ t('settings.about.ready') }}</span></div>
+                <div class="config-sub">{{ t('settings.about.readyDesc') }}</div>
               </div>
               <button class="btn btn-primary btn-sm" :disabled="updateApplying" @click="applyUpdate">
                 <Loader2 v-if="updateApplying" :size="13" class="animate-spin" />
-                重启并安装
+                {{ t('settings.about.restartInstall') }}
               </button>
             </div>
             <div v-else-if="updateState?.status === 'error'" class="config-row">
               <div class="provider-badge style-badge"><RefreshCw :size="15" /></div>
               <div class="config-main">
-                <div class="config-line"><span class="config-name">检查失败</span></div>
+                <div class="config-line"><span class="config-name">{{ t('settings.about.checkFailed') }}</span></div>
                 <div class="config-sub">{{ updateState.error }}</div>
               </div>
-              <button class="btn btn-ghost btn-sm" @click="checkUpdate">重试</button>
+              <button class="btn btn-ghost btn-sm" @click="checkUpdate">{{ t('settings.about.retry') }}</button>
             </div>
-            <p v-else class="config-empty">点击「检查更新」获取最新版本。</p>
+            <p v-else class="config-empty">{{ t('settings.about.empty') }}</p>
           </section>
-          <p class="config-empty">说明：macOS 上更新通过目录替换完成（与 Tauri 同类方案），无需 Apple 签名；Windows 上下载安装器静默安装。</p>
+          <p class="config-empty">{{ t('settings.about.note') }}</p>
         </div>
 
         <!-- ===== Agent 配置 ===== -->
         <div v-else-if="tab === 'agents'" class="settings-scroll">
           <div class="settings-head">
-            <h2 class="settings-title">Agent 配置</h2>
-            <p class="settings-desc">高级区只保留 Agent 运行配置。这里可以调整模型、提示词和参数，保存后立即生效。</p>
+            <h2 class="settings-title">{{ t('settings.agents.title') }}</h2>
+            <p class="settings-desc">{{ t('settings.agents.desc') }}</p>
           </div>
           <div class="agent-list">
             <div v-for="a in agentDefs" :key="a.type" class="card agent-card">
@@ -292,27 +325,27 @@
                   <div class="agent-card-title">{{ a.label }}</div>
                   <div class="agent-card-type dim">{{ a.type }}</div>
                 </div>
-                <span v-if="getAgentCfg(a.type) && !getAgentCfg(a.type).is_default" class="tag tag-success">自定义</span>
-                <span v-else class="tag">默认</span>
+                <span v-if="getAgentCfg(a.type) && !getAgentCfg(a.type).is_default" class="tag tag-success">{{ t('settings.common.custom') }}</span>
+                <span v-else class="tag">{{ t('common.default') }}</span>
                 <ChevronDown :size="14" :style="{ transform: editingAgent === a.type ? 'rotate(180deg)' : '', transition: '0.2s' }" />
               </div>
               <div v-if="editingAgent === a.type" class="agent-card-body">
                 <label class="field">
-                  <span class="field-label">模型 <span class="dim">(留空使用 AI 服务默认)</span></span>
-                  <BaseSelect v-model="agentForm.model" :options="textModelSelectOptions" placeholder="— 使用 AI 服务默认 —" searchable />
+                  <span class="field-label">{{ t('settings.agents.model') }} <span class="dim">({{ t('settings.agents.modelHint') }})</span></span>
+                  <BaseSelect v-model="agentForm.model" :options="textModelSelectOptions" :placeholder="t('settings.agents.modelPlaceholder')" searchable />
                 </label>
                 <label class="field">
-                  <span class="field-label">System Prompt <span class="dim">(保存为 workspace/prompts/{{ a.type }}.md)</span></span>
-                  <textarea v-model="agentForm.system_prompt" class="textarea" rows="12" placeholder="Agent 系统提示词..." />
+                  <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: `workspace/prompts/${a.type}.md` }) }})</span></span>
+                  <textarea v-model="agentForm.system_prompt" class="textarea" rows="12" :placeholder="t('settings.agents.promptPlaceholder')" />
                 </label>
                 <div class="agent-card-foot">
-                  <button class="btn btn-ghost btn-sm" @click="resetAgentPrompt(a.type)">恢复默认</button>
+                  <button class="btn btn-ghost btn-sm" @click="resetAgentPrompt(a.type)">{{ t('settings.agents.reset') }}</button>
                   <span v-if="agentSaved === a.type" class="tag tag-success" style="margin-left:8px">
-                    <Check :size="10" /> 已保存
+                    <Check :size="10" /> {{ t('common.saved') }}
                   </span>
                   <button class="btn btn-primary btn-sm ml-auto" :disabled="agentSaving" @click="saveAgentCfg(a.type)">
                     <Loader2 v-if="agentSaving" :size="12" class="animate-spin" />
-                    保存
+                    {{ t('common.save') }}
                   </button>
                 </div>
               </div>
@@ -324,7 +357,7 @@
         <div v-else-if="tab === 'skills'" class="skills-layout">
           <!-- Agent 左侧列表 -->
           <aside class="skills-agent-list">
-            <div class="skills-agent-title">Agent 列表</div>
+            <div class="skills-agent-title">{{ t('settings.skills.agentList') }}</div>
             <button
               v-for="a in agentDefs"
               :key="a.type"
@@ -344,10 +377,10 @@
               <div class="skills-head-copy">
                 <h2 class="settings-title">{{ selectedAgentLabel }}</h2>
                 <div class="dim" style="font-size:12px;margin-top:2px">{{ selectedAgentType }} — Skills</div>
-                <p class="settings-desc">Skills 仅作为 Agent 的高级提示词层使用，不影响工作台常规功能入口。</p>
+                <p class="settings-desc">{{ t('settings.skills.desc') }}</p>
               </div>
               <button class="btn btn-primary btn-sm ml-auto" @click="startAddSkill">
-                <Plus :size="13" /> 新增 Skill
+                <Plus :size="13" /> {{ t('settings.skills.add') }}
               </button>
             </div>
 
@@ -356,8 +389,8 @@
               <div class="skills-empty-icon">
                 <FileText :size="24" />
               </div>
-              <div class="skills-empty-title">暂无 Skill</div>
-              <div class="skills-empty-desc">点击右上角「新增 Skill」创建第一个提示词文件</div>
+              <div class="skills-empty-title">{{ t('settings.skills.emptyTitle') }}</div>
+              <div class="skills-empty-desc">{{ t('settings.skills.emptyDesc') }}</div>
             </div>
 
             <!-- Skill 列表 -->
@@ -380,16 +413,16 @@
                     class="textarea mono"
                     rows="20"
                     style="font-size:12px;line-height:1.6"
-                    placeholder="编写 SKILL.md 内容..."
+                    :placeholder="t('settings.skills.contentPlaceholder')"
                   />
                   <div class="skill-card-foot">
                     <span class="dim" style="font-size:11px">skills/{{ s.id }}/SKILL.md</span>
                     <span v-if="skillSaved === s.id" class="tag tag-success" style="margin-left:8px">
-                      <Check :size="10" /> 已保存
+                      <Check :size="10" /> {{ t('common.saved') }}
                     </span>
                     <button class="btn btn-primary btn-sm ml-auto" :disabled="skillSaving" @click="saveSkill(s.id)">
                       <Loader2 v-if="skillSaving" :size="12" class="animate-spin" />
-                      保存
+                      {{ t('common.save') }}
                     </button>
                   </div>
                 </div>
@@ -405,8 +438,8 @@
       <form class="dialog config-dialog" @submit.prevent="saveCfg">
         <div class="dialog-head">
           <div>
-            <div class="dialog-title">{{ cfgEditId ? '编辑服务配置' : `添加${serviceMeta[cfgForm.service_type].label}服务` }}</div>
-            <div class="dialog-sub">推荐先选择模板，系统会自动填入更合理的 `Base URL` 与默认模型。</div>
+            <div class="dialog-title">{{ cfgEditId ? t('settings.cfg.editTitle') : t('settings.cfg.addTitle', { type: serviceMeta[cfgForm.service_type].label }) }}</div>
+            <div class="dialog-sub">{{ t('settings.cfg.sub') }}</div>
           </div>
           <span class="tag tag-accent ml-auto">{{ serviceMeta[cfgForm.service_type].label }}</span>
         </div>
@@ -423,24 +456,24 @@
             </button>
           </div>
           <label class="field">
-            <span class="field-label">配置名称</span>
-            <input v-model="cfgForm.name" class="input" placeholder="如 火宝默认图像服务" />
+            <span class="field-label">{{ t('settings.cfg.name') }}</span>
+            <input v-model="cfgForm.name" class="input" :placeholder="t('settings.cfg.namePlaceholder')" />
           </label>
-          <label class="field"><span class="field-label">服务商</span>
-            <BaseSelect v-model="cfgForm.provider" :options="providerSelectOptions" placeholder="选择服务商" searchable />
+          <label class="field"><span class="field-label">{{ t('settings.cfg.provider') }}</span>
+            <BaseSelect v-model="cfgForm.provider" :options="providerSelectOptions" :placeholder="t('settings.cfg.providerPlaceholder')" searchable />
           </label>
           <label class="field">
-            <span class="field-label">优先级</span>
+            <span class="field-label">{{ t('settings.cfg.priority') }}</span>
             <input v-model.number="cfgForm.priority" class="input" type="number" min="0" max="999" />
-            <span class="field-hint">数值越高越优先。工作台默认会优先使用同类型里优先级最高的启用配置。</span>
+            <span class="field-hint">{{ t('settings.cfg.priorityHint') }}</span>
           </label>
           <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" placeholder="sk-..." /></label>
           <label class="field"><span class="field-label">Base URL</span><input v-model="cfgForm.base_url" class="input" placeholder="https://..." /></label>
-          <label class="field"><span class="field-label">模型（逗号分隔）</span><input v-model="cfgForm.modelStr" class="input" placeholder="model-name" /></label>
+          <label class="field"><span class="field-label">{{ t('settings.cfg.models') }}</span><input v-model="cfgForm.modelStr" class="input" placeholder="model-name" /></label>
           <label v-if="cfgForm.service_type === 'text'" class="field">
-            <span class="field-label">Temperature <span class="dim">(留空跟随服务商默认)</span></span>
-            <input v-model="cfgForm.temperature" class="input" type="number" step="0.1" min="0" max="2" placeholder="如 0.6" />
-            <span class="field-hint">部分模型强制固定温度（如 kimi-k2 系只允许 0.6），报 invalid temperature 错误时在此填入对应值。</span>
+            <span class="field-label">Temperature <span class="dim">({{ t('settings.cfg.tempHint') }})</span></span>
+            <input v-model="cfgForm.temperature" class="input" type="number" step="0.1" min="0" max="2" :placeholder="t('settings.cfg.tempPlaceholder')" />
+            <span class="field-hint">{{ t('settings.cfg.tempNote') }}</span>
           </label>
           <div v-if="cfgTestResult" class="test-result" :class="{ ok: cfgTestResult.reachable, bad: !cfgTestResult.reachable }">
             <div class="test-result-head">
@@ -454,10 +487,10 @@
         <div class="dialog-foot">
           <button type="button" class="btn btn-ghost test-draft-btn" :disabled="cfgTesting" @click="testDraftCfg">
             <Loader2 v-if="cfgTesting" :size="12" class="animate-spin" />
-            <span v-else>测试配置</span>
+            <span v-else>{{ t('settings.cfg.test') }}</span>
           </button>
-          <button type="button" class="btn" @click="cfgDialog = false">取消</button>
-          <button type="submit" class="btn btn-primary">保存</button>
+          <button type="button" class="btn" @click="cfgDialog = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
         </div>
       </form>
     </div>
@@ -466,25 +499,25 @@
     <div v-if="addSkillDialog" class="overlay" @click.self="addSkillDialog = false">
       <form class="dialog skill-dialog" @submit.prevent="confirmAddSkill">
         <div class="dialog-head">
-          <div class="dialog-title">新增 Skill — {{ selectedAgentLabel }}</div>
+          <div class="dialog-title">{{ t('settings.skills.addTitle', { agent: selectedAgentLabel }) }}</div>
         </div>
         <div class="dialog-body skill-dialog-body">
           <label class="field">
-            <span class="field-label">Skill 目录名 <span class="dim">(英文，唯一)</span></span>
-            <input v-model="newSkillForm.id" class="input" placeholder="如 custom-extraction" />
+            <span class="field-label">{{ t('settings.skills.dirName') }} <span class="dim">({{ t('settings.skills.dirNameHint') }})</span></span>
+            <input v-model="newSkillForm.id" class="input" :placeholder="t('settings.skills.dirNamePlaceholder')" />
           </label>
           <label class="field">
-            <span class="field-label">名称</span>
-            <input v-model="newSkillForm.name" class="input" placeholder="如 自定义提取规则" />
+            <span class="field-label">{{ t('settings.skills.name') }}</span>
+            <input v-model="newSkillForm.name" class="input" :placeholder="t('settings.skills.namePlaceholder')" />
           </label>
           <label class="field">
-            <span class="field-label">描述</span>
-            <input v-model="newSkillForm.description" class="input" placeholder="简短描述此 Skill 的用途" />
+            <span class="field-label">{{ t('settings.skills.description') }}</span>
+            <input v-model="newSkillForm.description" class="input" :placeholder="t('settings.skills.descPlaceholder')" />
           </label>
         </div>
         <div class="dialog-foot">
-          <button type="button" class="btn" @click="addSkillDialog = false">取消</button>
-          <button type="submit" class="btn btn-primary" :disabled="!newSkillForm.id">创建</button>
+          <button type="button" class="btn" @click="addSkillDialog = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn btn-primary" :disabled="!newSkillForm.id">{{ t('settings.skills.create') }}</button>
         </div>
       </form>
     </div>
@@ -494,83 +527,83 @@
       <form class="dialog config-dialog" @submit.prevent="saveStyle">
         <div class="dialog-head">
           <div>
-            <div class="dialog-title">{{ styleEditId ? '编辑风格预设' : '添加风格预设' }}</div>
-            <div class="dialog-sub">提示词片段为英文，会在生成角色图与场景图时自动拼入提示词。</div>
+            <div class="dialog-title">{{ styleEditId ? t('settings.styleDialog.editTitle') : t('settings.styleDialog.addTitle') }}</div>
+            <div class="dialog-sub">{{ t('settings.styleDialog.sub') }}</div>
           </div>
-          <span class="tag tag-accent ml-auto"><Palette :size="12" /> 风格</span>
+          <span class="tag tag-accent ml-auto"><Palette :size="12" /> {{ t('settings.styleDialog.tag') }}</span>
         </div>
         <div class="dialog-body config-dialog-body">
           <label class="field">
-            <span class="field-label">风格名称 <span class="required">*</span></span>
-            <input v-model="styleForm.name" class="input" placeholder="如 3D、动漫、写实电影" />
+            <span class="field-label">{{ t('settings.styleDialog.name') }} <span class="required">*</span></span>
+            <input v-model="styleForm.name" class="input" :placeholder="t('settings.styleDialog.namePlaceholder')" />
           </label>
           <label class="field">
-            <span class="field-label">风格 key <span class="required">*</span></span>
-            <input v-model="styleForm.value" class="input mono" placeholder="如 3d、anime（小写字母/数字/中划线）" :disabled="!!styleEditId" />
-            <span class="field-hint">存入项目的风格标识，创建后不可修改。</span>
+            <span class="field-label">{{ t('settings.styleDialog.key') }} <span class="required">*</span></span>
+            <input v-model="styleForm.value" class="input mono" :placeholder="t('settings.styleDialog.keyPlaceholder')" :disabled="!!styleEditId" />
+            <span class="field-hint">{{ t('settings.styleDialog.keyHint') }}</span>
           </label>
           <label class="field">
-            <span class="field-label">提示词片段（英文） <span class="required">*</span></span>
-            <textarea v-model="styleForm.prompt" class="textarea" rows="3" placeholder="如 anime style, cel shading, vibrant colors, clean line art"></textarea>
+            <span class="field-label">{{ t('settings.styleDialog.prompt') }} <span class="required">*</span></span>
+            <textarea v-model="styleForm.prompt" class="textarea" rows="3" :placeholder="t('settings.styleDialog.promptPlaceholder')"></textarea>
           </label>
           <label class="field">
-            <span class="field-label">描述</span>
-            <input v-model="styleForm.description" class="input" placeholder="一句话说明该风格的适用场景" />
+            <span class="field-label">{{ t('settings.styleDialog.description') }}</span>
+            <input v-model="styleForm.description" class="input" :placeholder="t('settings.styleDialog.descPlaceholder')" />
           </label>
           <label class="field">
-            <span class="field-label">排序</span>
+            <span class="field-label">{{ t('settings.styleDialog.sort') }}</span>
             <input v-model.number="styleForm.sort_order" class="input" type="number" min="0" max="999" />
           </label>
         </div>
         <div class="dialog-foot">
-          <button type="button" class="btn" @click="styleDialog = false">取消</button>
-          <button type="submit" class="btn btn-primary">保存</button>
+          <button type="button" class="btn" @click="styleDialog = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
         </div>
       </form>
     </div>
     <!-- 迁移确认（自建 dialog：ConfirmDialog 的删除语义/Enter 快捷键不合此处） -->
     <div v-if="migrateDialog" class="overlay" @click.self="!migrating && (migrateDialog = false)">
       <form class="dialog" @submit.prevent="startMigrate">
-        <div class="dialog-head"><span class="dialog-title">更改存储位置</span></div>
+        <div class="dialog-head"><span class="dialog-title">{{ t('settings.migrate.title') }}</span></div>
         <div class="dialog-body">
           <div class="field">
-            <span class="field-label">新目录</span>
+            <span class="field-label">{{ t('settings.migrate.newDir') }}</span>
             <div class="input mono" style="word-break: break-all">{{ migrateTarget }}</div>
           </div>
           <div class="field">
-            <span class="field-label">待迁移数据</span>
+            <span class="field-label">{{ t('settings.migrate.dataToMove') }}</span>
             <div class="field-hint">
-              约 {{ formatBytes(storageInfo?.usage?.total || 0) }}<template v-if="migrateTargetFree != null"> · 目标盘剩余 {{ formatBytes(migrateTargetFree) }}</template>
+              {{ t('settings.migrate.sizeNote', { size: formatBytes(storageInfo?.usage?.total || 0) }) }}<template v-if="migrateTargetFree != null">{{ t('settings.migrate.freeNote', { size: formatBytes(migrateTargetFree) }) }}</template>
             </div>
           </div>
           <label class="field" style="display:flex; align-items:center; gap:8px; cursor:pointer">
             <input v-model="migrateFiles" type="checkbox" :disabled="migrating" />
-            <span class="field-label" style="margin:0">迁移已有数据（数据库与全部生成文件）</span>
+            <span class="field-label" style="margin:0">{{ t('settings.migrate.moveFiles') }}</span>
           </label>
-          <p v-if="!migrateFiles" class="field-hint migrate-warn">警告：应用将以全新的空数据库启动，旧目录中的数据会保留但不再被使用。</p>
-          <p class="field-hint">迁移期间后台服务会短暂停止，进行中的生成任务会被中断；完成后页面自动刷新。</p>
+          <p v-if="!migrateFiles" class="field-hint migrate-warn">{{ t('settings.migrate.emptyWarn') }}</p>
+          <p class="field-hint">{{ t('settings.migrate.note') }}</p>
         </div>
         <div class="dialog-foot">
-          <button type="button" class="btn" :disabled="migrating" @click="migrateDialog = false">取消</button>
+          <button type="button" class="btn" :disabled="migrating" @click="migrateDialog = false">{{ t('common.cancel') }}</button>
           <button type="submit" class="btn btn-primary" :disabled="migrating">
             <Loader2 v-if="migrating" :size="12" class="animate-spin" />
-            开始迁移
+            {{ t('settings.migrate.start') }}
           </button>
         </div>
       </form>
     </div>
     <ConfirmDialog
       :open="!!styleToDelete"
-      title="删除风格预设"
-      :message="`确定删除风格「${styleToDelete?.name}」？已使用此风格的项目不受影响，但删除的内置风格重启后可能恢复，建议改用「停用」。`"
+      :title="t('settings.styleDelete.title')"
+      :message="t('settings.styleDelete.message', { name: styleToDelete?.name })"
       :loading="deletingStyle"
       @confirm="confirmDelStyle"
       @cancel="styleToDelete = null"
     />
     <ConfirmDialog
       :open="!!skillToDelete"
-      title="删除 Skill"
-      :message="`确定删除 Skill「${skillToDelete}」？删除后对应 Agent 将回退到内置默认提示词。`"
+      :title="t('settings.skillDelete.title')"
+      :message="t('settings.skillDelete.message', { id: skillToDelete })"
       :loading="deletingSkill"
       @confirm="confirmDelSkill"
       @cancel="skillToDelete = null"
@@ -579,29 +612,33 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
-import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI } from '~/composables/useApi'
+import { useI18n } from 'vue-i18n'
+import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import brandLogo from '~/assets/huobao-logo.png'
 
+const { t } = useI18n()
+
 const showBrandImage = ref(true)
-const tab = ref('ai')
+const tab = ref('general')
 const showAdvanced = ref(false)
-const baseTabs = [
-  { id: 'ai', label: 'AI 服务', icon: Cpu },
-  { id: 'styles', label: '风格预设', icon: Palette },
-  { id: 'storage', label: '存储位置', icon: HardDrive },
-  { id: 'about', label: '关于更新', icon: RefreshCw },
-]
-const advancedTabs = [
-  { id: 'agents', label: 'Agent 配置', icon: Bot },
-  { id: 'skills', label: 'Skills', icon: FileText },
-]
+const baseTabs = computed(() => [
+  { id: 'general', label: t('settings.tabs.general'), icon: Languages },
+  { id: 'ai', label: t('settings.tabs.ai'), icon: Cpu },
+  { id: 'styles', label: t('settings.tabs.styles'), icon: Palette },
+  { id: 'storage', label: t('settings.tabs.storage'), icon: HardDrive },
+  { id: 'about', label: t('settings.tabs.about'), icon: RefreshCw },
+])
+const advancedTabs = computed(() => [
+  { id: 'agents', label: t('settings.tabs.agents'), icon: Bot },
+  { id: 'skills', label: t('settings.tabs.skills'), icon: FileText },
+])
 watch(showAdvanced, (v) => {
-  if (!v && advancedTabs.some(t => t.id === tab.value)) tab.value = 'ai'
+  if (!v && advancedTabs.value.some(x => x.id === tab.value)) tab.value = 'general'
 })
 
 // ===== AI Service Configs =====
@@ -613,14 +650,19 @@ const cfgTestResult = ref(null)
 const huobaoApiKey = ref('')
 const huobaoSaving = ref(false)
 const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text', priority: 0, temperature: '' })
-const serviceTypes = [{ type: 'text', label: '文本' }, { type: 'image', label: '图片' }, { type: 'video', label: '视频' }]
+// 服务类型 label/desc 渲染时求值（语言切换即时生效），type 为逻辑值
+const serviceTypes = computed(() => [
+  { type: 'text', label: t('common.serviceType.text') },
+  { type: 'image', label: t('common.serviceType.image') },
+  { type: 'video', label: t('common.serviceType.video') },
+])
 const providers = ['gemini', 'openai', 'volcengine', 'minimax']
 const providerSelectOptions = computed(() => providers.map(p => ({ label: p, value: p })))
-const serviceMeta = {
-  text: { label: '文本', desc: '剧本改写、角色场景提取、分镜拆解等 Agent 文本能力' },
-  image: { label: '图片', desc: '角色图、场景图与镜头图等静态图像生成' },
-  video: { label: '视频', desc: '镜头视频直出生成，默认 Seedance 2.0' },
-}
+const serviceMeta = computed(() => ({
+  text: { label: t('common.serviceType.text'), desc: t('settings.ai.meta.text') },
+  image: { label: t('common.serviceType.image'), desc: t('settings.ai.meta.image') },
+  video: { label: t('common.serviceType.video'), desc: t('settings.ai.meta.video') },
+}))
 const providerPresets = {
   text: {
     gemini: { label: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'] },
@@ -657,7 +699,8 @@ function applyProviderPreset(type, provider) {
   cfgForm.provider = provider
   cfgForm.base_url = preset.baseUrl
   cfgForm.modelStr = preset.models.join(', ')
-  cfgForm.name = `${preset.label}-${serviceMeta[type].label}`
+  // 配置名持久化进 DB：用 provider 英文 + 服务类型英文标识拼，不随界面语言漂移
+  cfgForm.name = `${preset.label}-${type}`
 }
 
 async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toast.error(e.message) } }
@@ -686,7 +729,7 @@ async function setDefaultModel(type, c, m) {
     if ((c.priority || 0) < maxPriority) payload.priority = maxPriority + 1
     if (!c.is_active) payload.is_active = true // 停用配置无法成为默认,选择即启用
     await aiConfigAPI.update(c.id, payload)
-    toast.success(`默认${serviceMeta[type].label}模型已切换为 ${m}`)
+    toast.success(t('settings.ai.defaultModelSwitched', { type: serviceMeta.value[type].label, model: m }))
     await loadCfgs()
   } catch (e) {
     toast.error(e.message)
@@ -695,10 +738,10 @@ async function setDefaultModel(type, c, m) {
   }
 }
 async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
-async function delCfg(id) { await aiConfigAPI.del(id); toast.success('已删除'); loadCfgs() }
+async function delCfg(id) { await aiConfigAPI.del(id); toast.success(t('index.deleted')); loadCfgs() }
 async function applyHuobaoQuickConfig() {
   const apiKey = huobaoApiKey.value.trim()
-  if (!apiKey) { toast.warning('请填写 Huobao API Key'); return }
+  if (!apiKey) { toast.warning(t('settings.ai.apiKeyRequired')); return }
   huobaoSaving.value = true
   try {
     for (const preset of huobaoQuickConfigs) {
@@ -707,7 +750,7 @@ async function applyHuobaoQuickConfig() {
       if (existing) await aiConfigAPI.update(existing.id, payload)
       else await aiConfigAPI.create(payload)
     }
-    toast.success('火宝快捷配置已写入')
+    toast.success(t('settings.ai.quickApplied'))
     huobaoApiKey.value = ''
     await loadCfgs()
   } catch (e) {
@@ -743,8 +786,8 @@ async function testCfgPayload(payload) {
   cfgTesting.value = true
   try {
     cfgTestResult.value = await aiConfigAPI.test(payload)
-    if (cfgTestResult.value.reachable) toast.success('端点已响应')
-    else toast.warning('端点未通过测试')
+    if (cfgTestResult.value.reachable) toast.success(t('settings.cfg.reachable'))
+    else toast.warning(t('settings.cfg.unreachable'))
   } catch (e) {
     toast.error(e.message)
   } finally {
@@ -771,16 +814,16 @@ async function testExistingCfg(c) {
   })
 }
 async function saveCfg() {
-  if (!cfgForm.provider) { toast.warning('选择服务商'); return }
+  if (!cfgForm.provider) { toast.warning(t('settings.cfg.providerRequired')); return }
   const models = cfgForm.modelStr.split(',').map(s => s.trim()).filter(Boolean)
   const temperature = cfgForm.temperature === '' || cfgForm.temperature === null ? null : Number(cfgForm.temperature)
   if (temperature !== null && (!Number.isFinite(temperature) || temperature < 0 || temperature > 2)) {
-    toast.warning('Temperature 需为 0~2 的数字'); return
+    toast.warning(t('settings.cfg.tempInvalid')); return
   }
   try {
     if (cfgEditId.value) await aiConfigAPI.update(cfgEditId.value, { name: cfgForm.name, provider: cfgForm.provider, api_key: cfgForm.api_key, base_url: cfgForm.base_url, model: models, priority: cfgForm.priority, temperature })
     else await aiConfigAPI.create({ service_type: cfgForm.service_type, provider: cfgForm.provider, name: cfgForm.name || `${cfgForm.provider}-${cfgForm.service_type}`, api_key: cfgForm.api_key, base_url: cfgForm.base_url, model: models, priority: cfgForm.priority, temperature })
-    cfgDialog.value = false; toast.success('已保存'); loadCfgs()
+    cfgDialog.value = false; toast.success(t('common.saved')); loadCfgs()
   } catch (e) { toast.error(e.message) }
 }
 
@@ -791,12 +834,12 @@ const agentSaving = ref(false)
 const agentSaved = ref(null)
 const agentForm = reactive({ model: '', system_prompt: '' })
 
-const agentDefs = [
-  { type: 'script_rewriter', label: '剧本改写', icon: '📝' },
-  { type: 'extractor', label: '角色场景提取', icon: '🔍' },
-  { type: 'storyboard_breaker', label: '分镜拆解', icon: '🎬' },
-  { type: 'prompt_generator', label: '提示词', icon: '🖼' },
-]
+const agentDefs = computed(() => [
+  { type: 'script_rewriter', label: t('settings.agents.scriptRewriter'), icon: '📝' },
+  { type: 'extractor', label: t('settings.agents.extractor'), icon: '🔍' },
+  { type: 'storyboard_breaker', label: t('settings.agents.storyboardBreaker'), icon: '🎬' },
+  { type: 'prompt_generator', label: t('settings.agents.promptGenerator'), icon: '🖼' },
+])
 
 function getAgentCfg(type) {
   return agentCfgs.value.find(a => a.agent_type === type)
@@ -842,7 +885,7 @@ async function resetAgentPrompt(type) {
     const cfg = await promptAPI.get(type)
     agentForm.model = cfg.model || ''
     agentForm.system_prompt = cfg.system_prompt || ''
-    toast.success('已恢复默认提示词（prompt 文件已删除）')
+    toast.success(t('settings.agents.promptReset'))
   } catch (e) { toast.error(e.message) }
 }
 
@@ -851,13 +894,13 @@ async function saveAgentCfg(type) {
   agentSaved.value = null
   try {
     await promptAPI.update(type, {
-      name: agentDefs.find(a => a.type === type)?.label || type,
+      name: agentDefs.value.find(a => a.type === type)?.label || type,
       model: agentForm.model,
       system_prompt: agentForm.system_prompt,
     })
     await loadAgents()
     agentSaved.value = type
-    toast.success(`${agentDefs.find(a => a.type === type)?.label} 配置已保存`)
+    toast.success(t('settings.agents.saved', { agent: agentDefs.value.find(a => a.type === type)?.label }))
     setTimeout(() => { if (agentSaved.value === type) agentSaved.value = null }, 3000)
   } catch (e) {
     toast.error(e.message)
@@ -877,8 +920,33 @@ const addSkillDialog = ref(false)
 const newSkillForm = reactive({ id: '', name: '', description: '' })
 
 const selectedAgentType = computed(() => selectedAgent.value)
-const selectedAgentLabel = computed(() => agentDefs.find(a => a.type === selectedAgent.value)?.label || '')
-const selectedAgentIcon = computed(() => agentDefs.find(a => a.type === selectedAgent.value)?.icon || '')
+const selectedAgentLabel = computed(() => agentDefs.value.find(a => a.type === selectedAgent.value)?.label || '')
+const selectedAgentIcon = computed(() => agentDefs.value.find(a => a.type === selectedAgent.value)?.icon || '')
+
+// ===== 通用：AI 内容语言（全局设置，与界面语言相互独立） =====
+const contentLanguage = ref('zh')
+const contentLangOptions = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+]
+async function loadContentLanguage() {
+  try { contentLanguage.value = (await settingsAPI.contentLanguage())?.language || 'zh' } catch { /* 保持默认 */ }
+}
+async function setContentLanguage(lang) {
+  if (contentLanguage.value === lang) return
+  const prev = contentLanguage.value
+  contentLanguage.value = lang
+  try {
+    await settingsAPI.setContentLanguage(lang)
+    toast.success(t('settings.general.languageSaved'))
+  } catch (e) {
+    contentLanguage.value = prev
+    toast.error(e.message)
+  }
+}
+onMounted(loadContentLanguage)
 
 // agent type 用下划线（script_rewriter），skill 目录按 Mastra 规范用连字符（script-rewriter）
 const skillDirOf = (type) => type.replace(/_/g, '-')
@@ -919,7 +987,7 @@ async function confirmAddSkill() {
     await skillsAPI.create({ id: skillId, name: newSkillForm.name, description: newSkillForm.description })
     addSkillDialog.value = false
     await loadAllSkills()
-    toast.success('Skill 创建成功')
+    toast.success(t('settings.skills.created'))
   } catch (e) {
     toast.error(e.message)
   }
@@ -937,7 +1005,7 @@ async function confirmDelSkill() {
     if (editingSkill.value === id) editingSkill.value = null
     await loadAllSkills()
     skillToDelete.value = null
-    toast.success('已删除')
+    toast.success(t('index.deleted'))
   } catch (e) {
     toast.error(e.message)
   } finally {
@@ -962,7 +1030,7 @@ async function saveSkill(id) {
     await skillsAPI.update(id, skillContent.value)
     await loadAllSkills()
     skillSaved.value = id
-    toast.success(`已保存`)
+    toast.success(t('common.saved'))
     setTimeout(() => { if (skillSaved.value === id) skillSaved.value = null }, 3000)
   } catch (e) {
     toast.error(e.message)
@@ -998,7 +1066,7 @@ async function confirmDelStyle() {
     deletingStyle.value = true
     await stylePresetAPI.del(p.id)
     styleToDelete.value = null
-    toast.success('已删除')
+    toast.success(t('index.deleted'))
     loadStylePresets()
   } catch (e) {
     toast.error(e.message)
@@ -1030,7 +1098,7 @@ function startEditStyle(p) {
 
 async function saveStyle() {
   if (!styleForm.name?.trim() || !styleForm.prompt?.trim() || (!styleEditId.value && !styleForm.value?.trim())) {
-    toast.warning('名称、key、提示词片段必填')
+    toast.warning(t('settings.styleDialog.required'))
     return
   }
   try {
@@ -1045,7 +1113,7 @@ async function saveStyle() {
       await stylePresetAPI.create({ ...styleForm })
     }
     styleDialog.value = false
-    toast.success('已保存')
+    toast.success(t('common.saved'))
     loadStylePresets()
   } catch (e) { toast.error(e.message) }
 }
@@ -1084,11 +1152,11 @@ async function loadStorage() {
         } catch { /* 轮询错误静默 */ }
       }, 2000)
     }
-  } catch (e) { toast.error(e?.message || '加载存储信息失败') }
+  } catch (e) { toast.error(e?.message || t('settings.storage.loadFailed')) }
 }
 
-watch(tab, (t) => {
-  if (t === 'storage') loadStorage()
+watch(tab, (active) => {
+  if (active === 'storage') loadStorage()
   else stopUsagePoll()
 })
 
@@ -1096,7 +1164,7 @@ async function pickTarget() {
   if (!desktopBridge) return
   const res = await desktopBridge.pickDirectory()
   if (res.canceled) return
-  if (!res.ok || !res.path) { toast.error(res.error || '选择目录失败'); return }
+  if (!res.ok || !res.path) { toast.error(res.error || t('settings.migrate.pickFailed')); return }
   migrateTarget.value = res.path
   migrateTargetFree.value = res.freeBytes ?? null
   migrateFiles.value = true
@@ -1112,7 +1180,7 @@ async function startMigrate() {
     // 成功的完成提示与页面刷新由全局进度订阅（app.vue）处理
   } catch (e) {
     endMigrate()
-    toast.error(e?.message || '迁移失败，已恢复原存储位置')
+    toast.error(e?.message || t('settings.migrate.failed'))
   } finally {
     migrating.value = false
     migrateDialog.value = false
@@ -1144,9 +1212,9 @@ async function checkUpdate() {
   updateChecking.value = true
   try {
     updateState.value = await desktopBridge.checkUpdate()
-    if (updateState.value?.status === 'up-to-date') toast.success('已是最新版本')
+    if (updateState.value?.status === 'up-to-date') toast.success(t('settings.about.upToDate'))
   } catch (e) {
-    toast.error(e?.message || '检查更新失败')
+    toast.error(e?.message || t('settings.about.checkFailedToast'))
     refreshUpdateState()
   } finally { updateChecking.value = false }
 }
@@ -1158,9 +1226,9 @@ async function downloadUpdate() {
   const unProgress = desktopBridge.onUpdateProgress((p) => { updateProgress.value = p })
   try {
     updateState.value = await desktopBridge.downloadUpdate()
-    toast.success('更新包下载完成，可以安装')
+    toast.success(t('settings.about.downloadDone'))
   } catch (e) {
-    toast.error(e?.message || '下载失败')
+    toast.error(e?.message || t('settings.about.downloadFailed'))
     refreshUpdateState()
   } finally {
     unProgress()
@@ -1176,7 +1244,7 @@ async function applyUpdate() {
     // 成功路径：应用退出并由更新后的版本接管，不会走到这里
   } catch (e) {
     updateApplying.value = false
-    toast.error(e?.message || '安装失败')
+    toast.error(e?.message || t('settings.about.installFailed'))
   }
 }
 
@@ -1337,6 +1405,26 @@ onBeforeUnmount(stopUsagePoll)
 }
 .template-type-chip:hover { background: var(--button-bg-hover); color: var(--text-0); }
 .template-type-chip:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
+
+/* ===== 内容语言选择器（通用 tab） ===== */
+.lang-picker { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: rgba(0,0,0,0.05); }
+.lang-option {
+  min-height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.16s var(--ease-out);
+  white-space: nowrap;
+}
+.lang-option:hover { color: var(--text-0); }
+.lang-option.on { background: #fff; color: var(--text-0); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.lang-option:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
 
 /* 按服务类型分组的配置卡 */
 .sections { display: flex; flex-direction: column; gap: 16px; }

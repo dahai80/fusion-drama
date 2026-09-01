@@ -16,6 +16,8 @@ import { storyboardTools } from './tools/storyboard-tools.js'
 import { imagePromptTools } from './tools/image-prompt-tools.js'
 import { loadAgentSkills, skillWorkspaces } from './skills.js'
 import { loadAgentPromptFile } from './prompts.js'
+import { buildLanguageDirective } from './language.js'
+import { getContentLanguageFromRC } from './context.js'
 
 // Default prompts (used when workspace/prompts/<type>.md 文件缺失时兜底)
 export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = {
@@ -134,7 +136,7 @@ export const DEFAULT_PROMPTS: Record<string, { name: string; instructions: strin
 4. 调用 update_storyboard 保存时参数只传两个键：storyboard_id 和 video_prompt。不要回传该分镜的其他任何字段（title、description、scene_id 等一律不传）
 
 通用规范：
-- 所有提示词只输出中文，单段连贯描述，不要分点，不要混入英文词汇
+- 所有提示词使用本次会话语言指令指定的目标语言输出，单段连贯描述，不要分点，不要混入无关词汇
 - 项目设定的视觉风格描述会由工具在保存图片提示词时自动注入到最终提示词的最前方，不要自行添加风格词
 - 必须实际调用保存工具，不要只在回复中给出提示词`,
   },
@@ -329,16 +331,17 @@ const AGENT_TOOLS: Record<string, Record<string, any>> = {
   },
 }
 
-/** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 */
+/** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 + 目标语言指令块 */
 function buildInstructions(type: string) {
-  return async () => {
+  return async ({ requestContext }: { requestContext?: RequestContext }) => {
     const defaults = DEFAULT_PROMPTS[type]
     const promptFile = await loadAgentPromptFile(type)
     const baseInstructions = promptFile?.instructions || defaults.instructions
     const skillInstructions = await loadAgentSkills(type)
-    return skillInstructions
-      ? [baseInstructions, '', skillInstructions].join('\n')
-      : baseInstructions
+    const languageDirective = buildLanguageDirective(getContentLanguageFromRC(requestContext))
+    return [baseInstructions, skillInstructions, languageDirective]
+      .filter(Boolean)
+      .join('\n\n')
   }
 }
 

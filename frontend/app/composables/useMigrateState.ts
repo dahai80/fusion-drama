@@ -3,6 +3,7 @@
  * MigrateOverlay 据此渲染全屏遮罩；迁移由设置页触发，进度经 preload 订阅回填。
  */
 import { reactive } from 'vue'
+import { i18n } from './i18n'
 
 interface MigrateState {
   active: boolean
@@ -18,14 +19,19 @@ const state = reactive<MigrateState>({
   message: '',
 })
 
-const PHASE_TEXT: Record<string, string> = {
-  validating: '正在校验目标目录…',
-  stopping: '正在停止后台服务…',
-  moving: '正在迁移数据文件…',
-  config: '正在更新存储配置…',
-  restarting: '正在重启后台服务…',
-  done: '迁移完成',
-  error: '迁移失败',
+// 渲染/调用时经 i18n.global.t 求值，语言切换即时生效（不能模块级常量固化）
+function phaseText(phase: string): string {
+  const t = i18n.global.t
+  const keys: Record<string, string> = {
+    validating: 'migrate.phases.validating',
+    stopping: 'migrate.phases.stopping',
+    moving: 'migrate.phases.moving',
+    config: 'migrate.phases.config',
+    restarting: 'migrate.phases.restarting',
+    done: 'migrate.phases.done',
+    error: 'migrate.phases.error',
+  }
+  return keys[phase] ? t(keys[phase]) : phase
 }
 
 export function useMigrateState() {
@@ -33,16 +39,19 @@ export function useMigrateState() {
     state.active = true
     state.phase = 'validating'
     state.percent = 0
-    state.message = PHASE_TEXT.validating
+    state.message = phaseText('validating')
   }
 
   function update(p: { phase: string, message?: string, copiedBytes?: number, totalBytes?: number }) {
     state.phase = p.phase
     if (p.phase === 'moving' && p.totalBytes) {
       state.percent = Math.min(99, Math.round(((p.copiedBytes ?? 0) / p.totalBytes) * 100))
-      state.message = `正在迁移数据文件… ${formatBytes(p.copiedBytes ?? 0)} / ${formatBytes(p.totalBytes)}`
+      state.message = i18n.global.t('migrate.phases.movingProgress', {
+        copied: formatBytes(p.copiedBytes ?? 0),
+        total: formatBytes(p.totalBytes),
+      })
     } else {
-      state.message = p.message || PHASE_TEXT[p.phase] || p.phase
+      state.message = p.message || phaseText(p.phase)
       if (p.phase === 'done') state.percent = 100
     }
   }

@@ -2,19 +2,19 @@
   <div class="page">
     <div class="launcher-hero">
       <div class="head-left">
-        <h1 class="launcher-title">项目启动台</h1>
-        <p class="launcher-sub">从一个创意到一部短剧，AI 全流程为你代工</p>
+        <h1 class="launcher-title">{{ t('index.hero.title') }}</h1>
+        <p class="launcher-sub">{{ t('index.hero.sub') }}</p>
         <div class="hero-stats">
-          <span class="tag">{{ dramas.length }} 个项目</span>
-          <span class="tag tag-success">{{ dramas.filter(d => currentStatus(d) === 'active').length }} 进行中</span>
-          <span class="tag tag-accent">{{ stylePresets.length }} 种视觉风格</span>
+          <span class="tag">{{ t('index.hero.projectCount', { n: dramas.length }) }}</span>
+          <span class="tag tag-success">{{ t('index.hero.activeCount', { n: dramas.filter(d => currentStatus(d) === 'active').length }) }}</span>
+          <span class="tag tag-accent">{{ t('index.hero.styleCount', { n: stylePresets.length }) }}</span>
         </div>
       </div>
       <button class="btn btn-primary" @click="showCreate = true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        新建项目
+        {{ t('index.create') }}
       </button>
     </div>
 
@@ -23,7 +23,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input v-model.trim="searchKeyword" class="input" placeholder="搜索项目" />
+        <input v-model.trim="searchKeyword" class="input" :placeholder="t('index.searchPlaceholder')" />
       </label>
       <div class="chip-row">
         <button
@@ -37,9 +37,9 @@
           {{ f.label }}
         </button>
       </div>
-      <select v-model="sortMode" class="input sort-select" aria-label="项目排序">
-        <option value="updated">最近更新</option>
-        <option value="title">项目名称</option>
+      <select v-model="sortMode" class="input sort-select" :aria-label="t('index.sortAria')">
+        <option value="updated">{{ t('index.sortUpdated') }}</option>
+        <option value="title">{{ t('index.sortTitle') }}</option>
       </select>
     </div>
 
@@ -61,7 +61,7 @@
         :style="{ animationDelay: `${i * 0.04}s` }"
         tabindex="0"
         role="button"
-        :aria-label="`打开项目 ${d.title}`"
+        :aria-label="t('index.openProjectAria', { title: d.title })"
         @click="openDrama(d)"
         @keydown.enter.prevent="openDrama(d)"
         @keydown.space.prevent="openDrama(d)"
@@ -69,7 +69,7 @@
         <div class="project-thumb" aria-hidden="true">
           <Film :size="34" :stroke-width="1.4" />
           <div class="status-wrap" @click.stop>
-            <button type="button" class="cover-badge tag status-badge" title="点击标记项目状态" @click="statusMenuId = statusMenuId === d.id ? null : d.id">
+            <button type="button" class="cover-badge tag status-badge" :title="t('index.statusBadgeTitle')" @click="statusMenuId = statusMenuId === d.id ? null : d.id">
               <span class="status-dot" :class="statusDotClass(d)"></span>
               {{ projectStatus(d) }}
             </button>
@@ -85,14 +85,14 @@
             </div>
           </div>
           <div class="more-wrap">
-            <button class="btn btn-icon btn-sm cover-more" type="button" title="更多" @click.stop="toggleMenu(d.id)">
+            <button class="btn btn-icon btn-sm cover-more" type="button" :title="t('common.more')" @click.stop="toggleMenu(d.id)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
               </svg>
             </button>
             <div v-if="activeMenuId === d.id" class="more-menu" @click.stop>
-              <button type="button" class="menu-item" @click="openDrama(d)">打开项目</button>
-              <button type="button" class="menu-item is-danger" @click="activeMenuId = null; dramaToDelete = d">删除项目</button>
+              <button type="button" class="menu-item" @click="openDrama(d)">{{ t('index.openProject') }}</button>
+              <button type="button" class="menu-item is-danger" @click="activeMenuId = null; dramaToDelete = d">{{ t('index.deleteProject') }}</button>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@
           <h2 class="project-name truncate">{{ d.title }}</h2>
           <div class="project-meta">
             <span v-if="d.style" class="tag tag-accent">{{ styleLabel(d.style) }}</span>
-            <span>{{ d.characters?.length || 0 }} 角色 · {{ d.scenes?.length || 0 }} 场景 · {{ d.episodes?.length || 0 }} 集</span>
+            <span>{{ t('index.projectMeta', { chars: d.characters?.length || 0, scenes: d.scenes?.length || 0, eps: d.episodes?.length || 0 }) }}</span>
           </div>
           <div class="project-foot">
             <span class="updated">
@@ -120,9 +120,9 @@
           <line x1="8" y1="12" x2="16" y2="12"/>
         </svg>
       </div>
-      <p class="empty-title">{{ dramas.length ? '没有匹配的项目' : '新建第一个短剧项目' }}</p>
-      <p class="empty-desc">{{ dramas.length ? '调整搜索词或筛选条件。' : '创建后选择集开始制作。' }}</p>
-      <button v-if="!dramas.length" class="btn btn-primary" @click="showCreate = true">新建项目</button>
+      <p class="empty-title">{{ dramas.length ? t('index.emptyFilteredTitle') : t('index.emptyTitle') }}</p>
+      <p class="empty-desc">{{ dramas.length ? t('index.emptyFilteredDesc') : t('index.emptyDesc') }}</p>
+      <button v-if="!dramas.length" class="btn btn-primary" @click="showCreate = true">{{ t('index.create') }}</button>
     </div>
 
     <div v-if="showCreate" class="overlay" @click.self="showCreate = false">
@@ -135,34 +135,34 @@
             </svg>
           </div>
           <div class="dialog-head-copy">
-            <h2 class="dialog-title">新建项目</h2>
-            <p class="dialog-desc">创建后进入项目页选择集</p>
+            <h2 class="dialog-title">{{ t('index.createDialog.title') }}</h2>
+            <p class="dialog-desc">{{ t('index.createDialog.desc') }}</p>
           </div>
         </div>
         <form @submit.prevent="create" class="dialog-form">
           <div class="dialog-body">
             <label class="field">
-              <span class="field-label">项目名称 <span class="required">*</span></span>
-              <input v-model="form.title" class="input" placeholder="例如：都市情感短剧《时光邮局》" required autofocus />
+              <span class="field-label">{{ t('index.createDialog.name') }} <span class="required">*</span></span>
+              <input v-model="form.title" class="input" :placeholder="t('index.createDialog.namePlaceholder')" required autofocus />
             </label>
             <label class="field">
-              <span class="field-label">视觉风格</span>
-              <BaseSelect v-model="form.style" :options="styleSelectOptions" placeholder="选择风格" searchable />
+              <span class="field-label">{{ t('index.createDialog.style') }}</span>
+              <BaseSelect v-model="form.style" :options="styleSelectOptions" :placeholder="t('index.createDialog.stylePlaceholder')" searchable />
               <span v-if="selectedStyleDesc" class="field-hint">{{ selectedStyleDesc }}</span>
             </label>
             <label class="field">
-              <span class="field-label">画面比例</span>
-              <BaseSelect v-model="form.aspect_ratio" :options="aspectRatioOptions" placeholder="选择画面比例" />
-              <span class="field-hint">创建后固定，视频生成将统一使用该比例</span>
+              <span class="field-label">{{ t('index.createDialog.aspectRatio') }}</span>
+              <BaseSelect v-model="form.aspect_ratio" :options="aspectRatioOptions" :placeholder="t('index.createDialog.aspectRatioPlaceholder')" />
+              <span class="field-hint">{{ t('index.createDialog.aspectRatioHint') }}</span>
             </label>
           </div>
           <div class="dialog-foot">
-            <button type="button" class="btn" @click="showCreate = false">取消</button>
+            <button type="button" class="btn" @click="showCreate = false">{{ t('common.cancel') }}</button>
             <button type="submit" class="btn btn-primary">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
-              创建项目
+              {{ t('index.createDialog.submit') }}
             </button>
           </div>
         </form>
@@ -170,8 +170,8 @@
     </div>
     <ConfirmDialog
       :open="!!dramaToDelete"
-      title="删除项目"
-      :message="`确定删除「${dramaToDelete?.title}」？项目下的剧集、分镜与生成记录将一并删除，此操作不可恢复。`"
+      :title="t('index.deleteDialog.title')"
+      :message="t('index.deleteDialog.message', { title: dramaToDelete?.title })"
       :loading="deletingDrama"
       @confirm="confirmDelDrama"
       @cancel="dramaToDelete = null"
@@ -181,9 +181,12 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { useI18n } from 'vue-i18n'
 import { Film, Clock } from 'lucide-vue-next'
 import { dramaAPI, stylePresetAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+
+const { t, locale } = useI18n()
 
 const dramas = ref([])
 const loading = ref(false)
@@ -198,28 +201,29 @@ const form = ref({ title: '', style: '', aspect_ratio: '16:9' })
 const stylePresets = ref([])
 const styleSelectOptions = computed(() => stylePresets.value.map(p => ({ label: p.name, value: p.value })))
 const selectedStyleDesc = computed(() => stylePresets.value.find(p => p.value === form.value.style)?.description || '')
-const aspectRatioOptions = [
-  { label: '16:9 · 横屏', value: '16:9' },
-  { label: '9:16 · 竖屏', value: '9:16' },
-  { label: '1:1 · 方形', value: '1:1' },
-  { label: '自适应', value: 'adaptive' },
-]
-const filters = [
-  { label: '全部', value: 'all' },
-  { label: '待开始', value: 'draft' },
-  { label: '进行中', value: 'active' },
-  { label: '已完成', value: 'completed' },
-]
+// 常量数组 label 渲染时求值（语言切换即时生效），value 为逻辑值
+const aspectRatioOptions = computed(() => ([
+  { label: t('index.ratio.landscape'), value: '16:9' },
+  { label: t('index.ratio.portrait'), value: '9:16' },
+  { label: t('index.ratio.square'), value: '1:1' },
+  { label: t('index.ratio.adaptive'), value: 'adaptive' },
+]))
+const filters = computed(() => ([
+  { label: t('index.status.all'), value: 'all' },
+  { label: t('index.status.draft'), value: 'draft' },
+  { label: t('index.status.active'), value: 'active' },
+  { label: t('index.status.completed'), value: 'completed' },
+]))
 // 项目状态由用户手动标记（持久化到 dramas.status），不再按内容自动推算
-const statusOptions = [
-  { label: '待开始', value: 'draft' },
-  { label: '进行中', value: 'active' },
-  { label: '已完成', value: 'completed' },
-]
+const statusOptions = computed(() => ([
+  { label: t('index.status.draft'), value: 'draft' },
+  { label: t('index.status.active'), value: 'active' },
+  { label: t('index.status.completed'), value: 'completed' },
+]))
 const statusMenuId = ref(null)
 
 function currentStatus(d) { return d.status || 'draft' }
-function projectStatus(d) { return statusOptions.find(s => s.value === currentStatus(d))?.label || '待开始' }
+function projectStatus(d) { return statusOptions.value.find(s => s.value === currentStatus(d))?.label || t('index.status.draft') }
 function statusDotClass(d) { return currentStatus(d) === 'active' ? 'on' : currentStatus(d) === 'completed' ? 'done' : '' }
 
 async function setDramaStatus(d, status) {
@@ -287,7 +291,7 @@ async function confirmDelDrama() {
   try {
     deletingDrama.value = true
     await dramaAPI.del(d.id)
-    toast.success('已删除')
+    toast.success(t('index.deleted'))
     dramaToDelete.value = null
     load()
   } catch (e) {
@@ -318,8 +322,8 @@ function openDrama(d) {
 }
 
 function latestEpisodeLabel(d) {
-  if (!d.episodes?.length) return '暂无剧集'
-  return `第 ${getEpisodeNumber(d)} 集`
+  if (!d.episodes?.length) return t('index.noEpisodes')
+  return t('index.episodeN', { n: getEpisodeNumber(d) })
 }
 
 function fmtDate(s) {
@@ -327,11 +331,11 @@ function fmtDate(s) {
   const d = new Date(s)
   const now = new Date()
   const diff = now.getTime() - d.getTime()
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  if (diff < 60000) return t('index.time.justNow')
+  if (diff < 3600000) return t('index.time.minutesAgo', { n: Math.floor(diff / 60000) })
+  if (diff < 86400000) return t('index.time.hoursAgo', { n: Math.floor(diff / 3600000) })
+  if (diff < 604800000) return t('index.time.daysAgo', { n: Math.floor(diff / 86400000) })
+  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : locale.value, { month: 'short', day: 'numeric' })
 }
 
 onMounted(load)

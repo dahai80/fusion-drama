@@ -161,3 +161,8 @@ export const stylePresetAPI = {
 export const storageAPI = {
   info: () => api.get('/storage'),
 }
+
+export const settingsAPI = {
+  contentLanguage: () => api.get<{ language: string }>('/settings/content-language'),
+  setContentLanguage: (language: string) => api.put('/settings/content-language', { language }),
+}

@@ -18,20 +18,24 @@
       <nav class="header-nav">
         <NuxtLink to="/" class="nav-link" :class="{ active: route.path === '/' }">
           <LayoutGrid :size="15" :stroke-width="1.8" />
-          <span>项目</span>
+          <span>{{ t('layout.nav.projects') }}</span>
         </NuxtLink>
         <NuxtLink to="/settings" class="nav-link" :class="{ active: route.path === '/settings' }">
           <Settings :size="15" :stroke-width="1.8" />
-          <span>设置</span>
+          <span>{{ t('layout.nav.settings') }}</span>
         </NuxtLink>
       </nav>
+
+      <div class="header-right">
+        <LocaleSwitcher />
+      </div>
     </header>
 
     <!-- AI 服务未配置引导横幅(缺任一类型即提示) -->
     <div v-if="missingConfigLabels.length" class="config-banner">
       <TriangleAlert :size="14" :stroke-width="1.8" />
-      <span>尚未配置{{ missingConfigLabels.join('、') }}模型,AI 功能无法使用</span>
-      <NuxtLink to="/settings" class="config-banner-link">前往设置</NuxtLink>
+      <span>{{ t('layout.banner.missing', { types: missingConfigLabels.join(t('common.listJoin')) }) }}</span>
+      <NuxtLink to="/settings" class="config-banner-link">{{ t('layout.banner.goSettings') }}</NuxtLink>
     </div>
 
     <main class="content">
@@ -42,19 +46,27 @@
 
 <script setup>
 import { LayoutGrid, Settings, TriangleAlert } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/huobao-logo.png'
 
+const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
 
-const SERVICE_TYPE_LABELS = { text: '文本', image: '图片', video: '视频' }
+// 渲染时求值，语言切换即时生效（不能模块级常量固化）
+const SERVICE_TYPE_LABELS = computed(() => ({
+  text: t('common.serviceType.text'),
+  image: t('common.serviceType.image'),
+  video: t('common.serviceType.video'),
+}))
 const missingConfigLabels = ref([])
 
 async function checkAiConfigs() {
   try {
     const configs = await aiConfigAPI.list()
-    missingConfigLabels.value = Object.entries(SERVICE_TYPE_LABELS)
+    const labels = SERVICE_TYPE_LABELS.value
+    missingConfigLabels.value = Object.entries(labels)
       .filter(([type]) => !configs.some(c => c.service_type === type && c.is_active))
       .map(([, label]) => label)
   } catch { /* 配置检查失败不阻塞页面 */ }
@@ -63,6 +75,8 @@ async function checkAiConfigs() {
 onMounted(checkAiConfigs)
 // 设置页保存配置后返回时重新检查(布局跨页面复用,onMounted 只触发一次)
 watch(() => route.path, checkAiConfigs)
+// 切换界面语言时横幅中已拼接的类型文案需要重算
+watch(locale, checkAiConfigs)
 </script>
 
 <style scoped>
@@ -134,6 +148,12 @@ watch(() => route.path, checkAiConfigs)
   padding: 3px;
   border-radius: var(--radius-pill);
   background: rgba(0,0,0,0.05);
+}
+
+/* Header 右侧 — 语言切换器 */
+.header-right {
+  margin-left: auto;
+  display: flex; align-items: center;
 }
 .nav-link {
   display: flex; align-items: center; gap: 6px;
