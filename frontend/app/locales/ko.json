@@ -423,7 +423,8 @@
       "tasks": "작업",
       "viewFilm": "완성 영상 보기",
       "continue": "제작 계속",
-      "start": "제작 시작"
+      "start": "제작 시작",
+      "resolution": "해상도"
     },
     "model": {
       "defaultWith": "기본 · {model}",
@@ -711,7 +712,26 @@
       "genDone": "영상 생성이 완료되었습니다",
       "genFailed": "영상 생성에 실패했습니다",
       "genTimeout": "영상 생성 시간이 초과되었습니다",
-      "allDone": "모든 샷 영상이 생성되었습니다"
+      "allDone": "모든 샷 영상이 생성되었습니다",
+      "moderationHint": "실사 인물/민감 콘텐츠 심사에 걸렸을 수 있습니다. 상단 바에서 다른 영상 모델로 전환 후 다시 시도하세요",
+      "resolutionSwitched": "이 에피소드의 영상 해상도가 {label}(으)로 변경되었습니다",
+      "noneToGenerate": "생성할 샷이 없습니다",
+      "batchStarted": "{n}개의 영상 생성 작업을 시작했습니다",
+      "retryFailed": "실패 재시도({n})",
+      "select": "선택",
+      "selectDone": "{n}개 선택 · 완료",
+      "batchSelected": "선택 항목 생성({n})",
+      "listMetaFiltered": "필터 결과 · {n}/{total}개 작업",
+      "defaultModel": "기본 모델",
+      "confirmTitle": "영상 일괄 생성",
+      "confirmShots": "샷 수",
+      "confirmShotsValue": "{n}개",
+      "confirmTotal": "총 길이",
+      "confirmApprox": "약 {n}초",
+      "confirmModel": "영상 모델",
+      "confirmResolution": "해상도",
+      "confirmNote": "위 설정으로 샷별로 생성을 시작합니다. 실패한 작업은 나중에 「실패 재시도」로 한 번에 다시 실행할 수 있습니다.",
+      "confirmStart": "생성 시작 ({n})"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}캐릭터명 / {'@'}장멸명 으로 참조 소재를 지정(생성 시 참조 이미지로 자동 매핑). 시간대별로 화면의 움직임과 침라를 기술…",
@@ -720,13 +740,16 @@
       "imageN": "이미지 {n}",
       "videoN": "영상 {n}",
       "audioN": "오디오 {n}",
-      "uploadRefImage": "참조 이미지 업로드 ({used}/9)",
-      "uploadRefVideo": "참조 영상 업로드 ({used}/3)",
-      "uploadRefAudio": "참조 오디오 업로드 ({used}/3)",
+      "uploadRefImage": "참조 이미지 업로드 ({used}/{limit})",
+      "uploadRefVideo": "참조 영상 업로드 ({used}/{limit})",
+      "uploadRefAudio": "참조 오디오 업로드 ({used}/{limit})",
       "refAudioHint": "참조 오디오에는 참조 이미지 또는 영상이 1개 이상 필요합니다",
       "params": "생성 파라미터",
-      "duration": "생성 길이",
-      "durationUnit": "초(4-15)"
+      "duration": "분镜 길이",
+      "durationUnit": "초(4-15)",
+      "durationUnitWan": "초(2-30)",
+      "durationHint": "변경 즉시 스토리보드에 저장되며 목록과 일괄 생성에도 적용됩니다",
+      "effective": "이번 생성: {model} · {res} · {dur}초"
     },
     "tasks": {
       "title": "생성 작업 목록",
@@ -778,7 +801,8 @@
       "refMax3": "참조 {type}은(는) 최대 3개까지",
       "refDone": "참조 {type}을(를) 업로드했습니다",
       "refAudioNeed": "참조 오디오에는 참조 이미지 또는 영상이 1개 이상 필요합니다",
-      "audio": "오디오"
+      "audio": "오디오",
+      "refMax": "참조 {type}은(는) 최대 {n}개까지"
     },
     "viewer": {
       "imagePreview": "이미지 미리보기",
@@ -790,6 +814,11 @@
       "generating": "생성 중",
       "failed": "실패",
       "todo": "미생성"
+    },
+    "resolution": {
+      "smooth": "표준",
+      "hd": "고화질",
+      "uhd": "초고화질"
     }
   }
 }

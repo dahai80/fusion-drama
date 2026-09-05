@@ -88,7 +88,7 @@ data/       — 生成资源文件与 SQLite 数据库
 |---|---|
 | **文本** | OpenAI(兼容接口)、Gemini |
 | **图片** | OpenAI、Gemini、火山引擎 |
-| **视频** | 火山引擎 Seedance 2.0(标准 / Fast / Mini) |
+| **视频** | 火山引擎 Seedance 2.0(标准 / Fast / Mini)、MiniMax H3、阿里云百炼 Wan 3.0 (Prime / 标准) |
 
 ---
 

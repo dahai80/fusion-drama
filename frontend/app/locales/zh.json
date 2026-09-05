@@ -423,7 +423,8 @@
       "tasks": "任务",
       "viewFilm": "查看成片",
       "continue": "继续制作",
-      "start": "开始制作"
+      "start": "开始制作",
+      "resolution": "分辨率"
     },
     "model": {
       "defaultWith": "默认 · {model}",
@@ -711,7 +712,26 @@
       "genDone": "视频生成完成",
       "genFailed": "视频生成失败",
       "genTimeout": "视频生成超时",
-      "allDone": "所有镜头视频已生成"
+      "allDone": "所有镜头视频已生成",
+      "moderationHint": "疑似真人/敏感内容审核未通过，可在顶栏切换其他视频模型后重试",
+      "resolutionSwitched": "本集视频分辨率已切换为 {label}",
+      "noneToGenerate": "没有可生成的镜头",
+      "batchStarted": "已发起 {n} 个视频生成任务",
+      "retryFailed": "重试失败({n})",
+      "select": "选择",
+      "selectDone": "已选 {n} · 完成",
+      "batchSelected": "生成所选({n})",
+      "listMetaFiltered": "筛选结果 · {n}/{total} 个任务",
+      "defaultModel": "默认模型",
+      "confirmTitle": "批量生成视频",
+      "confirmShots": "镜头数",
+      "confirmShotsValue": "{n} 个",
+      "confirmTotal": "总时长",
+      "confirmApprox": "约 {n}s",
+      "confirmModel": "视频模型",
+      "confirmResolution": "分辨率",
+      "confirmNote": "将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。",
+      "confirmStart": "开始生成 ({n})"
     },
     "inspector": {
       "videoPromptPlaceholder": "用 {'@'}角色名 / {'@'}场景名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…",
@@ -720,13 +740,16 @@
       "imageN": "图片 {n}",
       "videoN": "视频 {n}",
       "audioN": "音频 {n}",
-      "uploadRefImage": "上传参考图片 ({used}/9)",
-      "uploadRefVideo": "上传参考视频 ({used}/3)",
-      "uploadRefAudio": "上传参考音频 ({used}/3)",
+      "uploadRefImage": "上传参考图片 ({used}/{limit})",
+      "uploadRefVideo": "上传参考视频 ({used}/{limit})",
+      "uploadRefAudio": "上传参考音频 ({used}/{limit})",
       "refAudioHint": "参考音频需至少 1 个参考图片或视频",
       "params": "生成参数",
-      "duration": "生成时长",
-      "durationUnit": "s（4-15）"
+      "duration": "分镜时长",
+      "durationUnit": "s（4-15）",
+      "durationUnitWan": "s（2-30）",
+      "durationHint": "修改即保存到分镜，列表与批量生成同步生效",
+      "effective": "本次生成：{model} · {res} · {dur}s"
     },
     "tasks": {
       "title": "生成任务列表",
@@ -778,7 +801,8 @@
       "refMax3": "参考{type}最多 3 个",
       "refDone": "参考{type}已上传",
       "refAudioNeed": "参考音频需要至少 1 个参考图片或视频",
-      "audio": "音频"
+      "audio": "音频",
+      "refMax": "参考{type}最多 {n} 个"
     },
     "viewer": {
       "imagePreview": "图片预览",
@@ -790,6 +814,11 @@
       "generating": "生成中",
       "failed": "失败",
       "todo": "待生成"
+    },
+    "resolution": {
+      "smooth": "流畅",
+      "hd": "高清",
+      "uhd": "超清"
     }
   }
 }

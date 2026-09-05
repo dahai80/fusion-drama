@@ -423,7 +423,8 @@
       "tasks": "タスク",
       "viewFilm": "完成映像を見る",
       "continue": "制作を続ける",
-      "start": "制作を開始"
+      "start": "制作を開始",
+      "resolution": "解像度"
     },
     "model": {
       "defaultWith": "デフォルト · {model}",
@@ -711,7 +712,26 @@
       "genDone": "動画生成が完了しました",
       "genFailed": "動画生成に失敗しました",
       "genTimeout": "動画生成がタイムアウトしました",
-      "allDone": "すべてのショット動画が生成済みです"
+      "allDone": "すべてのショット動画が生成済みです",
+      "moderationHint": "実写人物/センシティブ内容の審査で拒否された可能性があります。上部バーで別の動画モデルに切り替えて再試行してください",
+      "resolutionSwitched": "このエピソードの動画解像度を {label} に変更しました",
+      "noneToGenerate": "生成するショットがありません",
+      "batchStarted": "{n} 件の動画生成タスクを開始しました",
+      "retryFailed": "失敗を再試行({n})",
+      "select": "選択",
+      "selectDone": "{n} 件選択 · 完了",
+      "batchSelected": "選択分を生成({n})",
+      "listMetaFiltered": "絞り込み結果 · {n}/{total} 件のタスク",
+      "defaultModel": "デフォルトモデル",
+      "confirmTitle": "動画の一括生成",
+      "confirmShots": "ショット数",
+      "confirmShotsValue": "{n} 件",
+      "confirmTotal": "合計時間",
+      "confirmApprox": "約 {n} 秒",
+      "confirmModel": "動画モデル",
+      "confirmResolution": "解像度",
+      "confirmNote": "上記の設定でショットごとに生成を開始します。失敗したタスクは後で「失敗を再試行」からまとめて再実行できます。",
+      "confirmStart": "生成開始 ({n})"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}キャラクター名 / {'@'}シーン名 で参照素材を指定（生成時に参照画像へ自動マッピング）。時間帯ごとに画面の動きとカメラを記述…",
@@ -720,13 +740,16 @@
       "imageN": "画像 {n}",
       "videoN": "動画 {n}",
       "audioN": "音声 {n}",
-      "uploadRefImage": "参照画像をアップロード ({used}/9)",
-      "uploadRefVideo": "参照動画をアップロード ({used}/3)",
-      "uploadRefAudio": "参照音声をアップロード ({used}/3)",
+      "uploadRefImage": "参照画像をアップロード ({used}/{limit})",
+      "uploadRefVideo": "参照動画をアップロード ({used}/{limit})",
+      "uploadRefAudio": "参照音声をアップロード ({used}/{limit})",
       "refAudioHint": "参照音声には参照画像または動画が 1 つ以上必要です",
       "params": "生成パラメータ",
-      "duration": "生成の長さ",
-      "durationUnit": "s（4-15）"
+      "duration": "分镜の長さ",
+      "durationUnit": "s（4-15）",
+      "durationUnitWan": "秒（2-30）",
+      "durationHint": "変更はすぐ分镜に保存され、リストと一括生成にも反映されます",
+      "effective": "今回の生成：{model} · {res} · {dur}秒"
     },
     "tasks": {
       "title": "生成タスク一覧",
@@ -778,7 +801,8 @@
       "refMax3": "参照{type}は最大 3 つまで",
       "refDone": "参照{type}をアップロードしました",
       "refAudioNeed": "参照音声には参照画像または動画が 1 つ以上必要です",
-      "audio": "音声"
+      "audio": "音声",
+      "refMax": "参照{type}は最大 {n} つまで"
     },
     "viewer": {
       "imagePreview": "画像プレビュー",
@@ -790,6 +814,11 @@
       "generating": "生成中",
       "failed": "失敗",
       "todo": "未生成"
+    },
+    "resolution": {
+      "smooth": "標準",
+      "hd": "高画質",
+      "uhd": "超高画質"
     }
   }
 }

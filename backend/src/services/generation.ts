@@ -48,10 +48,15 @@ interface GenerateVideoParams {
   referenceImageUrls?: string[]
   referenceVideoUrls?: string[]
   referenceAudioUrls?: string[]
+  referenceFileUrl?: string
+  referenceLinkUrl?: string
   generateAudio?: boolean
   duration?: number
   aspectRatio?: string
   resolution?: string
+  seed?: number
+  promptExtend?: boolean
+  watermark?: boolean
   configId?: number
 }
 
@@ -113,11 +118,16 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     referenceImageUrls: params.referenceImageUrls,
     referenceVideoUrls: params.referenceVideoUrls,
     referenceAudioUrls: params.referenceAudioUrls,
+    referenceFileUrl: params.referenceFileUrl,
+    referenceLinkUrl: params.referenceLinkUrl,
     generateAudio: params.generateAudio === false ? 0 : 1,
-    duration: params.duration || 5,
-    aspectRatio: params.aspectRatio || '16:9',
-    // 保留高分辨率档位透传（MiniMax 768P/2K），火山等适配器内部自行归并
-    resolution: ['480p', '720p', '1080p', '2K'].includes(params.resolution || '') ? params.resolution : '720p',
+    duration: params.duration,
+    aspectRatio: params.aspectRatio,
+    // 统一存为项目内部格式，各适配器再转换为官方大小写与枚举。
+    resolution: normalizeStoredVideoResolution(params.resolution),
+    seed: params.seed,
+    promptExtend: params.promptExtend,
+    watermark: params.watermark,
   })
 
   logTaskStart('VideoTask', 'enqueue', {
@@ -215,6 +225,7 @@ async function processTask(id: number, config: AIConfig) {
       // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
+      const resolvedReferenceFileUrl = resolvePublicMediaUrl(params.referenceFileUrl, 'file')
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
         model: record.model,
@@ -226,10 +237,15 @@ async function processTask(id: number, config: AIConfig) {
         referenceImageUrls: resolvedReferenceImageUrls.length ? JSON.stringify(resolvedReferenceImageUrls) : null,
         referenceVideoUrls: resolvedReferenceVideoUrls.length ? JSON.stringify(resolvedReferenceVideoUrls) : null,
         referenceAudioUrls: resolvedReferenceAudioUrls.length ? JSON.stringify(resolvedReferenceAudioUrls) : null,
+        referenceFileUrl: resolvedReferenceFileUrl,
+        referenceLinkUrl: params.referenceLinkUrl,
         generateAudio: params.generateAudio,
         duration: params.duration,
         aspectRatio: params.aspectRatio,
         resolution: params.resolution,
+        seed: params.seed,
+        promptExtend: params.promptExtend,
+        watermark: params.watermark,
       }))
     }
 
@@ -366,7 +382,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
           }
         } else if (pollResp.videoUrl) {
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl: pollResp.videoUrl })
-          await handleVideoComplete(record, pollResp.videoUrl, null)
+          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration)
           return
         }
       }
@@ -520,16 +536,16 @@ async function normalizeVideoReferenceUrls(refs: string[] | null | undefined): P
  * http(s)/dataURL 直通；本地 static 路径需要 PUBLIC_BASE_URL 拼成公网地址，
  * 未配置时抛出可操作的中文错误（落入 catch 写入 error_msg 供前端展示）。
  */
-function resolvePublicMediaUrl(value: string | null | undefined, kind: 'video' | 'audio'): string | null {
+function resolvePublicMediaUrl(value: string | null | undefined, kind: 'video' | 'audio' | 'file'): string | null {
   const raw = String(value || '').trim()
   if (!raw) return null
   if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) return raw
   if (raw.startsWith('static/') || raw.startsWith('/static/')) {
     const base = (process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
     if (!base) {
-      const label = kind === 'video' ? '视频' : '音频'
+      const label = kind === 'video' ? '视频' : kind === 'audio' ? '音频' : '文件'
       throw new Error(
-        `参考${label}为本地路径 ${raw}，但后端未配置 PUBLIC_BASE_URL，Seedance API 无法访问内网地址。` +
+        `参考${label}为本地路径 ${raw}，但后端未配置 PUBLIC_BASE_URL，上游视频生成 API 无法访问内网地址。` +
         `请在 backend/.env 配置 PUBLIC_BASE_URL（如 https://your-domain.com）后重试，或改用公网 URL。`,
       )
     }
@@ -543,4 +559,11 @@ function resolvePublicMediaUrls(refs: string[] | null | undefined, kind: 'video'
   if (!Array.isArray(refs) || !refs.length) return []
   const items = Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean)))
   return items.map((item) => resolvePublicMediaUrl(item, kind)).filter((item): item is string => !!item)
+}
+
+function normalizeStoredVideoResolution(resolution: string | null | undefined): string | undefined {
+  const value = String(resolution || '').trim().toLowerCase()
+  if (value === '480p' || value === '720p' || value === '1080p') return value
+  if (value === '2k') return '2K'
+  return undefined
 }
