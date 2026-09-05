@@ -24,7 +24,7 @@ app.get('/', async (c) => {
 // GET /skills/:id — Get skill content (raw, 含 frontmatter 供编辑)
 app.get('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
-  if (!await fsm().exists(skillFile(id))) return badRequest(c, 'Skill not found')
+  if (!await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
   const content = await fsm().readFile(skillFile(id), { encoding: 'utf-8' })
   return success(c, { id, content })
 })
@@ -43,13 +43,13 @@ app.put('/*', async (c) => {
 app.post('/', async (c) => {
   const body = await c.req.json()
   const { id, description } = body
-  if (!id) return badRequest(c, 'Skill id is required')
+  if (!id) return badRequest(c, 'Skill id 必填')
   // Mastra 技能规范：frontmatter name 必须与目录名一致，且只允许小写字母/数字/连字符
   const segments = String(id).split('/')
   if (!segments.every((seg: string) => SKILL_ID_SEGMENT.test(seg))) {
     return badRequest(c, 'Skill id 每段只能包含小写字母、数字和连字符')
   }
-  if (await fsm().exists(skillFile(id))) return badRequest(c, 'Skill already exists')
+  if (await fsm().exists(skillFile(id))) return badRequest(c, '技能已存在')
 
   const name = segments[segments.length - 1]
   const content = `---
@@ -69,7 +69,7 @@ Write your skill content here.
 // DELETE /skills/:id — Delete skill directory
 app.delete('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
-  if (!await fsm().exists(`skills/${id}`)) return badRequest(c, 'Skill not found')
+  if (!await fsm().exists(`skills/${id}`)) return badRequest(c, '技能不存在')
   await fsm().rmdir(`skills/${id}`, { recursive: true })
   await refreshSkillWorkspaces()
   return success(c)

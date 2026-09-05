@@ -132,10 +132,10 @@ app.post('/', async (c) => {
 
   // 验证必填字段
   if (!body.service_type || !body.provider) {
-    return badRequest(c, 'service_type and provider are required')
+    return badRequest(c, '需要 service_type 与 provider')
   }
   if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, 'Unsupported service_type/provider')
+    return badRequest(c, '不支持的 service_type/provider')
   }
 
   let temperature: number | null = null
@@ -143,7 +143,7 @@ app.post('/', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature must be a number between 0 and 2')
+      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
     }
   }
 
@@ -171,10 +171,10 @@ app.post('/', async (c) => {
 app.post('/test', async (c) => {
   const body = await c.req.json()
   if (!body.service_type || !body.provider || !body.base_url) {
-    return badRequest(c, 'service_type, provider and base_url are required')
+    return badRequest(c, '需要 service_type、provider 与 base_url')
   }
   if (!isOfficialProvider(body.service_type, body.provider)) {
-    return badRequest(c, 'Unsupported service_type/provider')
+    return badRequest(c, '不支持的 service_type/provider')
   }
 
   const model = Array.isArray(body.model) ? body.model[0] : body.model
@@ -257,7 +257,7 @@ app.put('/:id', async (c) => {
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
   if (!isOfficialProvider(serviceType, provider)) {
-    return badRequest(c, 'Unsupported service_type/provider')
+    return badRequest(c, '不支持的 service_type/provider')
   }
 
   const updates: Record<string, any> = { updatedAt: now() }
@@ -275,7 +275,7 @@ app.put('/:id', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
-      return badRequest(c, 'temperature must be a number between 0 and 2')
+      return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
     }
     // 与已有 settings 合并，清空的 temperature 从 JSON 中移除
     let settings: Record<string, any> = {}

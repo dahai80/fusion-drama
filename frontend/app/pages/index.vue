@@ -1,14 +1,15 @@
 <template>
   <div class="page">
-    <div class="launcher-hero">
+    <!-- 紧凑头部：标题 + 统计 + 新建 一行 -->
+    <div class="launcher-head">
       <div class="head-left">
         <h1 class="launcher-title">{{ t('index.hero.title') }}</h1>
-        <p class="launcher-sub">{{ t('index.hero.sub') }}</p>
-        <div class="hero-stats">
-          <span class="tag">{{ t('index.hero.projectCount', { n: dramas.length }) }}</span>
-          <span class="tag tag-success">{{ t('index.hero.activeCount', { n: dramas.filter(d => currentStatus(d) === 'active').length }) }}</span>
-          <span class="tag tag-accent">{{ t('index.hero.styleCount', { n: stylePresets.length }) }}</span>
-        </div>
+        <span class="launcher-sub">{{ t('index.hero.sub') }}</span>
+      </div>
+      <div class="hero-stats">
+        <span class="tag">{{ t('index.hero.projectCount', { n: dramas.length }) }}</span>
+        <span class="tag tag-success">{{ t('index.hero.activeCount', { n: dramas.filter(d => currentStatus(d) === 'active').length }) }}</span>
+        <span class="tag tag-accent">{{ t('index.hero.styleCount', { n: stylePresets.length }) }}</span>
       </div>
       <button class="btn btn-primary" @click="showCreate = true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -37,14 +38,14 @@
           {{ f.label }}
         </button>
       </div>
-      <select v-model="sortMode" class="input sort-select" :aria-label="t('index.sortAria')">
-        <option value="updated">{{ t('index.sortUpdated') }}</option>
-        <option value="title">{{ t('index.sortTitle') }}</option>
-      </select>
+      <div class="sort-select-wrap">
+        <BaseSelect v-model="sortMode" :options="sortOptions" :searchable="false" />
+      </div>
     </div>
 
+    <!-- 加载骨架：卡片 -->
     <div v-if="loading" class="project-grid">
-      <div v-for="i in 6" :key="i" class="card skeleton-card">
+      <div v-for="i in 8" :key="i" class="card skeleton-card">
         <div class="skeleton-cover"></div>
         <div class="skeleton-body">
           <div class="skeleton-line w-60"></div>
@@ -53,6 +54,7 @@
       </div>
     </div>
 
+    <!-- 项目卡片网格 -->
     <div v-else-if="filteredDramas.length" class="project-grid">
       <article
         v-for="(d, i) in filteredDramas"
@@ -66,47 +68,58 @@
         @keydown.enter.prevent="openDrama(d)"
         @keydown.space.prevent="openDrama(d)"
       >
-        <div class="project-thumb" aria-hidden="true">
-          <Film :size="34" :stroke-width="1.4" />
+        <div class="project-cover">
+          <span class="cover-initial">{{ coverInitial(d) }}</span>
+          <span v-if="d.aspect_ratio && d.aspect_ratio !== 'adaptive'" class="cover-ratio">{{ d.aspect_ratio }}</span>
           <div class="status-wrap" @click.stop>
-            <button type="button" class="cover-badge tag status-badge" :title="t('index.statusBadgeTitle')" @click="statusMenuId = statusMenuId === d.id ? null : d.id">
-              <span class="status-dot" :class="statusDotClass(d)"></span>
-              {{ projectStatus(d) }}
-            </button>
-            <div v-if="statusMenuId === d.id" class="more-menu status-menu">
-              <button
+            <AppMenu
+              :open="statusMenuId === d.id"
+              placement="bottom-start"
+              :min-width="120"
+              @update:open="(v) => { statusMenuId = v ? d.id : null }"
+            >
+              <template #trigger>
+                <button type="button" class="cover-badge status-badge" :title="t('index.statusBadgeTitle')">
+                  <span class="status-dot" :class="statusDotClass(d)"></span>
+                  {{ projectStatus(d) }}
+                </button>
+              </template>
+              <AppMenuItem
                 v-for="s in statusOptions"
                 :key="s.value"
-                type="button"
-                class="menu-item"
-                :class="{ on: currentStatus(d) === s.value }"
+                :selected="currentStatus(d) === s.value"
                 @click="setDramaStatus(d, s.value)"
-              >{{ s.label }}</button>
-            </div>
+              >{{ s.label }}</AppMenuItem>
+            </AppMenu>
           </div>
-          <div class="more-wrap">
-            <button class="btn btn-icon btn-sm cover-more" type="button" :title="t('common.more')" @click.stop="toggleMenu(d.id)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
-              </svg>
-            </button>
-            <div v-if="activeMenuId === d.id" class="more-menu" @click.stop>
-              <button type="button" class="menu-item" @click="openDrama(d)">{{ t('index.openProject') }}</button>
-              <button type="button" class="menu-item is-danger" @click="activeMenuId = null; dramaToDelete = d">{{ t('index.deleteProject') }}</button>
-            </div>
+          <div class="more-wrap" @click.stop>
+            <AppMenu
+              :open="activeMenuId === d.id"
+              placement="bottom-end"
+              :min-width="140"
+              @update:open="(v) => { activeMenuId = v ? d.id : null }"
+            >
+              <template #trigger>
+                <button class="btn btn-icon btn-sm cover-more" type="button" :title="t('common.more')">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
+                  </svg>
+                </button>
+              </template>
+              <AppMenuItem @click="activeMenuId = null; openDrama(d)">{{ t('index.openProject') }}</AppMenuItem>
+              <AppMenuItem danger @click="activeMenuId = null; dramaToDelete = d">{{ t('index.deleteProject') }}</AppMenuItem>
+            </AppMenu>
           </div>
         </div>
         <div class="project-body">
           <h2 class="project-name truncate">{{ d.title }}</h2>
           <div class="project-meta">
             <span v-if="d.style" class="tag tag-accent">{{ styleLabel(d.style) }}</span>
-            <span>{{ t('index.projectMeta', { chars: d.characters?.length || 0, scenes: d.scenes?.length || 0, eps: d.episodes?.length || 0 }) }}</span>
+            <span class="dim">{{ t('index.projectMeta', { chars: d.characters?.length || 0, scenes: d.scenes?.length || 0, eps: d.episodes?.length || 0 }) }}</span>
           </div>
-          <div class="project-foot">
-            <span class="updated">
-              <Clock :size="11" :stroke-width="1.8" />
-              {{ fmtDate(d.updated_at || d.updatedAt) }}
-            </span>
+          <div class="project-foot dim">
+            <Clock :size="11" :stroke-width="1.8" />
+            {{ fmtDate(d.updated_at || d.updatedAt) }}
           </div>
         </div>
       </article>
@@ -181,8 +194,9 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { Film, Clock } from 'lucide-vue-next'
+import { Clock } from 'lucide-vue-next'
 import { dramaAPI, stylePresetAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
 
@@ -194,6 +208,10 @@ const showCreate = ref(false)
 const searchKeyword = ref('')
 const statusFilter = ref('all')
 const sortMode = ref('updated')
+const sortOptions = computed(() => ([
+  { label: t('index.sortUpdated'), value: 'updated' },
+  { label: t('index.sortTitle'), value: 'title' },
+]))
 const activeMenuId = ref(null)
 const dramaToDelete = ref(null)
 const deletingDrama = ref(false)
@@ -235,12 +253,17 @@ async function setDramaStatus(d, status) {
     await dramaAPI.update(d.id, { status })
   } catch (e) {
     d.status = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
 function styleLabel(key) {
   return stylePresets.value.find(p => p.value === key)?.name || key || ''
+}
+
+// 封面：单色灰阶 + 首字符（状态色只以小圆点出现，封面保持中性）
+function coverInitial(d) {
+  return String(d.title || '?').trim().slice(0, 1).toUpperCase() || '?'
 }
 
 const filteredDramas = computed(() => {
@@ -268,7 +291,7 @@ async function load() {
       form.value.style = stylePresets.value[0].value
     }
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     loading.value = false
   }
@@ -281,7 +304,7 @@ async function create() {
     showCreate.value = false
     navigateTo(`/drama/${d.id}`)
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -295,14 +318,10 @@ async function confirmDelDrama() {
     dramaToDelete.value = null
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     deletingDrama.value = false
   }
-}
-
-function toggleMenu(id) {
-  activeMenuId.value = activeMenuId.value === id ? null : id
 }
 
 function getEpisodeNumber(d) {
@@ -343,37 +362,41 @@ onMounted(load)
 
 <style scoped>
 .page {
-  padding: 40px 48px 64px;
+  padding: 20px 28px 48px;
   overflow-y: auto;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   animation: fadeUp 0.35s var(--ease-out) both;
   background: var(--surface-base);
 }
 
-.launcher-hero {
+/* 紧凑头部：标题 + 副标题 + 统计 + 新建 一行 */
+.launcher-head {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-6);
-  padding: var(--sp-4) 0 var(--sp-6);
+  align-items: center;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-4);
 }
-.head-left { display: flex; flex-direction: column; }
+.head-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .launcher-title {
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
   color: var(--text-0);
+  white-space: nowrap;
 }
-.launcher-sub { color: var(--text-2); font-size: 14px; margin-top: 4px; }
-.hero-stats { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.launcher-sub { color: var(--text-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-stats { display: flex; gap: var(--sp-2); margin-left: auto; }
+.launcher-head .btn { flex-shrink: 0; }
 
 .toolbar {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
-.search-box { position: relative; width: 260px; flex: 0 0 auto; }
+.search-box { position: relative; width: 240px; flex: 0 0 auto; }
 .search-box svg {
   position: absolute;
   left: 12px;
@@ -409,56 +432,73 @@ onMounted(load)
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 .filter-chip.on { background: var(--inverse-surface); color: var(--on-inverse); }
-.sort-select {
-  margin-left: auto;
-  width: auto;
-  min-width: 132px;
-  min-height: 36px;
-  border-radius: var(--radius-pill);
-  border-color: var(--border);
-  background: var(--bg-hover);
-  color: var(--text-1);
-}
-.sort-select:focus { background: var(--surface-input); }
+.sort-select-wrap { margin-left: auto; width: 132px; flex-shrink: 0; }
 
+/* 项目卡片网格 */
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
-  gap: var(--sp-5);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
 }
 .project-card {
   position: relative;
   overflow: hidden;
   cursor: pointer;
   animation: fadeUp 0.32s var(--ease-out) both;
+  transition: border-color 0.16s var(--ease-out), background 0.16s var(--ease-out);
 }
-.project-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+.project-card:hover { border-color: var(--border-strong); }
 .project-card:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
-.project-thumb {
+
+/* 封面：灰阶微渐变 + 首字符，状态色只在圆点上出现 */
+.project-cover {
   position: relative;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
+  aspect-ratio: 2.1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--accent-bg);
-  color: var(--accent-text);
+  background: linear-gradient(160deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  border-bottom: 1px solid var(--border);
+}
+.cover-initial {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text-3);
+  user-select: none;
+}
+.cover-ratio {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
 }
 .cover-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  background: var(--header-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-xs);
-  color: var(--text-1);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
 }
+.status-badge { cursor: pointer; transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out); }
+.status-badge:hover { color: var(--text-0); background: var(--bg-1); }
 .status-dot {
   width: 6px;
   height: 6px;
@@ -468,112 +508,58 @@ onMounted(load)
 .status-dot.on { background: var(--success); }
 .status-dot.done { background: var(--accent); }
 .status-wrap { position: absolute; top: 10px; left: 10px; }
-.status-wrap .cover-badge { position: static; }
-.status-badge { cursor: pointer; border: none; font: inherit; }
-.status-menu {
-  top: calc(100% + 6px);
-  left: 0;
-  right: auto;
-  width: 108px;
-}
-.status-menu .menu-item.on { color: var(--accent); background: var(--accent-bg); }
-.more-wrap {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
+
+.more-wrap { position: absolute; top: 8px; right: 8px; }
 .cover-more {
   width: 30px;
   min-width: 30px;
   height: 30px;
   min-height: 30px;
-  background: var(--header-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: var(--text-1);
-  box-shadow: var(--shadow-xs);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   opacity: 0;
-  transition: opacity 0.15s var(--ease-out), background 0.15s var(--ease-out);
+  transition: opacity 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
-.cover-more:hover { background: var(--surface-raised); }
+.cover-more:hover { color: var(--text-0); }
 .project-card:hover .cover-more,
 .more-wrap:focus-within .cover-more { opacity: 1; }
-.more-menu {
-  position: absolute;
-  top: 36px;
-  right: 0;
-  width: 138px;
-  display: grid;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
-  z-index: 5;
-}
-.menu-item {
-  min-height: var(--button-height-sm);
-  display: flex;
-  align-items: center;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-1);
-  padding: 0 9px;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.14s var(--ease-out);
-}
-.menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
-.menu-item:focus-visible {
-  outline: none;
-  background: var(--bg-hover);
-  box-shadow: 0 0 0 2px var(--button-focus);
-}
-.menu-item.is-danger { color: var(--action-danger); }
-.menu-item.is-danger:hover { background: var(--action-danger-bg); color: var(--action-danger); }
 
-.project-body { padding: var(--sp-4); }
+/* 卡身 */
+.project-body { padding: 12px 14px 13px; }
 .project-name {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text-0);
 }
 .project-meta {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-2);
+  gap: 8px;
+  margin-top: 7px;
+  font-size: 11.5px;
   flex-wrap: wrap;
 }
 .project-foot {
-  margin-top: var(--sp-3);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.project-foot .updated {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 10px;
   font-size: 11px;
   color: var(--text-3);
   white-space: nowrap;
 }
 
+/* 骨架卡片 */
 .skeleton-card { overflow: hidden; }
 .skeleton-cover {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 2.1 / 1;
   background: var(--bg-2);
   animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
 }
-.skeleton-body { padding: var(--sp-4); display: grid; gap: 10px; }
+.skeleton-body { padding: 12px 14px 14px; display: grid; gap: 10px; }
 .skeleton-line {
   height: 12px;
   border-radius: 99px;
@@ -584,8 +570,10 @@ onMounted(load)
 .skeleton-line.w-40 { width: 40%; }
 @keyframes skeleton-pulse { to { opacity: 0.55; } }
 
+/* 空状态吃掉剩余高度 */
 .empty-state {
-  min-height: 280px;
+  flex: 1;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -607,7 +595,7 @@ onMounted(load)
   color: var(--text-3);
   margin-bottom: 4px;
 }
-.empty-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .empty-desc { font-size: 12px; color: var(--text-3); max-width: 240px; line-height: 1.6; }
 
 .create-dialog { width: 460px; max-width: calc(100vw - 32px); }
@@ -637,17 +625,18 @@ onMounted(load)
 .field-hint { font-size: 11px; color: var(--text-3); line-height: 1.5; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
+@media (max-width: 900px) {
+  .project-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+}
 @media (max-width: 760px) {
-  .page { padding: 24px 16px 40px; }
-  .launcher-hero {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--sp-4);
-  }
-  .launcher-hero .btn { width: 100%; }
+  .page { padding: 16px 16px 40px; }
+  .launcher-head { flex-wrap: wrap; }
+  .launcher-sub { display: none; }
+  .hero-stats { display: none; }
   .toolbar { flex-wrap: wrap; }
   .search-box { width: 100%; flex: 1 1 100%; }
-  .sort-select { margin-left: 0; flex: 1; }
+  .sort-select-wrap { margin-left: 0; flex: 1; }
+  .project-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .field-row { grid-template-columns: 1fr; }
   .dialog-foot { flex-direction: column-reverse; }
   .dialog-foot .btn { width: 100%; }

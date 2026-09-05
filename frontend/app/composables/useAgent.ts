@@ -1,5 +1,6 @@
 import { toast } from 'vue-sonner'
 import { api } from './useApi'
+import { toastError } from './useToast'
 import { i18n } from './i18n'
 
 export function useAgent() {
@@ -21,7 +22,7 @@ export function useAgent() {
       toast.success(i18n.global.t('composables.agent.done'))
       onDone?.()
     } catch (err: any) {
-      toast.error(err.message)
+      toastError(err)
     } finally {
       running.value = false
       runningType.value = null

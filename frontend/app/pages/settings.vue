@@ -1,6 +1,5 @@
 <template>
   <div class="settings-page">
-    <h1 class="page-title">{{ t('settings.pageTitle') }}</h1>
     <div class="settings-layout">
       <aside class="settings-nav">
         <div class="nav-group">
@@ -117,7 +116,10 @@
             <div class="huobao-quick-models">
               <div v-for="q in huobaoQuickConfigs" :key="q.name" class="hqm-row">
                 <span class="hqm-label">{{ serviceMeta[q.service_type].label }}</span>
-                <span class="hqm-provider">{{ q.provider }}</span>
+                <span class="hqm-provider">
+                  <img v-if="providerIconUrl(q.provider)" :src="providerIconUrl(q.provider)" class="hqm-provider-icon" alt="" />
+                  {{ q.provider }}
+                </span>
                 <span class="hqm-models mono">
                   <span v-for="(m, i) in q.model" :key="m" :class="['hqm-model', { 'is-default': i === 0 }]">
                     {{ m }}<em v-if="i === 0">{{ t('common.default') }}</em>
@@ -155,7 +157,10 @@
                 <button class="btn btn-ghost btn-sm ml-auto" @click="startAddCfg(st.type)"><Plus :size="13" /> {{ t('common.add') }}</button>
               </div>
               <div v-for="c in byType(st.type)" :key="c.id" class="config-row">
-                <div class="provider-badge" :data-provider="c.provider">{{ c.provider.slice(0, 1).toUpperCase() }}</div>
+                <div class="provider-badge" :class="{ 'has-icon': !!providerIconUrl(c.provider) }" :data-provider="c.provider">
+                  <img v-if="providerIconUrl(c.provider)" class="provider-badge-icon" :src="providerIconUrl(c.provider)" alt="" />
+                  <template v-else>{{ c.provider.slice(0, 1).toUpperCase() }}</template>
+                </div>
                 <div class="config-main">
                   <div class="config-line">
                     <span class="config-name">{{ c.name || `${c.provider}-${c.service_type}` }}</span>
@@ -346,47 +351,9 @@
           <p v-else class="config-empty">{{ t('settings.about.serverNote') }}</p>
         </div>
 
-        <!-- ===== Agent 配置 ===== -->
-        <div v-else-if="tab === 'agents'" class="settings-scroll">
-          <div class="settings-head">
-            <h2 class="settings-title">{{ t('settings.agents.title') }}</h2>
-            <p class="settings-desc">{{ t('settings.agents.desc') }}</p>
-          </div>
-          <div class="agent-list">
-            <div v-for="a in agentDefs" :key="a.type" class="card agent-card">
-              <div class="agent-card-head" @click="toggleAgentEdit(a.type)">
-                <div class="agent-type-badge">{{ a.icon }}</div>
-                <div class="agent-card-heading">
-                  <div class="agent-card-title">{{ a.label }}</div>
-                  <div class="agent-card-type dim">{{ a.type }}</div>
-                </div>
-                <span v-if="getAgentCfg(a.type) && !getAgentCfg(a.type).is_default" class="tag tag-success">{{ t('settings.common.custom') }}</span>
-                <span v-else class="tag">{{ t('common.default') }}</span>
-                <ChevronDown :size="14" :style="{ transform: editingAgent === a.type ? 'rotate(180deg)' : '', transition: '0.2s' }" />
-              </div>
-              <div v-if="editingAgent === a.type" class="agent-card-body">
-                <label class="field">
-                  <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: `workspace/prompts/${a.type}.md` }) }})</span></span>
-                  <textarea v-model="agentForm.system_prompt" class="textarea" rows="12" :placeholder="t('settings.agents.promptPlaceholder')" />
-                </label>
-                <div class="agent-card-foot">
-                  <button class="btn btn-ghost btn-sm" @click="resetAgentPrompt(a.type)">{{ t('settings.agents.reset') }}</button>
-                  <span v-if="agentSaved === a.type" class="tag tag-success" style="margin-left:8px">
-                    <Check :size="10" /> {{ t('common.saved') }}
-                  </span>
-                  <button class="btn btn-primary btn-sm ml-auto" :disabled="agentSaving" @click="saveAgentCfg(a.type)">
-                    <Loader2 v-if="agentSaving" :size="12" class="animate-spin" />
-                    {{ t('common.save') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== Skills 编辑 ===== -->
-        <div v-else-if="tab === 'skills'" class="skills-layout">
-          <!-- Agent 左侧列表 -->
+        <!-- ===== Agent 配置（左侧 tab 切换，Prompt 与 Skills 整合在同一 Agent 下） ===== -->
+        <div v-else-if="tab === 'agents'" class="skills-layout">
+          <!-- Agent 左侧 tab 列表 -->
           <aside class="skills-agent-list">
             <div class="skills-agent-title">{{ t('settings.skills.agentList') }}</div>
             <button
@@ -401,64 +368,100 @@
             </button>
           </aside>
 
-          <!-- Skill 管理右侧主区域 -->
+          <!-- 右侧主区域 -->
           <div class="settings-scroll skills-main">
             <div class="settings-head skills-head">
               <span class="agent-type-badge skills-head-badge">{{ selectedAgentIcon }}</span>
               <div class="skills-head-copy">
                 <h2 class="settings-title">{{ selectedAgentLabel }}</h2>
-                <div class="dim" style="font-size:12px;margin-top:2px">{{ selectedAgentType }} — Skills</div>
-                <p class="settings-desc">{{ t('settings.skills.desc') }}</p>
+                <div class="dim" style="font-size:12px;margin-top:2px;display:flex;align-items:center;gap:6px">
+                  {{ selectedAgentType }}
+                  <span v-if="getAgentCfg(selectedAgent) && !getAgentCfg(selectedAgent).is_default" class="tag tag-success">{{ t('settings.common.custom') }}</span>
+                  <span v-else class="tag">{{ t('common.default') }}</span>
+                </div>
               </div>
-              <button class="btn btn-primary btn-sm ml-auto" @click="startAddSkill">
+              <button v-if="agentPane === 'skills'" class="btn btn-primary btn-sm ml-auto" @click="startAddSkill">
                 <Plus :size="13" /> {{ t('settings.skills.add') }}
               </button>
             </div>
 
-            <!-- 无 skill 提示 -->
-            <div v-if="!currentSkills.length" class="card skills-empty">
-              <div class="skills-empty-icon">
-                <FileText :size="24" />
-              </div>
-              <div class="skills-empty-title">{{ t('settings.skills.emptyTitle') }}</div>
-              <div class="skills-empty-desc">{{ t('settings.skills.emptyDesc') }}</div>
+            <!-- 子 tab：System Prompt / Skills -->
+            <div class="agent-pane-tabs">
+              <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
+              <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
+                Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
+              </button>
             </div>
 
-            <!-- Skill 列表 -->
-            <div class="skill-list" v-else>
-              <div v-for="s in currentSkills" :key="s.id" class="card skill-card">
-                <div class="skill-card-head" @click="toggleSkillEdit(s.id)">
-                  <FileText :size="14" style="color:var(--accent);flex-shrink:0" />
-                  <div style="flex:1;min-width:0">
-                    <div style="font-weight:600;font-size:13px">{{ s.name }}</div>
-                    <div class="dim" style="font-size:11px">{{ s.description }}</div>
-                  </div>
-                  <button class="btn btn-danger btn-icon btn-sm" style="margin-right:4px" @click.stop="skillToDelete = s.id">
-                    <Trash2 :size="13" />
+            <!-- Prompt 面板 -->
+            <div v-if="agentPane === 'prompt'" class="card agent-card">
+              <div class="agent-card-body" style="border-top:none">
+                <label class="field">
+                  <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: `workspace/prompts/${selectedAgent}.md` }) }})</span></span>
+                  <textarea v-model="agentForm.system_prompt" class="textarea agent-prompt-input" rows="16" :placeholder="t('settings.agents.promptPlaceholder')" />
+                </label>
+                <div class="agent-card-foot">
+                  <button class="btn btn-ghost btn-sm" @click="resetAgentPrompt(selectedAgent)">{{ t('settings.agents.reset') }}</button>
+                  <span v-if="agentSaved === selectedAgent" class="tag tag-success" style="margin-left:8px">
+                    <Check :size="10" /> {{ t('common.saved') }}
+                  </span>
+                  <button class="btn btn-primary btn-sm ml-auto" :disabled="agentSaving" @click="saveAgentCfg(selectedAgent)">
+                    <Loader2 v-if="agentSaving" :size="12" class="animate-spin" />
+                    {{ t('common.save') }}
                   </button>
-                  <ChevronDown :size="14" :style="{ transform: editingSkill === s.id ? 'rotate(180deg)' : '', transition: '0.2s' }" />
-                </div>
-                <div v-if="editingSkill === s.id" class="skill-card-body">
-                  <textarea
-                    v-model="skillContent"
-                    class="textarea mono"
-                    rows="20"
-                    style="font-size:12px;line-height:1.6"
-                    :placeholder="t('settings.skills.contentPlaceholder')"
-                  />
-                  <div class="skill-card-foot">
-                    <span class="dim" style="font-size:11px">skills/{{ s.id }}/SKILL.md</span>
-                    <span v-if="skillSaved === s.id" class="tag tag-success" style="margin-left:8px">
-                      <Check :size="10" /> {{ t('common.saved') }}
-                    </span>
-                    <button class="btn btn-primary btn-sm ml-auto" :disabled="skillSaving" @click="saveSkill(s.id)">
-                      <Loader2 v-if="skillSaving" :size="12" class="animate-spin" />
-                      {{ t('common.save') }}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
+
+            <!-- Skills 面板 -->
+            <template v-else>
+              <p class="settings-desc" style="margin-top:0">{{ t('settings.skills.desc') }}</p>
+
+              <!-- 无 skill 提示 -->
+              <div v-if="!currentSkills.length" class="card skills-empty">
+                <div class="skills-empty-icon">
+                  <FileText :size="24" />
+                </div>
+                <div class="skills-empty-title">{{ t('settings.skills.emptyTitle') }}</div>
+                <div class="skills-empty-desc">{{ t('settings.skills.emptyDesc') }}</div>
+              </div>
+
+              <!-- Skill 列表 -->
+              <div class="skill-list" v-else>
+                <div v-for="s in currentSkills" :key="s.id" class="card skill-card">
+                  <div class="skill-card-head" @click="toggleSkillEdit(s.id)">
+                    <FileText :size="14" style="color:var(--accent);flex-shrink:0" />
+                    <div style="flex:1;min-width:0">
+                      <div style="font-weight:600;font-size:13px">{{ s.name }}</div>
+                      <div class="dim" style="font-size:11px">{{ s.description }}</div>
+                    </div>
+                    <button class="btn btn-danger btn-icon btn-sm" style="margin-right:4px" @click.stop="skillToDelete = s.id">
+                      <Trash2 :size="13" />
+                    </button>
+                    <ChevronDown :size="14" :style="{ transform: editingSkill === s.id ? 'rotate(180deg)' : '', transition: '0.2s' }" />
+                  </div>
+                  <div v-if="editingSkill === s.id" class="skill-card-body">
+                    <textarea
+                      v-model="skillContent"
+                      class="textarea mono skill-content-input"
+                      rows="20"
+                      style="font-size:12px;line-height:1.6"
+                      :placeholder="t('settings.skills.contentPlaceholder')"
+                    />
+                    <div class="skill-card-foot">
+                      <span class="dim" style="font-size:11px">skills/{{ s.id }}/SKILL.md</span>
+                      <span v-if="skillSaved === s.id" class="tag tag-success" style="margin-left:8px">
+                        <Check :size="10" /> {{ t('common.saved') }}
+                      </span>
+                      <button class="btn btn-primary btn-sm ml-auto" :disabled="skillSaving" @click="saveSkill(s.id)">
+                        <Loader2 v-if="skillSaving" :size="12" class="animate-spin" />
+                        {{ t('common.save') }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -646,12 +649,13 @@
 import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
+import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
-import brandLogo from '~/assets/huobao-logo.png'
+import { providerIconUrl } from '~/composables/useProviderIcon'
 
 const { t } = useI18n()
 
@@ -667,7 +671,6 @@ const baseTabs = computed(() => [
 ])
 const advancedTabs = computed(() => [
   { id: 'agents', label: t('settings.tabs.agents'), icon: Bot },
-  { id: 'skills', label: t('settings.tabs.skills'), icon: FileText },
 ])
 watch(showAdvanced, (v) => {
   if (!v && advancedTabs.value.some(x => x.id === tab.value)) tab.value = 'general'
@@ -737,7 +740,7 @@ function applyProviderPreset(type, provider) {
   cfgForm.name = `${preset.label}-${type}`
 }
 
-async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toast.error(e.message) } }
+async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toastError(e) } }
 
 // ===== 默认模型选择 =====
 // 默认解析规则与工作台/后端一致：启用配置中优先级最高者的模型列表首位
@@ -766,7 +769,7 @@ async function setDefaultModel(type, c, m) {
     toast.success(t('settings.ai.defaultModelSwitched', { type: serviceMeta.value[type].label, model: m }))
     await loadCfgs()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     defaultSaving.value = false
   }
@@ -788,7 +791,7 @@ async function applyHuobaoQuickConfig() {
     huobaoApiKey.value = ''
     await loadCfgs()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     huobaoSaving.value = false
   }
@@ -823,7 +826,7 @@ async function testCfgPayload(payload) {
     if (cfgTestResult.value.reachable) toast.success(t('settings.cfg.reachable'))
     else toast.warning(t('settings.cfg.unreachable'))
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     cfgTesting.value = false
   }
@@ -858,12 +861,12 @@ async function saveCfg() {
     if (cfgEditId.value) await aiConfigAPI.update(cfgEditId.value, { name: cfgForm.name, provider: cfgForm.provider, api_key: cfgForm.api_key, base_url: cfgForm.base_url, model: models, priority: cfgForm.priority, temperature })
     else await aiConfigAPI.create({ service_type: cfgForm.service_type, provider: cfgForm.provider, name: cfgForm.name || `${cfgForm.provider}-${cfgForm.service_type}`, api_key: cfgForm.api_key, base_url: cfgForm.base_url, model: models, priority: cfgForm.priority, temperature })
     cfgDialog.value = false; toast.success(t('common.saved')); loadCfgs()
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
 // ===== Agent Configs =====
 const agentCfgs = ref([])
-const editingAgent = ref(null)
+const agentPane = ref('prompt')   // 右侧子 tab：prompt | skills
 const agentSaving = ref(false)
 const agentSaved = ref(null)
 const agentForm = reactive({ system_prompt: '' })
@@ -882,17 +885,15 @@ function getAgentCfg(type) {
 
 async function loadAgents() {
   try { agentCfgs.value = await promptAPI.list() }
-  catch (e) { toast.error(e.message) }
+  catch (e) { toastError(e) }
 }
 
-async function toggleAgentEdit(type) {
-  if (editingAgent.value === type) { editingAgent.value = null; return }
+async function loadAgentPrompt(type) {
   try {
     const cfg = await promptAPI.get(type)
-    agentForm.system_prompt = cfg.system_prompt || ''
+    if (selectedAgent.value === type) agentForm.system_prompt = cfg.system_prompt || ''
     agentSaved.value = null
-    editingAgent.value = type
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
 async function resetAgentPrompt(type) {
@@ -902,7 +903,7 @@ async function resetAgentPrompt(type) {
     const cfg = await promptAPI.get(type)
     agentForm.system_prompt = cfg.system_prompt || ''
     toast.success(t('settings.agents.promptReset'))
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
 async function saveAgentCfg(type) {
@@ -918,7 +919,7 @@ async function saveAgentCfg(type) {
     toast.success(t('settings.agents.saved', { agent: agentDefs.value.find(a => a.type === type)?.label }))
     setTimeout(() => { if (agentSaved.value === type) agentSaved.value = null }, 3000)
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     agentSaving.value = false
   }
@@ -966,7 +967,7 @@ async function setContentLanguage(lang) {
     toast.success(t('settings.general.languageSaved'))
   } catch (e) {
     contentLanguage.value = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 onMounted(loadContentLanguage)
@@ -988,12 +989,15 @@ const currentSkills = computed(() =>
 
 async function loadAllSkills() {
   try { allSkills.value = await skillsAPI.list() }
-  catch (e) { toast.error(e.message) }
+  catch (e) { toastError(e) }
 }
 
 async function selectAgent(type) {
-  selectedAgent.value = type
-  editingSkill.value = null
+  if (selectedAgent.value !== type) {
+    selectedAgent.value = type
+    editingSkill.value = null
+  }
+  await loadAgentPrompt(type)
 }
 
 function startAddSkill() {
@@ -1012,7 +1016,7 @@ async function confirmAddSkill() {
     await loadAllSkills()
     toast.success(t('settings.skills.created'))
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -1030,7 +1034,7 @@ async function confirmDelSkill() {
     skillToDelete.value = null
     toast.success(t('index.deleted'))
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     deletingSkill.value = false
   }
@@ -1043,7 +1047,7 @@ async function toggleSkillEdit(id) {
     skillContent.value = res.content
     skillSaved.value = null
     editingSkill.value = id
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
 async function saveSkill(id) {
@@ -1056,7 +1060,7 @@ async function saveSkill(id) {
     toast.success(t('common.saved'))
     setTimeout(() => { if (skillSaved.value === id) skillSaved.value = null }, 3000)
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     skillSaving.value = false
   }
@@ -1069,14 +1073,14 @@ const styleEditId = ref(null)
 const styleForm = reactive({ name: '', value: '', prompt: '', description: '', sort_order: 0 })
 
 async function loadStylePresets() {
-  try { stylePresets.value = await stylePresetAPI.list(true) } catch (e) { toast.error(e.message) }
+  try { stylePresets.value = await stylePresetAPI.list(true) } catch (e) { toastError(e) }
 }
 
 async function toggleStyle(p) {
   try {
     await stylePresetAPI.update(p.id, { is_active: !p.is_active })
     loadStylePresets()
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
 const styleToDelete = ref(null)
@@ -1092,7 +1096,7 @@ async function confirmDelStyle() {
     toast.success(t('index.deleted'))
     loadStylePresets()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     deletingStyle.value = false
   }
@@ -1138,10 +1142,10 @@ async function saveStyle() {
     styleDialog.value = false
     toast.success(t('common.saved'))
     loadStylePresets()
-  } catch (e) { toast.error(e.message) }
+  } catch (e) { toastError(e) }
 }
 
-onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadStylePresets() })
+onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
 // ===== 存储位置 =====
 const desktopBridge = useDesktopBridge()
@@ -1175,7 +1179,7 @@ async function loadStorage() {
         } catch { /* 轮询错误静默 */ }
       }, 2000)
     }
-  } catch (e) { toast.error(e?.message || t('settings.storage.loadFailed')) }
+  } catch (e) { toastError(e, { fallback: 'settings.storage.loadFailed' }) }
 }
 
 watch(tab, (active) => {
@@ -1187,7 +1191,7 @@ async function pickTarget() {
   if (!desktopBridge) return
   const res = await desktopBridge.pickDirectory()
   if (res.canceled) return
-  if (!res.ok || !res.path) { toast.error(res.error || t('settings.migrate.pickFailed')); return }
+  if (!res.ok || !res.path) { toastError(res.error, { fallback: 'settings.migrate.pickFailed' }); return }
   migrateTarget.value = res.path
   migrateTargetFree.value = res.freeBytes ?? null
   migrateFiles.value = true
@@ -1203,7 +1207,7 @@ async function startMigrate() {
     // 成功的完成提示与页面刷新由全局进度订阅（app.vue）处理
   } catch (e) {
     endMigrate()
-    toast.error(e?.message || t('settings.migrate.failed'))
+    toastError(e, { fallback: 'settings.migrate.failed' })
   } finally {
     migrating.value = false
     migrateDialog.value = false
@@ -1251,7 +1255,7 @@ async function checkUpdate() {
     }
     if (updateState.value?.status === 'up-to-date') toast.success(t('settings.about.upToDate'))
   } catch (e) {
-    toast.error(e?.message || t('settings.about.checkFailedToast'))
+    toastError(e, { fallback: 'settings.about.checkFailedToast' })
     refreshUpdateState()
   } finally { updateChecking.value = false }
 }
@@ -1265,7 +1269,7 @@ async function downloadUpdate() {
     updateState.value = await desktopBridge.downloadUpdate()
     toast.success(t('settings.about.downloadDone'))
   } catch (e) {
-    toast.error(e?.message || t('settings.about.downloadFailed'))
+    toastError(e, { fallback: 'settings.about.downloadFailed' })
     refreshUpdateState()
   } finally {
     unProgress()
@@ -1287,7 +1291,7 @@ async function applyUpdate() {
     }
   } catch (e) {
     updateApplying.value = false
-    toast.error(e?.message || t(desktopBridge ? 'settings.about.installFailed' : 'settings.about.serverApplyFailed'))
+    toastError(e, { fallback: desktopBridge ? 'settings.about.installFailed' : 'settings.about.serverApplyFailed' })
   }
 }
 
@@ -1300,15 +1304,11 @@ onBeforeUnmount(stopUsagePoll)
 
 <style scoped>
 .settings-page { display: flex; flex-direction: column; height: 100%; background: var(--bg-base); }
-.page-title {
-  font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
-  color: var(--text-0); padding: 24px 32px 16px;
-}
 
 .settings-layout { display: flex; flex: 1; min-height: 0; }
 
 .settings-nav {
-  width: 220px; flex-shrink: 0; padding: 4px 12px 16px; border-right: 1px solid var(--border);
+  width: 220px; flex-shrink: 0; padding: 16px 12px 16px; border-right: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 14px;
 }
 .nav-group { display: flex; flex-direction: column; gap: 2px; }
@@ -1347,7 +1347,7 @@ onBeforeUnmount(stopUsagePoll)
 }
 
 .settings-content { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-.settings-scroll { height: 100%; overflow-y: auto; padding: 24px 40px 48px; max-width: 840px; margin: 0 auto; animation: fadeUp 0.3s var(--ease-out); }
+.settings-scroll { height: 100%; overflow-y: auto; padding: 20px 28px 48px; animation: fadeUp 0.3s var(--ease-out); }
 .settings-head { margin-bottom: 20px; }
 .settings-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .settings-desc { font-size: 13px; color: var(--text-2); margin-top: 6px; }
@@ -1395,6 +1395,9 @@ onBeforeUnmount(stopUsagePoll)
 }
 .hqm-provider {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--accent-bg);
@@ -1404,6 +1407,7 @@ onBeforeUnmount(stopUsagePoll)
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
+.hqm-provider-icon { width: 11px; height: 11px; object-fit: contain; border-radius: 2px; }
 .hqm-models {
   display: flex;
   flex-wrap: wrap;
@@ -1492,6 +1496,9 @@ onBeforeUnmount(stopUsagePoll)
 .provider-badge[data-provider="openai"] { background: #10a37f; }
 .provider-badge[data-provider="gemini"] { background: #4285f4; }
 .provider-badge[data-provider="volcengine"] { background: #ff5c39; }
+/* 有厂商图标时用中性底，彩色图标直接展示 */
+.provider-badge.has-icon { background: var(--bg-2); }
+.provider-badge-icon { width: 20px; height: 20px; object-fit: contain; }
 .config-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .config-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .config-name { font-size: 13.5px; font-weight: 650; color: var(--text-0); }
@@ -1525,21 +1532,34 @@ onBeforeUnmount(stopUsagePoll)
 .btn-icon.btn-sm { width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
 
 /* Agent */
-.agent-list { display: flex; flex-direction: column; gap: 10px; }
 .agent-card { overflow: hidden; }
-.agent-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; transition: background 0.15s; }
-.agent-card-head:hover { background: var(--bg-hover); }
 .agent-type-badge {
   width: 36px; height: 36px; border-radius: 10px;
   background: var(--accent-bg); color: var(--accent-text);
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; flex-shrink: 0;
 }
-.agent-card-heading { flex: 1; min-width: 0; }
-.agent-card-title { font-size: 13.5px; font-weight: 650; color: var(--text-0); }
-.agent-card-type { font-size: 11.5px; margin-top: 1px; }
 .agent-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); }
 .agent-card-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+
+/* Agent 右侧子 tab（System Prompt / Skills） */
+.agent-pane-tabs {
+  display: flex; gap: 2px; width: fit-content;
+  margin: 14px 0 14px; padding: 3px;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px;
+}
+.agent-pane-tab {
+  padding: 5px 16px; border: none; border-radius: 7px;
+  background: transparent; color: var(--text-2);
+  font: 600 12px var(--font-body); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.agent-pane-tab:hover { color: var(--text-0); }
+.agent-pane-tab.active { background: var(--accent-bg); color: var(--accent-text); }
+
+/* 编辑器尽量占满剩余视口高度，仍可手动拖拽 */
+.agent-prompt-input { min-height: max(320px, calc(100vh - 340px)); resize: vertical; }
+.skill-content-input { min-height: max(300px, calc(100vh - 420px)); resize: vertical; }
 
 /* Skills 布局 */
 .skills-layout { display: flex; height: 100%; overflow: hidden; }
@@ -1570,7 +1590,6 @@ onBeforeUnmount(stopUsagePoll)
 }
 .skills-agent-item.active .skill-count-badge { background: var(--accent-bg); color: var(--accent-text); }
 .skills-main { flex: 1; min-width: 0; }
-.skills-main.settings-scroll { max-width: 900px; }
 .skills-head { display: flex; align-items: flex-start; gap: 12px; }
 .skills-head-badge { width: 32px; height: 32px; font-size: 16px; }
 .skills-head-copy { min-width: 0; }

@@ -10,7 +10,7 @@ app.post('/image', async (c) => {
   const file = body['file']
 
   if (!file || !(file instanceof File)) {
-    return badRequest(c, 'file is required')
+    return badRequest(c, '文件必填')
   }
 
   const buffer = await file.arrayBuffer()
@@ -43,7 +43,7 @@ async function saveMediaUpload(
   const body = await c.req.parseBody()
   const file = body['file']
   if (!file || !(file instanceof File)) {
-    return badRequest(c, 'file is required')
+    return badRequest(c, '文件必填')
   }
   const label = kind === 'video' ? '视频' : '音频'
   const ext = extOf(file.name)

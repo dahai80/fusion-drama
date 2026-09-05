@@ -12,7 +12,7 @@ const app = new Hono()
 app.post('/episodes/:id/merge', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
 
   let storyboardIds: number[] | undefined
   try {

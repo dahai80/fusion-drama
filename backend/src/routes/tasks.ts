@@ -4,6 +4,7 @@ import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateImage, generateVideo } from '../services/generation.js'
 import { getActiveConfig, getConfigById } from '../services/ai.js'
+import { getDramaStylePrompt } from '../services/style-preset.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -111,7 +112,7 @@ app.post('/', async (c) => {
   if (type !== 'image' && type !== 'video') return badRequest(c, 'type 必须为 image 或 video')
 
   if (type === 'image') {
-    if (!body.prompt) return badRequest(c, 'prompt is required')
+    if (!body.prompt) return badRequest(c, '提示词必填')
   }
 
   const videoBody = type === 'video' ? normalizeVideoRequest(body) : null
@@ -121,6 +122,7 @@ app.post('/', async (c) => {
     // 未指定才回退到集锁定配置，避免锁定配置与所选模型错配（如锁定 Seedance 却传 MiniMax 模型名）
     let configId: number | undefined = body.config_id
     let episodeResolution: string | undefined
+    let storyboardDramaId: number | undefined
     if (body.storyboard_id) {
       const [sb] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, Number(body.storyboard_id)))
       if (sb) {
@@ -128,6 +130,7 @@ app.post('/', async (c) => {
         const locked = type === 'image' ? ep?.imageConfigId : ep?.videoConfigId
         if (locked != null && configId == null) configId = locked
         if (type === 'video' && ep?.resolution) episodeResolution = ep.resolution
+        storyboardDramaId = ep?.dramaId ?? undefined
       }
     }
 
@@ -148,6 +151,14 @@ app.post('/', async (c) => {
     })
     logTaskPayload('TaskAPI', 'request body', body)
 
+    // 视频生成时把项目视觉风格词注入提示词最前方（与图片侧的自动注入保持一致口径）
+    let videoPrompt = videoBody?.prompt
+    if (type === 'video' && String(videoPrompt || '').trim()) {
+      const dramaId = body.drama_id ?? storyboardDramaId ?? null
+      const stylePrompt = await getDramaStylePrompt(dramaId)
+      if (stylePrompt) videoPrompt = `${stylePrompt}，\n${videoPrompt}`
+    }
+
     const id = type === 'image'
       ? await generateImage({
         storyboardId: body.storyboard_id,
@@ -164,7 +175,7 @@ app.post('/', async (c) => {
       : await generateVideo({
         storyboardId: body.storyboard_id,
         dramaId: body.drama_id,
-        prompt: videoBody!.prompt,
+        prompt: videoPrompt,
         model: videoBody!.model,
         referenceMode: 'reference',
         imageUrl: videoBody!.image_url,

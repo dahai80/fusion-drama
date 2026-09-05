@@ -12,7 +12,7 @@ const app = new Hono()
 // POST /episodes — Create a new episode
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id required')
+  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
 
   // 图片/视频配置：显式传入优先，缺省时自动锁定当前启用的最高优先级官方配置
   const imageConfigId = body.image_config_id ?? await getActiveConfigId('image')
@@ -61,7 +61,7 @@ app.put('/:id', async (c) => {
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
   }
-  if (Object.keys(updates).length === 0) return badRequest(c, 'no valid fields')
+  if (Object.keys(updates).length === 0) return badRequest(c, '没有可更新的字段')
   if ('resolution' in updates && !['480p', '720p', '1080p'].includes(updates.resolution)) {
     return badRequest(c, 'resolution 只支持 480p / 720p / 1080p')
   }
@@ -218,7 +218,7 @@ app.get('/:episode_id/storyboards', async (c) => {
 app.get('/:id/generation-tasks', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
-  if (!ep) return notFound(c, 'Episode not found')
+  if (!ep) return notFound(c, '剧集不存在')
 
   const sbs = await db.select().from(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
   const storyboardIds = new Set(sbs.map(s => s.id))
@@ -259,7 +259,7 @@ app.get('/:id/generation-tasks', async (c) => {
 app.get('/:id/pipeline-status', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
-  if (!ep) return notFound(c, 'Episode not found')
+  if (!ep) return notFound(c, '剧集不存在')
 
   const chars = await db.select().from(schema.characters).where(eq(schema.characters.dramaId, ep.dramaId))
   const scenes = await db.select().from(schema.scenes).where(eq(schema.scenes.dramaId, ep.dramaId))

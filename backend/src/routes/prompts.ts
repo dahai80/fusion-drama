@@ -30,7 +30,7 @@ app.get('/', async (c) => {
 // GET /prompts/:type — 有效内容（文件优先，缺失回退代码默认）
 app.get('/:type', async (c) => {
   const type = c.req.param('type')
-  if (!checkType(type)) return badRequest(c, 'Unknown agent type')
+  if (!checkType(type)) return badRequest(c, '未知的 Agent 类型')
   const file = await loadAgentPromptFile(type)
   if (file) {
     return success(c, {
@@ -53,10 +53,10 @@ app.get('/:type', async (c) => {
 // PUT /prompts/:type — 保存为 prompt 文件
 app.put('/:type', async (c) => {
   const type = c.req.param('type')
-  if (!checkType(type)) return badRequest(c, 'Unknown agent type')
+  if (!checkType(type)) return badRequest(c, '未知的 Agent 类型')
   const body = await c.req.json()
   const instructions = String(body.system_prompt ?? '').trim()
-  if (!instructions) return badRequest(c, 'system_prompt required')
+  if (!instructions) return badRequest(c, 'system_prompt 必填')
   const name = String(body.name || DEFAULT_PROMPTS[type].name)
   const model = String(body.model ?? '').trim()
   await fsm().writeFile(promptFilePath(type), serializePromptFile({ name, model, instructions }), { recursive: true })
@@ -66,7 +66,7 @@ app.put('/:type', async (c) => {
 // POST /prompts/:type/reset — 删除文件，回退代码默认值
 app.post('/:type/reset', async (c) => {
   const type = c.req.param('type')
-  if (!checkType(type)) return badRequest(c, 'Unknown agent type')
+  if (!checkType(type)) return badRequest(c, '未知的 Agent 类型')
   const path = promptFilePath(type)
   if (await fsm().exists(path)) await fsm().deleteFile(path)
   return success(c, { agent_type: type, is_default: true })

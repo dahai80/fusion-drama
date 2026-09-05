@@ -1,6 +1,6 @@
 <template>
   <div class="page" v-if="drama">
-    <!-- Header -->
+    <!-- Header：单行紧凑 -->
     <div class="page-head card">
       <button class="back-btn" :title="t('common.back')" @click="navigateTo('/')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8,10 +8,8 @@
         </svg>
       </button>
       <div class="head-info">
-        <div class="head-title-row">
-          <h1 class="page-title">{{ drama.title }}</h1>
-          <span v-if="drama.style" class="tag tag-accent">{{ drama.style }}</span>
-        </div>
+        <h1 class="page-title">{{ drama.title }}</h1>
+        <span v-if="drama.style" class="tag tag-accent">{{ drama.style }}</span>
         <div class="page-meta">
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -57,42 +55,74 @@
         :style="{ animationDelay: `${i * 0.05}s` }"
         @click="navigateTo(`/drama/${drama.id}/episode/${ep.episode_number || ep.episodeNumber}`)"
       >
-        <!-- 卡片顶部：编号 + 状态 + 操作 -->
-        <div class="ep-header">
-          <div :class="['ep-number', `ep-num-${epStatus(ep)}`]">
-            <span class="ep-num-label">EP</span>
-            <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
+        <!-- 编号徽标 -->
+        <div :class="['ep-number', `ep-num-${epStatus(ep)}`]">
+          <span class="ep-num-label">EP</span>
+          <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
+        </div>
+
+        <!-- 标题 + 元数据 -->
+        <div class="ep-main">
+          <h3 class="ep-title">{{ ep.title }}</h3>
+          <div class="ep-meta-row">
+            <span v-if="ep.duration" class="ep-meta">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {{ ep.duration }}s
+            </span>
+            <span v-if="ep.scriptContent || ep.script_content" class="ep-meta ep-meta-ok">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              {{ t('detail.ep.scriptReady') }}
+            </span>
+            <span v-if="ep.videoUrl || ep.video_url" class="ep-meta ep-meta-ok">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              {{ t('detail.ep.merged') }}
+            </span>
+            <span v-if="ep.updatedAt || ep.updated_at" class="ep-meta ep-time">{{ formatEpTime(ep.updatedAt || ep.updated_at) }}</span>
           </div>
-          <div class="ep-badges" @click.stop>
-            <button type="button" :class="['tag', 'ep-status-btn', `ep-status-${epStatus(ep)}`]" :title="t('detail.ep.statusTitle')" @click="epStatusMenuId = epStatusMenuId === ep.id ? null : ep.id">
-              <span :class="['status-dot', epStatusDotClass(ep)]"></span>
-              {{ epStatusLabel(ep) }}
-            </button>
-            <div v-if="epStatusMenuId === ep.id" class="status-menu">
-              <button
+        </div>
+
+        <!-- 右侧：状态 / 分辨率 / 删除 -->
+        <div class="ep-side" @click.stop>
+          <div class="ep-badges">
+            <AppMenu
+              :open="epStatusMenuId === ep.id"
+              placement="bottom-start"
+              :min-width="110"
+              @update:open="(v) => { epStatusMenuId = v ? ep.id : null }"
+            >
+              <template #trigger>
+                <button type="button" :class="['tag', 'ep-status-btn', `ep-status-${epStatus(ep)}`]" :title="t('detail.ep.statusTitle')">
+                  <span :class="['status-dot', epStatusDotClass(ep)]"></span>
+                  {{ epStatusLabel(ep) }}
+                </button>
+              </template>
+              <AppMenuItem
                 v-for="s in epStatusOptions"
                 :key="s.value"
-                type="button"
-                class="status-menu-item"
-                :class="{ on: epStatus(ep) === s.value }"
+                :selected="epStatus(ep) === s.value"
                 @click="setEpisodeStatus(ep, s.value)"
-              >{{ s.label }}</button>
-            </div>
+              >{{ s.label }}</AppMenuItem>
+            </AppMenu>
           </div>
-          <div class="ep-actions" @click.stop>
-            <button type="button" :class="['tag', 'ep-res-btn']" :title="t('detail.ep.resTitle')" @click="epResMenuId = epResMenuId === ep.id ? null : ep.id">
-              {{ epResolution(ep) }}
-            </button>
-            <div v-if="epResMenuId === ep.id" class="status-menu">
-              <button
+          <div class="ep-actions">
+            <AppMenu
+              :open="epResMenuId === ep.id"
+              placement="bottom-start"
+              :min-width="110"
+              @update:open="(v) => { epResMenuId = v ? ep.id : null }"
+            >
+              <template #trigger>
+                <button type="button" :class="['tag', 'ep-res-btn']" :title="t('detail.ep.resTitle')">
+                  {{ epResolution(ep) }}
+                </button>
+              </template>
+              <AppMenuItem
                 v-for="r in resolutionOptions"
                 :key="r.value"
-                type="button"
-                class="status-menu-item"
-                :class="{ on: epResolution(ep) === r.value }"
+                :selected="epResolution(ep) === r.value"
                 @click="setEpisodeResolution(ep, r.value)"
-              >{{ r.label }}</button>
-            </div>
+              >{{ r.label }}</AppMenuItem>
+            </AppMenu>
             <button
               class="btn btn-icon btn-sm ep-delete"
               type="button"
@@ -105,39 +135,15 @@
             </button>
           </div>
         </div>
-
-        <!-- 标题 -->
-        <h3 class="ep-title">{{ ep.title }}</h3>
-
-        <!-- 元数据行 -->
-        <div class="ep-meta-row">
-          <span v-if="ep.duration" class="ep-meta">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            {{ ep.duration }}s
-          </span>
-          <span v-if="ep.scriptContent || ep.script_content" class="ep-meta ep-meta-ok">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            {{ t('detail.ep.scriptReady') }}
-          </span>
-          <span v-if="ep.videoUrl || ep.video_url" class="ep-meta ep-meta-ok">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            {{ t('detail.ep.merged') }}
-          </span>
-        </div>
-
-        <!-- 底部：更新时间 + 进入箭头 -->
-        <div class="ep-footer">
-          <span v-if="ep.updatedAt || ep.updated_at" class="ep-time">{{ formatEpTime(ep.updatedAt || ep.updated_at) }}</span>
-          <svg class="ep-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
-        </div>
+        <svg class="ep-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </div>
 
       <!-- Empty episode state（点击也可直接添加第一集） -->
       <div v-if="!drama.episodes?.length" class="card ep-empty" role="button" tabindex="0" :title="t('detail.ep.emptyCreateTitle')" @click="openAddEpisode" @keydown.enter="openAddEpisode">
         <div class="ep-empty-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
@@ -149,7 +155,7 @@
       <!-- 已有剧集时，列表末尾常驻「添加下一集」卡片 -->
       <div v-else class="card ep-empty ep-add" role="button" tabindex="0" :title="t('detail.ep.addNextTitle', { n: (drama.episodes?.length || 0) + 1 })" @click="openAddEpisode" @keydown.enter="openAddEpisode">
         <div class="ep-empty-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
@@ -551,6 +557,7 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
 import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
@@ -586,7 +593,7 @@ async function setEpisodeResolution(ep, resolution) {
     toast.success(t('detail.ep.resSwitched', { res: resolution }))
   } catch (e) {
     ep.resolution = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -622,7 +629,7 @@ async function setEpisodeStatus(ep, status) {
     await episodeAPI.update(ep.id, { status })
   } catch (e) {
     ep.status = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -630,7 +637,7 @@ async function load() {
   try {
     drama.value = await dramaAPI.get(dramaId)
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -653,7 +660,7 @@ async function addEpisode() {
     addDialog.value = false
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     creatingEpisode.value = false
   }
@@ -669,7 +676,7 @@ async function confirmDelEpisode() {
     episodeToDelete.value = null
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     deletingEpisode.value = false
   }
@@ -752,7 +759,7 @@ async function generateMaterial(m) {
     pollMaterial(m)
   } catch (e) {
     pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -806,7 +813,7 @@ function uploadMaterial(m) {
         editTarget.value = { ...editTarget.value, image_url: res.path, local_path: res.path }
       }
     } catch (e) {
-      toast.error(e.message)
+      toastError(e)
     } finally {
       uploadingMaterials.value = new Set([...uploadingMaterials.value].filter(k => k !== key))
     }
@@ -867,7 +874,7 @@ async function generateFinalPrompt(m) {
     editDraft.finalPrompt = fp
     toast.success(t('episode.asset.promptGenerated'))
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     finalPromptGen.value = false
   }
@@ -895,7 +902,7 @@ async function saveEdit() {
     closeEdit()
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     editSaving.value = false
   }
@@ -906,27 +913,26 @@ onMounted(load)
 
 <style scoped>
 .page {
-  padding: 28px 48px 40px;
+  padding: 20px 28px 40px;
   overflow-y: auto;
   height: 100%;
   animation: fadeUp 0.35s var(--ease-out) both;
 }
 
-/* Header card */
+/* Header card：单行紧凑 */
 .page-head {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  border-radius: var(--radius-xl);
-  margin-bottom: 24px;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
 }
-.head-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.head-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.head-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .head-action { flex-shrink: 0; }
 
 .back-btn {
-  width: 36px; height: 36px; flex-shrink: 0;
+  width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: none; border-radius: 50%;
   background: var(--overlay-track); color: var(--text-1);
@@ -940,15 +946,18 @@ onMounted(load)
 }
 
 .page-title {
-  font-size: 22px; font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 17px; font-weight: 650;
+  letter-spacing: -0.02em;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.page-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.page-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .meta-item {
   display: flex; align-items: center; gap: 5px;
-  font-size: 12.5px; color: var(--text-2);
+  font-size: 12px; color: var(--text-2);
 }
 
 /* 主 Tab 导航 */
@@ -957,7 +966,7 @@ onMounted(load)
   align-items: center;
   gap: 4px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .tab-btn {
   position: relative;
@@ -966,9 +975,9 @@ onMounted(load)
   gap: 7px;
   border: none;
   background: transparent;
-  padding: 10px 4px 12px;
+  padding: 8px 4px 10px;
   margin-right: 20px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-2);
   cursor: pointer;
@@ -985,7 +994,7 @@ onMounted(load)
   transition: background 0.16s var(--ease-out);
 }
 .tab-btn:hover { color: var(--text-0); }
-.tab-btn.on { color: var(--text-0); font-weight: 700; }
+.tab-btn.on { color: var(--text-0); font-weight: 650; }
 .tab-btn.on::after { background: var(--accent); }
 .tab-count {
   display: inline-flex;
@@ -1003,97 +1012,91 @@ onMounted(load)
 }
 .tab-btn.on .tab-count { background: var(--accent-bg); color: var(--accent-text); }
 
-/* Episode Grid — auto-fill 多列卡片 */
+/* Episode Grid — 横向紧凑卡片，多列 */
 .ep-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
 }
 
-/* 卡片主体 — 垂直面板 */
+/* 卡片主体 — 横向行 */
 .ep-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  padding: 16px 18px;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 8px 14px 8px 12px;
   cursor: pointer;
-  border-top: 3px solid transparent;
   animation: fadeUp 0.35s var(--ease-out) both;
-  transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), transform 0.15s var(--ease-out);
+  transition: border-color 0.18s var(--ease-out), background 0.18s var(--ease-out);
 }
 .ep-card:hover {
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
-/* 顶部状态色条 */
-.ep-card-draft { border-top-color: var(--text-3); }
-.ep-card-active { border-top-color: var(--success); }
-.ep-card-completed { border-top-color: var(--accent); }
 
-/* ---- 卡片头部：编号 / 状态 / 操作 ---- */
-.ep-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-
+/* 编号徽标：统一中性，状态由圆点表达 */
 .ep-number {
-  width: 46px; height: 46px; flex-shrink: 0;
+  width: 40px; height: 40px; flex-shrink: 0;
   border-radius: var(--radius);
+  border: 1px solid var(--border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--font-mono);
-  background: var(--accent-bg); color: var(--accent-text);
-  transition: background 0.16s, color 0.16s;
+  background: var(--bg-2); color: var(--text-1);
 }
 .ep-num-label {
-  font-size: 8px; letter-spacing: 0.18em; font-weight: 700;
-  opacity: 0.75; line-height: 1; margin-bottom: 1px;
+  font-size: 7.5px; letter-spacing: 0.18em; font-weight: 600;
+  opacity: 0.55; line-height: 1; margin-bottom: 1px;
 }
 .ep-number b {
-  font-size: 17px; font-weight: 800; line-height: 1;
+  font-size: 15px; font-weight: 600; line-height: 1;
 }
-.ep-num-active { background: var(--success-bg); color: var(--success); }
-.ep-num-completed { background: var(--accent-bg); color: var(--accent-text); }
-.ep-num-draft { background: var(--bg-2); color: var(--text-1); }
 
-.ep-badges { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-.ep-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.18s; }
-.ep-card:hover .ep-actions { opacity: 1; }
-
-/* 标题 */
+/* 中部：标题 + 元数据（单行不换行，防止卡片被撑高错位） */
+.ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
 .ep-title {
-  font-size: 15px; font-weight: 700; color: var(--text-0);
-  line-height: 1.3; margin: 0 0 10px 0;
-  overflow: hidden; text-overflow: ellipsis;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: 13.5px; font-weight: 600; color: var(--text-0);
+  line-height: 1.35; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-
-/* 元数据行 */
-.ep-meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: auto; }
+.ep-meta-row {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap; overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
+}
 .ep-meta {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11.5px; color: var(--text-3);
+  font-size: 11px; color: var(--text-3);
+  white-space: nowrap; flex-shrink: 0;
 }
 .ep-meta svg { opacity: 0.7; flex-shrink: 0; }
-.ep-meta-ok { color: var(--success); }
-.ep-meta-ok svg { opacity: 1; }
+.ep-meta-ok { color: var(--text-2); }
+.ep-time { flex-shrink: 1; }
 
-/* 底部栏 */
-.ep-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 12px; padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.ep-time { font-size: 11px; color: var(--text-3); opacity: 0.6; }
-.ep-arrow { color: var(--text-3); transition: transform 0.18s var(--ease-out), color 0.18s; }
-.ep-card:hover .ep-arrow { transform: translateX(2px); color: var(--accent); }
+/* 右侧：状态 + 操作 */
+.ep-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ep-badges { position: relative; display: flex; align-items: center; }
+.ep-actions { position: relative; display: flex; align-items: center; gap: 4px; opacity: 0; transition: opacity 0.18s; }
+.ep-card:hover .ep-actions,
+.ep-actions:focus-within { opacity: 1; }
 
-/* 状态胶囊 */
+.ep-arrow { flex-shrink: 0; color: var(--text-3); opacity: 0; transition: transform 0.18s var(--ease-out), color 0.18s, opacity 0.18s; }
+.ep-card:hover .ep-arrow { opacity: 1; transform: translateX(2px); color: var(--accent-text); }
+
+/* 状态胶囊：中性底 + 彩色圆点，颜色只出现在点上 */
 .ep-status-btn {
   cursor: pointer; border: none; font: inherit;
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px;
+  background: var(--bg-2); color: var(--text-2);
+  font-size: 11px; font-weight: 500;
   transition: background 0.14s, color 0.14s;
+  white-space: nowrap;
 }
-.ep-status-draft { background: var(--bg-2); color: var(--text-2); }
-.ep-status-active { background: var(--success-bg); color: var(--tag-success-text); }
-.ep-status-completed { background: var(--accent-bg); color: var(--accent-text); }
+.ep-status-btn:hover { color: var(--text-0); background: var(--bg-3); }
 
 /* 分辨率标签 */
 .ep-res-btn {
@@ -1110,35 +1113,9 @@ onMounted(load)
 .status-dot {
   width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
 }
-.dot-active { background: var(--success); box-shadow: 0 0 4px var(--success); }
+.dot-active { background: var(--success); }
 .dot-done { background: var(--accent); }
 .dot-pending { background: var(--text-3); }
-
-/* 下拉菜单 */
-.status-menu {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 0;
-  width: 110px;
-  display: grid;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-}
-.status-menu-item {
-  min-height: var(--button-height-sm);
-  display: flex; align-items: center;
-  border: none; border-radius: 6px;
-  background: transparent; color: var(--text-1);
-  padding: 0 9px; text-align: left;
-  font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all 0.14s var(--ease-out);
-}
-.status-menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
-.status-menu-item.on { color: var(--accent); background: var(--accent-bg); }
 
 /* 删除按钮 */
 .ep-delete {
@@ -1147,25 +1124,23 @@ onMounted(load)
 }
 .ep-delete:hover { color: var(--action-danger); }
 
-/* Empty */
+/* Empty / 添加卡片：与剧集卡片等高的横向虚线条 */
 .ep-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 48px; text-align: center; color: var(--text-3); font-size: 13px;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
+  min-height: 64px;
+  padding: 8px; text-align: center; color: var(--text-3); font-size: 12.5px;
   border-style: dashed;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 .ep-empty:hover { border-color: var(--accent-text); color: var(--accent-text); background: var(--accent-bg); }
-.ep-empty:hover .ep-empty-icon { transform: scale(1.06); }
-/* 列表末尾的「添加下一集」卡片：与剧集卡片等高、内容居中 */
-.ep-add { justify-content: center; min-height: 150px; padding: 24px; }
-.ep-add .ep-empty-icon { width: 40px; height: 40px; }
 .ep-empty-icon {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: var(--accent-bg); color: var(--accent-text);
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-2); color: var(--text-3);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: transform 0.2s, background 0.2s, color 0.2s;
 }
+.ep-empty:hover .ep-empty-icon { background: var(--accent-bg); color: var(--accent-text); }
 
 /* Create Episode Dialog (on top of global .dialog skeleton) */
 .ep-dialog { width: min(480px, 100%); }
@@ -1461,7 +1436,7 @@ onMounted(load)
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 4px;
 }
-.empty-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .empty-desc { font-size: 12px; color: var(--text-3); max-width: 260px; line-height: 1.6; }
 
 .viewer-overlay { align-items: center; }
@@ -1620,7 +1595,7 @@ onMounted(load)
 .mat-detail-primary-actions { display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: 860px) {
-  .page { padding: 20px 20px 32px; }
+  .page { padding: 16px 16px 32px; }
   .page-head { flex-wrap: wrap; }
   .ep-grid { grid-template-columns: 1fr; }
   .ep-actions { opacity: 1; } /* 移动端始终显示操作按钮 */
