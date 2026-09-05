@@ -308,7 +308,7 @@ server {
 
 ### 🐳 Docker 部署（含应用内更新）
 
-根目录提供一体化 `Dockerfile`（前端 generate + 后端 tsc + 运行时三阶段）与 `docker-compose.yml`（应用 + Watchtower）：
+根目录提供一体化 `Dockerfile`（前端 generate + 后端依赖/运行时三阶段，后端与服务器部署一致走 tsx）与 `docker-compose.yml`（应用 + Watchtower）：
 
 ```bash
 # 1. 配置环境（Watchtower 令牌，app 与 watchtower 两侧必须一致）
