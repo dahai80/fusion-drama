@@ -254,7 +254,7 @@ docker compose down
 
 ```bash
 # 拉取镜像
-docker pull huobao/huobao-drama:3.0.0
+docker pull huobao/huobao-drama:3.1.0
 
 # 运行(MySQL 需另行准备,通过 DATABASE_URL 指向;命名卷自动从镜像初始化 skills 等内容)
 docker run -d \
@@ -264,7 +264,7 @@ docker run -d \
   -v huobao-workspace:/app/backend/workspace \
   -e DATABASE_URL=mysql://huobao:huobao@host.docker.internal:3306/huobao_drama \
   --restart unless-stopped \
-  huobao/huobao-drama:3.0.0
+  huobao/huobao-drama:3.1.0
 
 # 查看日志
 docker logs -f huobao-drama
@@ -408,6 +408,16 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 ---
 
 ## 📋 更新日志
+
+### v3.1.0 (2026-09)
+
+- 新增阿里云百炼 Wan 3.0 视频模型（Prime / 标准，支持官方 input.media/parameters 入参）
+- 工作台顶栏新增分辨率选择器，按厂商显示原生档位（Seedance 480p/720p、MiniMax 768P/2K、Wan 480P/720P/1080P）
+- 默认视频模型调整为 Seedance 2.0 Mini
+- 修复切换视频模型时厂商/模型错配导致的生成报错
+- 批量视频：选择模式 + 生成前确认（镜头数/总时长/模型/分辨率），失败任务一键重试
+- 分镜时长在视频生成参数区直接编辑保存，单次/批量生成统一生效
+- 真人/敏感内容审核失败时提示切换模型重试
 
 ### v3.0.0 (2026-08)
 
