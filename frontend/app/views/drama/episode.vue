@@ -787,8 +787,8 @@
                       <span class="video-task-sep">·</span>
                       <span>{{ t('episode.vid.references', { n: task.referenceCount }) }}</span>
                     </div>
-                    <div v-if="task.error" class="video-task-error">
-                      {{ task.error }}
+                    <div v-if="task.error" class="video-task-error" :title="task.error">
+                      {{ mapError(task.error) }}
                       <div v-if="videoModerationHint(task.error)" class="video-task-error-hint">{{ videoModerationHint(task.error) }}</div>
                     </div>
                   </div>
@@ -1044,8 +1044,8 @@
                       playsinline
                       tabindex="-1"
                     />
-                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']">
-                      {{ m.status === 'failed' ? (m.error_msg || t('episode.export.mergeFailed')) : t('episode.export.merging') }}
+                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']" :title="m.status === 'failed' ? m.error_msg : null">
+                      {{ m.status === 'failed' ? mapError(m.error_msg, { fallback: 'episode.export.mergeFailed' }) : t('episode.export.merging') }}
                     </div>
                     <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
@@ -1199,8 +1199,8 @@
                   <span class="video-task-sep">·</span>
                   <span>#{{ row.id }}</span>
                 </div>
-                <div v-if="row.errorMsg" class="video-task-error">
-                  {{ row.errorMsg }}
+                <div v-if="row.errorMsg" class="video-task-error" :title="row.errorMsg">
+                  {{ mapError(row.errorMsg) }}
                   <div v-if="row.kind === 'video' && videoModerationHint(row.errorMsg)" class="video-task-error-hint">{{ videoModerationHint(row.errorMsg) }}</div>
                 </div>
               </div>
@@ -1609,6 +1609,7 @@ import {
 } from 'lucide-vue-next'
 import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { useAgent } from '~/composables/useAgent'
+import { toastError, mapError, MODERATION_RE } from '~/composables/useToast'
 import LocaleSwitcher from '~/components/LocaleSwitcher.vue'
 
 definePageMeta({ layout: 'studio' })
@@ -1820,7 +1821,7 @@ async function saveAssetCreate() {
     assetCreate.value.open = false
     await refresh()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     assetCreate.value.saving = false
   }
@@ -1848,7 +1849,7 @@ async function confirmDeleteAsset() {
     if (assetDetail.value.open && assetDetail.value.type === type && assetDetail.value.item?.id === item.id) closeAssetDetail()
     await refresh()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     assetDelete.value.loading = false
   }
@@ -1921,7 +1922,7 @@ async function genAssetFinalPrompt() {
     assetPromptDirty.value = false
     toast.success(force ? t('episode.asset.promptRegenerated') : t('episode.asset.promptGenerated'))
   } catch (e) {
-    toast.error(e.message || t('episode.asset.promptGenFailed'))
+    toastError(e, { fallback: 'episode.asset.promptGenFailed' })
   }
 }
 
@@ -1975,7 +1976,7 @@ async function saveAssetDetail() {
     assetPromptDirty.value = false
     toast.success(t('episode.asset.saved'))
   } catch (e) {
-    toast.error(e.message || t('episode.asset.saveFailed'))
+    toastError(e, { fallback: 'episode.asset.saveFailed' })
   } finally {
     savingAssetDetail.value = false
   }
@@ -2057,9 +2058,8 @@ function videoFailMessage(id) {
 
 // 内容审核类失败（真人/敏感内容，如火山的 OutputVideoSensitiveContentDetected）：
 // 各厂商审核尺度不同，给出切换模型重试的引导
-const VIDEO_MODERATION_RE = /sensitive|moderation|真人|人脸|real[\s_-]?person|审核|内容.*(违规|不合规|未通过)|content[\s_-]?policy|risk[\s_-]?control|violation|blocked/i
 function videoModerationHint(msg) {
-  return VIDEO_MODERATION_RE.test(String(msg || '')) ? t('episode.vid.moderationHint') : ''
+  return MODERATION_RE.test(String(msg || '')) ? t('episode.vid.moderationHint') : ''
 }
 
 function videoTaskState(sb) {
@@ -2178,7 +2178,7 @@ async function changeEpisodeResolution(val) {
     toast.success(t('episode.vid.resolutionSwitched', { label }))
   } catch (e) {
     episode.value.resolution = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 // 画面比例在创建项目时固定，视频生成统一使用
@@ -2710,7 +2710,7 @@ function updateField(sb, field, value) {
   sb[field] = value
   const camelField = toCamel(field)
   if (camelField !== field) sb[camelField] = value
-  storyboardAPI.update(sb.id, { [field]: value }).catch(e => toast.error(e.message))
+  storyboardAPI.update(sb.id, { [field]: value }).catch(e => toastError(e))
 }
 
 function toCamel(field) {
@@ -2813,7 +2813,7 @@ async function refresh() {
       else scriptStep.value = 0
     }
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
   try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
   await Promise.all([loadGenTasks(), loadExportMerges()])
@@ -2855,7 +2855,7 @@ function doExtract(target) {
     .then(() => pollExtractStatus(target))
     .catch(e => {
       extractingTargets.value = extractingTargets.value.filter(x => x !== target)
-      toast.error(e.message)
+      toastError(e)
     })
 }
 function doExtractAll() { EXTRACT_TARGETS.value.forEach(x => doExtract(x.key)) }
@@ -2872,7 +2872,7 @@ function pollExtractStatus(target, attempts = 150) {
           toast.success(t('episode.extract.done', { type: label }))
           await refresh()
         } else {
-          toast.error(task.error || t('episode.extract.failed', { type: label }))
+          toastError(task.error, { fallback: 'episode.extract.failed' })
         }
         return
       }
@@ -2953,7 +2953,7 @@ async function batchVideoPrompts() {
     toast.info(t('episode.sb.batchStarted', { n: res.total }))
     pollVideoPromptBatch()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -2967,7 +2967,7 @@ function pollVideoPromptBatch(attempts = 240) {
         if (st.status === 'done') {
           toast.success(st.failed ? t('episode.sb.batchDoneFailed', { n: st.failed }) : t('episode.sb.batchDone'))
         } else {
-          toast.error(st.error || t('episode.sb.batchFailed'))
+          toastError(st.error, { fallback: 'episode.sb.batchFailed' })
         }
         return
       }
@@ -2992,7 +2992,8 @@ function doBreakdown() {
   const propList = propItems.value.length
     ? propItems.value.map(p => `${p.name}(ID:${p.id})`).join('、')
     : '（当前集还没有道具）'
-  runAgent('storyboard_breaker', `请基于当前集剧本拆分分镜（不需要生成视频提示词，video_prompt 在视频生成阶段按需生成）。
+  runAgent('storyboard_breaker', `请基于当前集剧本拆分分镜，并为每个分镜段落同时生成 video_prompt（视频生成提示词）。
+本次视频模型：${lockedVideoConfigLabel.value}，请按该模型的特性与时长限制生成 video_prompt。
 
 当前集已有角色：${charList}
 当前集已有场景：${sceneList}
@@ -3002,7 +3003,14 @@ function doBreakdown() {
 - 每个镜头必须根据剧本内容，从上述当前集已有角色中选出出场的角色绑定 character_ids（ID 必须来自上述列表；有角色出场就必须绑定，不要遗漏）
 - 每个镜头尽量匹配上述已有场景填写 scene_id（ID 必须来自上述列表），不要凭空创造新场景
 - 每个镜头出现关键道具（被使用、交接、特写或在画面中明显可见）时，从上述当前集已有道具中绑定 prop_ids（ID 必须来自上述列表）；没有道具出现可传空数组
-- 只有纯环境空镜头才可以不绑定角色`, dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
+- 只有纯环境空镜头才可以不绑定角色`, dramaId, epId.value, onBreakdownDone, chatModelOverride(), chatConfigId())
+}
+
+/** 拆分完成后刷新并自动补齐缺失的视频提示词（兜住 Agent 漏写/截断） */
+async function onBreakdownDone() {
+  await refresh()
+  const missing = sbs.value.filter(sb => !(sb.video_prompt || sb.videoPrompt || '').trim())
+  if (missing.length) batchVideoPrompts()
 }
 
 // 按需为单个分镜生成视频提示词：由 prompt_generator 读取分镜字段生成并保存到 video_prompt
@@ -3029,7 +3037,7 @@ async function genVideoPrompt(sb) {
     toast.success(t('episode.sb.promptGenerated', { n: idx }))
     await refresh()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     videoPromptGeneratingIds.value = videoPromptGeneratingIds.value.filter(id => id !== sb.id)
   }
@@ -3070,7 +3078,7 @@ async function genCharImg(id) {
     })
   } catch (e) {
     pendingCharImageIds.value = pendingCharImageIds.value.filter(item => item !== id)
-    toast.error(e.message)
+    toastError(e)
   }
 }
 function batchCharImages() {
@@ -3088,7 +3096,7 @@ function batchCharImages() {
     }), 36)
   }).catch(e => {
     pendingCharImageIds.value = pendingCharImageIds.value.filter(item => !ids.includes(item))
-    toast.error(e.message)
+    toastError(e)
   })
 }
 async function genSceneImg(id) {
@@ -3112,7 +3120,7 @@ async function genSceneImg(id) {
     })
   } catch (e) {
     pendingSceneImageIds.value = pendingSceneImageIds.value.filter(item => item !== id)
-    toast.error(e.message)
+    toastError(e)
   }
 }
 function isPendingPropImage(id) {
@@ -3139,14 +3147,14 @@ async function genPropImg(id) {
     })
   } catch (e) {
     pendingPropImageIds.value = pendingPropImageIds.value.filter(item => item !== id)
-    toast.error(e.message)
+    toastError(e)
   }
 }
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
-  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
+  ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
   toast.success(t('episode.image.batchGeneratingScene'))
   watchAsyncResult(() => ids.every(id => {
     const scene = scenes.value.find(s => s.id === id)
@@ -3159,7 +3167,7 @@ function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
   pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
-  ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toast.error(e.message)) })
+  ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
   toast.success(t('episode.image.batchGeneratingProp'))
   watchAsyncResult(() => ids.every(id => {
     const prop = propItems.value.find(p => p.id === id)
@@ -3205,7 +3213,7 @@ async function setAsMainVideo() {
     sb.video_url = previewVideoUrl.value
     sb.videoUrl = previewVideoUrl.value
     toast.success(t('episode.vid.setMainDone'))
-  } catch (e) { toast.error(e.message || t('episode.vid.setMainFailed')) }
+  } catch (e) { toastError(e, { fallback: 'episode.vid.setMainFailed' }) }
 }
 
 async function removeHistoryVideo(t) {
@@ -3214,7 +3222,7 @@ async function removeHistoryVideo(t) {
     sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== t.id)
     if (previewVideoUrl.value === taskVideoPath(t)) previewVideoUrl.value = ''
     toast.success(t('episode.vid.historyDeleted'))
-  } catch (e) { toast.error(e.message || t('common.deleteFailed')) }
+  } catch (e) { toastError(e, { fallback: 'common.deleteFailed' }) }
 }
 
 function formatHistoryTime(iso) {
@@ -3502,7 +3510,7 @@ function uploadAssetImage(kind, id) {
       toast.success(t('episode.upload.assetDone', { type: assetUploadLabelMap.value[kind] || '' }))
       await refresh()
     } catch (e) {
-      toast.error(e.message)
+      toastError(e)
     } finally {
       uploadingAssetKeys.value = uploadingAssetKeys.value.filter(k => k !== key)
     }
@@ -3518,7 +3526,7 @@ function uploadRefMedia(kind) {
         const res = await uploadAPI.image(file)
         videoRefImageUrls.value = [...videoRefImageUrls.value, res.url]
         toast.success(t('episode.upload.refImageDone'))
-      } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
+      } catch (e) { toastError(e) } finally { uploadingRefMedia.value = false }
     })
     return
   }
@@ -3534,7 +3542,7 @@ function uploadRefMedia(kind) {
       const res = isVideo ? await uploadAPI.video(file) : await uploadAPI.audio(file)
       list.value = [...list.value, res.url]
       toast.success(t('episode.upload.refDone', { type: label }))
-    } catch (e) { toast.error(e.message) } finally { uploadingRefMedia.value = false }
+    } catch (e) { toastError(e) } finally { uploadingRefMedia.value = false }
   })
 }
 
@@ -3582,8 +3590,7 @@ async function genVid(sb, opts = {}) {
       ...failedVideoMessages.value,
       [sb.id]: e.message || t('episode.vid.genFailed'),
     }
-    const hint = videoModerationHint(e.message)
-    toast.error(hint ? `${e.message} — ${hint}` : e.message)
+    toastError(e, { fallback: 'episode.vid.genFailed' })
   }
 }
 async function pollVideoGeneration(generationId, storyboardId) {
@@ -3614,8 +3621,7 @@ async function pollVideoGeneration(generationId, storyboardId) {
           ...failedVideoMessages.value,
           [storyboardId]: errMsg,
         }
-        const hint = videoModerationHint(errMsg)
-        toast.error(hint ? `${errMsg} — ${hint}` : errMsg)
+        toastError(errMsg, { fallback: 'episode.vid.genFailed' })
         return
       }
     } catch {}
@@ -3637,7 +3643,7 @@ async function doMerge(ids) {
     await mergeAPI.merge(epId.value, storyboardIds)
     toast.success(t('episode.export.mergingToast'))
   } catch (e) {
-    toast.error(e.message || t('episode.export.mergeFailed'))
+    toastError(e, { fallback: 'episode.export.mergeFailed' })
     return
   }
   const poll = setInterval(async () => {
@@ -3648,7 +3654,7 @@ async function doMerge(ids) {
         toast.success(t('episode.export.mergeDone'))
         loadExportMerges()
       } else {
-        toast.error(mergeData.value?.error_msg || mergeData.value?.errorMsg || t('episode.export.mergeFailed'))
+        toastError(mergeData.value?.error_msg || mergeData.value?.errorMsg, { fallback: 'episode.export.mergeFailed' })
       }
     }
   }, 3000)
@@ -3679,11 +3685,12 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   padding: 8px;
   gap: 8px;
   background: var(--surface-base);
-  /* 选中态:靛蓝色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
-  --sel: var(--accent-purple);
-  --sel-bg: var(--accent-purple-bg);
-  --sel-text: var(--accent-purple-text);
-  --sel-glow: rgba(88, 86, 214, 0.16); /* 无紫色 glow token，保留原值 */
+  /* 选中态:中性反色(浅色近黑/深色近白),与进行中(蓝脉冲)/已完成(绿勾)区分,
+     遵循「颜色只承担状态指示」——选中不是状态,保持无色 */
+  --sel: var(--text-0);
+  --sel-bg: var(--bg-active);
+  --sel-text: var(--text-0);
+  --sel-glow: var(--bg-hover);
 }
 
 .studio-topbar {
@@ -3877,8 +3884,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: 0 7px 2px;
 }
-.pipe-section.is-done .pipe-section-label { color: var(--success); }
-.pipe-section.is-active .pipe-section-label { color: var(--accent); }
+/* 分组标题保持中性灰,状态色只在左侧小指示器上 */
 .pipe-section-state {
   width: 13px; height: 13px; border-radius: 999px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -3902,8 +3908,8 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .pipe-section-tag {
-  font-size: 8.5px; font-weight: 700; letter-spacing: 0.03em;
-  color: var(--accent); background: var(--accent-bg);
+  font-size: 8.5px; font-weight: 600; letter-spacing: 0.03em;
+  color: var(--text-2); background: var(--bg-2);
   border-radius: 999px; padding: 1px 5px;
   text-transform: none;
 }
@@ -3927,10 +3933,9 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   transition: all 0.18s var(--ease-out); width: 100%; text-align: left;
 }
 .pipe-item:hover {
-  background: var(--button-bg);
-  border-color: var(--button-border);
+  background: var(--bg-hover);
+  border-color: transparent;
   color: var(--text-0);
-  box-shadow: var(--button-shadow);
 }
 .pipe-item.active {
   background: var(--sel-bg);
@@ -3970,12 +3975,12 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   position: relative;
   z-index: 1;
 }
-.pipe-item.active .pipe-icon { background: var(--sel); border-color: var(--sel); color: var(--on-accent); }
+.pipe-item.active .pipe-icon { background: var(--sel); border-color: var(--sel); color: var(--surface-raised); }
 .pipe-item.done .pipe-icon { background: var(--success-bg); border-color: var(--success-bg); color: var(--success); }
-.pipe-item.active.done .pipe-icon { background: var(--sel); border-color: var(--sel); color: var(--on-accent); }
-.icon-active { background: var(--sel) !important; border-color: var(--sel) !important; color: var(--on-accent) !important; }
+.pipe-item.active.done .pipe-icon { background: var(--sel); border-color: var(--sel); color: var(--surface-raised); }
+.icon-active { background: var(--sel) !important; border-color: var(--sel) !important; color: var(--surface-raised) !important; }
 .icon-done { background: var(--success-bg) !important; border-color: var(--success-bg) !important; color: var(--success) !important; }
-.pipe-item.active.done .icon-done { background: var(--sel) !important; border-color: var(--sel) !important; color: var(--on-accent) !important; }
+.pipe-item.active.done .icon-done { background: var(--sel) !important; border-color: var(--sel) !important; color: var(--surface-raised) !important; }
 
 .pipe-label { flex: 1; font-size: 11px; }
 .pipe-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
