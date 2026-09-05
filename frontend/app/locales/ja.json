@@ -333,7 +333,12 @@
       "checkFailedToast": "更新の確認に失敗しました",
       "downloadDone": "更新パッケージのダウンロードが完了しました。インストールできます",
       "downloadFailed": "ダウンロードに失敗しました",
-      "installFailed": "インストールに失敗しました"
+      "installFailed": "インストールに失敗しました",
+      "serverApply": "今すぐ更新",
+      "serverApplyStarted": "更新を開始しました：Watchtower が新しいイメージを取得してコンテナを再作成します。数分後にページを更新してください",
+      "serverApplyFailed": "更新の開始に失敗しました",
+      "serverManualHint": "サーバーデプロイ：デプロイディレクトリで実行してください",
+      "serverNote": "補足：Watchtower を設定した Docker デプロイではワンクリック更新（新イメージ取得＋コンテナ再作成）が可能です。未設定の場合は表示されたコマンドを手動で実行してください。"
     },
     "agents": {
       "title": "Agent 設定",

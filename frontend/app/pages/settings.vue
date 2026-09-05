@@ -284,17 +284,14 @@
                 <span class="svc-group-title">{{ t('settings.about.currentVersion', { v: updateState?.currentVersion || '…' }) }}</span>
                 <div v-if="updateState?.latestVersion" class="svc-group-sub">{{ t('settings.about.latestVersion', { v: updateState.latestVersion }) }}</div>
               </div>
-              <button class="btn btn-primary btn-sm ml-auto" :disabled="updateChecking || !desktopBridge" @click="checkUpdate">
+              <button class="btn btn-primary btn-sm ml-auto" :disabled="updateChecking" @click="checkUpdate">
                 <Loader2 v-if="updateChecking" :size="13" class="animate-spin" />
                 <RefreshCw v-else :size="13" />
                 {{ t('settings.about.check') }}
               </button>
             </div>
 
-            <div v-if="!desktopBridge" class="config-row">
-              <div class="config-main"><div class="config-sub">{{ t('settings.about.webMode') }}</div></div>
-            </div>
-            <div v-else-if="updateState?.status === 'up-to-date'" class="config-row">
+            <div v-if="updateState?.status === 'up-to-date'" class="config-row">
               <div class="provider-badge style-badge"><Check :size="15" /></div>
               <div class="config-main"><div class="config-line"><span class="config-name">{{ t('settings.about.upToDate') }}</span></div></div>
             </div>
@@ -306,11 +303,22 @@
                 <div v-if="updateState.status === 'downloading' || updateDownloading" class="update-bar">
                   <div class="update-bar-fill" :style="{ width: `${updateProgress}%` }"></div>
                 </div>
+                <!-- 服务器手动模式：无 Watchtower，给出更新命令 -->
+                <div v-if="!desktopBridge && serverUpdateMode === 'manual'" class="config-sub">
+                  {{ t('settings.about.serverManualHint') }} <span class="mono">docker compose pull && docker compose up -d</span>
+                </div>
               </div>
-              <button class="btn btn-primary btn-sm" :disabled="updateDownloading" @click="downloadUpdate">
+              <!-- 桌面版：下载更新包 -->
+              <button v-if="desktopBridge" class="btn btn-primary btn-sm" :disabled="updateDownloading" @click="downloadUpdate">
                 <Loader2 v-if="updateDownloading" :size="13" class="animate-spin" />
                 <Download v-else :size="13" />
                 {{ updateDownloading ? t('settings.about.downloading', { p: updateProgress }) : t('settings.about.download') }}
+              </button>
+              <!-- 服务器 + Watchtower：一键触发拉镜像重建 -->
+              <button v-else-if="serverUpdateMode === 'watchtower'" class="btn btn-primary btn-sm" :disabled="updateApplying" @click="applyUpdate">
+                <Loader2 v-if="updateApplying" :size="13" class="animate-spin" />
+                <Download v-else :size="13" />
+                {{ t('settings.about.serverApply') }}
               </button>
             </div>
             <div v-else-if="updateState?.status === 'downloaded'" class="config-row">
@@ -334,7 +342,8 @@
             </div>
             <p v-else class="config-empty">{{ t('settings.about.empty') }}</p>
           </section>
-          <p class="config-empty">{{ t('settings.about.note') }}</p>
+          <p v-if="desktopBridge" class="config-empty">{{ t('settings.about.note') }}</p>
+          <p v-else class="config-empty">{{ t('settings.about.serverNote') }}</p>
         </div>
 
         <!-- ===== Agent 配置 ===== -->
@@ -642,7 +651,7 @@ import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, 
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
-import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI } from '~/composables/useApi'
+import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
@@ -1233,22 +1242,36 @@ function formatBytes(n) {
   return `${n} B`
 }
 
-// ===== 应用内更新 =====
+// ===== 应用内更新（桌面版走 Electron 桥；服务器/Docker 走后端 server-update 路由） =====
 const updateState = ref(null)
 const updateChecking = ref(false)
 const updateDownloading = ref(false)
 const updateProgress = ref(0)
 const updateApplying = ref(false)
+const serverUpdateMode = ref('manual') // 'watchtower' | 'manual'，仅服务器模式有意义
 
 async function refreshUpdateState() {
-  try { updateState.value = await desktopBridge.getUpdateState() } catch { /* 静默 */ }
+  try {
+    if (desktopBridge) {
+      updateState.value = await desktopBridge.getUpdateState()
+    } else {
+      const s = await serverUpdateAPI.state()
+      serverUpdateMode.value = s.updateMode || 'manual'
+      updateState.value = s
+    }
+  } catch { /* 静默 */ }
 }
 
 async function checkUpdate() {
-  if (!desktopBridge) return
   updateChecking.value = true
   try {
-    updateState.value = await desktopBridge.checkUpdate()
+    if (desktopBridge) {
+      updateState.value = await desktopBridge.checkUpdate()
+    } else {
+      const s = await serverUpdateAPI.check()
+      serverUpdateMode.value = s.updateMode || 'manual'
+      updateState.value = s
+    }
     if (updateState.value?.status === 'up-to-date') toast.success(t('settings.about.upToDate'))
   } catch (e) {
     toast.error(e?.message || t('settings.about.checkFailedToast'))
@@ -1274,14 +1297,20 @@ async function downloadUpdate() {
 }
 
 async function applyUpdate() {
-  if (!desktopBridge) return
   updateApplying.value = true
   try {
-    await desktopBridge.applyUpdate()
-    // 成功路径：应用退出并由更新后的版本接管，不会走到这里
+    if (desktopBridge) {
+      await desktopBridge.applyUpdate()
+      // 成功路径：应用退出并由更新后的版本接管，不会走到这里
+    } else {
+      await serverUpdateAPI.apply()
+      // Watchtower 异步拉镜像重建容器，本进程随后被替换
+      toast.success(t('settings.about.serverApplyStarted'), { duration: 8000 })
+      updateApplying.value = false
+    }
   } catch (e) {
     updateApplying.value = false
-    toast.error(e?.message || t('settings.about.installFailed'))
+    toast.error(e?.message || t(desktopBridge ? 'settings.about.installFailed' : 'settings.about.serverApplyFailed'))
   }
 }
 

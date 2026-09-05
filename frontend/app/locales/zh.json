@@ -333,7 +333,12 @@
       "checkFailedToast": "检查更新失败",
       "downloadDone": "更新包下载完成，可以安装",
       "downloadFailed": "下载失败",
-      "installFailed": "安装失败"
+      "installFailed": "安装失败",
+      "serverApply": "立即更新",
+      "serverApplyStarted": "已触发更新：Watchtower 将拉取新镜像并重建容器，请几分钟后刷新页面",
+      "serverApplyFailed": "触发更新失败",
+      "serverManualHint": "服务器部署：请在部署目录执行",
+      "serverNote": "说明：Docker 部署配置了 Watchtower 时可一键更新（拉取新镜像并重建容器）；未配置时请按提示手动执行更新命令。"
     },
     "agents": {
       "title": "Agent 配置",

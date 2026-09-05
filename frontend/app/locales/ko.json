@@ -333,7 +333,12 @@
       "checkFailedToast": "업데이트 확인에 실패했습니다",
       "downloadDone": "업데이트 패키지 다운로드가 완료되었습니다. 설치할 수 있습니다",
       "downloadFailed": "다운로드 실패",
-      "installFailed": "설치 실패"
+      "installFailed": "설치 실패",
+      "serverApply": "지금 업데이트",
+      "serverApplyStarted": "업데이트가 시작되었습니다: Watchtower가 새 이미지를 받아 컨테이너를 재생성합니다. 몇 분 후 페이지를 새로고침하세요",
+      "serverApplyFailed": "업데이트 시작 실패",
+      "serverManualHint": "서버 배포: 배포 디렉터리에서 다음을 실행하세요",
+      "serverNote": "참고: Watchtower가 설정된 Docker 배포에서는 원클릭 업데이트(새 이미지 pull + 컨테이너 재생성)가 가능합니다. 미설정 시 안낸된 명령을 직접 실행하세요."
     },
     "agents": {
       "title": "Agent 설정",

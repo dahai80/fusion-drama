@@ -333,7 +333,12 @@
       "checkFailedToast": "Update check failed",
       "downloadDone": "Update package downloaded, ready to install",
       "downloadFailed": "Download failed",
-      "installFailed": "Install failed"
+      "installFailed": "Install failed",
+      "serverApply": "Update now",
+      "serverApplyStarted": "Update triggered: Watchtower will pull the new image and recreate the container. Refresh in a few minutes.",
+      "serverApplyFailed": "Failed to trigger update",
+      "serverManualHint": "Server deployment: run this in the deploy directory:",
+      "serverNote": "Note: with Watchtower configured, Docker deployments can update in one click (pulls the new image and recreates the container); otherwise run the command shown above manually."
     },
     "agents": {
       "title": "Agent Config",

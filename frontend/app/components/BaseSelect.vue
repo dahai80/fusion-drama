@@ -50,6 +50,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ChevronDown, Search } from 'lucide-vue-next'
 
 const props = defineProps({

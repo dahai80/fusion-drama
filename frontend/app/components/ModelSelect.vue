@@ -38,6 +38,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ChevronDown, Check } from 'lucide-vue-next'
 
 const props = defineProps({

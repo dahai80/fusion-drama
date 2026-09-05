@@ -22,6 +22,7 @@ import skills from './routes/skills.js'
 import props from './routes/props.js'
 import settings from './routes/settings.js'
 import storage from './routes/storage.js'
+import serverUpdate from './routes/serverUpdate.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
@@ -41,8 +42,12 @@ app.use('*', cors({
 app.use('*', requestLogger)
 app.use('*', errorHandler)
 
-// Health check
-app.get('/api/v1/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
+// Health check（version 供部署巡检/更新检查核对当前运行版本）
+app.get('/api/v1/health', (c) => c.json({
+  status: 'ok',
+  version: process.env.HUOBAO_VERSION || undefined,
+  timestamp: new Date().toISOString(),
+}))
 
 // API routes
 const api = new Hono()
@@ -63,6 +68,7 @@ api.route('/skills', skills)
 api.route('/props', props)
 api.route('/storage', storage)
 api.route('/settings', settings)
+api.route('/server-update', serverUpdate)
 
 app.route('/api/v1', api)
 

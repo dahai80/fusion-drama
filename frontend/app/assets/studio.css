@@ -118,6 +118,8 @@
   --header-bg: rgba(251,251,253,0.72);
   --inverse-surface: #1d1d1f;
   --on-inverse: #ffffff;
+  /* 视频播放/预览区固定深底（两主题一致，深色块不覆写） */
+  --media-surface: #0b0d10;
   --scrollbar-thumb: rgba(0,0,0,0.16);
   --scrollbar-thumb-hover: rgba(0,0,0,0.28);
   --border-hover: rgba(0,0,0,0.22);
