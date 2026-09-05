@@ -244,7 +244,7 @@
       "contentLanguageSub": "剧本改写、资产提取、分镜、提示词等 AI 产出统一使用的语言",
       "languageLabel": "目标语言",
       "languageNote": "仅影响新生成的内容，不会翻译已有内容",
-      "languageHint": "与界面语言相互独立。已有资产的「@引用」名字保持原名，新生成内容按所选语言产出。",
+      "languageHint": "与界面语言相互独立。已有资产的「{'@'}引用」名字保持原名，新生成内容按所选语言产出。",
       "languageSaved": "内容语言已保存",
       "appearance": "外观",
       "appearanceSub": "界面颜色主题，即时生效",
