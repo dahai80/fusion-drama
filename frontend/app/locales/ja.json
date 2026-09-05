@@ -218,7 +218,6 @@
     }
   },
   "settings": {
-    "pageTitle": "設定センター",
     "groupBase": "基本",
     "groupAdvanced": "高度",
     "advancedToggle": "Agent 高度な設定",
@@ -229,8 +228,7 @@
       "styles": "スタイルプリセット",
       "storage": "保存場所",
       "about": "更新について",
-      "agents": "Agent 設定",
-      "skills": "Skills"
+      "agents": "Agent 設定"
     },
     "common": {
       "disabled": "無効",
@@ -341,8 +339,6 @@
       "serverNote": "補足：Watchtower を設定した Docker デプロイではワンクリック更新（新イメージ取得＋コンテナ再作成）が可能です。未設定の場合は表示されたコマンドを手動で実行してください。"
     },
     "agents": {
-      "title": "Agent 設定",
-      "desc": "高度な設定エリアには Agent の実行設定のみを保持します。プロンプトとパラメータをここで調整でき、保存するとすぐに反映されます。モデルはワークベンチ上部バーで都度選択します。",
       "promptHint": "{file} として保存",
       "promptPlaceholder": "Agent システムプロンプト...",
       "reset": "デフォルトに戻す",
@@ -631,10 +627,10 @@
       "title": "分镜分解",
       "segmentStat": "{n} セグメント · {dur}s",
       "rebreak": "再分解",
-      "startBreak": "分解を開始",
+      "startBreak": "分割してプロンプト生成",
       "promptProgress": "プロンプト {done}/{total}",
       "promptSelected": "選択分のプロンプト生成({n})",
-      "batchPrompts": "動画プロンプト一括生成",
+      "batchPrompts": "不足プロンプトを補完",
       "listTitle": "分镜一覧",
       "listSub": "分解の説明と紐付いたキャラクター・シーンを確認",
       "select": "選択",
@@ -699,7 +695,7 @@
       "emptyTitle": "先に分镜を生成",
       "emptyDesc": "動画タスクは分镜分解の結果から作られます。先に分镜説明と動画プロンプトを生成してから、動画を一括生成してください。",
       "lockedModel": "この話の動画モデル：",
-      "aiBreakdown": "AI で分镜生成",
+      "aiBreakdown": "分割してプロンプト生成",
       "listTitle": "動画タスク一覧",
       "listMeta": "ショット順 · {n} 件のタスク",
       "metricPending": "{n} 生成中",
@@ -835,5 +831,16 @@
       "hd": "高画質",
       "uhd": "超高画質"
     }
+  },
+  "errors": {
+    "network": "サーバーに接続できません。ネットワークまたはサービスの起動状態を確認してください",
+    "server": "サーバーから異常な応答が返されました。しばらくしてから再試行してください",
+    "unavailable": "サービスは一時的に利用できません。しばらくしてから再試行してください",
+    "auth": "認証に失敗しました。APIキー設定を確認してください",
+    "rateLimit": "リクエストが多すぎるか、クォータが不足しています。しばらくしてから再試行してください",
+    "timeout": "生成がタイムアウトしました。再試行してください",
+    "moderation": "コンテンツが審査を通過しませんでした。プロンプトを調整するかモデルを切り替えて再試行してください",
+    "requestFailed": "リクエストに失敗しました（{status}）",
+    "unknown": "操作に失敗しました。再試行してください"
   }
 }

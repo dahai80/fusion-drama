@@ -116,19 +116,19 @@ watch(locale, checkAiConfigs)
 .brand-mark {
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--inverse-surface); border-radius: 9px;
+  border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
   display: block;
 }
 .brand-fallback {
   font-size: 15px;
   font-weight: 700;
-  color: var(--on-inverse);
+  color: var(--text-0);
   line-height: 1;
 }
 .brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }

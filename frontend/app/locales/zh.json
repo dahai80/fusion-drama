@@ -218,7 +218,6 @@
     }
   },
   "settings": {
-    "pageTitle": "设置中心",
     "groupBase": "基础",
     "groupAdvanced": "高级",
     "advancedToggle": "Agent 高级配置",
@@ -229,8 +228,7 @@
       "styles": "风格预设",
       "storage": "存储位置",
       "about": "关于更新",
-      "agents": "Agent 配置",
-      "skills": "Skills"
+      "agents": "Agent 配置"
     },
     "common": {
       "disabled": "已停用",
@@ -341,8 +339,6 @@
       "serverNote": "说明：Docker 部署配置了 Watchtower 时可一键更新（拉取新镜像并重建容器）；未配置时请按提示手动执行更新命令。"
     },
     "agents": {
-      "title": "Agent 配置",
-      "desc": "高级区只保留 Agent 运行配置。这里可以调整提示词和参数，保存后立即生效；模型在工作台顶栏按需选择。",
       "promptHint": "保存为 {file}",
       "promptPlaceholder": "Agent 系统提示词...",
       "reset": "恢复默认",
@@ -631,10 +627,10 @@
       "title": "分镜拆分",
       "segmentStat": "{n} 段落 · {dur}s",
       "rebreak": "重新拆分",
-      "startBreak": "开始拆分",
+      "startBreak": "拆分并生成提示词",
       "promptProgress": "提示词 {done}/{total}",
       "promptSelected": "生成所选提示词({n})",
-      "batchPrompts": "批量视频提示词",
+      "batchPrompts": "补齐提示词",
       "listTitle": "分镜列表",
       "listSub": "检查拆分描述和绑定的角色场景",
       "select": "选择",
@@ -699,7 +695,7 @@
       "emptyTitle": "先生成分镜",
       "emptyDesc": "视频任务来自分镜拆分结果。先生成分镜描述和视频提示词，再批量生成视频。",
       "lockedModel": "当前集视频模型：",
-      "aiBreakdown": "AI 生成分镜",
+      "aiBreakdown": "拆分分镜并生成提示词",
       "listTitle": "视频任务列表",
       "listMeta": "按镜头顺序 · {n} 个任务",
       "metricPending": "{n} 生成中",
@@ -835,5 +831,16 @@
       "hd": "高清",
       "uhd": "超清"
     }
+  },
+  "errors": {
+    "network": "无法连接服务器，请检查网络或服务是否已启动",
+    "server": "服务返回异常，请稍后重试",
+    "unavailable": "服务暂时不可用，请稍后重试",
+    "auth": "鉴权失败，请检查 API Key 配置",
+    "rateLimit": "请求过于频繁或额度不足，请稍后重试",
+    "timeout": "生成超时，请重试",
+    "moderation": "内容未通过审核，请调整提示词或切换模型后重试",
+    "requestFailed": "请求失败（{status}）",
+    "unknown": "操作失败，请重试"
   }
 }

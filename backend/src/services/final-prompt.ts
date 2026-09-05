@@ -52,7 +52,7 @@ export async function ensureSceneFinalPrompt(scene: SceneRow, episodeId: number,
   try {
     logTaskProgress('FinalPrompt', 'scene-generate', { sceneId: scene.id, episodeId })
     await runPromptAgent(episodeId, scene.dramaId,
-      `为场景「${scene.location}」(scene_id=${scene.id}) 生成固定视角（前景/中景/后景）最终提示词，并调用 save_scene_final_prompt 保存。`, opts)
+      `为场景「${scene.location}」(scene_id=${scene.id}) 生成固定视角（前景/中景/后景）最终提示词，并调用 save_scene_final_prompt 保存。注意：这是无人物空镜——场景图中不能出现任何的人（含背影、剪影、倒影、照片里的人），即使场景描述提到人物活动也必须剔除，只保留场景本身。`, opts)
     const [fresh] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, scene.id))
     return fresh?.finalPrompt || ''
   } catch (err: any) {

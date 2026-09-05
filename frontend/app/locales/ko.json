@@ -218,7 +218,6 @@
     }
   },
   "settings": {
-    "pageTitle": "설정 센터",
     "groupBase": "기본",
     "groupAdvanced": "고급",
     "advancedToggle": "Agent 고급 설정",
@@ -229,8 +228,7 @@
       "styles": "스타일 프리셋",
       "storage": "저장 위치",
       "about": "업데이트 정보",
-      "agents": "Agent 설정",
-      "skills": "Skills"
+      "agents": "Agent 설정"
     },
     "common": {
       "disabled": "비활성화됨",
@@ -341,8 +339,6 @@
       "serverNote": "참고: Watchtower가 설정된 Docker 배포에서는 원클릭 업데이트(새 이미지 pull + 컨테이너 재생성)가 가능합니다. 미설정 시 안낸된 명령을 직접 실행하세요."
     },
     "agents": {
-      "title": "Agent 설정",
-      "desc": "고급 영역에는 Agent 실행 설정만 유지됩니다. 프롬프트와 매개변수를 여기서 조정할 수 있으며 저장 즉시 적용됩니다. 모델은 워크벤치 상단 바에서 작업별로 선택합니다.",
       "promptHint": "{file}(으)로 저장",
       "promptPlaceholder": "Agent 시스템 프롬프트...",
       "reset": "기본값으로 복원",
@@ -631,10 +627,10 @@
       "title": "스토리보드 분해",
       "segmentStat": "세그먼트 {n}개 · {dur}초",
       "rebreak": "다시 분해",
-      "startBreak": "분해 시작",
+      "startBreak": "분할 및 프롬프트 생성",
       "promptProgress": "프롬프트 {done}/{total}",
       "promptSelected": "선택분 프롬프트 생성({n})",
-      "batchPrompts": "영상 프롬프트 일괄 생성",
+      "batchPrompts": "누락 프롬프트 채우기",
       "listTitle": "스토리보드 목록",
       "listSub": "분해 설명과 연결된 캐릭터·장면 확인",
       "select": "선택",
@@ -699,7 +695,7 @@
       "emptyTitle": "먼저 스토리보드 생성",
       "emptyDesc": "영상 작업은 스토리보드 분해 결과에서 만들어집니다. 먼저 스토리보드 설명과 영상 프롬프트를 생성한 후 영상을 일괄 생성하세요.",
       "lockedModel": "이 화의 영상 모델: ",
-      "aiBreakdown": "AI로 스토리보드 생성",
+      "aiBreakdown": "분할 및 프롬프트 생성",
       "listTitle": "영상 작업 목록",
       "listMeta": "샷 순서 · 작업 {n}개",
       "metricPending": "{n} 생성 중",
@@ -835,5 +831,16 @@
       "hd": "고화질",
       "uhd": "초고화질"
     }
+  },
+  "errors": {
+    "network": "서버에 연결할 수 없습니다. 네트워크 또는 서버 실행 상태를 확인하세요",
+    "server": "서버가 비정상적인 응답을 반환했습니다. 잠시 후 다시 시도하세요",
+    "unavailable": "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도하세요",
+    "auth": "인증에 실패했습니다. API 키 설정을 확인하세요",
+    "rateLimit": "요청이 너무 많거나 할당량이 부족합니다. 잠시 후 다시 시도하세요",
+    "timeout": "생성 시간이 초과되었습니다. 다시 시도하세요",
+    "moderation": "콘텐츠가 심사를 통과하지 못했습니다. 프롬프트를 조정하거나 모델을 변경해 다시 시도하세요",
+    "requestFailed": "요청 실패（{status}）",
+    "unknown": "작업에 실패했습니다. 다시 시도하세요"
   }
 }

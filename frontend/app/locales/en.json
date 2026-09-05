@@ -218,7 +218,6 @@
     }
   },
   "settings": {
-    "pageTitle": "Settings",
     "groupBase": "Basic",
     "groupAdvanced": "Advanced",
     "advancedToggle": "Agent advanced config",
@@ -229,8 +228,7 @@
       "styles": "Style Presets",
       "storage": "Storage",
       "about": "About & Updates",
-      "agents": "Agent Config",
-      "skills": "Skills"
+      "agents": "Agent Config"
     },
     "common": {
       "disabled": "Disabled",
@@ -341,8 +339,6 @@
       "serverNote": "Note: with Watchtower configured, Docker deployments can update in one click (pulls the new image and recreates the container); otherwise run the command shown above manually."
     },
     "agents": {
-      "title": "Agent Config",
-      "desc": "The advanced area only keeps Agent runtime configs. Adjust prompts and parameters here; changes take effect immediately. Models are selected per task in the workbench top bar.",
       "promptHint": "saved as {file}",
       "promptPlaceholder": "Agent system prompt...",
       "reset": "Reset to default",
@@ -631,10 +627,10 @@
       "title": "Storyboard Breakdown",
       "segmentStat": "{n} segments · {dur}s",
       "rebreak": "Break Again",
-      "startBreak": "Start Breakdown",
+      "startBreak": "Break down & generate prompts",
       "promptProgress": "Prompts {done}/{total}",
       "promptSelected": "Generate selected prompts ({n})",
-      "batchPrompts": "Batch Video Prompts",
+      "batchPrompts": "Fill missing prompts",
       "listTitle": "Shot List",
       "listSub": "Check breakdown descriptions and bound characters/scenes",
       "select": "Select",
@@ -699,7 +695,7 @@
       "emptyTitle": "Break the storyboard first",
       "emptyDesc": "Video tasks come from the storyboard breakdown. Generate shot descriptions and video prompts first, then generate videos in batch.",
       "lockedModel": "Video model for this episode: ",
-      "aiBreakdown": "AI Breakdown",
+      "aiBreakdown": "Break down & generate prompts",
       "listTitle": "Video Task List",
       "listMeta": "In shot order · {n} tasks",
       "metricPending": "{n} generating",
@@ -835,5 +831,16 @@
       "hd": "HD",
       "uhd": "UHD"
     }
+  },
+  "errors": {
+    "network": "Cannot reach the server. Check your network or that the service is running.",
+    "server": "The server returned an unexpected response. Please try again later.",
+    "unavailable": "Service temporarily unavailable. Please try again later.",
+    "auth": "Authentication failed. Check your API key settings.",
+    "rateLimit": "Too many requests or insufficient quota. Please try again later.",
+    "timeout": "Generation timed out. Please try again.",
+    "moderation": "Content was blocked by moderation. Adjust the prompt or switch models and retry.",
+    "requestFailed": "Request failed ({status})",
+    "unknown": "Operation failed. Please try again."
   }
 }

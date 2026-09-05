@@ -387,7 +387,7 @@ function onBlur(e) {
 }
 .mention-dropdown {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-menu);
   width: 240px;
   max-height: 220px;
   overflow-y: auto;
@@ -395,7 +395,7 @@ function onBlur(e) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-lg);
 }
 .mention-group-label {
   padding: 6px 8px 3px;

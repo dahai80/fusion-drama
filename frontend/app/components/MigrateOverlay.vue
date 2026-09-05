@@ -27,7 +27,7 @@ const { state } = useMigrateState()
 .migrate-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-blocking);
   background: rgba(8, 10, 14, 0.72);
   backdrop-filter: blur(4px);
   display: flex;
