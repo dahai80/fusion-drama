@@ -10,6 +10,7 @@
     <Teleport to="body">
       <div v-if="isOpen" class="model-select-menu" :style="menuStyle" ref="menuEl">
         <button
+          v-if="!hideDefault"
           type="button"
           :class="['model-select-option', { selected: modelValue === '' }]"
           @click="pick('')"
@@ -45,6 +46,7 @@ const props = defineProps({
   options: { type: Array, default: () => [] },      // [{ key, model, provider, configId, configName }]
   defaultLabel: { type: String, default: '默认' },
   showConfig: { type: Boolean, default: false },    // 多配置时显示来源配置名
+  hideDefault: { type: Boolean, default: false },   // 无「默认」语义的选择器（如分辨率）隐藏默认项
 })
 const emit = defineEmits(['update:modelValue'])
 

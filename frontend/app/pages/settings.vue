@@ -41,7 +41,7 @@
               <span class="tag tag-accent">推荐</span>
             </div>
             <p class="setup-desc">
-              输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。
+              输入 Huobao API Key，一次写入文本、图片、视频推荐配置。
               <a class="huobao-site-link" href="https://api.chatfire.site" target="_blank" rel="noopener noreferrer">
                 前往 api.chatfire.site 获取 Key
                 <ExternalLink :size="12" :stroke-width="1.8" />
@@ -322,7 +322,11 @@
             <span class="field-hint">数值越高越优先。工作台默认会优先使用同类型里优先级最高的启用配置。</span>
           </label>
           <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" placeholder="sk-..." /></label>
-          <label class="field"><span class="field-label">Base URL</span><input v-model="cfgForm.base_url" class="input" placeholder="https://..." /></label>
+          <label class="field">
+            <span class="field-label">Base URL</span>
+            <input v-model="cfgForm.base_url" class="input" placeholder="https://..." />
+            <span v-if="cfgForm.provider === 'aliyun'" class="field-hint">请将 {WorkspaceId} 替换为百炼业务空间 ID，并确保 Base URL、API Key 与模型属于同一地域。</span>
+          </label>
           <label class="field"><span class="field-label">模型（逗号分隔）</span><input v-model="cfgForm.modelStr" class="input" placeholder="model-name" /></label>
           <label v-if="cfgForm.service_type === 'text'" class="field">
             <span class="field-label">Temperature <span class="dim">(留空跟随服务商默认)</span></span>
@@ -466,7 +470,7 @@ const huobaoApiKey = ref('')
 const huobaoSaving = ref(false)
 const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text', priority: 0, temperature: '' })
 const serviceTypes = [{ type: 'text', label: '文本' }, { type: 'image', label: '图片' }, { type: 'video', label: '视频' }]
-const providers = ['gemini', 'openai', 'volcengine', 'minimax']
+const providers = ['gemini', 'openai', 'volcengine', 'minimax', 'aliyun']
 const providerSelectOptions = computed(() => providers.map(p => ({ label: p, value: p })))
 const serviceMeta = {
   text: { label: '文本', desc: '剧本改写、角色场景提取、分镜拆解等 Agent 文本能力' },
@@ -483,8 +487,9 @@ const providerPresets = {
     openai: { label: 'OpenAI 官方', baseUrl: 'https://api.openai.com', models: ['gpt-image-2'] },
   },
   video: {
-    volcengine: { label: 'Seedance 2.0 官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-mini-260615'] },
+    volcengine: { label: 'Seedance 2.0 官方', baseUrl: 'https://ark.cn-beijing.volces.com', models: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'] },
     minimax: { label: 'MiniMax H3 官方', baseUrl: 'https://api.minimaxi.com', models: ['MiniMax-H3'] },
+    aliyun: { label: '阿里云百炼 Wan 3.0', baseUrl: 'https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com', models: ['wan3.0-video-prime', 'wan3.0-video'] },
   },
 }
 const huobaoQuickConfigs = [
@@ -492,7 +497,8 @@ const huobaoQuickConfigs = [
   { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.chatfire.site', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
   { service_type: 'image', provider: 'openai', name: '火宝图片服务 · OpenAI', base_url: 'https://api.chatfire.site', model: ['gpt-image-2'], priority: 99 },
   { service_type: 'image', provider: 'gemini', name: '火宝图片服务 · Gemini', base_url: 'https://api.chatfire.site', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
-  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务 · Seedance', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-mini-260615'], priority: 98 },
+  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务 · Seedance', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 98 },
+  { service_type: 'video', provider: 'aliyun', name: '火宝视频服务 · Wan 3.0', base_url: 'https://api.chatfire.site/qwen', model: ['wan3.0-video-prime', 'wan3.0-video'], priority: 97 },
   { service_type: 'video', provider: 'minimax', name: '火宝视频服务 · MiniMax', base_url: 'https://api.chatfire.site/minimax', model: ['MiniMax-H3'], priority: 96 },
 ]
 

@@ -208,7 +208,7 @@ export const sysTask = mysqlTable('sys_task', {
   prompt: text('prompt'),
   model: text('model'),
   // image: {size, frameType, referenceImages[]}
-  // video: {referenceMode, referenceImageUrls[], referenceVideoUrls[], referenceAudioUrls[], generateAudio, duration, aspectRatio}
+  // video: {referenceMode, firstFrameUrl, lastFrameUrl, referenceImageUrls[], referenceVideoUrls[], referenceAudioUrls[], referenceFileUrl, referenceLinkUrl, generateAudio, duration, aspectRatio, resolution, seed, promptExtend, watermark}
   params: text('params'),
   taskId: text('task_id'),
   resultUrl: text('result_url'),

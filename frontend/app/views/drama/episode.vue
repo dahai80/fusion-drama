@@ -45,6 +45,12 @@
             :default-label="`默认 · ${videoModelOptions[0].model}`"
             :show-config="videoModelMultiCfg"
           />
+          <ModelSelect
+            v-model="episodeResolution"
+            label="分辨率"
+            :options="resolutionOptions"
+            hide-default
+          />
         </div>
         <div class="studio-actions">
           <button class="btn" @click="refresh">
@@ -697,9 +703,16 @@
                   <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                   {{ videoPromptBatch.running ? `提示词 ${videoPromptBatch.completed}/${videoPromptBatch.total}` : (selectedSbIds.length ? `生成所选提示词(${selectedSbIds.length})` : '批量视频提示词') }}
                 </button>
+                <button v-if="videoTaskFailedCount" class="btn btn-sm video-retry-failed" @click="retryFailedVideos">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                  重试失败({{ videoTaskFailedCount }})
+                </button>
+                <button class="btn btn-sm" :class="{ 'is-on': videoSelectMode }" @click="toggleVideoSelectMode">
+                  {{ videoSelectMode ? `已选 ${selectedVideoSbIds.length} · 完成` : '选择' }}
+                </button>
                 <button class="btn btn-sm" :disabled="!sbs.length" @click="batchVideos">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                  批量视频
+                  {{ videoSelectMode && selectedVideoSbIds.length ? `生成所选(${selectedVideoSbIds.length})` : '批量视频' }}
                 </button>
               </div>
             </div>
@@ -721,26 +734,33 @@
                 <div class="video-task-head">
                 <div>
                   <div class="video-task-title">视频任务列表</div>
-                  <div class="video-task-meta">按镜头顺序 · {{ videoTaskRows.length }} 个任务</div>
+                  <div class="video-task-meta">{{ videoListFilter ? '筛选结果' : '按镜头顺序' }} · {{ videoTaskRows.length }}{{ videoListFilter ? `/${allVideoTaskRows.length}` : '' }} 个任务</div>
                 </div>
                 <div class="video-task-metrics">
-                  <span class="video-task-metric is-pending">{{ pendingVideoIds.length }} 生成中</span>
-                  <span class="video-task-metric is-done">{{ videoTaskDoneCount }} 完成</span>
-                  <span class="video-task-metric is-failed">{{ videoTaskFailedCount }} 失败</span>
+                  <button type="button" class="video-task-metric is-pending" :class="{ on: videoListFilter === 'pending' }" title="点击筛选生成中" @click="toggleVideoFilter('pending')">{{ pendingVideoIds.length }} 生成中</button>
+                  <button type="button" class="video-task-metric is-done" :class="{ on: videoListFilter === 'done' }" title="点击筛选已完成" @click="toggleVideoFilter('done')">{{ videoTaskDoneCount }} 完成</button>
+                  <button type="button" class="video-task-metric is-failed" :class="{ on: videoListFilter === 'failed' }" title="点击筛选失败" @click="toggleVideoFilter('failed')">{{ videoTaskFailedCount }} 失败</button>
                 </div>
                 </div>
                 <div class="video-task-table">
                 <div
                   v-for="task in videoTaskRows"
                   :key="task.id"
-                  :class="['video-task-row', 'is-' + videoTaskState(task.storyboard), { active: selectedSb?.id === task.storyboard.id }]"
+                  :class="['video-task-row', 'is-' + videoTaskState(task.storyboard), { active: !videoSelectMode && selectedSb?.id === task.storyboard.id, 'is-selected': videoSelectMode && isVideoSbSelected(task.id) }]"
                   role="button"
                   tabindex="0"
-                  @click="selectedSb = task.storyboard"
-                  @keydown.enter.prevent="selectedSb = task.storyboard"
-                  @keydown.space.prevent="selectedSb = task.storyboard"
+                  @click="onVideoTaskRowClick(task.storyboard)"
+                  @keydown.enter.prevent="onVideoTaskRowClick(task.storyboard)"
+                  @keydown.space.prevent="onVideoTaskRowClick(task.storyboard)"
                 >
                   <div class="video-task-preview">
+                    <span
+                      v-if="videoSelectMode"
+                      class="shot-check video-task-check"
+                      :class="{ on: isVideoSbSelected(task.id) }"
+                    >
+                      <svg v-if="isVideoSbSelected(task.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </span>
                     <video
                       v-if="hasVid(task.storyboard)"
                       :src="'/' + getVideoUrl(task.storyboard)"
@@ -766,7 +786,10 @@
                       <span class="video-task-sep">·</span>
                       <span>参考 {{ task.referenceCount }}</span>
                     </div>
-                    <div v-if="task.error" class="video-task-error">{{ task.error }}</div>
+                    <div v-if="task.error" class="video-task-error">
+                      {{ task.error }}
+                      <div v-if="videoModerationHint(task.error)" class="video-task-error-hint">{{ videoModerationHint(task.error) }}</div>
+                    </div>
                   </div>
                   <span :class="['video-task-status', 'is-' + videoTaskState(task.storyboard)]">
                     <span :class="['dot', videoTaskState(task.storyboard) === 'done' && 'ok', videoTaskState(task.storyboard) === 'pending' && 'pending']" />
@@ -924,17 +947,17 @@
                     </div>
                     <div class="video-ref-media-actions">
                       <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || refImageFull" @click="uploadRefMedia('image')">
-                        上传参考图片 ({{ refImageUsedCount }}/9)
+                        上传参考图片 ({{ refImageUsedCount }}/{{ videoReferenceLimits.images }})
                       </button>
-                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefVideoUrls.length >= 3" @click="uploadRefMedia('video')">
-                        上传参考视频 ({{ videoRefVideoUrls.length }}/3)
+                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefVideoUrls.length >= videoReferenceLimits.videos" @click="uploadRefMedia('video')">
+                        上传参考视频 ({{ videoRefVideoUrls.length }}/{{ videoReferenceLimits.videos }})
                       </button>
-                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefAudioUrls.length >= 3" @click="uploadRefMedia('audio')">
-                        上传参考音频 ({{ videoRefAudioUrls.length }}/3)
+                      <button type="button" class="btn btn-sm" :disabled="uploadingRefMedia || videoRefAudioUrls.length >= videoReferenceLimits.audios" @click="uploadRefMedia('audio')">
+                        上传参考音频 ({{ videoRefAudioUrls.length }}/{{ videoReferenceLimits.audios }})
                       </button>
                     </div>
                     <div
-                      v-if="videoRefAudioUrls.length && !getShotReferenceImages(selectedSb).length && !videoRefVideoUrls.length"
+                      v-if="!isWan3Video && videoRefAudioUrls.length && !getShotReferenceImages(selectedSb).length && !videoRefVideoUrls.length"
                       class="video-ref-media-hint"
                     >参考音频需至少 1 个参考图片或视频</div>
                   </section>
@@ -942,14 +965,25 @@
                   <section class="video-inspector-section">
                     <span class="video-inspector-label">生成参数</span>
                     <div class="video-param-row">
-                      <span class="video-param-name">生成时长</span>
+                      <span class="video-param-name">分镜时长</span>
                       <span class="video-param-control">
-                        <input v-model.number="videoDuration" type="number" min="4" max="15" class="input video-duration-input" />
-                        <span class="video-param-unit">s（4-15）</span>
+                        <input
+                          :value="selectedSb.duration || 10"
+                          type="number"
+                          :min="isWan3Video ? 2 : 4"
+                          :max="isWan3Video ? 30 : 15"
+                          class="input video-duration-input"
+                          @change="onVideoDurationChange"
+                        />
+                        <span class="video-param-unit">s（{{ isWan3Video ? '2-30' : '4-15' }}）</span>
                       </span>
                     </div>
+                    <div class="video-param-hint">修改即保存到分镜，列表与批量生成同步生效</div>
                   </section>
 
+                  <div class="video-inspector-effective">
+                    本次生成：{{ effectiveVideoModelLabel || '默认模型' }} · {{ episodeResolutionLabel }} · {{ effectiveVideoDuration }}s
+                  </div>
                   <button
                     class="btn btn-primary video-inspector-action"
                     :disabled="videoTaskState(selectedSb) === 'pending'"
@@ -1164,7 +1198,10 @@
                   <span class="video-task-sep">·</span>
                   <span>#{{ row.id }}</span>
                 </div>
-                <div v-if="row.errorMsg" class="video-task-error">{{ row.errorMsg }}</div>
+                <div v-if="row.errorMsg" class="video-task-error">
+                  {{ row.errorMsg }}
+                  <div v-if="row.kind === 'video' && videoModerationHint(row.errorMsg)" class="video-task-error-hint">{{ videoModerationHint(row.errorMsg) }}</div>
+                </div>
               </div>
               <span :class="['video-task-status', 'is-' + genTaskStateClass(row.status)]">
                 <span :class="['dot', genTaskStateClass(row.status) === 'done' && 'ok', genTaskStateClass(row.status) === 'pending' && 'pending']" />
@@ -1527,6 +1564,28 @@
         </div>
       </div>
 
+      <div v-if="batchVideoConfirm.open" class="overlay" @click.self="batchVideoConfirm.open = false">
+        <div class="dialog batch-video-dialog">
+          <header class="dialog-head">
+            <h2 class="dialog-title">批量生成视频</h2>
+            <button class="btn btn-ghost btn-icon" @click="batchVideoConfirm.open = false">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </header>
+          <div class="dialog-body batch-video-body">
+            <div class="batch-video-row"><span>镜头数</span><strong>{{ batchVideoConfirm.targets.length }} 个</strong></div>
+            <div class="batch-video-row"><span>总时长</span><strong>约 {{ batchVideoTotalDuration }}s</strong></div>
+            <div class="batch-video-row"><span>视频模型</span><strong>{{ effectiveVideoModelLabel || '默认模型' }}</strong></div>
+            <div class="batch-video-row"><span>分辨率</span><strong>{{ episodeResolutionLabel }}</strong></div>
+            <p class="batch-video-note">将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。</p>
+          </div>
+          <footer class="dialog-foot">
+            <button class="btn" @click="batchVideoConfirm.open = false">取消</button>
+            <button class="btn btn-primary" @click="confirmBatchVideos">开始生成 ({{ batchVideoConfirm.targets.length }})</button>
+          </footer>
+        </div>
+      </div>
+
       <ConfirmDialog
         :open="assetDelete.open"
         :title="`删除${assetDeleteTypeLabel}`"
@@ -1669,7 +1728,19 @@ function closeTaskDrawer() {
 const videoRefVideoUrls = ref([])
 const videoRefAudioUrls = ref([])
 const videoRefImageUrls = ref([])
-const videoDuration = ref(10)
+// 分镜时长（视频生成参数区直接编辑并保存到分镜）：
+// 按当前视频模型限制范围收敛后写入 storyboards.duration，列表/批量/单次生成统一读取该值
+function onVideoDurationChange(e) {
+  const sb = selectedSb.value
+  if (!sb) return
+  const min = isWan3Video.value ? 2 : 4
+  const max = isWan3Video.value ? 30 : 15
+  let v = Math.round(Number(e.target.value))
+  if (!Number.isFinite(v)) v = Number(sb.duration || 10)
+  v = Math.min(max, Math.max(min, v))
+  e.target.value = v
+  updateField(sb, 'duration', v)
+}
 const uploadingRefMedia = ref(false)
 const imageViewer = ref({ open: false, src: '', title: '' })
 const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
@@ -1976,6 +2047,15 @@ function videoFailMessage(id) {
   return failedVideoMessages.value[id] || ''
 }
 
+// 内容审核类失败（真人/敏感内容，如火山的 OutputVideoSensitiveContentDetected）：
+// 各厂商审核尺度不同，给出切换模型重试的引导
+const VIDEO_MODERATION_RE = /sensitive|moderation|真人|人脸|real[\s_-]?person|审核|内容.*(违规|不合规|未通过)|content[\s_-]?policy|risk[\s_-]?control|violation|blocked/i
+function videoModerationHint(msg) {
+  return VIDEO_MODERATION_RE.test(String(msg || ''))
+    ? '疑似真人/敏感内容审核未通过，可在顶栏切换其他视频模型后重试'
+    : ''
+}
+
 function videoTaskState(sb) {
   if (hasVid(sb)) return 'done'
   if (isPendingVideo(sb?.id)) return 'pending'
@@ -1998,7 +2078,7 @@ function videoTaskActionLabel(sb) {
   return '生成'
 }
 
-const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
+const allVideoTaskRows = computed(() => sbs.value.map((sb, index) => {
   const duration = Number(sb.duration || 5)
   const referenceCount = getShotReferenceImages(sb).length
   const sceneName = getSceneName(sb)
@@ -2015,8 +2095,80 @@ const videoTaskRows = computed(() => sbs.value.map((sb, index) => {
     error: videoTaskState(sb) === 'failed' ? videoFailMessage(sb.id) : '',
   }
 }))
-const videoTaskDoneCount = computed(() => videoTaskRows.value.filter(task => task.state === 'done').length)
-const videoTaskFailedCount = computed(() => videoTaskRows.value.filter(task => task.state === 'failed').length)
+// 列表筛选：点击顶部统计徽章过滤（再点一次取消）
+const videoListFilter = ref('')
+const videoTaskRows = computed(() => videoListFilter.value
+  ? allVideoTaskRows.value.filter(task => task.state === videoListFilter.value)
+  : allVideoTaskRows.value)
+const videoTaskDoneCount = computed(() => allVideoTaskRows.value.filter(task => task.state === 'done').length)
+const videoTaskFailedCount = computed(() => allVideoTaskRows.value.filter(task => task.state === 'failed').length)
+function toggleVideoFilter(state) {
+  videoListFilter.value = videoListFilter.value === state ? '' : state
+}
+
+// ===== 批量视频：选择模式 + 生成前确认（视频生成成本高，避免误触全量触发） =====
+const videoSelectMode = ref(false)
+const selectedVideoSbIds = ref([])
+const batchVideoConfirm = ref({ open: false, targets: [] })
+
+function isVideoSbSelected(id) { return selectedVideoSbIds.value.includes(id) }
+function toggleVideoSbSelect(id) {
+  selectedVideoSbIds.value = isVideoSbSelected(id)
+    ? selectedVideoSbIds.value.filter(item => item !== id)
+    : [...selectedVideoSbIds.value, id]
+}
+function toggleVideoSelectMode() {
+  videoSelectMode.value = !videoSelectMode.value
+  if (!videoSelectMode.value) selectedVideoSbIds.value = []
+}
+function onVideoTaskRowClick(sb) {
+  if (videoSelectMode.value) toggleVideoSbSelect(sb.id)
+  else selectedSb.value = sb
+}
+
+// 本次生成的生效配置（模型/分辨率/时长），用于右侧小结与批量确认弹窗
+const effectiveVideoModelLabel = computed(() => {
+  const explicit = bareModelName(videoModel.value)
+  if (explicit) return explicit
+  return configModels(selectedVideoConfig.value)[0] || ''
+})
+const episodeResolutionLabel = computed(() =>
+  resolutionOptions.value.find(o => o.key === episodeResolution.value)?.model || episodeResolution.value)
+const effectiveVideoDuration = computed(() => Number(selectedSb.value?.duration || 10))
+const batchVideoTotalDuration = computed(() =>
+  batchVideoConfirm.value.targets.reduce((sum, sb) => sum + (Number(sb.duration) || 5), 0))
+
+function openBatchVideoConfirm(pool) {
+  const targets = pool.filter(s => !isPendingVideo(s.id))
+  if (!targets.length) { toast.info('没有可生成的镜头'); return }
+  batchVideoConfirm.value = { open: true, targets }
+}
+function batchVideos() {
+  // 选择模式且有勾选 → 仅所选（允许重出已完成镜头）；否则全部未完成（待生成+失败）
+  const useSelection = videoSelectMode.value && selectedVideoSbIds.value.length
+  const pool = useSelection
+    ? sbs.value.filter(s => selectedVideoSbIds.value.includes(s.id))
+    : sbs.value.filter(s => !hasVid(s))
+  openBatchVideoConfirm(pool)
+}
+function retryFailedVideos() {
+  openBatchVideoConfirm(sbs.value.filter(s => videoTaskState(s) === 'failed'))
+}
+function confirmBatchVideos() {
+  const targets = [...batchVideoConfirm.value.targets]
+  batchVideoConfirm.value = { open: false, targets: [] }
+  if (!targets.length) return
+  const ids = targets.map(s => s.id)
+  targets.forEach(sb => genVid(sb, { silent: true }))
+  toast.success(`已发起 ${ids.length} 个视频生成任务`)
+  watchAsyncResult(() => ids.every(id => {
+    const target = sbs.value.find(s => s.id === id)
+    const done = !!getVideoUrl(target)
+    if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== id)
+    return done
+  }), 80, 4000)
+  if (videoSelectMode.value) toggleVideoSelectMode()
+}
 
 function isNarratorCharacter(char) {
   const text = `${char?.name || ''} ${char?.role || ''}`.toLowerCase()
@@ -2026,6 +2178,45 @@ function isNarratorCharacter(char) {
 const visualChars = computed(() => chars.value.filter(c => !isNarratorCharacter(c)))
 const lockedImageConfigId = computed(() => episode.value?.image_config_id || episode.value?.imageConfigId || null)
 const lockedVideoConfigId = computed(() => episode.value?.video_config_id || episode.value?.videoConfigId || null)
+// 集视频分辨率：顶栏直接修改（持久化 episodes.resolution，生成任务按此值锁定）。
+// 内部统一存 480p/720p/1080p 三档，界面按当前选中的视频模型显示厂商原生档位
+// （Seedance 480p/720p、MiniMax 768P/2K、Wan 3.0 480P/720P/1080P），适配器再映射为官方枚举
+const RESOLUTION_TIERS = {
+  volcengine: [
+    { key: '480p', model: '480p · 流畅' },
+    { key: '720p', model: '720p · 高清' },
+  ],
+  minimax: [
+    { key: '720p', model: '768P · 高清' },
+    { key: '1080p', model: '2K · 超清' },
+  ],
+  aliyun: [
+    { key: '480p', model: '480P · 流畅' },
+    { key: '720p', model: '720P · 高清' },
+    { key: '1080p', model: '1080P · 超清' },
+  ],
+}
+const resolutionOptions = computed(() => RESOLUTION_TIERS[selectedVideoConfig.value?.provider] || RESOLUTION_TIERS.volcengine)
+const episodeResolution = computed({
+  get: () => {
+    const v = episode.value?.resolution
+    return resolutionOptions.value.some(o => o.key === v) ? v : '720p'
+  },
+  set: (val) => { void changeEpisodeResolution(val) },
+})
+async function changeEpisodeResolution(val) {
+  if (!episode.value || val === episodeResolution.value) return
+  const prev = episode.value.resolution
+  episode.value.resolution = val
+  const label = resolutionOptions.value.find(o => o.key === val)?.model || val
+  try {
+    await episodeAPI.update(epId.value, { resolution: val })
+    toast.success(`本集视频分辨率已切换为 ${label}`)
+  } catch (e) {
+    episode.value.resolution = prev
+    toast.error(e.message)
+  }
+}
 const lockedImageConfigLabel = computed(() => configLabel(imageConfigs.value.find(c => c.id === lockedImageConfigId.value)))
 const lockedVideoConfigLabel = computed(() => configLabel(videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)))
 // 画面比例在创建项目时固定，视频生成统一使用
@@ -2069,6 +2260,20 @@ function hasMultiConfigs(options) {
 const textModelOptions = computed(() => collectModelOptions(textConfigs.value))
 const imageModelOptions = computed(() => collectModelOptions(imageConfigs.value))
 const videoModelOptions = computed(() => collectModelOptions(videoConfigs.value))
+const selectedVideoConfig = computed(() => {
+  const selected = videoModelOptions.value.find(option => option.key === videoModel.value)
+  if (selected) return videoConfigs.value.find(config => config.id === selected.configId)
+  const locked = videoConfigs.value.find(config => config.id === lockedVideoConfigId.value && config.is_active)
+  if (locked) return locked
+  return [...videoConfigs.value]
+    .filter(config => config.is_active)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0))[0]
+})
+const isWan3Video = computed(() => selectedVideoConfig.value?.provider === 'aliyun'
+  || bareModelName(videoModel.value).startsWith('wan3.0-video'))
+const videoReferenceLimits = computed(() => isWan3Video.value
+  ? { images: 10, videos: 5, audios: 5 }
+  : { images: 9, videos: 3, audios: 3 })
 
 // 配置变化后校验持久化的模型是否仍存在（配置被删/模型被移除时回退默认，避免把失效模型传给后端）
 function pruneStaleModel(modelRef, optionsRef) {
@@ -2584,6 +2789,7 @@ async function refresh() {
       try { propItems.value = await episodeAPI.props(ep.id) } catch { propItems.value = [] }
       sbs.value = await episodeAPI.storyboards(ep.id)
       selectedSbIds.value = selectedSbIds.value.filter(id => sbs.value.some(sb => sb.id === id))
+      selectedVideoSbIds.value = selectedVideoSbIds.value.filter(id => sbs.value.some(sb => sb.id === id))
       if (sbs.value.length) {
         const currentSelectedId = selectedSb.value?.id
         selectedSb.value = sbs.value.find(sb => sb.id === currentSelectedId) || sbs.value[0]
@@ -3013,7 +3219,7 @@ function formatHistoryTime(iso) {
 function getShotReferenceImages(sb) {
   const refs = []
   const pushRef = (value) => {
-    if (!value || refs.includes(value) || refs.length >= 9) return
+    if (!value || refs.includes(value) || refs.length >= videoReferenceLimits.value.images) return
     refs.push(value)
   }
   const scene = getStoryboardScene(sb)
@@ -3024,7 +3230,7 @@ function getShotReferenceImages(sb) {
   for (const prop of getStoryboardProps(sb)) {
     pushRef(prop?.image_url || prop?.imageUrl)
   }
-  // 手动上传的参考图片追加到尾部（总计 ≤9）
+  // 手动上传的参考图片追加到尾部（Wan 3.0 ≤10，其他模型 ≤9）
   for (const url of videoRefImageUrls.value) pushRef(url)
   return refs
 }
@@ -3134,7 +3340,7 @@ function toggleShotBind(sb, asset) {
   toggleStoryboardProp(sb, asset.id)
 }
 
-// 场景/角色/道具自动绑定占用的参考图片槽位（按素材卡片数，最多 9）
+// 场景/角色/道具自动绑定占用的参考图片槽位。
 const autoReferenceImageCount = computed(() => {
   const sb = selectedSb.value
   if (!sb) return 0
@@ -3142,13 +3348,12 @@ const autoReferenceImageCount = computed(() => {
   if (getStoryboardScene(sb)) count += 1
   count += getStoryboardCharacters(sb).length
   count += getStoryboardProps(sb).length
-  return Math.min(count, 9)
+  return Math.min(count, videoReferenceLimits.value.images)
 })
 
-// 已占用的参考图片数（场景/角色素材 + 手动上传），展示为 n/9
-const refImageUsedCount = computed(() => Math.min(9, autoReferenceImageCount.value + videoRefImageUrls.value.length))
-// 是否已达 9 张上限（禁用继续上传）
-const refImageFull = computed(() => refImageUsedCount.value >= 9)
+// 已占用的参考图片数（场景/角色素材 + 手动上传）。
+const refImageUsedCount = computed(() => Math.min(videoReferenceLimits.value.images, autoReferenceImageCount.value + videoRefImageUrls.value.length))
+const refImageFull = computed(() => refImageUsedCount.value >= videoReferenceLimits.value.images)
 
 // 视频提示词 @ 引用候选：仅当前分镜已绑定的角色与道具（按名字引用）、场景（按地点引用），展示顺序：角色 → 场景 → 道具
 const mentionOptions = computed(() => {
@@ -3182,7 +3387,7 @@ function getShotReferenceIndexMap(sb) {
   const ordered = []
   const seen = new Set()
   const push = (name, url) => {
-    if (!url || seen.has(url) || ordered.length >= 9) return
+    if (!url || seen.has(url) || ordered.length >= videoReferenceLimits.value.images) return
     seen.add(url)
     ordered.push({ name, imageUrl: url })
   }
@@ -3215,12 +3420,12 @@ function resolveVideoPromptRefs(sb) {
   })
 }
 
-// 切换选中分镜时重置视频生成面板
-watch(selectedSb, (sb) => {
+// 切换选中分镜时重置视频生成面板（同一分镜刷新数据时保留面板编辑，不清掉已传参考）
+watch(selectedSb, (sb, prev) => {
+  if (sb?.id && sb.id === prev?.id) return
   videoRefVideoUrls.value = []
   videoRefAudioUrls.value = []
   videoRefImageUrls.value = []
-  videoDuration.value = Number(sb?.duration || 10)
 })
 
 function pickFile(accept, cb) {
@@ -3272,7 +3477,8 @@ function uploadRefMedia(kind) {
   const isVideo = kind === 'video'
   const list = isVideo ? videoRefVideoUrls : videoRefAudioUrls
   const label = isVideo ? '视频' : '音频'
-  if (list.value.length >= 3) { toast.info(`参考${label}最多 3 个`); return }
+  const limit = isVideo ? videoReferenceLimits.value.videos : videoReferenceLimits.value.audios
+  if (list.value.length >= limit) { toast.info(`参考${label}最多 ${limit} 个`); return }
   const accept = isVideo ? 'video/mp4,video/quicktime,video/webm,.m4v' : 'audio/mpeg,audio/wav,audio/mp4,.aac'
   pickFile(accept, async (file) => {
     uploadingRefMedia.value = true
@@ -3289,22 +3495,25 @@ function removeRefMedia(kind, index) {
   list.value = list.value.filter((_, i) => i !== index)
 }
 
-async function genVid(sb) {
+async function genVid(sb, opts = {}) {
   const referenceImages = getShotReferenceImages(sb)
+  // 面板上传的参考视频/音频只对当前选中的分镜生效；
+  // 行内按钮或批量生成其他分镜时，只用分镜自身的 duration 与其绑定素材
+  const isPanelTarget = sb.id === selectedSb.value?.id
   const params = {
     storyboard_id: sb.id,
     drama_id: dramaId,
     prompt: resolveVideoPromptRefs(sb),
-    duration: Number(videoDuration.value || sb.duration || 10),
+    duration: Number(sb.duration || 10),
     aspect_ratio: dramaAspectRatio.value,
     generate_audio: true,
     model: bareModelName(videoModel.value) || undefined,
     config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
     reference_image_urls: referenceImages,
-    reference_video_urls: videoRefVideoUrls.value,
-    reference_audio_urls: videoRefAudioUrls.value,
+    reference_video_urls: isPanelTarget ? videoRefVideoUrls.value : [],
+    reference_audio_urls: isPanelTarget ? videoRefAudioUrls.value : [],
   }
-  if (params.reference_audio_urls.length && !referenceImages.length && !params.reference_video_urls.length) {
+  if (!isWan3Video.value && params.reference_audio_urls.length && !referenceImages.length && !params.reference_video_urls.length) {
     toast.error('参考音频需要至少 1 个参考图片或视频')
     return
   }
@@ -3316,7 +3525,7 @@ async function genVid(sb) {
     delete failedVideoMessages.value[sb.id]
     if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
     const generation = await taskAPI.generate({ type: 'video', ...params })
-    toast.success('视频生成中')
+    if (!opts.silent) toast.success('视频生成中')
     await refresh()
     pollVideoGeneration(generation?.id, sb.id)
   } catch (e) {
@@ -3325,7 +3534,8 @@ async function genVid(sb) {
       ...failedVideoMessages.value,
       [sb.id]: e.message || '视频生成失败',
     }
-    toast.error(e.message)
+    const hint = videoModerationHint(e.message)
+    toast.error(hint ? `${e.message} — ${hint}` : e.message)
   }
 }
 async function pollVideoGeneration(generationId, storyboardId) {
@@ -3351,11 +3561,13 @@ async function pollVideoGeneration(generationId, storyboardId) {
       }
       if (res?.status === 'failed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
+        const errMsg = res?.error_msg || res?.errorMsg || '视频生成失败'
         failedVideoMessages.value = {
           ...failedVideoMessages.value,
-          [storyboardId]: res?.error_msg || res?.errorMsg || '视频生成失败',
+          [storyboardId]: errMsg,
         }
-        toast.error(failedVideoMessages.value[storyboardId])
+        const hint = videoModerationHint(errMsg)
+        toast.error(hint ? `${errMsg} — ${hint}` : errMsg)
         return
       }
     } catch {}
@@ -3366,27 +3578,6 @@ async function pollVideoGeneration(generationId, storyboardId) {
     [storyboardId]: '视频生成超时',
   }
   toast.error('视频生成超时')
-}
-function batchVideos() {
-  const missing = sbs.value.filter(s => !hasVid(s) && !isPendingVideo(s.id))
-  if (!missing.length) {
-    toast.info('所有镜头视频已生成')
-    return
-  }
-  const pendingIds = missing.map(s => s.id)
-  pendingIds.forEach(id => {
-    const sb = sbs.value.find(item => item.id === id)
-    if (sb) genVid(sb)
-  })
-  if (pendingIds.length) {
-    pendingVideoIds.value = [...new Set([...pendingVideoIds.value, ...pendingIds])]
-    watchAsyncResult(() => pendingIds.every(id => {
-      const target = sbs.value.find(s => s.id === id)
-      const done = !!getVideoUrl(target)
-      if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== id)
-      return done
-    }), 80, 4000)
-  }
 }
 async function doMerge(ids) {
   const storyboardIds = Array.isArray(ids) ? ids : undefined
@@ -5120,6 +5311,47 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   display: flex;
   flex-direction: column;
 }
+/* 统计徽章兼作筛选器 */
+button.video-task-metric { cursor: pointer; font-family: inherit; transition: box-shadow 0.15s; }
+button.video-task-metric:hover { box-shadow: 0 0 0 2px var(--sel-glow, rgba(0,113,227,0.15)); }
+button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent, #0071e3); }
+/* 批量视频：选择模式 */
+.btn.is-on { border-color: var(--accent); color: var(--accent-text, var(--accent)); background: var(--accent-bg, rgba(0,113,227,0.10)); }
+.video-retry-failed { color: var(--warning); border-color: rgba(255,159,10,0.4); }
+.video-task-row.is-selected { background: var(--sel-bg); box-shadow: inset 0 0 0 1.5px var(--sel); }
+.video-task-check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 2;
+  background: rgba(0,0,0,0.45);
+  border-color: rgba(255,255,255,0.55);
+}
+.video-task-check.on { background: var(--accent); border-color: var(--accent); }
+/* 生成前生效配置小结 */
+.video-param-hint { margin-top: 6px; font-size: 10px; color: var(--text-3); }
+.video-inspector-effective {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+}
+/* 批量生成确认弹窗 */
+.batch-video-dialog { width: 420px; max-width: calc(100vw - 48px); }
+.batch-video-body { display: flex; flex-direction: column; gap: 10px; }
+.batch-video-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-2);
+  padding: 8px 12px;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius);
+  background: var(--bg-input, rgba(0,0,0,0.02));
+}
+.batch-video-row strong { color: var(--text-0); font-weight: 600; }
+.batch-video-note { margin: 4px 0 0; font-size: 11px; color: var(--text-3); line-height: 1.6; }
 .video-task-row {
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr) auto auto;
@@ -5219,6 +5451,11 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   font-size: 11px;
   line-height: 1.45;
   color: var(--error);
+}
+.video-task-error-hint {
+  margin-top: 3px;
+  color: var(--accent-text, var(--accent));
+  font-weight: 600;
 }
 .video-task-status {
   justify-self: end;

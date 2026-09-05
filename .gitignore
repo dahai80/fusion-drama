@@ -47,3 +47,4 @@ temp/
 # Agent workspace (skills 保持跟踪，其余产出忽略)
 backend/workspace/*
 !backend/workspace/skills/
+/desktop/

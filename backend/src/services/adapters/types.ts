@@ -96,10 +96,15 @@ export interface VideoGenerationRecord {
   referenceImageUrls?: string | null
   referenceVideoUrls?: string | null
   referenceAudioUrls?: string | null
+  referenceFileUrl?: string | null
+  referenceLinkUrl?: string | null
   generateAudio?: number | boolean | null
   duration?: number | null
   aspectRatio?: string | null
   resolution?: string | null
+  seed?: number | null
+  promptExtend?: number | boolean | null
+  watermark?: number | boolean | null
   // ... 其他字段
 }
 
@@ -125,5 +130,6 @@ export interface VideoGenResponse {
 export interface VideoPollResponse {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   videoUrl?: string
+  duration?: number
   error?: string
 }

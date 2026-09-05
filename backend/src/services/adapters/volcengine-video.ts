@@ -19,7 +19,7 @@ import { joinProviderUrl } from './url'
 
 /** 仅支持 Seedance 2.0+ 系列（前缀匹配，兼容未来 2.0.x 变体） */
 const SEEDANCE2_MODEL_PREFIX = 'doubao-seedance-2-0'
-const DEFAULT_MODEL = 'doubao-seedance-2-0-fast-260128'
+const DEFAULT_MODEL = 'doubao-seedance-2-0-mini-260615'
 
 /** 多模态参考素材上限：图片 9、视频 3、音频 3 */
 const REF_LIMITS = { images: 9, videos: 3, audios: 3 } as const
@@ -76,6 +76,7 @@ export class VolcEngineVideoAdapter implements VideoProviderAdapter {
       generate_audio: record.generateAudio !== 0 && record.generateAudio !== false,
       ratio: record.aspectRatio || 'adaptive',
       duration: this.normalizeDuration(record.duration),
+      // Seedance 2.0 仅 480p/720p 两档，1080p 收敛到 720p
       resolution: record.resolution === '480p' ? '480p' : '720p',
       watermark: false,
     }
