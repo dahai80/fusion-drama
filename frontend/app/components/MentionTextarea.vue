@@ -382,7 +382,7 @@ function onBlur(e) {
   background: var(--accent-bg);
 }
 .mention-backdrop :deep(.mention-token-scene) {
-  color: #248a3d;
+  color: var(--tag-success-text);
   background: var(--success-bg);
 }
 .mention-dropdown {
@@ -441,7 +441,7 @@ function onBlur(e) {
 }
 /* 无图时按分组着色图标底色 */
 .mention-avatar-role { color: var(--accent-text); background: var(--accent-bg); }
-.mention-avatar-scene { color: #248a3d; background: var(--success-bg); }
+.mention-avatar-scene { color: var(--tag-success-text); background: var(--success-bg); }
 .mention-avatar-prop { color: var(--text-2); background: var(--bg-2); }
 .mention-name {
   flex: 1;

@@ -60,6 +60,32 @@
             </div>
             <p class="config-empty">{{ t('settings.general.languageHint') }}</p>
           </section>
+
+          <!-- 外观主题 -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.general.appearance') }}</span>
+                <div class="svc-group-sub">{{ t('settings.general.appearanceSub') }}</div>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge" style="background:var(--accent-bg);color:var(--accent)"><SunMoon :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">{{ t('settings.general.appearanceLabel') }}</span></div>
+                <div class="config-sub">{{ t('settings.general.appearanceNote') }}</div>
+              </div>
+              <div class="lang-picker">
+                <button
+                  v-for="o in themeOptions"
+                  :key="o.value"
+                  type="button"
+                  :class="['lang-option', { on: themeMode === o.value }]"
+                  @click="setThemeMode(o.value)"
+                >{{ o.label }}</button>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- ===== AI 服务配置 ===== -->
@@ -612,13 +638,14 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
+import { useTheme } from '~/composables/useTheme'
 import brandLogo from '~/assets/huobao-logo.png'
 
 const { t } = useI18n()
@@ -933,6 +960,14 @@ const contentLangOptions = [
   { value: 'ja', label: '日本語' },
   { value: 'ko', label: '한국어' },
 ]
+// ===== 通用：外观主题（localStorage 持久化，即时生效） =====
+const { themeMode, setThemeMode } = useTheme()
+const themeOptions = computed(() => [
+  { value: 'light', label: t('settings.general.appearanceLight') },
+  { value: 'dark', label: t('settings.general.appearanceDark') },
+  { value: 'system', label: t('settings.general.appearanceSystem') },
+])
+
 async function loadContentLanguage() {
   try { contentLanguage.value = (await settingsAPI.contentLanguage())?.language || 'zh' } catch { /* 保持默认 */ }
 }
@@ -1356,8 +1391,8 @@ onBeforeUnmount(stopUsagePoll)
   flex-shrink: 0;
   padding: 1px 6px;
   border-radius: 4px;
-  background: var(--accent-bg, rgba(0,113,227,0.10));
-  color: var(--accent, #0071e3);
+  background: var(--accent-bg);
+  color: var(--accent);
   font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
@@ -1409,7 +1444,7 @@ onBeforeUnmount(stopUsagePoll)
 .template-type-chip:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
 
 /* ===== 内容语言选择器（通用 tab） ===== */
-.lang-picker { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: rgba(0,0,0,0.05); }
+.lang-picker { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-pill); background: var(--overlay-track); }
 .lang-option {
   min-height: 30px;
   padding: 0 14px;
@@ -1425,7 +1460,7 @@ onBeforeUnmount(stopUsagePoll)
   white-space: nowrap;
 }
 .lang-option:hover { color: var(--text-0); }
-.lang-option.on { background: #fff; color: var(--text-0); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.lang-option.on { background: var(--seg-active-bg); color: var(--text-0); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 .lang-option:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
 
 /* 按服务类型分组的配置卡 */
@@ -1444,7 +1479,7 @@ onBeforeUnmount(stopUsagePoll)
 .provider-badge {
   width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 14px; color: #fff;
+  font-weight: 700; font-size: 14px; color: var(--on-accent);
   background: var(--accent);
   box-shadow: 0 1px 4px rgba(0,0,0,0.12);
 }
@@ -1472,7 +1507,7 @@ onBeforeUnmount(stopUsagePoll)
 .cfg-model-chip:hover { border-color: var(--accent); color: var(--accent); }
 .cfg-model-chip.is-default {
   border-color: var(--accent);
-  background: var(--accent-bg, rgba(0,113,227,0.10));
+  background: var(--accent-bg);
   color: var(--accent);
   font-weight: 600;
   cursor: default;
@@ -1524,7 +1559,7 @@ onBeforeUnmount(stopUsagePoll)
 .skills-agent-label { flex: 1; min-width: 0; }
 .skill-count-badge {
   font-size: 10px; font-weight: 700; font-family: var(--font-mono);
-  background: rgba(0,0,0,0.06); color: var(--text-2);
+  background: var(--bg-active); color: var(--text-2);
   padding: 1px 6px; border-radius: 99px;
 }
 .skills-agent-item.active .skill-count-badge { background: var(--accent-bg); color: var(--accent-text); }
@@ -1589,8 +1624,8 @@ onBeforeUnmount(stopUsagePoll)
   border: 1px solid var(--border);
   background: var(--bg-0);
 }
-.test-result.ok { border-color: rgba(52,199,89,0.4); background: var(--success-bg); }
-.test-result.bad { border-color: rgba(255,59,48,0.4); background: var(--error-bg); }
+.test-result.ok { border-color: var(--success); background: var(--success-bg); }
+.test-result.bad { border-color: var(--error); background: var(--error-bg); }
 .test-result-head {
   display: flex;
   align-items: center;
@@ -1613,20 +1648,20 @@ onBeforeUnmount(stopUsagePoll)
   margin-top: 2px;
 }
 .migrate-warn {
-  color: var(--danger, #ff6b6b);
+  color: var(--error);
 }
 .update-bar {
   width: 220px;
   height: 5px;
   border-radius: 3px;
-  background: var(--border, #2a3140);
+  background: var(--overlay-track);
   overflow: hidden;
   margin-top: 6px;
 }
 .update-bar-fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
   transition: width 0.2s ease;
 }
 </style>

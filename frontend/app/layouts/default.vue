@@ -27,6 +27,7 @@
       </nav>
 
       <div class="header-right">
+        <ThemeToggle />
         <LocaleSwitcher />
       </div>
     </header>
@@ -92,7 +93,7 @@ watch(locale, checkAiConfigs)
   height: 60px; flex-shrink: 0;
   padding: 0 24px;
   gap: 32px;
-  background: rgba(251,251,253,0.72);
+  background: var(--header-bg);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border);
@@ -115,7 +116,7 @@ watch(locale, checkAiConfigs)
 .brand-mark {
   width: 32px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--text-0); border-radius: 9px;
+  background: var(--inverse-surface); border-radius: 9px;
   overflow: hidden;
 }
 .brand-logo {
@@ -127,7 +128,7 @@ watch(locale, checkAiConfigs)
 .brand-fallback {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-inverse);
   line-height: 1;
 }
 .brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
@@ -147,7 +148,7 @@ watch(locale, checkAiConfigs)
   display: flex; gap: 2px;
   padding: 3px;
   border-radius: var(--radius-pill);
-  background: rgba(0,0,0,0.05);
+  background: var(--overlay-track);
 }
 
 /* Header 右侧 — 语言切换器 */
@@ -167,7 +168,7 @@ watch(locale, checkAiConfigs)
 }
 .nav-link:hover { color: var(--text-0); }
 .nav-link.active {
-  background: #fff;
+  background: var(--seg-active-bg);
   color: var(--text-0);
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
@@ -180,21 +181,21 @@ watch(locale, checkAiConfigs)
 .config-banner {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 24px; flex-shrink: 0;
-  font-size: 12.5px; color: #92400e;
-  background: #fffbeb;
-  border-bottom: 1px solid #fde68a;
+  font-size: 12.5px; color: var(--warn-text);
+  background: var(--warn-bg);
+  border-bottom: 1px solid var(--warn-border);
   position: relative; z-index: 9;
 }
 .config-banner-link {
   margin-left: auto;
   font-size: 12.5px; font-weight: 600;
-  color: #b45309; text-decoration: none;
+  color: var(--warn-link); text-decoration: none;
   padding: 2px 10px; border-radius: var(--radius-pill);
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--warn-border);
   transition: all 0.18s var(--ease-out);
   line-height: 1.6;
 }
-.config-banner-link:hover { background: #fef3c7; color: #92400e; }
+.config-banner-link:hover { background: var(--warn-link-hover-bg); color: var(--warn-text); }
 
 /* Content */
 .content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }

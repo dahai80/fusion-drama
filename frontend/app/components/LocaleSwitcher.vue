@@ -114,9 +114,9 @@ onBeforeUnmount(() => {
   gap: 1px;
   padding: 5px;
   border-radius: 12px;
-  background: var(--bg-1, #fff);
+  background: var(--bg-1);
   border: 1px solid var(--border);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-lg);
   animation: localeMenuIn 0.16s var(--ease-out, ease-out);
 }
 @keyframes localeMenuIn {
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: background 0.12s;
 }
-.locale-item:hover { background: var(--accent-bg, rgba(0,113,227,0.08)); }
+.locale-item:hover { background: var(--accent-bg); }
 .locale-item.active { font-weight: 600; color: var(--text-0); }
-.locale-item svg { color: var(--accent, #0071e3); }
+.locale-item svg { color: var(--accent); }
 </style>

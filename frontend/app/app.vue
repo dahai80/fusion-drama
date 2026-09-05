@@ -2,7 +2,7 @@
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
-  <Toaster position="top-right" :duration="3000" />
+  <Toaster position="top-right" :duration="3000" :theme="resolvedTheme" />
   <MigrateOverlay />
 </template>
 
@@ -13,8 +13,10 @@ import { useI18n } from 'vue-i18n'
 import MigrateOverlay from '~/components/MigrateOverlay.vue'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
+import { useTheme } from '~/composables/useTheme'
 
 const { t } = useI18n()
+const { resolvedTheme } = useTheme()
 
 // 响应式文档标题（nuxt.config.ts 的静态 title 仅作 SSR/兜底）
 useHead(() => ({ title: t('app.title') }))

@@ -38,13 +38,14 @@ const { state } = useMigrateState()
   width: 380px;
   padding: 28px 32px;
   border-radius: 12px;
-  background: var(--bg-card, #151a22);
-  border: 1px solid var(--border, #2a3140);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: var(--text, #e7ecf3);
+  color: var(--text-0);
 }
 .migrate-title {
   font-size: 15px;
@@ -52,24 +53,24 @@ const { state } = useMigrateState()
 }
 .migrate-msg {
   font-size: 12px;
-  color: var(--text-dim, #93a0b5);
+  color: var(--text-2);
   min-height: 16px;
 }
 .migrate-bar {
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: var(--border, #2a3140);
+  background: var(--overlay-track);
   overflow: hidden;
 }
 .migrate-bar-fill {
   height: 100%;
   border-radius: 3px;
-  background: var(--accent, #4f7cff);
+  background: var(--accent);
   transition: width 0.2s ease;
 }
 .migrate-hint {
   font-size: 11px;
-  color: var(--text-dim, #93a0b5);
+  color: var(--text-3);
 }
 </style>

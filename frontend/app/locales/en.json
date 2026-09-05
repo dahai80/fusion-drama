@@ -39,6 +39,12 @@
     "banner": {
       "missing": "{types} model not configured yet. AI features are unavailable.",
       "goSettings": "Go to Settings"
+    },
+    "theme": {
+      "label": "Toggle theme",
+      "light": "Light mode",
+      "dark": "Dark mode",
+      "system": "Follow system"
     }
   },
   "migrate": {
@@ -239,7 +245,14 @@
       "languageLabel": "Target language",
       "languageNote": "Only affects newly generated content; existing content is not translated",
       "languageHint": "Independent from UI language. Existing asset names used in {'@'}mentions keep their original form; new content is produced in the selected language.",
-      "languageSaved": "Content language saved"
+      "languageSaved": "Content language saved",
+      "appearance": "Appearance",
+      "appearanceSub": "Interface color theme, applied instantly",
+      "appearanceLabel": "Theme mode",
+      "appearanceNote": "In System mode, follows your OS appearance automatically",
+      "appearanceLight": "Light",
+      "appearanceDark": "Dark",
+      "appearanceSystem": "System"
     },
     "ai": {
       "title": "AI Service Configs",

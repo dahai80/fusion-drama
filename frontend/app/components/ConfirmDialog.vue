@@ -96,8 +96,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .confirm-actions .btn { flex: 1; }
 .confirm-danger-btn {
   background: var(--action-danger);
-  color: #fff;
+  color: var(--on-accent);
 }
-.confirm-danger-btn:hover { background: #d70015; color: #fff; }
+.confirm-danger-btn:hover { background: var(--action-danger-solid-hover); color: var(--on-accent); }
 .confirm-danger-btn:disabled { opacity: 0.6; }
 </style>

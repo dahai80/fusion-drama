@@ -39,6 +39,12 @@
     "banner": {
       "missing": "{types} 모델이 아직 설정되지 않아 AI 기능을 사용할 수 없습니다",
       "goSettings": "설정으로 이동"
+    },
+    "theme": {
+      "label": "테마 전환",
+      "light": "라이트 모드",
+      "dark": "다크 모드",
+      "system": "시스템 설정 따르기"
     }
   },
   "migrate": {
@@ -239,7 +245,14 @@
       "languageLabel": "대상 언어",
       "languageNote": "새로 생성되는 콘텐츠에만 영향을 미치며, 기존 콘텐츠는 번역되지 않습니다",
       "languageHint": "UI 언어와는 독립적입니다. 기존 에셋의 「{'@'}참조」 이름은 원래 이름을 유지하고, 새 콘텐츠는 선택한 언어로 생성됩니다.",
-      "languageSaved": "콘텐츠 언어가 저장되었습니다"
+      "languageSaved": "콘텐츠 언어가 저장되었습니다",
+      "appearance": "화면 모드",
+      "appearanceSub": "인터페이스 색상 테마, 즉시 적용됩니다",
+      "appearanceLabel": "테마 모드",
+      "appearanceNote": "시스템 모드에서는 OS 화면 설정을 자동으로 따릅니다",
+      "appearanceLight": "라이트",
+      "appearanceDark": "다크",
+      "appearanceSystem": "시스템"
     },
     "ai": {
       "title": "AI 서비스 설정",

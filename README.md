@@ -178,10 +178,14 @@ cd ../backend && npm start
 
 从旧版 MySQL 迁移数据：
 
+**启动时自动迁移（推荐）**：显式配置了 MySQL（`DATABASE_URL` 或 `MYSQL_HOST`）且 SQLite 为空库时，后端启动会自动探测并一次性导入全部表（行数逐表校验、单事务原子写入、失败自动回滚并在下次启动重试、成功后写 `.mysql-imported` 标记避免重复）。设 `MYSQL_AUTO_IMPORT=false` 可关闭。
+
 ```bash
-# MySQL 仍可通过环境变量（或 backend/.env）连接，将全部表数据导入 SQLite
-cd backend && npx tsx scripts/import-mysql-to-sqlite.ts          # 目标库非空需加 --force
+# 也可手动执行（目标库非空需加 --force，写入前自动备份）
+cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 ```
+
+> 迁移只覆盖数据库行；旧部署 `data/static/` 下的图片/视频等媒体文件需手动拷贝，否则历史素材无法访问。
 
 ### 🔑 首次使用：配置 AI 服务
 

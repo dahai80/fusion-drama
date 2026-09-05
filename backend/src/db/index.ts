@@ -6,6 +6,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema.js'
 import { initSqliteSchema } from './sqlite-schema.js'
+import { maybeAutoImportMysql } from './mysql-import.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // src/db → 上三级为仓库根（与 utils/paths.ts 的推断层级一致）
@@ -29,6 +30,9 @@ export function initDb() {
 }
 
 initDb()
+
+// MySQL 老用户一次性自动迁移：仅在显式配置 MySQL + 空库 + 无标记时触发（详见 mysql-import.ts 头注释）
+await maybeAutoImportMysql(sqlite, dbPath)
 
 /** better-sqlite3 的 lastInsertRowid 可能是 bigint，统一转 number */
 export function getInsertId(result: unknown) {

@@ -39,6 +39,12 @@
     "banner": {
       "missing": "尚未配置{types}模型,AI 功能无法使用",
       "goSettings": "前往设置"
+    },
+    "theme": {
+      "label": "切换主题",
+      "light": "浅色模式",
+      "dark": "深色模式",
+      "system": "跟随系统"
     }
   },
   "migrate": {
@@ -239,7 +245,14 @@
       "languageLabel": "目标语言",
       "languageNote": "仅影响新生成的内容，不会翻译已有内容",
       "languageHint": "与界面语言相互独立。已有资产的「@引用」名字保持原名，新生成内容按所选语言产出。",
-      "languageSaved": "内容语言已保存"
+      "languageSaved": "内容语言已保存",
+      "appearance": "外观",
+      "appearanceSub": "界面颜色主题，即时生效",
+      "appearanceLabel": "主题模式",
+      "appearanceNote": "跟随系统时，随操作系统外观自动切换",
+      "appearanceLight": "浅色",
+      "appearanceDark": "深色",
+      "appearanceSystem": "跟随系统"
     },
     "ai": {
       "title": "AI 服务配置",

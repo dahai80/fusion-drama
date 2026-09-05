@@ -3680,10 +3680,10 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   gap: 8px;
   background: var(--surface-base);
   /* 选中态:靛蓝色系,与进行中(蓝 --accent)/已完成(绿 --success)区分 */
-  --sel: #5856d6;
-  --sel-bg: rgba(88, 86, 214, 0.10);
-  --sel-text: #4240b0;
-  --sel-glow: rgba(88, 86, 214, 0.16);
+  --sel: var(--accent-purple);
+  --sel-bg: var(--accent-purple-bg);
+  --sel-text: var(--accent-purple-text);
+  --sel-glow: rgba(88, 86, 214, 0.16); /* 无紫色 glow token，保留原值 */
 }
 
 .studio-topbar {
@@ -3695,7 +3695,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   min-height: 40px;
   padding: 4px 10px;
   border-radius: var(--radius-lg);
-  background: rgba(251,251,253,0.72);
+  background: var(--header-bg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px) saturate(180%);
@@ -3853,14 +3853,14 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   gap: 6px;
   padding: 0 12px;
   border: none; border-radius: var(--radius-pill);
-  background: rgba(0,0,0,0.05); color: var(--text-1);
+  background: var(--overlay-track); color: var(--text-1);
   cursor: pointer; transition: all 0.18s var(--ease-out);
   font-size: 12px;
   font-weight: 650;
   line-height: 1;
 }
 .back-btn:hover {
-  background: rgba(0,0,0,0.09);
+  background: var(--bg-active);
   color: var(--text-0);
 }
 .back-btn:focus-visible {
@@ -3885,7 +3885,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 }
 .pipe-section.is-done .pipe-section-state {
   background: var(--success-bg); color: var(--success);
-  border: 1px solid rgba(52,199,89,0.3);
+  border: 1px solid var(--success-bg);
 }
 .pipe-section-dot {
   width: 5px; height: 5px; border-radius: 999px;
@@ -3911,7 +3911,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .pipe-item.doing { color: var(--text-1); }
 .pipe-item.doing .pipe-icon {
   background: var(--accent-bg);
-  border-color: rgba(0,113,227,0.25);
+  border-color: var(--accent-glow);
 }
 .pipe-item-pulse {
   width: 6px; height: 6px; border-radius: 999px;
@@ -5151,7 +5151,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .video-player-history-count {
   padding: 0 6px;
   border-radius: 999px;
-  background: rgba(0,0,0,0.05);
+  background: var(--overlay-track);
   color: var(--text-3);
   font-size: 10px;
   font-weight: 750;
@@ -5741,7 +5741,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent, #0071e3); }
   align-items: center;
   padding: 0 7px;
   border-radius: 999px;
-  background: rgba(0,0,0,0.05);
+  background: var(--overlay-track);
   color: var(--text-3);
   font-size: 10px;
   font-weight: 760;

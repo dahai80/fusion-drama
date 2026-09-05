@@ -386,9 +386,9 @@ onMounted(load)
   padding-left: 34px;
   border-radius: var(--radius-pill);
   border-color: var(--border);
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--bg-hover);
 }
-.search-box .input:focus { background: #fff; }
+.search-box .input:focus { background: var(--surface-input); }
 .chip-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 1px; }
 .filter-chip {
   appearance: none;
@@ -396,19 +396,19 @@ onMounted(load)
   padding: 6px 14px;
   border: none;
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--overlay-track);
   color: var(--text-2);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   transition: all 0.16s var(--ease-out);
 }
-.filter-chip:hover { color: var(--text-0); background: rgba(0, 0, 0, 0.08); }
+.filter-chip:hover { color: var(--text-0); background: var(--bg-active); }
 .filter-chip:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
-.filter-chip.on { background: var(--text-0); color: #fff; }
+.filter-chip.on { background: var(--inverse-surface); color: var(--on-inverse); }
 .sort-select {
   margin-left: auto;
   width: auto;
@@ -416,10 +416,10 @@ onMounted(load)
   min-height: 36px;
   border-radius: var(--radius-pill);
   border-color: var(--border);
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--bg-hover);
   color: var(--text-1);
 }
-.sort-select:focus { background: #fff; }
+.sort-select:focus { background: var(--surface-input); }
 
 .project-grid {
   display: grid;
@@ -445,18 +445,18 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e3edff;
-  color: #4a6fb5;
+  background: var(--accent-bg);
+  color: var(--accent-text);
 }
 .cover-badge {
   position: absolute;
   top: 10px;
   left: 10px;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--header-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-xs);
   color: var(--text-1);
 }
 .status-dot {
@@ -487,15 +487,15 @@ onMounted(load)
   min-width: 30px;
   height: 30px;
   min-height: 30px;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--header-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: var(--text-1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-xs);
   opacity: 0;
   transition: opacity 0.15s var(--ease-out), background 0.15s var(--ease-out);
 }
-.cover-more:hover { background: #fff; }
+.cover-more:hover { background: var(--surface-raised); }
 .project-card:hover .cover-more,
 .more-wrap:focus-within .cover-more { opacity: 1; }
 .more-menu {

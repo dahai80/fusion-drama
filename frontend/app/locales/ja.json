@@ -39,6 +39,12 @@
     "banner": {
       "missing": "{types}モデルが未設定のため、AI 機能は使用できません",
       "goSettings": "設定へ"
+    },
+    "theme": {
+      "label": "テーマを切り替え",
+      "light": "ライトモード",
+      "dark": "ダークモード",
+      "system": "システムに従う"
     }
   },
   "migrate": {
@@ -239,7 +245,14 @@
       "languageLabel": "対象言語",
       "languageNote": "新しく生成される内容にのみ影響し、既存の内容は翻訳されません",
       "languageHint": "表示言語とは独立しています。既存資産の「{'@'}参照」名は原名のまま保持され、新しい内容は選択した言語で生成されます。",
-      "languageSaved": "コンテンツ言語を保存しました"
+      "languageSaved": "コンテンツ言語を保存しました",
+      "appearance": "外観",
+      "appearanceSub": "画面のカラーテーマ。即時反映されます",
+      "appearanceLabel": "テーマモード",
+      "appearanceNote": "「システム」ではOSの外観に自動で追従します",
+      "appearanceLight": "ライト",
+      "appearanceDark": "ダーク",
+      "appearanceSystem": "システム"
     },
     "ai": {
       "title": "AI サービス設定",
