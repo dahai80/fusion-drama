@@ -159,6 +159,7 @@
       "statusTitle": "点击标记本集状态",
       "resTitle": "点击修改本集视频分辨率",
       "deleteTitle": "删除本集",
+      "enter": "进入制作",
       "scriptReady": "剧本已录入",
       "merged": "已合成",
       "emptyCreateTitle": "点击创建第一集",
@@ -347,7 +348,9 @@
       "scriptRewriter": "剧本改写",
       "extractor": "角色场景提取",
       "storyboardBreaker": "分镜拆解",
-      "promptGenerator": "提示词"
+      "promptGenerator": "提示词",
+      "langFallback": "跟随中文",
+      "langPickerTitle": "选择要编辑的语言版本（生成时按 AI 内容语言加载）"
     },
     "skills": {
       "agentList": "Agent 列表",
@@ -456,10 +459,8 @@
       "production": "制作",
       "assets": "资产",
       "assetsDesc": "角色 / 场景 / 道具",
-      "storyboard": "分镜",
-      "storyboardDesc": "分镜拆分与提示词",
-      "videos": "视频",
-      "videosDesc": "视频任务与生成",
+      "videos": "视频制作",
+      "videosDesc": "分镜拆分与视频生成",
       "export": "导出",
       "exportDesc": "拼接与成片输出",
       "mergeExport": "拼接导出",
@@ -486,8 +487,8 @@
       "skipDone": "已跳过 AI 改写，当前将直接使用原始内容"
     },
     "prod": {
-      "assets": "资产",
-      "videos": "视频生成",
+      "assets": "资产制作",
+      "videos": "视频制作",
       "notReady": "尚未准备就绪",
       "readyCount": "{ready}/{total} 已就绪",
       "extract": "提取{type}",
@@ -695,7 +696,6 @@
       "emptyTitle": "先生成分镜",
       "emptyDesc": "视频任务来自分镜拆分结果。先生成分镜描述和视频提示词，再批量生成视频。",
       "lockedModel": "当前集视频模型：",
-      "aiBreakdown": "拆分分镜并生成提示词",
       "listTitle": "视频任务列表",
       "listMeta": "按镜头顺序 · {n} 个任务",
       "metricPending": "{n} 生成中",
@@ -742,7 +742,8 @@
       "confirmModel": "视频模型",
       "confirmResolution": "分辨率",
       "confirmNote": "将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。",
-      "confirmStart": "开始生成 ({n})"
+      "confirmStart": "开始生成 ({n})",
+      "selectMissing": "选未生成"
     },
     "inspector": {
       "videoPromptPlaceholder": "用 {'@'}角色名 / {'@'}场景名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…",
@@ -760,7 +761,9 @@
       "durationUnit": "s（4-15）",
       "durationUnitWan": "s（2-30）",
       "durationHint": "修改即保存到分镜，列表与批量生成同步生效",
-      "effective": "本次生成：{model} · {res} · {dur}s"
+      "effective": "本次生成：{model} · {res} · {dur}s",
+      "boundRefs": "绑定参考图",
+      "noBoundRefs": "暂无绑定素材（在中间「参考素材」区点击绑定）"
     },
     "tasks": {
       "title": "生成任务列表",

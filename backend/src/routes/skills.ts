@@ -8,7 +8,10 @@ import { refreshSkillWorkspaces, skillsManagerWorkspace } from '../agents/skills
 
 const app = new Hono()
 const fsm = () => skillsManagerWorkspace.filesystem!
-const skillFile = (id: string) => `skills/${id}/SKILL.md`
+const LANGS = ['zh', 'en', 'ja', 'ko']
+const normalizeLang = (v?: string) => (v && LANGS.includes(v) ? v : 'zh')
+/** 技能文件路径；lang 非 zh 时为语言变体 SKILL.<lang>.md */
+const skillFile = (id: string, lang?: string) => `skills/${id}/SKILL${lang && lang !== 'zh' ? `.${lang}` : ''}.md`
 const SKILL_ID_SEGMENT = /^[a-z0-9-]+$/
 
 // GET /skills — List all skills (经 workspace.skills 原生发现)
@@ -21,21 +24,26 @@ app.get('/', async (c) => {
   })))
 })
 
-// GET /skills/:id — Get skill content (raw, 含 frontmatter 供编辑)
+// GET /skills/:id?lang= — Get skill content (raw, 含 frontmatter 供编辑)
+// lang 非 zh 时读语言变体；变体缺失回退基础版内容并标记 is_default=true（前端提示「跟随中文」）
 app.get('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
+  const lang = normalizeLang(c.req.query('lang'))
   if (!await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
-  const content = await fsm().readFile(skillFile(id), { encoding: 'utf-8' })
-  return success(c, { id, content })
+  const variantExists = lang !== 'zh' && await fsm().exists(skillFile(id, lang))
+  const content = await fsm().readFile(skillFile(id, variantExists ? lang : undefined), { encoding: 'utf-8' })
+  return success(c, { id, lang, content, is_default: lang !== 'zh' && !variantExists })
 })
 
-// PUT /skills/:id — Update skill content
+// PUT /skills/:id?lang= — Update skill content（lang 非 zh 写语言变体；基础版变更需刷新技能缓存）
 app.put('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
   const body = await c.req.json()
-  await fsm().writeFile(skillFile(id), body.content, { recursive: true })
-  // 目录 mtime 不会因文件内容编辑而更新（APFS），显式刷新技能缓存
-  await refreshSkillWorkspaces()
+  const lang = normalizeLang(c.req.query('lang') ?? body.lang)
+  if (lang !== 'zh' && !await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
+  await fsm().writeFile(skillFile(id, lang), body.content, { recursive: true })
+  // 目录 mtime 不会因文件内容编辑而更新（APFS），显式刷新技能缓存；语言变体直读无需刷新
+  if (lang === 'zh') await refreshSkillWorkspaces()
   return success(c)
 })
 

@@ -385,19 +385,30 @@
               </button>
             </div>
 
-            <!-- 子 tab：System Prompt / Skills -->
+            <!-- 子 tab：System Prompt / Skills + 语言切换 -->
             <div class="agent-pane-tabs">
               <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
               <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
                 Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
               </button>
+              <div class="agent-lang-picker" :title="t('settings.agents.langPickerTitle')">
+                <button
+                  v-for="l in contentLangOptions"
+                  :key="l.value"
+                  type="button"
+                  :class="['agent-lang-option', { on: editLang === l.value }]"
+                  @click="setEditLang(l.value)"
+                >{{ l.shortLabel || l.label }}</button>
+              </div>
             </div>
 
             <!-- Prompt 面板 -->
             <div v-if="agentPane === 'prompt'" class="card agent-card">
               <div class="agent-card-body" style="border-top:none">
                 <label class="field">
-                  <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: `workspace/prompts/${selectedAgent}.md` }) }})</span></span>
+                  <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: promptFileName }) }})</span>
+                    <span v-if="agentPromptFallback" class="tag agent-fallback-tag">{{ t('settings.agents.langFallback') }}</span>
+                  </span>
                   <textarea v-model="agentForm.system_prompt" class="textarea agent-prompt-input" rows="16" :placeholder="t('settings.agents.promptPlaceholder')" />
                 </label>
                 <div class="agent-card-foot">
@@ -449,7 +460,8 @@
                       :placeholder="t('settings.skills.contentPlaceholder')"
                     />
                     <div class="skill-card-foot">
-                      <span class="dim" style="font-size:11px">skills/{{ s.id }}/SKILL.md</span>
+                      <span class="dim" style="font-size:11px">skills/{{ s.id }}/{{ skillFileName }}</span>
+                      <span v-if="skillContentFallback" class="tag agent-fallback-tag">{{ t('settings.agents.langFallback') }}</span>
                       <span v-if="skillSaved === s.id" class="tag tag-success" style="margin-left:8px">
                         <Check :size="10" /> {{ t('common.saved') }}
                       </span>
@@ -890,18 +902,22 @@ async function loadAgents() {
 
 async function loadAgentPrompt(type) {
   try {
-    const cfg = await promptAPI.get(type)
-    if (selectedAgent.value === type) agentForm.system_prompt = cfg.system_prompt || ''
+    const cfg = await promptAPI.get(type, editLang.value)
+    if (selectedAgent.value === type) {
+      agentForm.system_prompt = cfg.system_prompt || ''
+      agentPromptFallback.value = editLang.value !== 'zh' && !!cfg.is_default
+    }
     agentSaved.value = null
   } catch (e) { toastError(e) }
 }
 
 async function resetAgentPrompt(type) {
   try {
-    await promptAPI.reset(type)
+    await promptAPI.reset(type, editLang.value)
     await loadAgents()
-    const cfg = await promptAPI.get(type)
+    const cfg = await promptAPI.get(type, editLang.value)
     agentForm.system_prompt = cfg.system_prompt || ''
+    agentPromptFallback.value = editLang.value !== 'zh' && !!cfg.is_default
     toast.success(t('settings.agents.promptReset'))
   } catch (e) { toastError(e) }
 }
@@ -913,8 +929,9 @@ async function saveAgentCfg(type) {
     await promptAPI.update(type, {
       name: agentDefs.value.find(a => a.type === type)?.label || type,
       system_prompt: agentForm.system_prompt,
-    })
+    }, editLang.value)
     await loadAgents()
+    agentPromptFallback.value = false
     agentSaved.value = type
     toast.success(t('settings.agents.saved', { agent: agentDefs.value.find(a => a.type === type)?.label }))
     setTimeout(() => { if (agentSaved.value === type) agentSaved.value = null }, 3000)
@@ -942,11 +959,28 @@ const selectedAgentIcon = computed(() => agentDefs.value.find(a => a.type === se
 // ===== 通用：AI 内容语言（全局设置，与界面语言相互独立） =====
 const contentLanguage = ref('zh')
 const contentLangOptions = [
-  { value: 'zh', label: '中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
+  { value: 'zh', label: '中文', shortLabel: '中文' },
+  { value: 'en', label: 'English', shortLabel: 'EN' },
+  { value: 'ja', label: '日本語', shortLabel: '日本語' },
+  { value: 'ko', label: '한국어', shortLabel: '한국어' },
 ]
+// ===== Agent 配置：prompt/skill 编辑的语言版本（默认跟随内容语言） =====
+const editLang = ref('zh')
+const agentPromptFallback = ref(false)   // 当前语言无独立 prompt 文件，展示的是回退内容
+const skillContentFallback = ref(false)  // 同上，skill 编辑器
+const promptFileName = computed(() => `workspace/prompts/${selectedAgent.value}${editLang.value !== 'zh' ? `.${editLang.value}` : ''}.md`)
+const skillFileName = computed(() => `SKILL${editLang.value !== 'zh' ? `.${editLang.value}` : ''}.md`)
+
+async function setEditLang(lang) {
+  if (editLang.value === lang) return
+  editLang.value = lang
+  await loadAgentPrompt(selectedAgent.value)
+  if (editingSkill.value) {
+    const id = editingSkill.value
+    editingSkill.value = null
+    await toggleSkillEdit(id)
+  }
+}
 // ===== 通用：外观主题（localStorage 持久化，即时生效） =====
 const { themeMode, setThemeMode } = useTheme()
 const themeOptions = computed(() => [
@@ -956,7 +990,11 @@ const themeOptions = computed(() => [
 ])
 
 async function loadContentLanguage() {
-  try { contentLanguage.value = (await settingsAPI.contentLanguage())?.language || 'zh' } catch { /* 保持默认 */ }
+  try {
+    const lang = (await settingsAPI.contentLanguage())?.language || 'zh'
+    contentLanguage.value = lang
+    editLang.value = lang  // Agent 编辑器默认跟随内容语言
+  } catch { /* 保持默认 */ }
 }
 async function setContentLanguage(lang) {
   if (contentLanguage.value === lang) return
@@ -1043,8 +1081,9 @@ async function confirmDelSkill() {
 async function toggleSkillEdit(id) {
   if (editingSkill.value === id) { editingSkill.value = null; return }
   try {
-    const res = await skillsAPI.get(id)
+    const res = await skillsAPI.get(id, editLang.value)
     skillContent.value = res.content
+    skillContentFallback.value = editLang.value !== 'zh' && !!res.is_default
     skillSaved.value = null
     editingSkill.value = id
   } catch (e) { toastError(e) }
@@ -1054,8 +1093,9 @@ async function saveSkill(id) {
   skillSaving.value = true
   skillSaved.value = null
   try {
-    await skillsAPI.update(id, skillContent.value)
+    await skillsAPI.update(id, skillContent.value, editLang.value)
     await loadAllSkills()
+    skillContentFallback.value = false
     skillSaved.value = id
     toast.success(t('common.saved'))
     setTimeout(() => { if (skillSaved.value === id) skillSaved.value = null }, 3000)
@@ -1556,6 +1596,28 @@ onBeforeUnmount(stopUsagePoll)
 }
 .agent-pane-tab:hover { color: var(--text-0); }
 .agent-pane-tab.active { background: var(--accent-bg); color: var(--accent-text); }
+
+/* 语言版本切换（prompt/skill 编辑器右上角） */
+.agent-lang-picker {
+  margin-left: auto;
+  display: flex; gap: 2px; padding: 2px;
+  border-radius: 7px; background: var(--bg-2);
+}
+.agent-lang-option {
+  padding: 3px 10px; border: none; border-radius: 5px;
+  background: transparent; color: var(--text-3);
+  font: 600 11px var(--font-body); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.agent-lang-option:hover { color: var(--text-1); }
+.agent-lang-option.on { background: var(--surface-raised); color: var(--text-0); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+/* 「跟随中文」回退提示 */
+.agent-fallback-tag {
+  margin-left: 6px;
+  background: var(--bg-2); color: var(--text-3);
+  font-size: 10px; font-weight: 500;
+}
 
 /* 编辑器尽量占满剩余视口高度，仍可手动拖拽 */
 .agent-prompt-input { min-height: max(320px, calc(100vh - 340px)); resize: vertical; }

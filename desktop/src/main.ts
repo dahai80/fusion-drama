@@ -26,7 +26,7 @@ const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..')
 const BACKEND_BUNDLE = path.join(DESKTOP_ROOT, 'build', 'backend.mjs')
 
 /** workspace 模板版本：内置模板更新时递增，触发向用户目录补缺失文件 */
-const TEMPLATE_VERSION = '3'
+const TEMPLATE_VERSION = '4'
 const STORAGE_CONFIG_FILE = 'storage-config.json'
 
 let mainWindow: BrowserWindow | null = null

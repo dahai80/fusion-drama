@@ -159,6 +159,7 @@
       "statusTitle": "클릭하여 이 화의 상태 설정",
       "resTitle": "클릭하여 이 화의 영상 해상도 변경",
       "deleteTitle": "이 화 삭제",
+      "enter": "제작 열기",
       "scriptReady": "대본 입력됨",
       "merged": "병합됨",
       "emptyCreateTitle": "클릭하여 제 1화 만들기",
@@ -347,7 +348,9 @@
       "scriptRewriter": "대본 재작성",
       "extractor": "캐릭터·장면 추출",
       "storyboardBreaker": "스토리보드 분해",
-      "promptGenerator": "프롬프트 생성"
+      "promptGenerator": "프롬프트 생성",
+      "langFallback": "중국어로 폴백",
+      "langPickerTitle": "편집할 언어 버전 선택 (생성 시 AI 콘텐츠 언어로 로드)"
     },
     "skills": {
       "agentList": "Agent 목록",
@@ -456,10 +459,8 @@
       "production": "제작",
       "assets": "에셋",
       "assetsDesc": "캐릭터 / 장면 / 소품",
-      "storyboard": "스토리보드",
-      "storyboardDesc": "스토리보드 분해와 프롬프트",
-      "videos": "영상",
-      "videosDesc": "영상 작업 및 생성",
+      "videos": "영상 제작",
+      "videosDesc": "스토리보드 분해 및 영상 생성",
       "export": "납출",
       "exportDesc": "병합하여 영상 출력",
       "mergeExport": "병합 납출",
@@ -486,8 +487,8 @@
       "skipDone": "AI 재작성을 건거이습니다. 원문을 그대로 사용합니다"
     },
     "prod": {
-      "assets": "에셋",
-      "videos": "영상 생성",
+      "assets": "에셋 제작",
+      "videos": "영상 제작",
       "notReady": "아직 준비되지 않았습니다",
       "readyCount": "{ready}/{total} 준비 완료",
       "extract": "{type} 추출",
@@ -695,7 +696,6 @@
       "emptyTitle": "먼저 스토리보드 생성",
       "emptyDesc": "영상 작업은 스토리보드 분해 결과에서 만들어집니다. 먼저 스토리보드 설명과 영상 프롬프트를 생성한 후 영상을 일괄 생성하세요.",
       "lockedModel": "이 화의 영상 모델: ",
-      "aiBreakdown": "분할 및 프롬프트 생성",
       "listTitle": "영상 작업 목록",
       "listMeta": "샷 순서 · 작업 {n}개",
       "metricPending": "{n} 생성 중",
@@ -742,7 +742,8 @@
       "confirmModel": "영상 모델",
       "confirmResolution": "해상도",
       "confirmNote": "위 설정으로 샷별로 생성을 시작합니다. 실패한 작업은 나중에 「실패 재시도」로 한 번에 다시 실행할 수 있습니다.",
-      "confirmStart": "생성 시작 ({n})"
+      "confirmStart": "생성 시작 ({n})",
+      "selectMissing": "미생성 선택"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}캐릭터명 / {'@'}장멸명 으로 참조 소재를 지정(생성 시 참조 이미지로 자동 매핑). 시간대별로 화면의 움직임과 침라를 기술…",
@@ -760,7 +761,9 @@
       "durationUnit": "초(4-15)",
       "durationUnitWan": "초(2-30)",
       "durationHint": "변경 즉시 스토리보드에 저장되며 목록과 일괄 생성에도 적용됩니다",
-      "effective": "이번 생성: {model} · {res} · {dur}초"
+      "effective": "이번 생성: {model} · {res} · {dur}초",
+      "boundRefs": "바인딩 참조 이미지",
+      "noBoundRefs": "바인딩된 에셋 없음（중앙 \"참조 에셋\"에서 바인딩）"
     },
     "tasks": {
       "title": "생성 작업 목록",

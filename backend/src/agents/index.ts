@@ -15,7 +15,7 @@ import { extractTools } from './tools/extract-tools.js'
 import { storyboardTools } from './tools/storyboard-tools.js'
 import { imagePromptTools } from './tools/image-prompt-tools.js'
 import { loadAgentSkills, skillWorkspaces } from './skills.js'
-import { loadAgentPromptFile } from './prompts.js'
+import { loadAgentPromptFile, loadBasePromptFile } from './prompts.js'
 import { buildLanguageDirective } from './language.js'
 import { getContentLanguageFromRC } from './context.js'
 
@@ -340,24 +340,27 @@ const AGENT_TOOLS: Record<string, Record<string, any>> = {
   },
 }
 
-/** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 + 目标语言指令块 */
+/** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 + 目标语言指令块
+ *  prompt/skill 文本随内容语言切换语言变体（<type>.<lang>.md / SKILL.<lang>.md），缺失回退中文版 */
 function buildInstructions(type: string) {
   return async ({ requestContext }: { requestContext?: RequestContext }) => {
     const defaults = DEFAULT_PROMPTS[type]
-    const promptFile = await loadAgentPromptFile(type)
+    const lang = getContentLanguageFromRC(requestContext)
+    const promptFile = await loadAgentPromptFile(type, lang)
     const baseInstructions = promptFile?.instructions || defaults.instructions
-    const skillInstructions = await loadAgentSkills(type)
-    const languageDirective = buildLanguageDirective(getContentLanguageFromRC(requestContext))
+    const skillInstructions = await loadAgentSkills(type, lang)
+    const languageDirective = buildLanguageDirective(lang)
     return [baseInstructions, skillInstructions, languageDirective]
       .filter(Boolean)
       .join('\n\n')
   }
 }
 
-/** model 按请求解析：prompt 文件 frontmatter + RequestContext 的 modelOverride/textConfigId 覆盖 */
+/** model 按请求解析：基础版 prompt 文件 frontmatter + RequestContext 的 modelOverride/textConfigId 覆盖
+ *  （model 只认基础版 prompts/<type>.md，语言变体不参与 model 解析） */
 function buildModel(type: string) {
   return async ({ requestContext }: { requestContext?: RequestContext }) => {
-    const promptFile = await loadAgentPromptFile(type)
+    const promptFile = await loadBasePromptFile(type)
     const modelOverride = requestContext?.get('modelOverride' as never) as string | undefined
     const textConfigId = requestContext?.get('textConfigId' as never) as number | undefined
     return getModel(promptFile?.model || undefined, modelOverride, textConfigId)

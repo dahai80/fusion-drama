@@ -159,6 +159,7 @@
       "statusTitle": "クリックしてこの話の状態を設定",
       "resTitle": "クリックしてこの話の動画解像度を変更",
       "deleteTitle": "この話を削除",
+      "enter": "制作を開く",
       "scriptReady": "脚本入力済み",
       "merged": "結合済み",
       "emptyCreateTitle": "クリックして第 1 話を作成",
@@ -347,7 +348,9 @@
       "scriptRewriter": "脚本リライト",
       "extractor": "キャラクター・シーン抽出",
       "storyboardBreaker": "分镜分解",
-      "promptGenerator": "プロンプト生成"
+      "promptGenerator": "プロンプト生成",
+      "langFallback": "中国語にフォールバック",
+      "langPickerTitle": "編集する言語バージョンを選択（生成時は AI コンテンツ言語で読み込み）"
     },
     "skills": {
       "agentList": "Agent 一覧",
@@ -456,10 +459,8 @@
       "production": "制作",
       "assets": "資産",
       "assetsDesc": "キャラクター / シーン / 小道具",
-      "storyboard": "分镜",
-      "storyboardDesc": "分镜分解とプロンプト",
-      "videos": "動画",
-      "videosDesc": "動画タスクと生成",
+      "videos": "動画制作",
+      "videosDesc": "分镜分解と動画生成",
       "export": "書き出し",
       "exportDesc": "結合して映像を出力",
       "mergeExport": "結合して書き出し",
@@ -486,8 +487,8 @@
       "skipDone": "AI リライトをスキップしました。原文をそのまま使用します"
     },
     "prod": {
-      "assets": "資産",
-      "videos": "動画生成",
+      "assets": "アセット制作",
+      "videos": "動画制作",
       "notReady": "まだ準備ができていません",
       "readyCount": "{ready}/{total} 準備完了",
       "extract": "{type}を抽出",
@@ -695,7 +696,6 @@
       "emptyTitle": "先に分镜を生成",
       "emptyDesc": "動画タスクは分镜分解の結果から作られます。先に分镜説明と動画プロンプトを生成してから、動画を一括生成してください。",
       "lockedModel": "この話の動画モデル：",
-      "aiBreakdown": "分割してプロンプト生成",
       "listTitle": "動画タスク一覧",
       "listMeta": "ショット順 · {n} 件のタスク",
       "metricPending": "{n} 生成中",
@@ -742,7 +742,8 @@
       "confirmModel": "動画モデル",
       "confirmResolution": "解像度",
       "confirmNote": "上記の設定でショットごとに生成を開始します。失敗したタスクは後で「失敗を再試行」からまとめて再実行できます。",
-      "confirmStart": "生成開始 ({n})"
+      "confirmStart": "生成開始 ({n})",
+      "selectMissing": "未生成を選択"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}キャラクター名 / {'@'}シーン名 で参照素材を指定（生成時に参照画像へ自動マッピング）。時間帯ごとに画面の動きとカメラを記述…",
@@ -760,7 +761,9 @@
       "durationUnit": "s（4-15）",
       "durationUnitWan": "秒（2-30）",
       "durationHint": "変更はすぐ分镜に保存され、リストと一括生成にも反映されます",
-      "effective": "今回の生成：{model} · {res} · {dur}秒"
+      "effective": "今回の生成：{model} · {res} · {dur}秒",
+      "boundRefs": "绑定参照画像",
+      "noBoundRefs": "绑定された素材なし（中央の「参照素材」で绑定）"
     },
     "tasks": {
       "title": "生成タスク一覧",

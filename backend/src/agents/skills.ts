@@ -86,10 +86,30 @@ function formatSkillSection(skillId: string, content: string): string {
   return [`## Skill: ${skillId}`, content].join('\n')
 }
 
+/** 剥离 SKILL.md 风格文件的 frontmatter，返回正文（供语言变体直读使用） */
+function stripFrontmatter(raw: string): string {
+  const m = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)
+  return (m ? raw.slice(m[0].length) : raw).trim()
+}
+
+/** 读取技能的语言变体正文（SKILL.<lang>.md，直读绕缓存永远最新）；不存在返回 null */
+async function readLocalizedSkill(relPath: string, lang: string): Promise<string | null> {
+  const fsm = skillsManagerWorkspace.filesystem!
+  const p = `skills/${relPath}/SKILL.${lang}.md`
+  try {
+    if (!await fsm.exists(p)) return null
+    const body = stripFrontmatter(String(await fsm.readFile(p, { encoding: 'utf-8' })))
+    return body || null
+  } catch {
+    return null
+  }
+}
+
 /** 读取 Agent 专属技能全文（经 workspace.skills API，保持原注入格式）
  *  AGENT_SKILL_MAP 的目录按前缀匹配：目录自身及其子目录下所有 SKILL.md 都会注入，
- *  因此设置页新建的子技能（如 storyboard-breaker/xxx）无需改代码即可生效 */
-export async function loadAgentSkills(agentType: string): Promise<string> {
+ *  因此设置页新建的子技能（如 storyboard-breaker/xxx）无需改代码即可生效。
+ *  lang 非 zh 时逐技能优先 SKILL.<lang>.md，缺失回退基础版（中文） */
+export async function loadAgentSkills(agentType: string, lang?: string | null): Promise<string> {
   const workspace = skillWorkspaces[agentType]
   const prefixes = AGENT_SKILL_MAP[agentType] || []
   if (!workspace || !prefixes.length) return ''
@@ -98,10 +118,15 @@ export async function loadAgentSkills(agentType: string): Promise<string> {
   const relPaths = allPaths.filter(p =>
     prefixes.some(prefix => p === prefix || p.startsWith(prefix + '/')))
 
+  const useLocalized = Boolean(lang && lang !== 'zh')
   const contents: string[] = []
   for (const relPath of relPaths) {
-    const skill = await workspace.skills?.get(`skills/${relPath}`)
-    const body = skill?.instructions?.trim()
+    let body: string | null | undefined
+    if (useLocalized) body = await readLocalizedSkill(relPath, lang!)
+    if (!body) {
+      const skill = await workspace.skills?.get(`skills/${relPath}`)
+      body = skill?.instructions?.trim()
+    }
     if (body) contents.push(formatSkillSection(relPath, body))
   }
 

@@ -159,6 +159,7 @@
       "statusTitle": "Click to set episode status",
       "resTitle": "Click to change video resolution",
       "deleteTitle": "Delete this episode",
+      "enter": "Open Studio",
       "scriptReady": "Script ready",
       "merged": "Merged",
       "emptyCreateTitle": "Click to create the first episode",
@@ -347,7 +348,9 @@
       "scriptRewriter": "Script Rewriter",
       "extractor": "Asset Extractor",
       "storyboardBreaker": "Storyboard Breaker",
-      "promptGenerator": "Prompt Generator"
+      "promptGenerator": "Prompt Generator",
+      "langFallback": "Falls back to Chinese",
+      "langPickerTitle": "Choose the language version to edit (loaded by AI content language at generation time)"
     },
     "skills": {
       "agentList": "Agents",
@@ -456,10 +459,8 @@
       "production": "Production",
       "assets": "Assets",
       "assetsDesc": "Characters / scenes / props",
-      "storyboard": "Storyboard",
-      "storyboardDesc": "Shot breaking and prompts",
-      "videos": "Videos",
-      "videosDesc": "Video tasks and generation",
+      "videos": "Video Production",
+      "videosDesc": "Storyboard breakdown and video generation",
       "export": "Export",
       "exportDesc": "Merge and output the film",
       "mergeExport": "Merge & Export",
@@ -486,8 +487,8 @@
       "skipDone": "AI rewrite skipped; the raw content will be used directly"
     },
     "prod": {
-      "assets": "Assets",
-      "videos": "Video Generation",
+      "assets": "Asset Production",
+      "videos": "Video Production",
       "notReady": "Not ready yet",
       "readyCount": "{ready}/{total} ready",
       "extract": "Extract {type}",
@@ -695,7 +696,6 @@
       "emptyTitle": "Break the storyboard first",
       "emptyDesc": "Video tasks come from the storyboard breakdown. Generate shot descriptions and video prompts first, then generate videos in batch.",
       "lockedModel": "Video model for this episode: ",
-      "aiBreakdown": "Break down & generate prompts",
       "listTitle": "Video Task List",
       "listMeta": "In shot order · {n} tasks",
       "metricPending": "{n} generating",
@@ -742,7 +742,8 @@
       "confirmModel": "Video model",
       "confirmResolution": "Resolution",
       "confirmNote": "Generation will start shot by shot with the above config; failed tasks can be retried later via \"Retry failed\".",
-      "confirmStart": "Start ({n})"
+      "confirmStart": "Start ({n})",
+      "selectMissing": "Select without video"
     },
     "inspector": {
       "videoPromptPlaceholder": "Reference assets with {'@'}character / {'@'}scene — auto-mapped to reference images on generation; then describe motion and camera per time segment…",
@@ -760,7 +761,9 @@
       "durationUnit": "s (4-15)",
       "durationUnitWan": "s (2-30)",
       "durationHint": "Saved to the storyboard on change; applies to list, batch and single generation",
-      "effective": "This run: {model} · {res} · {dur}s"
+      "effective": "This run: {model} · {res} · {dur}s",
+      "boundRefs": "Bound References",
+      "noBoundRefs": "No bound assets (bind in the center \"References\" panel)"
     },
     "tasks": {
       "title": "Generation Tasks",

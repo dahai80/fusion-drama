@@ -136,18 +136,21 @@ export const aiConfigAPI = {
   test: (d: any) => api.post('/ai-configs/test', d),
 }
 
+// lang 缺省/为 zh 时读写基础版（不带 query，保持原请求形态）
+const langQ = (lang?: string) => (lang && lang !== 'zh' ? `?lang=${lang}` : '')
+
 export const promptAPI = {
   list: () => api.get('/prompts'),
-  get: (type: string) => api.get(`/prompts/${type}`),
-  update: (type: string, d: any) => api.put(`/prompts/${type}`, d),
-  reset: (type: string) => api.post(`/prompts/${type}/reset`),
+  get: (type: string, lang?: string) => api.get(`/prompts/${type}${langQ(lang)}`),
+  update: (type: string, d: any, lang?: string) => api.put(`/prompts/${type}${langQ(lang)}`, d),
+  reset: (type: string, lang?: string) => api.post(`/prompts/${type}/reset${langQ(lang)}`),
 }
 
 export const skillsAPI = {
   list: () => api.get('/skills'),
-  get: (id: string) => api.get(`/skills/${id}`),
+  get: (id: string, lang?: string) => api.get(`/skills/${id}${langQ(lang)}`),
   create: (data: { id: string; name: string; description?: string }) => api.post('/skills', data),
-  update: (id: string, content: string) => api.put(`/skills/${id}`, { content }),
+  update: (id: string, content: string, lang?: string) => api.put(`/skills/${id}${langQ(lang)}`, { content }),
   del: (id: string) => api.del(`/skills/${id}`),
 }
 
