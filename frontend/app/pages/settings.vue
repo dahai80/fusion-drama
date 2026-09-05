@@ -366,10 +366,6 @@
               </div>
               <div v-if="editingAgent === a.type" class="agent-card-body">
                 <label class="field">
-                  <span class="field-label">{{ t('settings.agents.model') }} <span class="dim">({{ t('settings.agents.modelHint') }})</span></span>
-                  <BaseSelect v-model="agentForm.model" :options="textModelSelectOptions" :placeholder="t('settings.agents.modelPlaceholder')" searchable />
-                </label>
-                <label class="field">
                   <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: `workspace/prompts/${a.type}.md` }) }})</span></span>
                   <textarea v-model="agentForm.system_prompt" class="textarea" rows="12" :placeholder="t('settings.agents.promptPlaceholder')" />
                 </label>
@@ -870,7 +866,7 @@ const agentCfgs = ref([])
 const editingAgent = ref(null)
 const agentSaving = ref(false)
 const agentSaved = ref(null)
-const agentForm = reactive({ model: '', system_prompt: '' })
+const agentForm = reactive({ system_prompt: '' })
 
 const agentDefs = computed(() => [
   { type: 'script_rewriter', label: t('settings.agents.scriptRewriter'), icon: '📝' },
@@ -883,22 +879,6 @@ function getAgentCfg(type) {
   return agentCfgs.value.find(a => a.agent_type === type)
 }
 
-const textModelGroups = computed(() => {
-  return cfgs.value
-    .filter(c => c.service_type === 'text' && c.is_active && c.api_key)
-    .map(c => ({
-      label: `${c.provider} — ${c.name}`,
-      models: Array.isArray(c.model) ? c.model : (c.model ? [c.model] : []),
-    }))
-    .filter(g => g.models.length > 0)
-})
-
-const textModelSelectOptions = computed(() =>
-  textModelGroups.value.map(g => ({
-    label: g.label,
-    options: g.models.map(m => ({ label: m, value: m })),
-  }))
-)
 
 async function loadAgents() {
   try { agentCfgs.value = await promptAPI.list() }
@@ -909,7 +889,6 @@ async function toggleAgentEdit(type) {
   if (editingAgent.value === type) { editingAgent.value = null; return }
   try {
     const cfg = await promptAPI.get(type)
-    agentForm.model = cfg.model || ''
     agentForm.system_prompt = cfg.system_prompt || ''
     agentSaved.value = null
     editingAgent.value = type
@@ -921,7 +900,6 @@ async function resetAgentPrompt(type) {
     await promptAPI.reset(type)
     await loadAgents()
     const cfg = await promptAPI.get(type)
-    agentForm.model = cfg.model || ''
     agentForm.system_prompt = cfg.system_prompt || ''
     toast.success(t('settings.agents.promptReset'))
   } catch (e) { toast.error(e.message) }
@@ -933,7 +911,6 @@ async function saveAgentCfg(type) {
   try {
     await promptAPI.update(type, {
       name: agentDefs.value.find(a => a.type === type)?.label || type,
-      model: agentForm.model,
       system_prompt: agentForm.system_prompt,
     })
     await loadAgents()

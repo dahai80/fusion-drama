@@ -9,4 +9,4 @@ if [ ! -e /app/data/workspace/.template-version ]; then
 fi
 
 cd /app/backend
-exec node dist/index.js
+exec node_modules/.bin/tsx src/index.ts

@@ -4,17 +4,23 @@
 FROM node:20-bookworm-slim AS frontend-build
 WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# lockfile 的 resolved 可能指向带鉴权的私有 registry（开发者本机 .npmrc），镜像内会 401。
+# 构建期删除 resolved 字段（integrity 校验不受影响），让 npm 统一走公共 registry
+RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
+  && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
 COPY frontend/ ./
 RUN npm run generate
 
-# ===== 后端构建：安装依赖（含原生模块编译）+ tsc 产物 =====
+# ===== 后端构建：安装依赖（含原生模块编译） =====
 FROM node:20-bookworm AS backend-build
 WORKDIR /build/backend
 COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-lock.json'));for(const p of Object.values(l.packages||{}))delete p.resolved;fs.writeFileSync('package-lock.json',JSON.stringify(l,null,2))" \
+  && npm ci --no-audit --no-fund --registry=https://registry.npmjs.org
 COPY backend/ ./
-RUN npm run build && npm prune --omit=dev
+# 运行时与既有服务器部署一致走 tsx（源码存在 bundler 风格无扩展名 import，tsc 产物 node 直跑不可行）；
+# tsx 是 devDependency，prune 后单独补装
+RUN npm prune --omit=dev && npm i tsx@^4.21.0 --no-save --no-audit --no-fund --registry=https://registry.npmjs.org
 
 # ===== 运行时 =====
 FROM node:20-bookworm-slim
@@ -28,9 +34,10 @@ ENV NODE_ENV=production \
     FRONTEND_DIST=/app/frontend-dist
 
 WORKDIR /app
-COPY --from=backend-build /build/backend/dist ./backend/dist
+COPY --from=backend-build /build/backend/src ./backend/src
 COPY --from=backend-build /build/backend/node_modules ./backend/node_modules
 COPY --from=backend-build /build/backend/package.json ./backend/package.json
+COPY --from=backend-build /build/backend/tsconfig.json ./backend/tsconfig.json
 # workspace 模板（skills/prompts），entrypoint copy-once 到数据卷后可在线编辑
 COPY backend/workspace ./workspace-template
 COPY --from=frontend-build /build/frontend/.output/public ./frontend-dist

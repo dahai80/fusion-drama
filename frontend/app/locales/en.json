@@ -342,10 +342,7 @@
     },
     "agents": {
       "title": "Agent Config",
-      "desc": "The advanced area only keeps Agent runtime configs. Adjust models, prompts and parameters here; changes take effect immediately.",
-      "model": "Model",
-      "modelHint": "blank = use AI service default",
-      "modelPlaceholder": "— Use AI service default —",
+      "desc": "The advanced area only keeps Agent runtime configs. Adjust prompts and parameters here; changes take effect immediately. Models are selected per task in the workbench top bar.",
       "promptHint": "saved as {file}",
       "promptPlaceholder": "Agent system prompt...",
       "reset": "Reset to default",

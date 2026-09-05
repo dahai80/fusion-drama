@@ -342,10 +342,7 @@
     },
     "agents": {
       "title": "Agent 配置",
-      "desc": "高级区只保留 Agent 运行配置。这里可以调整模型、提示词和参数，保存后立即生效。",
-      "model": "模型",
-      "modelHint": "留空使用 AI 服务默认",
-      "modelPlaceholder": "— 使用 AI 服务默认 —",
+      "desc": "高级区只保留 Agent 运行配置。这里可以调整提示词和参数，保存后立即生效；模型在工作台顶栏按需选择。",
       "promptHint": "保存为 {file}",
       "promptPlaceholder": "Agent 系统提示词...",
       "reset": "恢复默认",

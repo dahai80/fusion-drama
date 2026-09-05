@@ -342,10 +342,7 @@
     },
     "agents": {
       "title": "Agent 설정",
-      "desc": "고급 영역에는 Agent 실행 설정만 유지됩니다. 모델, 프롬프트, 매개변수를 여기서 조정할 수 있으며 저장 즉시 적용됩니다.",
-      "model": "모델",
-      "modelHint": "비워 두면 AI 서비스 기본값 사용",
-      "modelPlaceholder": "— AI 서비스 기본값 사용 —",
+      "desc": "고급 영역에는 Agent 실행 설정만 유지됩니다. 프롬프트와 매개변수를 여기서 조정할 수 있으며 저장 즉시 적용됩니다. 모델은 워크벤치 상단 바에서 작업별로 선택합니다.",
       "promptHint": "{file}(으)로 저장",
       "promptPlaceholder": "Agent 시스템 프롬프트...",
       "reset": "기본값으로 복원",

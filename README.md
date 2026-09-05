@@ -306,6 +306,25 @@ server {
 
 > 媒体加载优化：生成图片时后端会自动产出 400px 缩略图（`*_thumb.webp`）供列表页加载，视频会抽取海报帧（`*_poster.jpg`）作为封面，前端仅在点开大图/播放时才加载原文件。历史存量文件可在 `backend/` 下执行 `npm run backfill-artwork` 一次性补齐。
 
+### 🐳 Docker 部署（含应用内更新）
+
+根目录提供一体化 `Dockerfile`（前端 generate + 后端 tsc + 运行时三阶段）与 `docker-compose.yml`（应用 + Watchtower）：
+
+```bash
+# 1. 配置环境（Watchtower 令牌，app 与 watchtower 两侧必须一致）
+cp .env.example .env   # 修改 WATCHTOWER_TOKEN
+
+# 2. 构建并启动（发布时注入版本号，供「关于更新」比对）
+HUOBAO_VERSION=1.0.0 docker compose up -d --build
+
+# 3. 访问 http://localhost:5679
+```
+
+- **数据持久化**：命名卷 `huobao-data` 挂载 `/app/data`（SQLite + 生成的图片/视频 + workspace/skills，更新镜像不丢数据）
+- **应用内更新**：compose 自带 [Watchtower](https://containrrr.dev/watchtower/) sidecar（`--label-enable` 只更新标记容器，`--cleanup` 清旧镜像，每天自检一次）。设置页「关于更新」可检查新版本并「立即更新」——后端经 Watchtower HTTP API 触发，拉新镜像重建容器，几分钟后刷新页面即可
+- **手动模式**：`docker-compose.yml` 中删除 app 的 `HUOBAO_WATCHTOWER_*` 两个环境变量（或整个 watchtower 服务）后，「关于更新」退化为新版本提示 + 手动命令 `docker compose pull && docker compose up -d`
+- **发布镜像**：`docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `HUOBAO_UPDATE_FEED` 覆盖）
+
 ---
 
 ## 🎨 技术栈
