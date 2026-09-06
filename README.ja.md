@@ -43,8 +43,6 @@ desktop/    — Electron デスクトップ版（メインプロセス + esbuild
 data/       — 生成アセットと SQLite データベース
 ```
 
-> 🔥 **AI 制作費節約攻略｜Kuailema & Seedance 提携限定割引** 👉 [詳しく見る](https://aiad.dfycloud.com/)
-
 ---
 
 ## ✨ 機能

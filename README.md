@@ -43,8 +43,6 @@ desktop/    — Electron desktop app (main process + esbuild + electron-builder 
 data/       — Generated assets and the SQLite database
 ```
 
-> 🔥 **Save on AI creation | Kuailema & Seedance exclusive partner discounts** 👉 [Learn more](https://aiad.dfycloud.com/)
-
 ---
 
 ## ✨ Features

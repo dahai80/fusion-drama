@@ -43,8 +43,6 @@ desktop/    — Electron 桌面版（主进程 + esbuild 打包 + electron-build
 data/       — 生成资源文件与 SQLite 数据库
 ```
 
-> 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
-
 ---
 
 ## ✨ 功能特性

@@ -43,8 +43,6 @@ desktop/    — Electron 데스크톱 버전 (메인 프로세스 + esbuild 번�
 data/       — 생성된 에셋과 SQLite 데이터베이스
 ```
 
-> 🔥 **AI 제작 비용 절약 공략｜Kuailema & Seedance 제휴 전용 할인** 👉 [자세히 보기](https://aiad.dfycloud.com/)
-
 ---
 
 ## ✨ 기능
