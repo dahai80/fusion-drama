@@ -8,7 +8,7 @@
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-[English](README.md) | **简体中文**
+[English](README.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [部署指南](#-部署指南)
 
@@ -459,6 +459,18 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 - 修复视频生成 API 响应解析问题
 - 添加 OpenAI Sora 视频端点配置
 - 优化错误处理和日志输出
+
+---
+
+## 📄 许可证
+
+本项目采用 **[CC BY-NC-SA 4.0](LICENSE)**（署名-非商业性使用-相同方式共享 4.0 国际）许可证。
+
+- ✅ 个人使用、学习研究、非商业项目均可自由使用
+- ✅ 允许修改与再分发，但须署名并以相同许可证共享
+- ❌ **禁止商用**——未经作者书面许可，不得将本项目整体或部分用于任何商业目的（包括付费服务、商业部署、转售等）
+
+许可证全文见 [LICENSE](LICENSE)。
 
 ---
 

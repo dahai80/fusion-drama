@@ -8,7 +8,7 @@
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-**English** | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Deployment](#-deployment)
 
@@ -462,6 +462,18 @@ A: The backend creates all tables automatically on first launch — check the lo
 - Fixed video-generation API response parsing
 - OpenAI Sora video endpoint configuration
 - Improved error handling and logging
+
+---
+
+## 📄 License
+
+This project is licensed under **[CC BY-NC-SA 4.0](LICENSE)** (Attribution-NonCommercial-ShareAlike 4.0 International).
+
+- ✅ Personal use, learning, and non-commercial projects are welcome
+- ✅ Modifications and redistribution allowed under the same license with attribution
+- ❌ **Commercial use is prohibited** — you may not use this project, in whole or in part, for any commercial purpose (including paid services, commercial deployments, or resale) without prior written permission from the author
+
+Full license text: see [LICENSE](LICENSE).
 
 ---
 
