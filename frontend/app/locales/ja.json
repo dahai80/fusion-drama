@@ -220,9 +220,6 @@
   },
   "settings": {
     "groupBase": "基本",
-    "groupAdvanced": "高度",
-    "advancedToggle": "Agent 高度な設定",
-    "advancedNote": "Agent 設定と Skills のみを展開します。ワークベンチの機能と分镜フィールドはデフォルトで表示されます。",
     "tabs": {
       "general": "一般",
       "ai": "AI サービス",

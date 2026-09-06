@@ -14,14 +14,27 @@ const normalizeLang = (v?: string) => (v && LANGS.includes(v) ? v : 'zh')
 const skillFile = (id: string, lang?: string) => `skills/${id}/SKILL${lang && lang !== 'zh' ? `.${lang}` : ''}.md`
 const SKILL_ID_SEGMENT = /^[a-z0-9-]+$/
 
-// GET /skills — List all skills (经 workspace.skills 原生发现)
+// GET /skills?lang= — List all skills (经 workspace.skills 原生发现)
+// lang 非 zh 且变体存在时，名称/描述取自语言变体 frontmatter（缺失则回退基础版）
 app.get('/', async (c) => {
+  const lang = normalizeLang(c.req.query('lang'))
   const metas = await skillsManagerWorkspace.skills?.list() || []
-  return success(c, metas.map(meta => ({
-    id: meta.path.replace(/^skills\//, ''),
-    name: meta.name,
-    description: meta.description || '',
-  })))
+  const out = []
+  for (const meta of metas) {
+    const id = meta.path.replace(/^skills\//, '')
+    let name = meta.name
+    let description = meta.description || ''
+    if (lang !== 'zh' && await fsm().exists(skillFile(id, lang))) {
+      const raw = String(await fsm().readFile(skillFile(id, lang), { encoding: 'utf-8' }))
+      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)?.[1] || ''
+      const n = /^name:\s*(.+)$/m.exec(fm)?.[1]?.trim()
+      const d = /^description:\s*(.+)$/m.exec(fm)?.[1]?.trim()
+      if (n) name = n
+      if (d) description = d
+    }
+    out.push({ id, name, description })
+  }
+  return success(c, out)
 })
 
 // GET /skills/:id?lang= — Get skill content (raw, 含 frontmatter 供编辑)

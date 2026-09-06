@@ -147,7 +147,7 @@ export const promptAPI = {
 }
 
 export const skillsAPI = {
-  list: () => api.get('/skills'),
+  list: (lang?: string) => api.get(`/skills${langQ(lang)}`),
   get: (id: string, lang?: string) => api.get(`/skills/${id}${langQ(lang)}`),
   create: (data: { id: string; name: string; description?: string }) => api.post('/skills', data),
   update: (id: string, content: string, lang?: string) => api.put(`/skills/${id}${langQ(lang)}`, { content }),

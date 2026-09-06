@@ -220,9 +220,6 @@
   },
   "settings": {
     "groupBase": "기본",
-    "groupAdvanced": "고급",
-    "advancedToggle": "Agent 고급 설정",
-    "advancedNote": "Agent 설정과 Skills만 펼칩니다. 워크벤치 기능과 스토리보드 필드는 기본으로 표시됩니다.",
     "tabs": {
       "general": "일반",
       "ai": "AI 서비스",

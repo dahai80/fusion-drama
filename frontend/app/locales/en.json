@@ -220,9 +220,6 @@
   },
   "settings": {
     "groupBase": "Basic",
-    "groupAdvanced": "Advanced",
-    "advancedToggle": "Agent advanced config",
-    "advancedNote": "Only expands Agent config and Skills. Workbench features and storyboard fields stay visible by default.",
     "tabs": {
       "general": "General",
       "ai": "AI Services",

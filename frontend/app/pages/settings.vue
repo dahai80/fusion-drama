@@ -9,21 +9,6 @@
             {{ nt.label }}
           </button>
         </div>
-        <div class="nav-advanced">
-          <label class="advanced-toggle">
-            <span>{{ t('settings.advancedToggle') }}</span>
-            <input type="checkbox" v-model="showAdvanced" class="sr-only" />
-            <span class="switch" :class="{ on: showAdvanced }"></span>
-          </label>
-          <p class="advanced-note">{{ t('settings.advancedNote') }}</p>
-        </div>
-        <div v-if="showAdvanced" class="nav-group">
-          <div class="nav-group-label">{{ t('settings.groupAdvanced') }}</div>
-          <button v-for="nt in advancedTabs" :key="nt.id" :class="['nav-item', { active: tab === nt.id }]" @click="tab = nt.id">
-            <component :is="nt.icon" :size="14" />
-            {{ nt.label }}
-          </button>
-        </div>
       </aside>
 
       <div class="settings-content">
@@ -385,12 +370,14 @@
               </button>
             </div>
 
-            <!-- 子 tab：System Prompt / Skills + 语言切换 -->
+            <!-- 子 tab：System Prompt / Skills（左）与语言切换（右）相互独立 -->
             <div class="agent-pane-tabs">
-              <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
-              <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
-                Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
-              </button>
+              <div class="agent-pane-tabs-nav">
+                <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
+                <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
+                  Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
+                </button>
+              </div>
               <div class="agent-lang-picker" :title="t('settings.agents.langPickerTitle')">
                 <button
                   v-for="l in contentLangOptions"
@@ -673,20 +660,14 @@ const { t } = useI18n()
 
 const showBrandImage = ref(true)
 const tab = ref('ai')
-const showAdvanced = ref(false)
 const baseTabs = computed(() => [
   { id: 'ai', label: t('settings.tabs.ai'), icon: Cpu },
   { id: 'general', label: t('settings.tabs.general'), icon: Languages },
   { id: 'styles', label: t('settings.tabs.styles'), icon: Palette },
+  { id: 'agents', label: t('settings.tabs.agents'), icon: Bot },
   { id: 'storage', label: t('settings.tabs.storage'), icon: HardDrive },
   { id: 'about', label: t('settings.tabs.about'), icon: RefreshCw },
 ])
-const advancedTabs = computed(() => [
-  { id: 'agents', label: t('settings.tabs.agents'), icon: Bot },
-])
-watch(showAdvanced, (v) => {
-  if (!v && advancedTabs.value.some(x => x.id === tab.value)) tab.value = 'ai'
-})
 
 // ===== AI Service Configs =====
 const cfgs = ref([])
@@ -974,7 +955,8 @@ const skillFileName = computed(() => `SKILL${editLang.value !== 'zh' ? `.${editL
 async function setEditLang(lang) {
   if (editLang.value === lang) return
   editLang.value = lang
-  await loadAgentPrompt(selectedAgent.value)
+  // 系统提示词、Skill 列表（名称/描述）、展开中的 Skill 内容同步切到目标语言
+  await Promise.all([loadAgentPrompt(selectedAgent.value), loadAllSkills()])
   if (editingSkill.value) {
     const id = editingSkill.value
     editingSkill.value = null
@@ -1026,7 +1008,7 @@ const currentSkills = computed(() =>
 )
 
 async function loadAllSkills() {
-  try { allSkills.value = await skillsAPI.list() }
+  try { allSkills.value = await skillsAPI.list(editLang.value) }
   catch (e) { toastError(e) }
 }
 
@@ -1366,28 +1348,10 @@ onBeforeUnmount(stopUsagePoll)
 .nav-item.active { background: var(--accent-bg); color: var(--accent-text); font-weight: 650; }
 .nav-item:focus-visible { outline: none; box-shadow: 0 0 0 3.5px var(--button-focus); }
 
-.nav-advanced {
-  padding: 12px 4px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.advanced-toggle {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 0 8px; font-size: 12.5px; font-weight: 550; color: var(--text-1); cursor: pointer;
-}
-.advanced-toggle .switch { width: 38px; height: 23px; }
-.advanced-toggle .switch::after { width: 19px; height: 19px; }
-.advanced-toggle .switch.on::after { transform: translateX(15px); }
-.advanced-toggle input:focus-visible + .switch { box-shadow: 0 0 0 3.5px var(--button-focus); }
-.advanced-note {
-  margin: 8px 8px 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-3);
-}
-
 .settings-content { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .settings-scroll { height: 100%; overflow-y: auto; padding: 20px 28px 48px; animation: fadeUp 0.3s var(--ease-out); }
+/* 宽屏下内容列限宽居中，两侧留出呼吸空间 */
+.settings-scroll > * { max-width: 1080px; margin-left: auto; margin-right: auto; }
 .settings-head { margin-bottom: 20px; }
 .settings-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .settings-desc { font-size: 13px; color: var(--text-2); margin-top: 6px; }
@@ -1582,10 +1546,13 @@ onBeforeUnmount(stopUsagePoll)
 .agent-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); }
 .agent-card-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
 
-/* Agent 右侧子 tab（System Prompt / Skills） */
+/* Agent 右侧子 tab（System Prompt / Skills）与语言切换：两个独立胶囊，互不混排 */
 .agent-pane-tabs {
-  display: flex; gap: 2px; width: fit-content;
-  margin: 14px 0 14px; padding: 3px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 14px 0 14px;
+}
+.agent-pane-tabs-nav {
+  display: flex; gap: 2px; width: fit-content; padding: 3px;
   background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px;
 }
 .agent-pane-tab {
@@ -1599,14 +1566,13 @@ onBeforeUnmount(stopUsagePoll)
 
 /* 语言版本切换（prompt/skill 编辑器右上角） */
 .agent-lang-picker {
-  margin-left: auto;
-  display: flex; gap: 2px; padding: 2px;
-  border-radius: 7px; background: var(--bg-2);
+  display: flex; gap: 2px; padding: 3px;
+  border-radius: 10px; background: var(--bg-1); border: 1px solid var(--border);
 }
 .agent-lang-option {
-  padding: 3px 10px; border: none; border-radius: 5px;
+  padding: 4px 12px; border: none; border-radius: 7px;
   background: transparent; color: var(--text-3);
-  font: 600 11px var(--font-body); cursor: pointer;
+  font: 600 11.5px var(--font-body); cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 .agent-lang-option:hover { color: var(--text-1); }

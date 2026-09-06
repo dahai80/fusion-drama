@@ -220,9 +220,6 @@
   },
   "settings": {
     "groupBase": "基础",
-    "groupAdvanced": "高级",
-    "advancedToggle": "Agent 高级配置",
-    "advancedNote": "仅展开 Agent 配置与 Skills。工作台功能和分镜字段保持默认可见。",
     "tabs": {
       "general": "通用",
       "ai": "AI 服务",
