@@ -1,7 +1,7 @@
 <template>
   <div class="model-select">
     <span class="model-select-label">{{ label }}</span>
-    <AppMenu v-model:open="isOpen" :min-width="240">
+    <AppMenu v-model:open="isOpen" :min-width="280">
       <template #trigger>
         <button type="button" class="model-select-trigger" :class="{ open: isOpen }">
           <img v-if="triggerIcon" :src="triggerIcon" class="model-select-icon" alt="" />
@@ -19,13 +19,12 @@
         v-for="o in options"
         :key="o.key || o.model"
         :selected="modelValue === (o.key || o.model)"
+        :title="`${o.model}${o.configName ? ` · ${o.configName}` : ''}`"
         @click="pick(o.key || o.model)"
       >
-        {{ o.model }}
-        <template v-if="o.provider || (showConfig && o.configName)" #trailing>
-          <img v-if="providerIconUrl(o.provider)" :src="providerIconUrl(o.provider)" class="model-select-icon sm" alt="" />
-          <span v-if="o.provider" class="model-select-chip">{{ o.provider }}</span>
-          <span v-if="showConfig" class="model-select-config">{{ o.configName }}</span>
+        <span class="model-select-option-name">{{ o.model }}</span>
+        <template v-if="modelIconUrl(o.provider, o.model)" #trailing>
+          <img :src="modelIconUrl(o.provider, o.model)" class="model-select-icon sm" alt="" />
         </template>
       </AppMenuItem>
     </AppMenu>
@@ -36,7 +35,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronDown } from 'lucide-vue-next'
-import { providerIconUrl } from '~/composables/useProviderIcon'
+import { modelIconUrl } from '~/composables/useProviderIcon'
 
 const props = defineProps({
   label: { type: String, required: true },          // 改写 / 图片 / 视频
@@ -56,8 +55,12 @@ const effectiveDefaultLabel = computed(() => props.defaultLabel || t('common.def
 const currentOption = computed(() => props.options.find(o => (o.key || o.model) === props.modelValue) || null)
 const currentLabel = computed(() => currentOption.value?.model || effectiveDefaultLabel.value)
 // 默认 = 首个选项；未显式选模型时也展示默认模型的厂商图标（与 defaultLabel 取 options[0] 同口径）
-const defaultIcon = computed(() => providerIconUrl(props.options[0]?.provider))
-const triggerIcon = computed(() => providerIconUrl(currentOption.value?.provider) ?? defaultIcon.value)
+// 图标按模型名推断（网关 provider=openai 但模型实为 deepseek 等场景），回退 provider
+const defaultIcon = computed(() => modelIconUrl(props.options[0]?.provider, props.options[0]?.model))
+const triggerIcon = computed(() =>
+  currentOption.value
+    ? modelIconUrl(currentOption.value.provider, currentOption.value.model)
+    : defaultIcon.value)
 
 function pick(model) {
   emit('update:modelValue', model)
@@ -129,20 +132,12 @@ function pick(model) {
 }
 .model-select-arrow.open { transform: rotate(180deg); }
 
-/* 菜单项 trailing 徽章（slot 内容随父作用域，scoped 可达） */
-.model-select-chip {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--bg-3);
-  color: var(--text-3);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-.model-select-config {
-  font-size: 10px;
-  color: var(--text-3);
+/* 菜单项：模型名完整优先，超长才省略（tooltip 有全名） */
+.model-select-option-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 320px;
 }
 .model-select-dim { color: var(--text-3); }
 </style>
