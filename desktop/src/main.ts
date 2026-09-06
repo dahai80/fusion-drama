@@ -8,7 +8,7 @@
  * 后端可重启（startBackend）：存储位置迁移 = 停后端 → 搬文件 → 换 currentDataDir →
  * 重启后端（见 migrate.ts）；backendRestarting 期间抑制「异常退出」弹窗。
  */
-import { app, BrowserWindow, dialog, ipcMain, utilityProcess } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from 'electron'
 import type { UtilityProcess } from 'electron'
 import * as net from 'net'
 import * as fs from 'fs'
@@ -213,6 +213,18 @@ function createWindow() {
   // 页面标题自带产品名，避免文件路径兜底标题
   mainWindow.on('page-title-updated', e => e.preventDefault())
   mainWindow.on('closed', () => { mainWindow = null })
+  // 外链一律交给系统浏览器：应用内不弹新窗（如设置页「前往 api.firemux.com 获取 Key」）
+  const isAppUrl = (url: string) => url.startsWith(`http://127.0.0.1:${backendPort}`)
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url) && !isAppUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  // 主窗口意外导航到外部地址时同样拦下并转浏览器
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (isAppUrl(url)) return
+    e.preventDefault()
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+  })
   return mainWindow.loadURL(`http://127.0.0.1:${backendPort}`)
 }
 
