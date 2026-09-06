@@ -1,292 +1,301 @@
-# 🎬 Huobao Drama - AI 短剧生成平台
+# 🎬 Huobao Drama - AI Short Drama Generation Platform
 
 <div align="center">
 
-**基于 TypeScript 全栈的 AI 短剧自动化生产平台**
+**A full-stack TypeScript platform for automated AI short-drama production**
 
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [部署指南](#部署指南)
+**English** | [简体中文](README.zh-CN.md)
 
-<h2>🔑 <a href="https://api.chatfire.site">获取 Huobao API Key 👉 立即查看</a></h2>
+[Features](#-features) • [Quick Start](#-quick-start) • [Deployment](#-deployment)
 
-**文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
+<h2>🔑 <a href="https://api.firemux.com">Get a Huobao API Key 👉 Get started</a></h2>
 
-部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
+**Text, image, and video AI capabilities — one key unlocks everything**
+
+After deploying, paste the key in "Settings → Huobao Quick Setup" to write three recommended configs in one click
 
 </div>
 
 ---
 
-## 📖 项目简介
+## 📖 Overview
 
-Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
+Huobao Drama is an AI-powered short-drama production platform that automates the entire pipeline: script generation, character design, storyboard breakdown, and video compositing.
 
-### 🎯 核心价值
+### 🎯 Core Value
 
-- **🤖 AI 驱动**：使用大语言模型解析剧本，提取角色、场景和分镜信息
-- **🎨 智能创作**：AI 绘图生成角色形象和场景背景
-- **📹 视频生成**：基于文生视频和图生视频模型自动生成分镜视频
-- **🔄 工作流**：完整的短剧制作工作流，从创意到成片一站式完成
+- **🤖 AI-Driven**: LLMs parse scripts and extract characters, scenes, and storyboard information
+- **🎨 Intelligent Creation**: AI image generation for character designs and scene backgrounds
+- **📹 Video Generation**: Text-to-video and image-to-video models automatically produce storyboard clips
+- **🔄 End-to-End Workflow**: A complete pipeline from idea to finished episode
 
-### 🛠️ 技术架构
+### 🛠️ Architecture
 
 ```
-frontend/   — Nuxt 3 + Vue 3 + TypeScript (纯 CSS，无 UI 框架)
+frontend/   — Nuxt 3 + Vue 3 + TypeScript (pure CSS, no UI framework)
 backend/    — Hono + Drizzle ORM + Mastra AI Agents + better-sqlite3
-backend/workspace/skills/ — Agent 技能定义 (SKILL.md，支持界面在线编辑)
-desktop/    — Electron 桌面版（主进程 + esbuild 打包 + electron-builder 出 dmg）
-data/       — 生成资源文件与 SQLite 数据库
+backend/workspace/skills/ — Agent skill definitions (SKILL.md, editable in the UI)
+desktop/    — Electron desktop app (main process + esbuild + electron-builder dmg/exe)
+data/       — Generated assets and the SQLite database
 ```
 
-> 🔥 **AI创作省钱攻略｜快乐马 & Seedance 合作专属折扣，优惠到底** 👉 [立即查看](https://aiad.dfycloud.com/)
+> 🔥 **Save on AI creation | Kuailema & Seedance exclusive partner discounts** 👉 [Learn more](https://aiad.dfycloud.com/)
 
 ---
 
-## ✨ 功能特性
+## ✨ Features
 
-### 🎭 角色管理
+### 🎭 Character Management
 
-- ✅ AI 生成角色形象
-- ✅ 批量角色生成
-- ✅ 角色图片上传和管理
+- ✅ AI-generated character designs
+- ✅ Batch character generation
+- ✅ Character image upload and management
 
-### 🎬 视频任务
+### 🎬 Video Tasks
 
-- ✅ AI 自动生成视频任务
-- ✅ 场景描述和视频提示词生成
-- ✅ 按任务批量生成视频
+- ✅ Automatic AI video-task generation
+- ✅ Scene descriptions and video prompt generation
+- ✅ Batch video generation per task
 
-### 🎥 视频生成
+### 🎥 Video Generation
 
-- ✅ 文生视频自动生成
-- ✅ FFmpeg 单镜头合成与字幕处理
-- ✅ 整集拼接导出
+- ✅ Text-to-video generation
+- ✅ FFmpeg per-shot compositing and subtitle handling
+- ✅ Full-episode stitching and export
 
-### 📦 资源管理
+### 📦 Asset Management
 
-- ✅ 素材库统一管理
-- ✅ 本地存储支持
-- ✅ 任务进度追踪
+- ✅ Unified asset library
+- ✅ Local storage support
+- ✅ Task progress tracking
 
 ### 🤖 AI Agents
 
-内置 4 个 Mastra Agent，支持数据库配置和 Skill 扩展：
+Four built-in Mastra agents with database-backed configuration and Skill extensions:
 
-| Agent | 职责 |
+| Agent | Role |
 |---|---|
-| `script_rewriter` | 小说 → 格式化剧本改写 |
-| `extractor` | 角色 / 场景 / 道具智能提取与去重 |
-| `storyboard_breaker` | 剧本 → 分镜序列拆解 |
-| `prompt_generator` | 角色/场景/道具图片提示词 + 分镜视频提示词生成 |
+| `script_rewriter` | Novel → formatted script rewriting |
+| `extractor` | Intelligent extraction and dedup of characters / scenes / props |
+| `storyboard_breaker` | Script → storyboard sequence breakdown |
+| `prompt_generator` | Image prompts for characters/scenes/props + storyboard video prompts |
 
-### 🔌 多厂商适配
+### 🌐 Multi-Language UI
 
-| 类型 | 支持厂商 |
+The interface ships in **中文 / English / 日本語 / 한국어**, with a global setting for AI-generated content language.
+
+### 🔌 Multi-Provider Support
+
+| Type | Providers |
 |---|---|
-| **文本** | OpenAI(兼容接口)、Gemini |
-| **图片** | OpenAI、Gemini、火山引擎 |
-| **视频** | 火山引擎 Seedance 2.0(标准 / Fast / Mini)、MiniMax H3、阿里云百炼 Wan 3.0 (Prime / 标准) |
+| **Text** | OpenAI (compatible APIs), Gemini |
+| **Image** | OpenAI, Gemini, Volcano Engine |
+| **Video** | Volcano Engine Seedance 2.0 (Standard / Fast / Mini), MiniMax H3, Alibaba Bailian Wan 3.0 (Prime / Standard) |
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 📋 环境要求
+### 📋 Requirements
 
-| 软件 | 版本要求 | 说明 |
+| Software | Version | Notes |
 |---|---|---|
-| **Node.js** | 20+ | 前后端运行环境 |
-| **npm** | 9+ | 包管理工具 |
+| **Node.js** | 20+ | Runtime for frontend and backend |
+| **npm** | 9+ | Package manager |
 
-> **数据库零安装**：内置 SQLite（单文件，随项目数据目录存放），无需安装任何数据库服务。
-> **FFmpeg 无需安装**：项目通过 `ffmpeg-static` / `ffprobe-static` npm 包内置二进制，开箱即用。
+> **Zero-install database**: Bundled SQLite (single file in the project data directory) — no database server required.
+> **No FFmpeg install needed**: Binaries ship via the `ffmpeg-static` / `ffprobe-static` npm packages — works out of the box.
 
-### ⚙️ 环境变量
+### ⚙️ Environment Variables
 
-无需配置文件，通过环境变量设置（均有默认值，本地开发可零配置启动）：
+No config files — everything is set via environment variables (all have defaults; local dev needs zero configuration):
 
-| 变量 | 默认值 | 说明 |
+| Variable | Default | Description |
 |---|---|---|
-| `SQLITE_PATH` | `<仓库根>/data/huobao.sqlite3` | SQLite 数据库文件位置 |
-| `PORT` | `5679` | 后端服务端口 |
-| `STORAGE_PATH` | `<仓库根>/data/static` | 生成文件存储目录 |
-| `HUOBAO_DATA_DIR` | — | 桌面版由 Electron 主进程注入（userData 数据根） |
-| `WORKSPACE_PATH` | `backend/workspace` | Agent 技能/提示词目录（桌面版指向 userData 可写副本） |
-| `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
-| `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
-| `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
+| `SQLITE_PATH` | `<repo>/data/huobao.sqlite3` | SQLite database file location |
+| `PORT` | `5679` | Backend service port |
+| `STORAGE_PATH` | `<repo>/data/static` | Generated-file storage directory |
+| `HUOBAO_DATA_DIR` | — | Injected by the Electron main process (userData data root) |
+| `WORKSPACE_PATH` | `backend/workspace` | Agent skills/prompts directory (desktop: writable copy under userData) |
+| `FRONTEND_DIST` | `frontend/dist` | Frontend static build directory |
+| `FFMPEG_BIN` / `FFPROBE_BIN` | bundled npm binaries | Custom ffmpeg/ffprobe executable paths |
+| `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
 
-> **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
+> **Note**: AI service API keys, base URLs, and model parameters are all configured in the web UI "Settings" page and stored in the database — never in config files or environment variables.
 
-### 📥 安装依赖
+### 📥 Installation
 
 ```bash
-# 克隆项目
+# Clone the repository
 git clone https://github.com/chatfire-AI/huobao-drama.git
 cd huobao-drama
 
-# 安装后端依赖
+# Install backend dependencies
 cd backend && npm install
 
-# 安装前端依赖
+# Install frontend dependencies
 cd ../frontend && npm install
 ```
 
-### 🎯 启动项目
+### 🎯 Running
 
-#### 方式一：开发模式（推荐）
+#### Option 1: Development mode (recommended)
 
-前后端分离，支持热重载：
+Frontend and backend run separately with hot reload:
 
 ```bash
-# 终端1：启动后端
+# Terminal 1: backend
 cd backend
 npm run dev
 
-# 终端2：启动前端
+# Terminal 2: frontend
 cd frontend
 npm run dev
 ```
 
-- 前端地址: `http://localhost:3013`
-- 后端 API: `http://localhost:5679/api/v1`
-- 前端自动代理 `/api` 和 `/static` 到后端
+- Frontend: `http://localhost:3013`
+- Backend API: `http://localhost:5679/api/v1`
+- The frontend automatically proxies `/api` and `/static` to the backend
 
-#### 方式二：单服务模式
+#### Option 2: Single-service mode
 
-后端同时提供 API 和前端静态文件：
+The backend serves both the API and the frontend static files:
 
 ```bash
-# 1. 构建前端
+# 1. Build the frontend
 cd frontend && npm run generate
 
-# 2. 复制构建产物到后端读取的目录（generate 产物在 .output/public，后端只读取 frontend/dist）
+# 2. Copy the build output where the backend expects it
+#    (generate outputs to .output/public; the backend reads frontend/dist)
 cp -r .output/public dist
 
-# 3. 启动后端
+# 3. Start the backend
 cd ../backend && npm start
 ```
 
-访问: `http://localhost:5679`
+Visit: `http://localhost:5679`
 
-### 🗄️ 数据库
+### 🗄️ Database
 
-内置 SQLite（`better-sqlite3` + WAL 模式），数据库表在首次启动时自动创建（幂等重放 DDL 与种子数据），默认文件位于 `data/huobao.sqlite3`，可通过 `SQLITE_PATH` 重定向。桌面版数据存放在用户数据目录（`~/Library/Application Support/HuobaoDrama/data/`）。
+Bundled SQLite (`better-sqlite3` + WAL mode). Tables are created automatically on first launch (idempotent DDL replay + seed data). Default file: `data/huobao.sqlite3`, overridable via `SQLITE_PATH`. The desktop app stores data in the user-data directory (`~/Library/Application Support/HuobaoDrama/data/`).
 
-从旧版 MySQL 迁移数据：
+Migrating data from a legacy MySQL deployment:
 
-**启动时自动迁移（推荐）**：显式配置了 MySQL（`DATABASE_URL` 或 `MYSQL_HOST`）且 SQLite 为空库时，后端启动会自动探测并一次性导入全部表（行数逐表校验、单事务原子写入、失败自动回滚并在下次启动重试、成功后写 `.mysql-imported` 标记避免重复）。设 `MYSQL_AUTO_IMPORT=false` 可关闭。
+**Automatic migration on startup (recommended)**: When MySQL is explicitly configured (`DATABASE_URL` or `MYSQL_HOST`) and the SQLite database is empty, the backend automatically detects and imports all tables once (per-table row-count validation, single-transaction atomic writes, automatic rollback with retry on next launch, and a `.mysql-imported` marker to avoid re-importing). Set `MYSQL_AUTO_IMPORT=false` to disable.
 
 ```bash
-# 也可手动执行（目标库非空需加 --force，写入前自动备份）
+# Or run manually (non-empty target requires --force; automatic backup before writing)
 cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 ```
 
-> 迁移只覆盖数据库行；旧部署 `data/static/` 下的图片/视频等媒体文件需手动拷贝，否则历史素材无法访问。
+> Migration covers database rows only; media files (images/videos) under the old deployment's `data/static/` must be copied manually, or historical assets won't load.
 
-### 🔑 首次使用：配置 AI 服务
+### 🔑 First Use: Configure AI Services
 
-启动后所有 AI 功能（文本/生图/视频）都需要先配置模型服务，未配置时页面顶部会有横幅引导：
+All AI features (text/image/video) require model services to be configured first — a banner at the top of the page guides you until then:
 
-1. 打开「设置」页
-2. 在「火宝快捷配置」中粘贴 Huobao API Key（[前往 api.chatfire.site 获取](https://api.chatfire.site)），一键写入文本、图片、视频三条推荐配置
-3. 或使用「手动模板」按厂商逐个添加，支持连通性测试
+1. Open the "Settings" page
+2. Paste your Huobao API key in "Huobao Quick Setup" ([get one at api.firemux.com](https://api.firemux.com)) to write three recommended configs (text, image, video) in one click
+3. Or add providers one by one via "Manual Templates", with connectivity testing
 
-配置完成横幅自动消失，即可开始创建剧集生产。
+Once configured, the banner disappears and you can start producing episodes.
 
 ---
 
-## 📦 部署指南
+## 📦 Deployment
 
-### 🖥️ 桌面应用（推荐）
+### 🖥️ Desktop App (recommended)
 
-双击安装、开箱即用的 macOS 桌面版：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
+Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
 
 ```bash
-# 一键打包（前端 generate → 后端 esbuild → electron-builder）
-npm run dist        # macOS dmg（arm64 + Intel）
-npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉打包）
+# One-command packaging (frontend generate → backend esbuild → electron-builder)
+npm run dist        # macOS dmg (arm64 + Intel)
+npm run dist:win    # Windows NSIS installer (win-x64, cross-buildable on macOS)
 
-# 产物
-# desktop/release/HuobaoDrama-<版本>-arm64.dmg        (Apple Silicon)
-# desktop/release/HuobaoDrama-<版本>.dmg              (Intel)
-# desktop/release/HuobaoDrama Setup <版本>.exe        (Windows)
+# Artifacts
+# desktop/release/HuobaoDrama-<version>-arm64.dmg     (Apple Silicon)
+# desktop/release/HuobaoDrama-<version>.dmg           (Intel)
+# desktop/release/HuobaoDrama Setup <version>.exe     (Windows)
 ```
 
-安装说明：
+Installation notes:
 
-- macOS 未签名包首次打开需右键 → 打开，或执行 `xattr -cr /Applications/HuobaoDrama.app`
-- Windows 未签名包 SmartScreen 会提示「更多信息 → 仍要运行」；正式分发需代码签名证书
-- 用户数据目录：`~/Library/Application Support/HuobaoDrama/`（数据库、生成的媒体、技能在线编辑的副本）
-- 内置 FFmpeg/FFprobe 二进制，无需系统安装
-- Electron 锁定 37.x：better-sqlite3 的 win32 预编译最高覆盖到该版本的 ABI（交叉打包免编译的关键）
-- 正式分发需配置 Apple Developer 签名 + 公证（`desktop/electron-builder.yml` 的 `identity`）
+- The macOS build is unsigned — on first launch, right-click → Open, or run `xattr -cr /Applications/HuobaoDrama.app`
+- The Windows build is unsigned — SmartScreen will prompt "More info → Run anyway"
+- User-data directory: `~/Library/Application Support/HuobaoDrama/` (database, generated media, writable copies of online-edited skills)
+- FFmpeg/FFprobe binaries are bundled — no system install needed
+- Electron is pinned to 37.x: better-sqlite3's win32 prebuilds max out at that ABI (the key to compilation-free cross-packaging)
+- External links open in the system browser (e.g. "Get a key at api.firemux.com")
 
-#### 🔄 应用内更新（无需 Apple 签名）
+#### 🔄 In-App Updates (no Apple signing required)
 
-桌面版内置更新器（与 Tauri 同类方案：macOS 目录替换 / Windows 静默安装，本地 sha256 校验）。发布新版流程：
+The desktop app ships with a built-in updater (same class of solution as Tauri: directory replacement on macOS / silent installer on Windows, with local sha256 verification). To publish a new release:
 
 ```bash
-# 1. 改 desktop/package.json 的 version，然后打包
-npm run dist        # macOS（产出 dmg + 更新用 zip）
-npm run dist:win    # Windows（产出 Setup.exe）
+# 1. Bump version in desktop/package.json, then package
+npm run dist        # macOS (produces dmg + update zip)
+npm run dist:win    # Windows (produces Setup.exe)
 
-# 2. 生成版本清单 release/latest.json（含各平台产物 sha256）
+# 2. Generate the release manifest release/latest.json (with per-platform sha256)
 cd desktop && npm run feed
 
-# 3. 发布：把 latest.json + 安装包 + zip 上传到 GitHub Release（tag 形如 v1.0.1）
+# 3. Publish: upload latest.json + installers + zips to a GitHub Release (tag like v1.0.1)
 ```
 
-已安装的客户端会在启动后自动检查清单（也可在「设置 → 关于更新」手动检查），发现新版即提示下载安装。自定义清单地址：`HUOBAO_UPDATE_FEED` 环境变量。
+Installed clients check the manifest automatically after launch (manual check available in "Settings → About & Updates") and prompt to download and install when a new version is found. Override the manifest URL with the `HUOBAO_UPDATE_FEED` environment variable.
 
-桌面版开发调试：
+Desktop development:
 
 ```bash
-npm run build:frontend   # 前端静态产物（frontend/.output/public）
-cd desktop && npm run dev  # 打包后端 bundle 并以 Electron 窗口运行
+npm run build:frontend   # frontend static output (frontend/.output/public)
+cd desktop && npm run dev  # bundle the backend and run in an Electron window
 ```
 
-> 已知限制：Seedance 视频模型引用本地参考资源时需要 `PUBLIC_BASE_URL` 公网地址，桌面版无公网入口，该场景会得到明确的中文报错；文生视频/图片等其余能力不受影响。
+> Known limitation: Seedance video models need a `PUBLIC_BASE_URL` public address to reference local assets; the desktop app has no public entry point, so that scenario produces a clear error message. Text-to-video, image generation, and all other capabilities are unaffected.
 
 ---
 
-### 🏭 服务器部署方式
+### 🏭 Server Deployment
 
 ```bash
-# 1. 构建前端
+# 1. Build the frontend
 cd frontend && npm run generate
 
-# 2. 复制构建产物（generate 产物在 frontend/.output/public，后端只读取 frontend/dist，缺此步 API 正常但页面 404）
+# 2. Copy the build output (generate outputs to frontend/.output/public; the backend reads
+#    frontend/dist — skip this step and the API works but pages 404)
 cp -r .output/public dist && cd ..
 
-# 3. 启动后端
+# 3. Start the backend
 cd backend && npm start
 ```
 
-需要上传到服务器的文件：
+Files to upload to the server:
 
 ```
-backend/                    # 后端源码 + node_modules
-backend/workspace/skills/   # Agent 技能文件
-frontend/dist/              # 前端构建产物
-data/                       # 数据目录（首次运行自动创建）
+backend/                    # backend source + node_modules
+backend/workspace/skills/   # Agent skill files
+frontend/dist/              # frontend build output
+data/                       # data directory (auto-created on first run)
 ```
 
-#### Nginx 反向代理
+#### Nginx Reverse Proxy
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
 
-    # 参考视频/音频上传最大 50MB
+    # Max 50MB for reference video/audio uploads
     client_max_body_size 100m;
 
-    # 生成的图片/视频直连磁盘，不经过 Node：sendfile 零拷贝 + 长缓存
-    # （产物按 uuid 命名、内容不变，可安全 immutable 缓存）
+    # Generated images/videos served straight from disk, bypassing Node:
+    # sendfile zero-copy + long-lived caching
+    # (files are uuid-named and immutable, so immutable caching is safe)
     location /static/ {
         alias /path/to/huobao-drama/data/static/;
         sendfile on;
@@ -304,168 +313,169 @@ server {
 }
 ```
 
-> 媒体加载优化：生成图片时后端会自动产出 400px 缩略图（`*_thumb.webp`）供列表页加载，视频会抽取海报帧（`*_poster.jpg`）作为封面，前端仅在点开大图/播放时才加载原文件。历史存量文件可在 `backend/` 下执行 `npm run backfill-artwork` 一次性补齐。
+> Media loading optimization: the backend automatically generates 400px thumbnails (`*_thumb.webp`) for list pages and extracts poster frames (`*_poster.jpg`) as video covers — the frontend only loads original files when opening the full image or playing. To backfill historical files, run `npm run backfill-artwork` under `backend/`.
 
-### 🐳 Docker 部署（含应用内更新）
+### 🐳 Docker Deployment (with in-app updates)
 
-根目录提供一体化 `Dockerfile`（前端 generate + 后端依赖/运行时三阶段，后端与服务器部署一致走 tsx）与 `docker-compose.yml`（应用 + Watchtower）：
+The repo root provides an all-in-one `Dockerfile` (three stages: frontend generate + backend dependencies + runtime; the backend runs via tsx just like server deployment) and `docker-compose.yml` (app + Watchtower):
 
 ```bash
-# 1. 配置环境（Watchtower 令牌，app 与 watchtower 两侧必须一致）
-cp .env.example .env   # 修改 WATCHTOWER_TOKEN
+# 1. Configure the environment (Watchtower token — must match on the app and watchtower sides)
+cp .env.example .env   # edit WATCHTOWER_TOKEN
 
-# 2. 构建并启动（发布时注入版本号，供「关于更新」比对）
+# 2. Build and start (inject a version at publish time for "About & Updates" comparison)
 HUOBAO_VERSION=1.0.0 docker compose up -d --build
 
-# 3. 访问 http://localhost:5679
+# 3. Visit http://localhost:5679
 ```
 
-- **数据持久化**：命名卷 `huobao-data` 挂载 `/app/data`（SQLite + 生成的图片/视频 + workspace/skills，更新镜像不丢数据）
-- **应用内更新**：compose 自带 [Watchtower](https://containrrr.dev/watchtower/) sidecar（`--label-enable` 只更新标记容器，`--cleanup` 清旧镜像，每天自检一次）。设置页「关于更新」可检查新版本并「立即更新」——后端经 Watchtower HTTP API 触发，拉新镜像重建容器，几分钟后刷新页面即可
-- **手动模式**：`docker-compose.yml` 中删除 app 的 `HUOBAO_WATCHTOWER_*` 两个环境变量（或整个 watchtower 服务）后，「关于更新」退化为新版本提示 + 手动命令 `docker compose pull && docker compose up -d`
-- **发布镜像**：`docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `HUOBAO_UPDATE_FEED` 覆盖）
+- **Data persistence**: the named volume `huobao-data` mounts `/app/data` (SQLite + generated images/videos + workspace/skills) — image updates don't lose data
+- **In-app updates**: the compose file ships a [Watchtower](https://containrrr.dev/watchtower/) sidecar (`--label-enable` only updates labeled containers, `--cleanup` removes old images, daily self-check). "Settings → About & Updates" can check for new versions and "Update Now" — the backend triggers it via the Watchtower HTTP API, which pulls the new image and rebuilds the container; refresh the page after a few minutes
+- **Manual mode**: remove the app's two `HUOBAO_WATCHTOWER_*` env vars (or the whole watchtower service) from `docker-compose.yml` — "About & Updates" then degrades to a new-version notice + manual `docker compose pull && docker compose up -d`
+- **Publishing images**: `docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …` — the version manifest is shared with the desktop app via `latest.json` on GitHub Releases (overridable with `HUOBAO_UPDATE_FEED`)
 
 ---
 
-## 🎨 技术栈
+## 🎨 Tech Stack
 
-### 后端
+### Backend
 
-- **运行时**: Node.js 20+
-- **Web 框架**: Hono
-- **ORM**: Drizzle ORM + better-sqlite3（WAL 模式）
-- **AI Agent**: Mastra + AI SDK (OpenAI compatible)
-- **视频处理**: FFmpeg (fluent-ffmpeg + 内置二进制)
-- **图片处理**: Sharp
+- **Runtime**: Node.js 20+
+- **Web framework**: Hono
+- **ORM**: Drizzle ORM + better-sqlite3 (WAL mode)
+- **AI Agents**: Mastra + AI SDK (OpenAI compatible)
+- **Video processing**: FFmpeg (fluent-ffmpeg + bundled binaries)
+- **Image processing**: Sharp
 
-### 桌面端
+### Desktop
 
-- **壳**: Electron（utilityProcess 承载后端，BrowserWindow 同源加载）
-- **打包**: esbuild（后端单文件 bundle）+ electron-builder（dmg，arm64/x64）
+- **Shell**: Electron (utilityProcess hosts the backend; BrowserWindow loads same-origin)
+- **Packaging**: esbuild (single-file backend bundle) + electron-builder (dmg arm64/x64, NSIS win-x64)
 
-### 前端
+### Frontend
 
-- **框架**: Nuxt 3 (SPA 模式)
-- **语言**: Vue 3 + TypeScript
-- **路由**: 文件路由 (Vue Router 4)
-- **样式**: 纯 CSS + CSS Variables
-- **图标**: Lucide Vue
-
----
-
-## 📝 常见问题
-
-### Q: 桌面版数据存在哪里？
-
-A: `~/Library/Application Support/HuobaoDrama/data/`（SQLite 数据库 + 生成的图片/视频），技能在线编辑的副本在同级 `workspace/` 目录。开发模式下则使用仓库 `data/` 目录。
-
-### Q: 旧版 MySQL 数据怎么迁移到 SQLite？
-
-A: 保持 MySQL 可连接（环境变量或 `backend/.env`），执行 `cd backend && npx tsx scripts/import-mysql-to-sqlite.ts`，脚本会自动建表、逐表导入并校验行数（目标库非空需加 `--force`，写入前自动备份）。
-
-### Q: FFmpeg 未安装或找不到？
-
-A: 无需安装。项目内置 `ffmpeg-static` / `ffprobe-static` 二进制（桌面版随包携带）。系统 `PATH` 中的 FFmpeg 也不会冲突，也可通过 `FFMPEG_BIN`/`FFPROBE_BIN` 显式指定。
-
-### Q: 页面顶部提示「尚未配置模型」？
-
-A: 这是正常的首次部署引导。前往「设置」页，用「火宝快捷配置」粘贴 API Key 一键写入，或通过「手动模板」按厂商添加。文本、图片、视频三类均有启用中的配置后横幅自动消失。
-
-### Q: 前端无法连接后端 API？
-
-A: 检查后端是否启动，端口是否正确。开发模式下前端代理配置在 `frontend/nuxt.config.ts`。
-
-### Q: 数据库表未创建？
-
-A: 后端会在首次启动时自动创建所有表，检查日志确认初始化是否成功。
+- **Framework**: Nuxt 3 (SPA mode)
+- **Language**: Vue 3 + TypeScript
+- **Routing**: File-based routing (Vue Router 4)
+- **Styling**: Pure CSS + CSS Variables
+- **Icons**: Lucide Vue
+- **i18n**: vue-i18n (中文 / English / 日本語 / 한국어)
 
 ---
 
-## 📋 更新日志
+## 📝 FAQ
+
+### Q: Where does the desktop app store data?
+
+A: `~/Library/Application Support/HuobaoDrama/data/` (SQLite database + generated images/videos); writable copies of online-edited skills live in the sibling `workspace/` directory. In development mode the repo's `data/` directory is used instead.
+
+### Q: How do I migrate legacy MySQL data to SQLite?
+
+A: Keep MySQL reachable (environment variables or `backend/.env`), then run `cd backend && npx tsx scripts/import-mysql-to-sqlite.ts`. The script creates tables automatically, imports table-by-table, and validates row counts (non-empty targets require `--force`; a backup is made before writing).
+
+### Q: FFmpeg not installed or not found?
+
+A: No install needed. The project bundles `ffmpeg-static` / `ffprobe-static` binaries (carried along in the desktop package). A system `PATH` FFmpeg won't conflict either, and you can point explicitly via `FFMPEG_BIN`/`FFPROBE_BIN`.
+
+### Q: The top of the page says "No model configured"?
+
+A: That's the normal first-deploy guidance. Go to "Settings" and use "Huobao Quick Setup" to paste an API key and write configs in one click, or add providers via "Manual Templates". The banner disappears once text, image, and video all have an enabled config.
+
+### Q: The frontend can't reach the backend API?
+
+A: Check that the backend is running and the port is correct. In dev mode the proxy config lives in `frontend/nuxt.config.ts`.
+
+### Q: Database tables not created?
+
+A: The backend creates all tables automatically on first launch — check the logs to confirm initialization succeeded.
+
+---
+
+## 📋 Changelog
 
 ### v4.0.0 (2026-08)
 
-#### 🖥️ 桌面应用 + 数据库迁移
+#### 🖥️ Desktop App + Database Migration
 
-- Electron 桌面版（macOS dmg，arm64/x64 双架构）
-  - 双击安装、开箱即用：自动选择端口、单实例锁、崩溃隔离的后端子进程
-  - 用户数据隔离：SQLite 库 / 生成媒体 / 技能副本均存放于 userData 目录
-  - 内置 FFmpeg/FFprobe 随包分发；workspace 技能模板首启动拷贝、升级只补缺不覆盖
-- 数据库从 MySQL 完全迁移到 SQLite（better-sqlite3 + WAL）
-  - 业务代码零改动（Drizzle 查询层天然可移植），DDL 幂等重放
-  - 新增一次性导入脚本 `import-mysql-to-sqlite.ts`（逐表行数校验 + 自动备份）
-- 后端 esbuild 单文件打包（externals：sharp/better-sqlite3/ffmpeg 二进制包）
-- 移除 Docker/MySQL 部署方式（git 历史可找回）
+- Electron desktop app (macOS dmg, arm64/x64 dual architecture)
+  - Double-click install, works out of the box: automatic port selection, single-instance lock, crash-isolated backend subprocess
+  - User-data isolation: SQLite database / generated media / skill copies all live in the userData directory
+  - FFmpeg/FFprobe bundled; workspace skill templates copied on first launch, upgrades only fill gaps without overwriting
+- Database fully migrated from MySQL to SQLite (better-sqlite3 + WAL)
+  - Zero business-code changes (the Drizzle query layer is naturally portable); idempotent DDL replay
+  - New one-shot import script `import-mysql-to-sqlite.ts` (per-table row-count validation + automatic backup)
+- Backend bundled to a single file with esbuild (externals: sharp/better-sqlite3/ffmpeg binary packages)
+- Removed Docker/MySQL deployment (recoverable from git history)
 
 ### v3.0.0 (2026-08)
 
-#### 🚀 部署与体验优化
+#### 🚀 Deployment & Experience Improvements
 
-- Docker 部署就绪改造
-  - MySQL / 应用健康检查，应用等待数据库就绪后启动
-  - 数据库初始化增加重试，容器编排下首次部署零人工干预
-  - 移除系统 FFmpeg 依赖，全面使用内置二进制
-  - Agent skills 目录 volume 持久化（设置页在线编辑不丢失）
-  - 新增 `docker/init.sql` 及导出脚本（DBA 审核 / 预建表）
-- 首次使用引导
-  - 未配置 AI 服务时全站顶部横幅提示并引导至设置页
-  - 设置页新增「火宝快捷配置」：一个 Key 写入文本/图片/视频三条推荐配置
-  - 未配置模型的报错中文化并指引设置页
-- 视频模型默认调整为 Seedance 2.0 Fast
-- 厂商收敛：仅保留 OpenAI / Gemini / 火山引擎
-- 工作台：任务列表抽屉、流水线大环节状态、选择性拼接（拼接前校验视频文件存在）
-- 素材库改版、@提及优化、剧集列表重构
+- Docker deployment readiness
+  - MySQL / app health checks; the app waits for the database before starting
+  - Database initialization retries — zero manual intervention on first containerized deploy
+  - Removed the system FFmpeg dependency; bundled binaries everywhere
+  - Agent skills directory volume persistence (online edits in Settings survive)
+  - New `docker/init.sql` and export scripts (DBA review / pre-created tables)
+- First-use guidance
+  - Site-wide banner guiding to Settings when no AI service is configured
+  - New "Huobao Quick Setup" in Settings: one key writes three recommended configs (text/image/video)
+  - Unconfigured-model errors localized with pointers to Settings
+- Default video model changed to Seedance 2.0 Fast
+- Provider consolidation: OpenAI / Gemini / Volcano Engine only
+- Workbench: task-list drawer, pipeline stage status, selective stitching (validates video files exist before merging)
+- Asset library redesign, @mention improvements, episode list rework
 
 ### v2.0.0 (2026-04)
 
-#### 🚀 重大更新
+#### 🚀 Major Update
 
-- 项目全面迁移至 TypeScript 技术栈
-  - 后端：Hono + Drizzle ORM + mysql2
-  - 前端：Nuxt 3 + Vue 3
-  - AI Agent：Mastra 框架
-- 重做单集工作台 UI 和生产流程
-  - 更紧凑的控制台布局
-  - 重做分镜编辑区
-  - 重做镜头图、视频、合成、导出界面
-- 新增 Docker 部署支持，前后端合并为单镜像
-- 增加运行时 Skill 加载机制
-- 扩展多厂商媒体 Adapter
-  - 图片：OpenAI、Gemini、火山引擎、阿里
-  - 视频：火山引擎/Seedance、Vidu、阿里
-- 优化本地文件处理与参考图按需转码
+- Full migration to a TypeScript stack
+  - Backend: Hono + Drizzle ORM + mysql2
+  - Frontend: Nuxt 3 + Vue 3
+  - AI Agents: Mastra framework
+- Episode workbench UI and production flow rebuilt
+  - More compact console layout
+  - Storyboard editing area rebuilt
+  - Shot image, video, compositing, and export screens rebuilt
+- Docker deployment support — frontend and backend merged into a single image
+- Runtime Skill loading mechanism
+- Expanded multi-provider media adapters
+  - Image: OpenAI, Gemini, Volcano Engine, Alibaba
+  - Video: Volcano Engine/Seedance, Vidu, Alibaba
+- Improved local file handling and on-demand reference-image transcoding
 
 ### v1.0.4 (2026-01-27)
 
-- 引入本地存储策略，规避外部资源链接失效
-- Base64 参考图嵌入式传输
-- 修复镜头切换状态重置问题
-- 添加场景迁移至章节
+- Local storage strategy to avoid dead external asset links
+- Base64 reference-image embedded transport
+- Fixed shot-switch state reset
+- Scene migration to chapters
 
 ### v1.0.3 (2026-01-16)
 
-- 优化数据库并发访问性能
-- Docker 跨平台支持 host.docker.internal
+- Database concurrency performance improvements
+- Docker cross-platform support for host.docker.internal
 
 ### v1.0.2 (2026-01-14)
 
-- 修复视频生成 API 响应解析问题
-- 添加 OpenAI Sora 视频端点配置
-- 优化错误处理和日志输出
+- Fixed video-generation API response parsing
+- OpenAI Sora video endpoint configuration
+- Improved error handling and logging
 
 ---
 
-## 🤝 贡献指南
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交改动 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-常用检查命令：
+Common checks:
 
 ```bash
 cd backend && npm run typecheck
@@ -474,22 +484,22 @@ cd ../frontend && npm run build
 
 ---
 
-## ☕ 捐赠支持
+## ☕ Donate
 
-如果这个项目对你有帮助，欢迎扫码请作者喝杯咖啡 ☕，你的支持是持续更新的动力！
+If this project helps you, buy the author a coffee ☕ — your support keeps the updates coming!
 
 <div align="center">
-  <img src="donate.png" alt="支付宝捐赠二维码" width="240" />
+  <img src="donate.png" alt="Alipay donation QR code" width="240" />
 </div>
 
 ---
 
-> _"让 AI 帮我们做更有创造力的事"_
+> _"Let AI do the creating with us"_
 
-## 🔗 友情链接
+## 🔗 Links
 
-本项目已获得 [LINUX DO](https://linux.do/) 社区链接认可。
+This project has been recognized with a link from the [LINUX DO](https://linux.do/) community.
 
-- [LINUX DO](https://linux.do/) — 真正的开源精神，共建共享的技术社区
+- [LINUX DO](https://linux.do/) — a genuine open-source spirit, a community built on sharing
 
 ---
