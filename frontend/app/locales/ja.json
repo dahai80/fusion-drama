@@ -465,7 +465,7 @@
       "mergeExport": "結合して書き出し",
       "scriptStage": "脚本段階 · {step}",
       "prodStage": "制作段階 · {step}",
-      "exportDone": "書き出し段階 · 映像完成",
+      "exportDone": "書き出し段階 · 完了",
       "exportWaiting": "書き出し段階 · 結合待ち",
       "workbench": "ワークベンチ"
     },
@@ -630,7 +630,7 @@
       "startBreak": "分割してプロンプト生成",
       "promptProgress": "プロンプト {done}/{total}",
       "promptSelected": "選択分のプロンプト生成({n})",
-      "batchPrompts": "不足プロンプトを補完",
+      "batchPrompts": "一括でプロンプトを補完",
       "listTitle": "分镜一覧",
       "listSub": "分解の説明と紐付いたキャラクター・シーンを確認",
       "select": "選択",
@@ -742,7 +742,8 @@
       "confirmResolution": "解像度",
       "confirmNote": "上記の設定でショットごとに生成を開始します。失敗したタスクは後で「失敗を再試行」からまとめて再実行できます。",
       "confirmStart": "生成開始 ({n})",
-      "selectMissing": "未生成を選択"
+      "selectMissing": "未生成を選択",
+      "aspectRatio": "アスペクト比"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}キャラクター名 / {'@'}シーン名 で参照素材を指定（生成時に参照画像へ自動マッピング）。時間帯ごとに画面の動きとカメラを記述…",
@@ -789,7 +790,14 @@
       "merging": "結合中…",
       "mergingToast": "結合中...",
       "mergeDone": "結合が完了しました",
-      "mergeFailed": "結合に失敗しました"
+      "mergeFailed": "結合に失敗しました",
+      "previewShot": "このショットを再生",
+      "shotPreview": "ショット #{n} プレビュー",
+      "markDone": "完了にする",
+      "markedDone": "完了",
+      "markDoneTitle": "このエピソードの書き出しを手動で完了にします（再クリックで解除）",
+      "markedDoneToast": "完了としてマークしました",
+      "unmarkDoneToast": "完了マークを解除しました"
     },
     "image": {
       "generatingChar": "キャラクター画像を生成中",

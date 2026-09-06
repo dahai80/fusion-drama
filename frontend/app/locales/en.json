@@ -465,7 +465,7 @@
       "mergeExport": "Merge & Export",
       "scriptStage": "Script · {step}",
       "prodStage": "Production · {step}",
-      "exportDone": "Export · film ready",
+      "exportDone": "Export · done",
       "exportWaiting": "Export · waiting to merge",
       "workbench": "Workbench"
     },
@@ -630,7 +630,7 @@
       "startBreak": "Break down & generate prompts",
       "promptProgress": "Prompts {done}/{total}",
       "promptSelected": "Generate selected prompts ({n})",
-      "batchPrompts": "Fill missing prompts",
+      "batchPrompts": "Batch Fill Prompts",
       "listTitle": "Shot List",
       "listSub": "Check breakdown descriptions and bound characters/scenes",
       "select": "Select",
@@ -742,7 +742,8 @@
       "confirmResolution": "Resolution",
       "confirmNote": "Generation will start shot by shot with the above config; failed tasks can be retried later via \"Retry failed\".",
       "confirmStart": "Start ({n})",
-      "selectMissing": "Select without video"
+      "selectMissing": "Select without video",
+      "aspectRatio": "Aspect Ratio"
     },
     "inspector": {
       "videoPromptPlaceholder": "Reference assets with {'@'}character / {'@'}scene — auto-mapped to reference images on generation; then describe motion and camera per time segment…",
@@ -789,7 +790,14 @@
       "merging": "Merging…",
       "mergingToast": "Merging...",
       "mergeDone": "Merge complete",
-      "mergeFailed": "Merge failed"
+      "mergeFailed": "Merge failed",
+      "previewShot": "Play this shot",
+      "shotPreview": "Shot #{n} preview",
+      "markDone": "Mark done",
+      "markedDone": "Done",
+      "markDoneTitle": "Manually mark this episode's export as done (click again to undo)",
+      "markedDoneToast": "Marked as done",
+      "unmarkDoneToast": "Done mark removed"
     },
     "image": {
       "generatingChar": "Character image generating",

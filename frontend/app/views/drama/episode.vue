@@ -253,7 +253,6 @@
             <div class="prod-section-bar">
               <span class="dim" style="font-size:12px">{{ t('episode.prod.assets') }}</span>
               <span class="tag mono">{{ t('episode.prod.readyCount', { ready: assetReadyCount, total: assetTotalCount }) }}</span>
-              <span class="tag">{{ lockedImageConfigLabel }}</span>
               <div class="ml-auto flex gap-1 asset-bar-actions">
                 <button
                   v-for="et in EXTRACT_TARGETS"
@@ -484,7 +483,7 @@
             <div class="prod-section-bar">
               <span class="dim" style="font-size:12px">{{ t('episode.prod.videos') }}</span>
               <span class="tag mono">{{ t('episode.sb.segmentStat', { n: sbs.length, dur: totalDuration }) }}</span>
-              <span class="tag">{{ lockedVideoConfigLabel }}</span>
+              <span class="tag mono" :title="t('episode.vid.aspectRatio')">{{ dramaAspectRatio }}</span>
               <div class="ml-auto flex gap-1">
                 <button class="btn btn-sm" :disabled="rn" @click="doBreakdown">
                   <Loader2 v-if="rt === 'storyboard_breaker'" :size="11" class="animate-spin" />
@@ -515,7 +514,7 @@
               </div>
               <div class="empty-title">{{ t('episode.sb.emptyTitle') }}</div>
               <div class="empty-desc">{{ t('episode.sb.emptyDesc') }}</div>
-              <div class="locked-config-banner">{{ t('episode.vid.lockedModel') }}{{ lockedVideoConfigLabel }}</div>
+              <div class="locked-config-banner">{{ t('episode.vid.lockedModel') }}{{ effectiveVideoModelLabel }}</div>
               <button class="btn btn-primary" :disabled="rn" @click="doBreakdown">
                 <Loader2 v-if="rt === 'storyboard_breaker'" :size="13" class="animate-spin" />
                 <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -859,7 +858,15 @@
               <div class="export-section-head">
                 <span class="export-section-title">{{ t('episode.export.filmList') }}</span>
                 <span class="dim" style="font-size:11px">{{ t('episode.export.countN', { n: exportMerges.length }) }}</span>
-                <button class="btn btn-sm ml-auto" @click="loadExportMerges">
+                <button
+                  :class="['btn btn-sm ml-auto export-done-btn', { on: exportDone }]"
+                  :title="t('episode.export.markDoneTitle')"
+                  @click="toggleExportDone"
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ exportDone ? t('episode.export.markedDone') : t('episode.export.markDone') }}
+                </button>
+                <button class="btn btn-sm" @click="loadExportMerges">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                   {{ t('common.refresh') }}
                 </button>
@@ -954,6 +961,14 @@
                     </div>
                     <span class="exp-thumb-index">#{{ String(i+1).padStart(2,'0') }}</span>
                     <span v-if="sb.duration" class="exp-thumb-duration">{{ sb.duration }}s</span>
+                    <span
+                      v-if="hasVid(sb)"
+                      class="exp-play"
+                      :title="t('episode.export.previewShot')"
+                      @click.stop="previewShot = sb"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                    </span>
                     <span v-if="hasVid(sb)" :class="['exp-check', isExportSelected(sb.id) && 'on']">
                       <svg v-if="isExportSelected(sb.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </span>
@@ -1284,6 +1299,32 @@
         </div>
       </div>
 
+      <div v-if="previewShot" class="overlay image-viewer-overlay" @click.self="previewShot = null">
+        <div class="dialog image-viewer-dialog merge-viewer-dialog">
+          <div class="image-viewer-head">
+            <div class="image-viewer-title">{{ t('episode.export.shotPreview', { n: shotNumberOf(previewShot) }) }}</div>
+            <span v-if="previewShot.duration" class="dim" style="font-size:11px">{{ previewShot.duration }}s</span>
+            <a :href="'/' + getVideoUrl(previewShot)" download class="btn btn-sm" style="margin-left:auto">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              {{ t('common.download') }}
+            </a>
+            <button class="btn btn-ghost btn-icon" @click="previewShot = null">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="merge-viewer-body">
+            <video
+              :key="previewShot.id"
+              :src="'/' + getVideoUrl(previewShot)"
+              controls
+              autoplay
+              playsinline
+              class="merge-viewer-video"
+            />
+          </div>
+        </div>
+      </div>
+
       <div v-if="activeMerge" class="overlay image-viewer-overlay" @click.self="activeMerge = null">
         <div class="dialog image-viewer-dialog merge-viewer-dialog">
           <div class="image-viewer-head">
@@ -1424,7 +1465,6 @@ const scriptContent = computed(() => episode.value?.script_content || episode.va
 const epId = computed(() => episode.value?.id || 0)
 const rawLen = computed(() => localRaw.value.replace(/\s/g, '').length || 0)
 const scriptLen = computed(() => localScript.value.replace(/\s/g, '').length || 0)
-const mergeUrl = computed(() => mergeData.value?.merged_url || mergeData.value?.mergedUrl || null)
 
 // ===== 拼接导出:镜头选择 + 成片列表 =====
 const exportSelectedIds = ref([]) // 勾选的镜头 id
@@ -1569,18 +1609,30 @@ function closeTaskDrawer() {
 }
 const imageViewer = ref({ open: false, src: '', title: '' })
 const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
+const previewShot = ref(null) // 导出页镜头素材预览弹窗中正在播放的分镜
+function shotNumberOf(sb) {
+  const i = sbs.value.findIndex(s => s.id === sb?.id)
+  return i >= 0 ? i + 1 : 0
+}
+// 导出步骤完成 = 用户手动标记（episodes.status = 'completed'），不再按最新拼接记录推算
+const exportDone = computed(() => episode.value?.status === 'completed')
+async function toggleExportDone() {
+  if (!epId.value) return
+  const status = exportDone.value ? 'active' : 'completed'
+  try {
+    await episodeAPI.update(epId.value, { status })
+    if (episode.value) episode.value.status = status
+    toast.success(status === 'completed' ? t('episode.export.markedDoneToast') : t('episode.export.unmarkDoneToast'))
+  } catch (e) {
+    toastError(e)
+  }
+}
 const assetDetail = ref({ open: false, type: '', item: null })
 const assetDetailDraft = ref({ appearance: '', styling: '', prompt: '', lighting: '', description: '' })
 // 最终提示词手动编辑：dirty 时才随保存提交，避免无修改保存误清空 Agent 生成的提示词
 const assetPromptDraft = ref('')
 const assetPromptDirty = ref(false)
 const savingAssetDetail = ref(false)
-
-function configLabel(config) {
-  if (!config) return t('episode.model.notConfigured')
-  const modelName = configModels(config)[0] || ''
-  return modelName ? `${config.name} · ${modelName} (${config.provider})` : `${config.name} (${config.provider})`
-}
 
 function isPendingCharImage(id) {
   return pendingCharImageIds.value.includes(id)
@@ -1971,10 +2023,7 @@ function isNarratorCharacter(char) {
 }
 
 const visualChars = computed(() => chars.value.filter(c => !isNarratorCharacter(c)))
-const lockedImageConfigId = computed(() => episode.value?.image_config_id || episode.value?.imageConfigId || null)
 const lockedVideoConfigId = computed(() => episode.value?.video_config_id || episode.value?.videoConfigId || null)
-const lockedImageConfigLabel = computed(() => configLabel(imageConfigs.value.find(c => c.id === lockedImageConfigId.value)))
-const lockedVideoConfigLabel = computed(() => configLabel(videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)))
 // 集视频分辨率：顶栏直接修改（持久化 episodes.resolution，生成任务按此值锁定）。
 // 内部统一存 480p/720p/1080p 三档，界面按当前选中的视频模型显示厂商原生档位
 // （Seedance 480p/720p、MiniMax 768P/2K、Wan 3.0 480P/720P/1080P），适配器再映射为官方枚举
@@ -2380,7 +2429,7 @@ function mainStageDone(stageId) {
   if (stageId === 'videos') {
     return !!sbs.value.length && shotVidCount.value === sbs.value.length
   }
-  if (stageId === 'export') return !!mergeUrl.value
+  if (stageId === 'export') return exportDone.value
   return false
 }
 
@@ -2450,7 +2499,7 @@ const pipelineProgress = computed(() =>
 const currentStageLabel = computed(() => {
   if (panel.value === 'script') return t('episode.stage.scriptStage', { step: stepLabels.value[scriptStep.value] })
   if (panel.value === 'production') return t('episode.stage.prodStage', { step: prodTabDefs.value[prodTabIdx.value]?.label || t('episode.stage.production') })
-  return mergeUrl.value ? t('episode.stage.exportDone') : t('episode.stage.exportWaiting')
+  return exportDone.value ? t('episode.stage.exportDone') : t('episode.stage.exportWaiting')
 })
 
 const currentMainStageLabel = computed(() => {
@@ -2736,7 +2785,7 @@ function doBreakdown() {
     ? propItems.value.map(p => `${p.name}(ID:${p.id})`).join('、')
     : '（当前集还没有道具）'
   runAgent('storyboard_breaker', `请基于当前集剧本拆分分镜，并为每个分镜段落同时生成 video_prompt（视频生成提示词）。
-本次视频模型：${lockedVideoConfigLabel.value}，请按该模型的特性与时长限制生成 video_prompt。
+本次视频模型：${effectiveVideoModelLabel.value}，请按该模型的特性与时长限制生成 video_prompt。
 
 当前集已有角色：${charList}
 当前集已有场景：${sceneList}
@@ -2760,7 +2809,7 @@ async function onBreakdownDone() {
 async function genVideoPrompt(sb) {
   if (!sb || videoPromptGeneratingIds.value.includes(sb.id)) return
   const idx = sbs.value.indexOf(sb) + 1
-  const cfg = videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)
+  const cfg = selectedVideoConfig.value
   const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
   const charNames = getStoryboardCharacters(sb).map(c => c.name).join('、') || '无'
   const propNames = getStoryboardProps(sb).map(p => p.name).join('、') || '无'
@@ -5697,6 +5746,33 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   color: #fff;
   font-family: var(--font-mono);
   font-size: 9px;
+}
+/* 镜头预览：悬停浮现的居中播放钮，点击打开预览弹窗（不影响卡片勾选） */
+.exp-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.62);
+  color: #fff;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+}
+.exp-card:hover .exp-play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.exp-play:hover { background: var(--accent); }
+/* 导出完成手动标记按钮 */
+.export-done-btn.on {
+  background: var(--success-bg, var(--accent-bg));
+  color: var(--success, var(--accent-text));
+  border-color: transparent;
+  font-weight: 600;
 }
 .exp-row-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 

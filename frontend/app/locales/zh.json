@@ -465,7 +465,7 @@
       "mergeExport": "拼接导出",
       "scriptStage": "剧本阶段 · {step}",
       "prodStage": "制作阶段 · {step}",
-      "exportDone": "导出阶段 · 成片已生成",
+      "exportDone": "导出阶段 · 已完成",
       "exportWaiting": "导出阶段 · 等待拼接",
       "workbench": "工作台"
     },
@@ -630,7 +630,7 @@
       "startBreak": "拆分并生成提示词",
       "promptProgress": "提示词 {done}/{total}",
       "promptSelected": "生成所选提示词({n})",
-      "batchPrompts": "补齐提示词",
+      "batchPrompts": "批量补齐提示词",
       "listTitle": "分镜列表",
       "listSub": "检查拆分描述和绑定的角色场景",
       "select": "选择",
@@ -742,7 +742,8 @@
       "confirmResolution": "分辨率",
       "confirmNote": "将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。",
       "confirmStart": "开始生成 ({n})",
-      "selectMissing": "选未生成"
+      "selectMissing": "选未生成",
+      "aspectRatio": "画面比例"
     },
     "inspector": {
       "videoPromptPlaceholder": "用 {'@'}角色名 / {'@'}场景名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…",
@@ -789,7 +790,14 @@
       "merging": "拼接中…",
       "mergingToast": "拼接中...",
       "mergeDone": "拼接完成",
-      "mergeFailed": "拼接失败"
+      "mergeFailed": "拼接失败",
+      "previewShot": "播放该镜头",
+      "shotPreview": "镜头 #{n} 预览",
+      "markDone": "标记完成",
+      "markedDone": "已完成",
+      "markDoneTitle": "手动标记本集导出完成（可再次点击取消）",
+      "markedDoneToast": "已标记为完成",
+      "unmarkDoneToast": "已取消完成标记"
     },
     "image": {
       "generatingChar": "角色图片生成中",

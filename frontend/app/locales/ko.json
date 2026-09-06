@@ -465,7 +465,7 @@
       "mergeExport": "병합 납출",
       "scriptStage": "대본 단계 · {step}",
       "prodStage": "제작 단계 · {step}",
-      "exportDone": "납출 단계 · 영상 완성",
+      "exportDone": "납출 단계 · 완료",
       "exportWaiting": "납출 단계 · 병합 대기",
       "workbench": "워크벤치"
     },
@@ -630,7 +630,7 @@
       "startBreak": "분할 및 프롬프트 생성",
       "promptProgress": "프롬프트 {done}/{total}",
       "promptSelected": "선택분 프롬프트 생성({n})",
-      "batchPrompts": "누락 프롬프트 채우기",
+      "batchPrompts": "일괄 프롬프트 채우기",
       "listTitle": "스토리보드 목록",
       "listSub": "분해 설명과 연결된 캐릭터·장면 확인",
       "select": "선택",
@@ -742,7 +742,8 @@
       "confirmResolution": "해상도",
       "confirmNote": "위 설정으로 샷별로 생성을 시작합니다. 실패한 작업은 나중에 「실패 재시도」로 한 번에 다시 실행할 수 있습니다.",
       "confirmStart": "생성 시작 ({n})",
-      "selectMissing": "미생성 선택"
+      "selectMissing": "미생성 선택",
+      "aspectRatio": "화면 비율"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}캐릭터명 / {'@'}장멸명 으로 참조 소재를 지정(생성 시 참조 이미지로 자동 매핑). 시간대별로 화면의 움직임과 침라를 기술…",
@@ -789,7 +790,14 @@
       "merging": "병합 중…",
       "mergingToast": "병합 중...",
       "mergeDone": "병합이 완료되었습니다",
-      "mergeFailed": "병합에 실패했습니다"
+      "mergeFailed": "병합에 실패했습니다",
+      "previewShot": "이 샷 재생",
+      "shotPreview": "샷 #{n} 미리보기",
+      "markDone": "완료로 표시",
+      "markedDone": "완료됨",
+      "markDoneTitle": "이 에피소드의 납출을 수동으로 완료 표시(다시 클릭하면 해제)",
+      "markedDoneToast": "완료로 표시했습니다",
+      "unmarkDoneToast": "완료 표시를 해제했습니다"
     },
     "image": {
       "generatingChar": "캐릭터 이미지 생성 중",
