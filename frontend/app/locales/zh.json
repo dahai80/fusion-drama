@@ -259,7 +259,7 @@
       "quickTitle": "火宝快捷配置",
       "recommended": "推荐",
       "quickDesc": "输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。",
-      "getKey": "前往 api.chatfire.site 获取 Key",
+      "getKey": "前往 api.firemux.com 获取 Key",
       "applyQuick": "写入火宝配置",
       "manualTitle": "手动模板",
       "manualDesc": "选择服务类型后，直接用模板填充推荐的 `provider / base URL / model`。",
@@ -446,7 +446,9 @@
     },
     "sidebar": {
       "inProgress": "进行中",
-      "refreshData": "刷新数据"
+      "refreshData": "刷新数据",
+      "collapse": "收起侧栏",
+      "expand": "展开侧栏"
     },
     "nav": {
       "prev": "上一步",
@@ -760,8 +762,7 @@
       "duration": "分镜时长",
       "durationUnit": "s（4-15）",
       "durationUnitWan": "s（2-30）",
-      "durationHint": "修改即保存到分镜，列表与批量生成同步生效",
-      "effective": "本次生成：{model} · {res} · {dur}s",
+      "effective": "{model} · {res} · {dur}s",
       "boundRefs": "绑定参考图",
       "noBoundRefs": "暂无绑定素材（在中间「参考素材」区点击绑定）"
     },

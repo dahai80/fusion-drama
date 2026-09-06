@@ -259,7 +259,7 @@
       "quickTitle": "Huobao Quick Config",
       "recommended": "Recommended",
       "quickDesc": "Enter a Huobao API Key to write three recommended configs (text, image, video) at once.",
-      "getKey": "Get a key at api.chatfire.site",
+      "getKey": "Get a key at api.firemux.com",
       "applyQuick": "Apply Huobao Config",
       "manualTitle": "Manual Templates",
       "manualDesc": "Pick a service type, then fill the recommended `provider / base URL / model` from a template.",
@@ -446,7 +446,9 @@
     },
     "sidebar": {
       "inProgress": "In progress",
-      "refreshData": "Refresh Data"
+      "refreshData": "Refresh Data",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
     },
     "nav": {
       "prev": "Back",
@@ -760,8 +762,7 @@
       "duration": "Shot duration",
       "durationUnit": "s (4-15)",
       "durationUnitWan": "s (2-30)",
-      "durationHint": "Saved to the storyboard on change; applies to list, batch and single generation",
-      "effective": "This run: {model} · {res} · {dur}s",
+      "effective": "{model} · {res} · {dur}s",
       "boundRefs": "Bound References",
       "noBoundRefs": "No bound assets (bind in the center \"References\" panel)"
     },

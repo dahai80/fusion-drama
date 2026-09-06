@@ -259,7 +259,7 @@
       "quickTitle": "火宝クイック設定",
       "recommended": "おすすめ",
       "quickDesc": "Huobao API Key を入力すると、テキスト・画像・動画の 3 つの推奨設定を一括で書き込みます。",
-      "getKey": "api.chatfire.site で Key を取得",
+      "getKey": "api.firemux.com で Key を取得",
       "applyQuick": "火宝設定を書き込む",
       "manualTitle": "手動テンプレート",
       "manualDesc": "サービスタイプを選ぶと、推奨の `provider / base URL / model` がテンプレートから入力されます。",
@@ -446,7 +446,9 @@
     },
     "sidebar": {
       "inProgress": "進行中",
-      "refreshData": "データを更新"
+      "refreshData": "データを更新",
+      "collapse": "サイドバーを折りたたむ",
+      "expand": "サイドバーを展開"
     },
     "nav": {
       "prev": "前へ",
@@ -760,8 +762,7 @@
       "duration": "分镜の長さ",
       "durationUnit": "s（4-15）",
       "durationUnitWan": "秒（2-30）",
-      "durationHint": "変更はすぐ分镜に保存され、リストと一括生成にも反映されます",
-      "effective": "今回の生成：{model} · {res} · {dur}秒",
+      "effective": "{model} · {res} · {dur}秒",
       "boundRefs": "绑定参照画像",
       "noBoundRefs": "绑定された素材なし（中央の「参照素材」で绑定）"
     },

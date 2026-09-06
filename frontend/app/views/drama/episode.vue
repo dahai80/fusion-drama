@@ -63,17 +63,13 @@
             {{ t('episode.topbar.tasks') }}
             <span v-if="genTaskActiveCount" class="task-drawer-badge">{{ genTaskActiveCount }}</span>
           </button>
-          <button class="btn btn-primary" @click="panel = mergeUrl ? 'export' : (sbs.length ? 'production' : 'script')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            {{ mergeUrl ? t('episode.topbar.viewFilm') : (sbs.length ? t('episode.topbar.continue') : t('episode.topbar.start')) }}
-          </button>
         </div>
       </div>
     </header>
 
     <div class="studio-body">
     <!-- ========== LEFT SIDEBAR ========== -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <nav class="pipeline">
         <div
           v-for="section in sidebarSections"
@@ -97,10 +93,16 @@
               done: sectionState(section.id) === 'done',
               doing: sectionState(section.id) === 'active',
             }]"
+            :title="sidebarCollapsed ? item.label : undefined"
             @click="goSubStep(item.key)"
           >
             <span class="pipe-icon" :class="sectionState(section.id) === 'done' ? 'icon-done' : activeSubStepKey === item.key ? 'icon-active' : ''">
-              <svg v-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <!-- 收起态：始终显示步骤图标，进行中用右上角小脉冲点表达 -->
+              <template v-if="sidebarCollapsed">
+                <component :is="item.icon" :size="12" />
+                <span v-if="sectionState(section.id) === 'active'" class="pipe-mini-pulse" />
+              </template>
+              <svg v-else-if="sectionState(section.id) === 'done'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
               <span v-else-if="sectionState(section.id) === 'active'" class="pipe-item-pulse" />
               <component v-else :is="item.icon" :size="11" />
             </span>
@@ -112,16 +114,40 @@
         </div>
       </nav>
 
-      <!-- Bottom: Refresh -->
+      <!-- Bottom: 收起/展开 + Stage marquee + Refresh -->
       <div class="sidebar-bottom">
-        <div class="sidebar-jumper" v-if="sidebarJumpSteps.length">
-          <button
-            v-for="step in sidebarJumpSteps"
-            :key="step.key"
-            :class="['sidebar-jump-dot', { active: activeSubStepKey === step.key }]"
-            @click="goSubStep(step.key)"
-            :title="step.label"
-          ></button>
+        <button
+          type="button"
+          class="sidebar-toggle"
+          :title="t(sidebarCollapsed ? 'episode.sidebar.expand' : 'episode.sidebar.collapse')"
+          @click="toggleSidebar"
+        >
+          <svg class="sidebar-toggle-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <span v-if="!sidebarCollapsed">{{ t('episode.sidebar.collapse') }}</span>
+        </button>
+        <!-- 步骤跑马灯：四段主流程进度，当前段流动光效，点击段可跳转 -->
+        <div class="sidebar-progress">
+          <div class="sidebar-progress-head">
+            <span class="sidebar-progress-title">{{ currentStageLabel }}</span>
+            <span class="sidebar-progress-count">{{ currentMainIdx + 1 }}/{{ mainProgressSteps.length }}</span>
+          </div>
+          <div class="sidebar-progress-track">
+            <button
+              v-for="(s, i) in mainProgressSteps"
+              :key="s.id"
+              type="button"
+              :class="['sidebar-progress-seg', { done: i < currentMainIdx || mainStageDone(s.id), current: i === currentMainIdx }]"
+              :title="s.label"
+              @click="goMainStage(s.id)"
+            ><span class="sidebar-progress-seg-fill" /></button>
+          </div>
+          <div class="sidebar-progress-labels">
+            <span
+              v-for="(s, i) in mainProgressSteps"
+              :key="s.id"
+              :class="{ on: i === currentMainIdx, done: i < currentMainIdx || mainStageDone(s.id) }"
+            >{{ s.label }}</span>
+          </div>
         </div>
         <button class="refresh-btn" @click="refresh">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -496,7 +522,7 @@
                 {{ t('episode.sb.startBreak') }}
               </button>
             </div>
-            <div v-else class="video-task-workbench has-player">
+            <div v-else class="video-task-workbench has-player" :style="{ '--vleft': videoLeftW + 'px', '--vright': videoRightW + 'px' }">
               <section class="video-task-list">
                 <div class="video-task-head">
                 <div>
@@ -689,7 +715,7 @@
                   {{ t('common.download') }}
                 </a>
               </div>
-              <div class="video-player-stage" :class="{ 'is-empty': !(previewVideoUrl || hasVid(selectedSb)) }">
+              <div class="video-player-stage">
                 <video
                   v-if="previewVideoUrl || hasVid(selectedSb)"
                   :key="previewVideoUrl || getVideoUrl(selectedSb)"
@@ -762,9 +788,11 @@
                     </div>
                     <div v-else class="video-bound-refs-empty">{{ t('episode.inspector.noBoundRefs') }}</div>
                   </section>
+                </div>
 
-                  <section class="video-inspector-section">
-                    <span class="video-inspector-label">{{ t('episode.inspector.params') }}</span>
+                <!-- 分镜时长 + 生成操作常驻底部：不随检查器内容滚动 -->
+                <div class="video-inspector-footer">
+                  <section class="video-inspector-section video-params-card">
                     <div class="video-param-row">
                       <span class="video-param-name">{{ t('episode.inspector.duration') }}</span>
                       <span class="video-param-control">
@@ -779,14 +807,9 @@
                         <span class="video-param-unit">{{ isWan3Video ? t('episode.inspector.durationUnitWan') : t('episode.inspector.durationUnit') }}</span>
                       </span>
                     </div>
-                    <div class="video-param-hint">{{ t('episode.inspector.durationHint') }}</div>
                   </section>
-                </div>
-
-                <!-- 生成操作常驻底部：不随检查器内容滚动 -->
-                <div class="video-inspector-footer">
                   <div class="video-inspector-effective">
-                    {{ t('episode.inspector.effective', { model: effectiveVideoModelLabel || t('episode.vid.defaultModel'), res: episodeResolutionLabel, dur: effectiveVideoDuration }) }}
+                    {{ t('episode.inspector.effective', { model: effectiveVideoModelLabel || t('episode.vid.defaultModel'), res: episodeResolutionShort, dur: effectiveVideoDuration }) }}
                   </div>
                   <button
                     class="btn btn-primary video-inspector-action"
@@ -798,6 +821,20 @@
                 </div>
               </aside>
               </div>
+              <div
+                class="video-col-divider is-left"
+                role="separator"
+                aria-orientation="vertical"
+                @pointerdown="startVideoColDrag('left', $event)"
+                @dblclick="videoLeftW = VIDEO_COL_DEFAULTS.left"
+              ></div>
+              <div
+                class="video-col-divider is-right"
+                role="separator"
+                aria-orientation="vertical"
+                @pointerdown="startVideoColDrag('right', $event)"
+                @dblclick="videoRightW = VIDEO_COL_DEFAULTS.right"
+              ></div>
             </div>
           </div>
 
@@ -1431,6 +1468,46 @@ const prodTab = ref(['assets', 'videos'].includes(storedProdTab) ? storedProdTab
 watch([panel, scriptStep, prodTab], ([p, s, pt]) => {
   try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: pt })) } catch { /* 静默 */ }
 })
+// ===== 视频制作三栏宽度：拖拽调节 + 全局持久化（双击分隔条恢复默认） =====
+const VIDEO_COL_STORE_KEY = 'huobao:workbench:video-cols'
+const VIDEO_COL_DEFAULTS = { left: 236, right: 340 }
+const VIDEO_COL_LIMITS = { left: [180, 420], right: [260, 560] }
+const storedVideoCols = (() => {
+  try {
+    const c = JSON.parse(localStorage.getItem(VIDEO_COL_STORE_KEY) || 'null')
+    return c && typeof c === 'object' ? c : null
+  } catch { return null }
+})()
+const clampVideoCol = (which, w) => Math.min(VIDEO_COL_LIMITS[which][1], Math.max(VIDEO_COL_LIMITS[which][0], Math.round(w)))
+const videoLeftW = ref(clampVideoCol('left', Number(storedVideoCols?.left) || VIDEO_COL_DEFAULTS.left))
+const videoRightW = ref(clampVideoCol('right', Number(storedVideoCols?.right) || VIDEO_COL_DEFAULTS.right))
+watch([videoLeftW, videoRightW], ([l, r]) => {
+  try { localStorage.setItem(VIDEO_COL_STORE_KEY, JSON.stringify({ left: l, right: r })) } catch { /* 静默 */ }
+})
+function startVideoColDrag(which, e) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  const target = e.currentTarget
+  const startX = e.clientX
+  const startW = which === 'left' ? videoLeftW.value : videoRightW.value
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX
+    const w = clampVideoCol(which, which === 'left' ? startW + dx : startW - dx)
+    if (which === 'left') videoLeftW.value = w
+    else videoRightW.value = w
+  }
+  const onUp = () => {
+    target.removeEventListener('pointermove', onMove)
+    target.removeEventListener('pointerup', onUp)
+    target.removeEventListener('pointercancel', onUp)
+    document.body.classList.remove('is-video-col-dragging')
+  }
+  document.body.classList.add('is-video-col-dragging')
+  target.addEventListener('pointermove', onMove)
+  target.addEventListener('pointerup', onUp)
+  target.addEventListener('pointercancel', onUp)
+  target.setPointerCapture?.(e.pointerId)
+}
 const activeExtractTab = ref('characters')
 const prodTabIdx = computed({
   get: () => prodTabDefs.value.findIndex(d => d.id === prodTab.value),
@@ -1456,6 +1533,19 @@ function persistModel(modelRef, key) {
 persistModel(chatModel, MODEL_STORE_KEYS.chat)
 persistModel(imageModel, MODEL_STORE_KEYS.image)
 persistModel(videoModel, MODEL_STORE_KEYS.video)
+// 左侧菜单栏收起/展开：收起为窄图标栏给内容区让位，持久化到 localStorage
+const SIDEBAR_COLLAPSED_KEY = 'huobao:sidebar-collapsed'
+const sidebarCollapsed = ref((() => {
+  try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1' } catch { return false }
+})())
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    sidebarCollapsed.value
+      ? localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1')
+      : localStorage.removeItem(SIDEBAR_COLLAPSED_KEY)
+  } catch { /* 静默 */ }
+}
 /** 顶栏文本模型覆盖参数：未选择时为 undefined，后端回退到 Agent/文本配置默认 */
 function chatModelOverride() { return bareModelName(chatModel.value) || undefined }
 function chatConfigId() { return ownerConfigId(textModelOptions.value, chatModel.value) }
@@ -1984,6 +2074,9 @@ const effectiveVideoModelLabel = computed(() => {
 })
 const episodeResolutionLabel = computed(() =>
   resolutionOptions.value.find(o => o.key === episodeResolution.value)?.model || episodeResolution.value)
+// 短档位标签（480p / 768P / 2K 等厂商原生档位），用于底部生效配置小结
+const episodeResolutionShort = computed(() =>
+  RESOLUTION_DISPLAY[resolutionProvider.value][episodeResolution.value] || episodeResolution.value)
 const effectiveVideoDuration = computed(() => Number(selectedSb.value?.duration || 10))
 const batchVideoTotalDuration = computed(() =>
   batchVideoConfirm.value.targets.reduce((sum, sb) => sum + (Number(sb.duration) || 5), 0))
@@ -2319,9 +2412,16 @@ const activeSubStepKey = computed(() => {
   return 'export:merge'
 })
 
-const sidebarJumpSteps = computed(() => {
-  const section = sidebarSections.value.find((item) => item.items.some(step => step.key === activeSubStepKey.value))
-  return section?.items || []
+// 步骤跑马灯：四段主流程（剧本 → 资产制作 → 视频制作 → 导出），段点击跳转、当前段流动光效
+const mainProgressSteps = computed(() => [
+  { id: 'script', label: t('episode.stage.script') },
+  { id: 'assets', label: t('episode.prod.assets') },
+  { id: 'videos', label: t('episode.stage.videos') },
+  { id: 'export', label: t('episode.stage.export') },
+])
+const currentMainIdx = computed(() => {
+  const i = mainProgressSteps.value.findIndex(s => s.id === activeMainStage.value)
+  return i < 0 ? 0 : i
 })
 
 function goSubStep(key) {
@@ -3373,7 +3473,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
 .studio-body {
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);  /* 列宽跟随侧栏实际宽度（收起时 46px） */
   gap: 8px;
   min-height: 0;
   flex: 1;
@@ -3381,7 +3481,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
 /* ===== Sidebar ===== */
 .sidebar {
-  width: auto;
+  width: 208px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -3415,7 +3515,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .pipe-section { display: flex; flex-direction: column; gap: 2px; }
 .pipe-section-label {
   display: flex; align-items: center; gap: 5px;
-  font-size: 9px; font-weight: 700; color: var(--text-3);
+  font-size: 10.5px; font-weight: 700; color: var(--text-3);
   text-transform: uppercase; letter-spacing: 0.06em;
   padding: 0 7px 2px;
 }
@@ -3443,7 +3543,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .pipe-section-tag {
-  font-size: 8.5px; font-weight: 600; letter-spacing: 0.03em;
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.03em;
   color: var(--text-2); background: var(--bg-2);
   border-radius: 999px; padding: 1px 5px;
   text-transform: none;
@@ -3463,7 +3563,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
   padding: 7px 10px;
   border-radius: var(--radius);
-  font-size: 12px; font-weight: 600;
+  font-size: 13px; font-weight: 600;
   background: transparent; border: 1px solid transparent; color: var(--text-2); cursor: pointer;
   transition: all 0.18s var(--ease-out); width: 100%; text-align: left;
 }
@@ -3517,11 +3617,11 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .icon-done { background: var(--success-bg) !important; border-color: var(--success-bg) !important; color: var(--success) !important; }
 .pipe-item.active.done .icon-done { background: var(--sel) !important; border-color: var(--sel) !important; color: var(--surface-raised) !important; }
 
-.pipe-label { flex: 1; font-size: 11px; }
+.pipe-label { flex: 1; font-size: 12.5px; }
 .pipe-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .pipe-sub {
   display: none;
-  font-size: 8.5px;
+  font-size: 10px;
   line-height: 1.35;
   color: var(--text-3);
   font-weight: 500;
@@ -3542,45 +3642,133 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   flex-shrink: 0;
   background: var(--surface-soft);
 }
-.sidebar-jumper {
+/* 收起/展开按钮 */
+.sidebar-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; min-height: 22px;
+  border: none; border-radius: 6px;
+  background: transparent; color: var(--text-3);
+  font: 600 11px var(--font-body);
+  cursor: pointer; transition: background 0.14s, color 0.14s;
+}
+.sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-0); }
+.sidebar-toggle-icon { transition: transform 0.22s var(--ease-out); flex-shrink: 0; }
+.sidebar.collapsed .sidebar-toggle-icon { transform: rotate(180deg); }
+
+/* ===== 收起态：窄图标栏 ===== */
+.sidebar { transition: width 0.22s var(--ease-out); }
+.sidebar.collapsed { width: 46px; }
+.sidebar.collapsed .pipeline { padding: 12px 5px 8px; gap: 10px; }
+.sidebar.collapsed .pipe-section-label { justify-content: center; padding: 0 0 2px; }
+.sidebar.collapsed .pipe-section-label > span:not(.pipe-section-state) { display: none; }
+.sidebar.collapsed .pipe-item {
+  grid-template-columns: auto; justify-content: center;
+  padding: 6px 0; min-height: 0;
+}
+.sidebar.collapsed .pipe-item .pipe-copy { display: none; }
+.sidebar.collapsed .pipe-item-sub:not(:last-child)::after { display: none; }
+.sidebar.collapsed .pipe-icon { width: 22px; height: 22px; }
+/* 收起态：进行中步骤的角标脉冲点 */
+.pipe-mini-pulse {
+  position: absolute; top: -3px; right: -3px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--surface-raised);
+  animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
+}
+.sidebar.collapsed .sidebar-progress { display: none; }
+.sidebar.collapsed .sidebar-bottom { padding: 9px 6px 10px; align-items: center; }
+.sidebar.collapsed .refresh-btn { width: 28px; min-height: 28px; padding: 0; font-size: 0; gap: 0; }
+/* 步骤跑马灯：四段主流程进度条，当前段流动光效 */
+.sidebar-progress {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 2px 0 1px;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 2px 4px;
 }
-.sidebar-jump-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  border: none;
+.sidebar-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sidebar-progress-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.sidebar-progress-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.sidebar-progress-track {
+  display: flex;
+  gap: 4px;
+}
+.sidebar-progress-seg {
+  position: relative;
+  flex: 1;
+  height: 5px;
   padding: 0;
-  background: var(--border-strong);
+  border: none;
+  border-radius: 999px;
+  background: var(--overlay-track);
   cursor: pointer;
-  transition: all 0.2s var(--ease-out);
+  overflow: hidden;
+  transition: background 0.2s var(--ease-out), transform 0.15s var(--ease-out);
 }
-.sidebar-jump-dot:hover {
-  transform: scale(1.08);
-}
-.sidebar-jump-dot.active {
-  width: 20px;
-  background: var(--sel);
-}
-.sidebar-jump-dot.done {
-  background: var(--success);
-}
-.sidebar-jump-dot.active.done {
-  width: 20px;
-  background: var(--sel);
-}
-.sidebar-jump-dot:focus-visible {
+.sidebar-progress-seg:hover { transform: scaleY(1.6); }
+.sidebar-progress-seg:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--button-focus);
+}
+.sidebar-progress-seg.done { background: var(--success); }
+.sidebar-progress-seg.current { background: var(--accent-bg); }
+/* 跑马灯流动光：当前段内的渐变高光持续滑动 */
+.sidebar-progress-seg.current .sidebar-progress-seg-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 30%, #fff 70%) 50%,
+    var(--accent) 100%);
+  background-size: 220% 100%;
+  animation: seg-marquee 1.5s linear infinite;
+}
+.sidebar-progress-seg:not(.current) .sidebar-progress-seg-fill { display: none; }
+@keyframes seg-marquee {
+  from { background-position: 220% 0; }
+  to { background-position: -220% 0; }
+}
+.sidebar-progress-labels {
+  display: flex;
+  gap: 4px;
+}
+.sidebar-progress-labels span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.sidebar-progress-labels span.done { color: var(--success); }
+.sidebar-progress-labels span.on {
+  color: var(--accent-text);
+  font-weight: 700;
 }
 .refresh-btn {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 28px;
-  padding: 0 10px; font-size: 11.5px; font-weight: 650; color: var(--button-text);
+  padding: 0 10px; font-size: 12.5px; font-weight: 650; color: var(--button-text);
   background: var(--button-bg); border: 1px solid var(--button-border); border-radius: var(--button-radius);
   cursor: pointer; transition: all 0.18s var(--ease-out);
   box-shadow: var(--button-shadow);
@@ -3892,7 +4080,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 .prod-tab.active .prod-tab-badge { background: var(--accent-bg); color: var(--accent-text); }
 
 /* Production content */
-.prod-content { flex: 1; overflow-y: auto; padding: 10px 12px 64px; display: flex; flex-direction: column; gap: 10px; }
+.prod-content { flex: 1; overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
 .prod-section-bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 
 /* 资产栏动作：提取（虚线中性）与批量生成（强调色）视觉分组 */
@@ -4309,6 +4497,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
 
 /* Video tasks */
 .video-task-workbench {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -4319,16 +4508,44 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   background: var(--surface-raised);
 }
 .video-task-workbench.has-player {
-  grid-template-columns: 236px minmax(0, 1fr);
+  grid-template-columns: var(--vleft, 236px) minmax(0, 1fr);
 }
 .video-task-side {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) var(--vright, 340px);
   border-left: 1px solid var(--border);
   background: var(--surface-muted);
 }
+/* 三栏拖拽分隔条：透明热区覆盖分界，悬停/拖动时亮起 */
+.video-col-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  z-index: 6;
+  cursor: col-resize;
+  touch-action: none;
+}
+.video-col-divider.is-left { left: calc(var(--vleft, 236px) - 4px); }
+.video-col-divider.is-right { right: calc(var(--vright, 340px) - 4px); }
+.video-col-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.video-col-divider:hover::after,
+.video-col-divider:active::after {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+:global(body.is-video-col-dragging) { cursor: col-resize; user-select: none; }
 /* 中列：纯编辑区（分镜描述/氛围/视频提示词），占满高度 */
 .video-main-col {
   min-width: 0;
@@ -4482,12 +4699,6 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   justify-content: center;
   background: var(--media-surface);
 }
-/* 空态：取消 16:9 黑块，收敛为一行高的提示条 */
-.video-player-stage.is-empty {
-  aspect-ratio: auto;
-  max-height: none;
-  background: var(--surface-raised);
-}
 .video-player-video {
   width: 100%;
   height: 100%;
@@ -4496,19 +4707,22 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   object-fit: contain;
   display: block;
 }
+/* 空态：保留 16:9 播放框，内容居中（图标 + 文案 + 生成按钮） */
 .video-player-empty {
   width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
   padding: 14px 16px;
   color: var(--text-3);
 }
-.video-player-empty-copy { flex: 1; min-width: 0; }
+.video-player-empty-copy { display: flex; flex-direction: column; align-items: center; }
 .video-player-empty-title { color: var(--text-1); font-size: 12.5px; font-weight: 700; }
 .video-player-empty-desc { margin-top: 2px; font-size: 11px; line-height: 1.5; }
-.video-player-empty-action { flex-shrink: 0; }
+.video-player-empty-action { flex-shrink: 0; margin-top: 4px; }
 .video-task-list {
   min-height: 0;
   overflow: hidden;
@@ -4607,12 +4821,28 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 }
 .video-task-check.on { background: var(--accent); border-color: var(--accent); }
 /* 生成前生效配置小结 */
-.video-param-hint { margin-top: 6px; font-size: 10px; color: var(--text-3); }
 .video-inspector-effective {
-  margin: 0 0 8px;
-  font-size: 11px;
-  color: var(--text-3);
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.4;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 生成参数：强调卡片，时长是当前分镜生成的核心参数 */
+.video-params-card {
+  padding: 7px 10px;
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius-lg);
+  background: var(--accent-bg);
 }
 /* 审核失败引导 */
 .video-task-error-hint {
@@ -4790,10 +5020,13 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 .video-inspector-title { color: var(--text-0); font-size: 14px; font-weight: 700; }
 .video-inspector-sub { margin-top: 2px; color: var(--text-3); font-size: 11px; }
 .video-inspector-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 16px 18px 18px; }
-/* 生成操作常驻底部：不随检查器滚动 */
+/* 时长参数 + 生成操作常驻底部：不随检查器滚动 */
 .video-inspector-footer {
   flex: none;
-  padding: 10px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 14px 11px;
   border-top: 1px solid var(--border);
   background: var(--surface-muted);
 }
@@ -4824,14 +5057,12 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   min-height: 176px;
   font-size: 13px;
   line-height: 1.6;
-  border-color: var(--accent-bg);
-  background: var(--accent-bg);
 }
 .video-inspector-params { display: grid; gap: 8px; }
 .video-inspector-params div { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
 .video-inspector-params dt { color: var(--text-3); }
 .video-inspector-params dd { margin: 0; color: var(--text-1); text-align: right; }
-.video-inspector-action { width: 100%; }
+.video-inspector-action { width: 100%; min-height: 32px; height: 32px; padding: 0 12px; font-size: 12.5px; }
 /* 绑定参考图：当前分镜已绑定素材的图片平铺（生成时作为参考图提交） */
 .video-bound-refs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
 .video-bound-ref {
@@ -4866,12 +5097,12 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 }
 .video-bound-ref-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
 .video-bound-refs-empty { padding: 10px; border: 1px dashed var(--surface-outline); border-radius: var(--radius); color: var(--text-3); font-size: 11px; line-height: 1.5; }
-.video-param-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; }
-.video-param-name { color: var(--text-3); flex-shrink: 0; }
+.video-param-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; white-space: nowrap; }
+.video-param-name { color: var(--text-1); font-weight: 600; flex-shrink: 0; }
 .video-param-value { color: var(--text-1); text-align: right; font-size: 11px; }
 .video-param-control { display: inline-flex; align-items: center; gap: 6px; }
-.video-param-unit { font-size: 11px; color: var(--text-3); }
-.video-duration-input { width: 64px; padding: 4px 8px; font-size: 12px; }
+.video-param-unit { font-size: 11px; color: var(--text-2); }
+.video-duration-input { width: 56px; height: 24px; padding: 2px 6px; font-size: 12px; font-weight: 700; font-family: var(--font-mono); text-align: center; }
 
 /* Prod grid */
 .prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
@@ -5466,11 +5697,11 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   }
 
   .video-task-workbench.has-player {
-    grid-template-columns: 208px minmax(0, 1fr);
+    grid-template-columns: var(--vleft, 208px) minmax(0, 1fr);
   }
 
   .video-task-side {
-    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-columns: minmax(0, 1fr) var(--vright, 260px);
   }
 
   .video-main-grid {
@@ -5693,6 +5924,9 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
+
+  /* 窄屏纵向堆叠后无栏间分界，隐藏拖拽分隔条 */
+  .video-col-divider { display: none; }
 
   .video-task-inspector {
     border-top: 1px solid var(--surface-outline);
