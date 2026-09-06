@@ -10,7 +10,7 @@
 
 [English](README.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [部署指南](#-部署指南)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [部署指南](#-部署指南)
 
 <h2>🔑 <a href="https://api.firemux.com">获取 Huobao API Key 👉 立即查看</a></h2>
 
@@ -200,6 +200,80 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 3. 或使用「手动模板」按厂商逐个添加，支持连通性测试
 
 配置完成横幅自动消失，即可开始创建剧集生产。
+
+---
+
+## 📖 图文教程
+
+从小说到成片的完整制作流程。左侧进度栏始终标示当前所处阶段，跟着走即可。
+
+### 第 1 步 · 创建项目
+
+首页点「新建项目」，填写剧名并选择**画面比例**（横屏 16:9 / 竖屏 9:16，创建后不可改）与**画面风格**（3D / 真实感等，影响全局生图提示词）。
+
+<p align="center">
+  <img src="docs/screenshots/02-create-drama.png" alt="新建项目" width="800">
+</p>
+
+项目卡片即项目列表，随时点入续作：
+
+<p align="center">
+  <img src="docs/screenshots/01-projects.png" alt="项目列表" width="800">
+</p>
+
+### 第 2 步 · 配置 AI 服务（首次）
+
+设置页「火宝快捷配置」粘贴 API Key 一键写入三条推荐配置；或用「手动模板」按厂商自选模型（顶栏可随时切换当前模型，见第 5 步）。
+
+<p align="center">
+  <img src="docs/screenshots/03-settings-quick.png" alt="AI 服务配置" width="800">
+</p>
+
+### 第 3 步 · 剧本阶段
+
+进入剧集工作台，先粘贴**原始内容**（小说文本），再点「AI 改写」生成拍摄剧本——按集拆分、标注场景与角色，改写时可换文本模型、调语气。满意后「保存并进入制作」。
+
+<p align="center">
+  <img src="docs/screenshots/05-script.png" alt="剧本阶段" width="800">
+</p>
+
+### 第 4 步 · 资产制作
+
+对剧本执行**提取**，自动获得角色 / 场景 / 道具清单；逐个点「生成形象」产出一致性参考图（也可批量）。生成的资产图会在后续生视频时作为参考素材注入。
+
+<p align="center">
+  <img src="docs/screenshots/06-assets.png" alt="资产制作" width="800">
+</p>
+
+### 第 5 步 · 分镜与视频
+
+「视频制作」页先**拆分分镜**（AI 按镜头节奏切分并生成视频提示词），然后：
+
+- 顶栏选择本次使用的**视频模型**（Seedance / Wan 3.0 / MiniMax…），分辨率与时长档位随之联动
+- 右侧检查 / 微调每个分镜的提示词（`@角色名` 自动映射参考图）
+- 点「批量生成视频」发起任务，失败任务可一键「重试失败」
+
+<p align="center">
+  <img src="docs/screenshots/07-storyboard.png" alt="分镜拆分" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/08-videos.png" alt="视频生成" width="800">
+</p>
+
+### 第 6 步 · 拼接导出
+
+勾选镜头（悬停可预览单个镜头视频），点「开始拼接」，FFmpeg 自动合成为完整剧集成片，支持在线播放与下载。完成后点「标记完成」，左侧进度栏点亮。
+
+<p align="center">
+  <img src="docs/screenshots/09-export.png" alt="拼接导出" width="800">
+</p>
+
+剧集列表随时展示各集制作状态，点「进入制作」继续未完成的集：
+
+<p align="center">
+  <img src="docs/screenshots/04-episodes.png" alt="剧集列表" width="800">
+</p>
 
 ---
 

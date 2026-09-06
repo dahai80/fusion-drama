@@ -10,7 +10,7 @@
 
 **English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Deployment](#-deployment)
+[Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Deployment](#-deployment)
 
 <h2>🔑 <a href="https://api.firemux.com">Get a Huobao API Key 👉 Get started</a></h2>
 
@@ -201,6 +201,78 @@ All AI features (text/image/video) require model services to be configured first
 3. Or add providers one by one via "Manual Templates", with connectivity testing
 
 Once configured, the banner disappears and you can start producing episodes.
+
+---
+
+## 📖 Visual Walkthrough
+
+The complete pipeline from novel to finished episode. The left progress rail always shows where you are.
+
+### Step 1 · Create a Project
+
+On the home page click "New Project", pick a **aspect ratio** (16:9 landscape / 9:16 portrait, fixed after creation) and a **visual style** (3D, realistic, … — injected into every image prompt).
+
+<p align="center">
+  <img src="docs/screenshots/02-create-drama.png" alt="Create a project" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/01-projects.png" alt="Project list" width="800">
+</p>
+
+### Step 2 · Configure AI Services (first run)
+
+Paste an API key in Settings → "Huobao Quick Setup" to write the three recommended configs at once, or add providers manually. The current model can be switched any time from the top bar (see Step 5).
+
+<p align="center">
+  <img src="docs/screenshots/03-settings-quick.png" alt="AI service setup" width="800">
+</p>
+
+### Step 3 · Script Stage
+
+Paste your **source novel** into the workbench, then hit "AI Rewrite" to produce a shooting script — split by episode with scenes and characters annotated. You can switch text models and tone while rewriting.
+
+<p align="center">
+  <img src="docs/screenshots/05-script.png" alt="Script stage" width="800">
+</p>
+
+### Step 4 · Assets
+
+Run **extraction** on the script to get the character / scene / prop list, then generate a consistent reference image for each (or in batch). These images are injected as reference material when generating videos.
+
+<p align="center">
+  <img src="docs/screenshots/06-assets.png" alt="Asset production" width="800">
+</p>
+
+### Step 5 · Storyboard & Videos
+
+On the "Video Production" page, first run **storyboard breakdown** (AI splits shots and writes video prompts). Then:
+
+- Pick the **video model** in the top bar (Seedance / Wan 3.0 / MiniMax…); resolution and duration tiers follow the model
+- Review and tweak each shot's prompt on the right (`@character` references map to reference images automatically)
+- Click "Batch Generate Videos"; failed tasks can be retried in one click
+
+<p align="center">
+  <img src="docs/screenshots/07-storyboard.png" alt="Storyboard breakdown" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/08-videos.png" alt="Video generation" width="800">
+</p>
+
+### Step 6 · Merge & Export
+
+Select shots (hover to preview each clip), click "Start Merging" and FFmpeg assembles the full episode — play online or download. Click "Mark Done" when finished to light up the progress rail.
+
+<p align="center">
+  <img src="docs/screenshots/09-export.png" alt="Merge & export" width="800">
+</p>
+
+The episode list shows the production status of every episode — click "Enter Studio" to continue:
+
+<p align="center">
+  <img src="docs/screenshots/04-episodes.png" alt="Episode list" width="800">
+</p>
 
 ---
 

@@ -10,7 +10,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | **한국어**
 
-[기능](#-기능) • [빠른 시작](#-빠른-시작) • [배포](#-배포)
+[기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [배포](#-배포)
 
 <h2>🔑 <a href="https://api.firemux.com">Huobao API Key 받기 👉 바로 보기</a></h2>
 
@@ -201,6 +201,78 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 3. 또는 「수동 템플릿」으로 프로바이더별 추가. 연결 테스트 지원
 
 설정이 완료되면 배너가 자동으로 사라지고 에피소드 제작을 시작할 수 있습니다.
+
+---
+
+## 📖 그림 튜토리얼
+
+소설부터 완성 에피소드까지의 전체 제작 흐름입니다. 왼쪽 진행 표시줄이 항상 현재 단계를 보여줍니다.
+
+### 1단계 · 프로젝트 생성
+
+홈에서 "새 프로젝트"를 클릭하고 **화면 비율**(16:9 가로 / 9:16 세로, 생성 후 변경 불가)과 **화풍**(3D / 실사 등, 모든 이미지 프롬프트에 주입)을 선택합니다.
+
+<p align="center">
+  <img src="docs/screenshots/02-create-drama.png" alt="프로젝트 생성" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/01-projects.png" alt="프로젝트 목록" width="800">
+</p>
+
+### 2단계 · AI 서비스 설정 (최초)
+
+설정 페이지의 "휘바오 빠른 설정"에 API 키를 붙여넣으면 추천 설정 3종을 한 번에 등록합니다. 수동 템플릿으로 직접 추가할 수도 있습니다. 사용 모델은 상단 바에서 언제든 전환 가능합니다(5단계 참고).
+
+<p align="center">
+  <img src="docs/screenshots/03-settings-quick.png" alt="AI 서비스 설정" width="800">
+</p>
+
+### 3단계 · 대본 단계
+
+제작 화면에 **원문(소설)**을 붙여넣고 "AI 재작성"을 실행하면 촬영용 대본이 생성됩니다 — 에피소드별 분할 및 장면·캐릭터 주석 포함. 모델과 톤을 바꿔가며 재작성할 수 있습니다.
+
+<p align="center">
+  <img src="docs/screenshots/05-script.png" alt="대본 단계" width="800">
+</p>
+
+### 4단계 · 에셋 제작
+
+대본에 **추출**을 실행하면 캐릭터 / 장면 / 소품 목록이 자동 생성됩니다. 각 항목의 "이미지 생성"으로 일관성 있는 참조 이미지를 만들 수 있습니다(일괄 생성 지원). 이 이미지들은 영상 생성 시 참조 소재로 주입됩니다.
+
+<p align="center">
+  <img src="docs/screenshots/06-assets.png" alt="에셋 제작" width="800">
+</p>
+
+### 5단계 · 스토리보드와 영상
+
+"영상 제작" 페이지에서 먼저 **스토리보드 분할**을 실행하세요(AI가 컷을 나누고 영상 프롬프트 생성). 그 후:
+
+- 상단 바에서 **영상 모델** 선택(Seedance / Wan 3.0 / MiniMax 등). 해상도와 길이 옵션은 모델에 연동됩니다
+- 오른쪽에서 각 컷의 프롬프트를 확인·조정(`@캐릭터명` 참조는 자동으로 참조 이미지에 매핑)
+- "일괄 영상 생성"으로 작업 시작. 실패한 작업은 원클릭 재시도
+
+<p align="center">
+  <img src="docs/screenshots/07-storyboard.png" alt="스토리보드 분할" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/08-videos.png" alt="영상 생성" width="800">
+</p>
+
+### 6단계 · 병합과 내보내기
+
+컷을 선택(호버로 각 클립 미리보기)하고 "병합 시작"을 누르면 FFmpeg이 완성 에피소드를 자동 합성합니다. 온라인 재생·다운로드 가능. 완료 후 "완료 표시"를 누르면 진행 표시줄이 켜집니다.
+
+<p align="center">
+  <img src="docs/screenshots/09-export.png" alt="병합과 내보내기" width="800">
+</p>
+
+에피소드 목록에서 각 화의 제작 현황을 확인하고 "제작 열기"로 이어서 작업할 수 있습니다:
+
+<p align="center">
+  <img src="docs/screenshots/04-episodes.png" alt="에피소드 목록" width="800">
+</p>
 
 ---
 
