@@ -672,11 +672,11 @@ import { providerIconUrl } from '~/composables/useProviderIcon'
 const { t } = useI18n()
 
 const showBrandImage = ref(true)
-const tab = ref('general')
+const tab = ref('ai')
 const showAdvanced = ref(false)
 const baseTabs = computed(() => [
-  { id: 'general', label: t('settings.tabs.general'), icon: Languages },
   { id: 'ai', label: t('settings.tabs.ai'), icon: Cpu },
+  { id: 'general', label: t('settings.tabs.general'), icon: Languages },
   { id: 'styles', label: t('settings.tabs.styles'), icon: Palette },
   { id: 'storage', label: t('settings.tabs.storage'), icon: HardDrive },
   { id: 'about', label: t('settings.tabs.about'), icon: RefreshCw },
@@ -685,7 +685,7 @@ const advancedTabs = computed(() => [
   { id: 'agents', label: t('settings.tabs.agents'), icon: Bot },
 ])
 watch(showAdvanced, (v) => {
-  if (!v && advancedTabs.value.some(x => x.id === tab.value)) tab.value = 'general'
+  if (!v && advancedTabs.value.some(x => x.id === tab.value)) tab.value = 'ai'
 })
 
 // ===== AI Service Configs =====
