@@ -11,12 +11,17 @@
         <span class="tag tag-success">{{ t('index.hero.activeCount', { n: dramas.filter(d => currentStatus(d) === 'active').length }) }}</span>
         <span class="tag tag-accent">{{ t('index.hero.styleCount', { n: stylePresets.length }) }}</span>
       </div>
-      <button class="btn btn-primary" @click="showCreate = true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        {{ t('index.create') }}
-      </button>
+      <div class="head-actions">
+        <button class="btn btn-icon tour-help-btn" :title="t('tour.helpTitle')" @click="startTour('index', INDEX_TOUR, t)">
+          <CircleHelp :size="15" :stroke-width="1.8" />
+        </button>
+        <button class="btn btn-primary" @click="showCreate = true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          {{ t('index.create') }}
+        </button>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -196,9 +201,10 @@
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { Clock } from 'lucide-vue-next'
+import { Clock, CircleHelp } from 'lucide-vue-next'
 import { dramaAPI, stylePresetAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+import { startTour, autoTour } from '~/composables/useTour'
 
 const { t, locale } = useI18n()
 
@@ -358,6 +364,14 @@ function fmtDate(s) {
 }
 
 onMounted(load)
+
+// ===== 应用内引导（首页）：3 步 — 欢迎 / 新建项目 / AI 配置提醒 =====
+const INDEX_TOUR = [
+  { element: '#__nuxt', titleKey: 'tour.index.welcome.title', descKey: 'tour.index.welcome.desc' },
+  { element: '.nav-link[href="/settings"]', titleKey: 'tour.index.settings.title', descKey: 'tour.index.settings.desc', popoverSide: 'bottom' },
+  { element: '.head-actions .btn-primary', titleKey: 'tour.index.create.title', descKey: 'tour.index.create.desc', popoverSide: 'bottom', popoverAlign: 'end' },
+]
+onMounted(() => setTimeout(() => autoTour('index', INDEX_TOUR, t), 600))
 </script>
 
 <style scoped>
@@ -389,6 +403,7 @@ onMounted(load)
 .launcher-sub { color: var(--text-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-stats { display: flex; gap: var(--sp-2); margin-left: auto; }
 .launcher-head .btn { flex-shrink: 0; }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .toolbar {
   display: flex;

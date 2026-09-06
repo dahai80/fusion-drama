@@ -370,28 +370,20 @@
               </button>
             </div>
 
-            <!-- 子 tab：System Prompt / Skills（左）与语言切换（右）相互独立 -->
-            <div class="agent-pane-tabs">
-              <div class="agent-pane-tabs-nav">
-                <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
-                <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
-                  Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
-                </button>
-              </div>
-              <div class="agent-lang-picker" :title="t('settings.agents.langPickerTitle')">
-                <button
-                  v-for="l in contentLangOptions"
-                  :key="l.value"
-                  type="button"
-                  :class="['agent-lang-option', { on: editLang === l.value }]"
-                  @click="setEditLang(l.value)"
-                >{{ l.shortLabel || l.label }}</button>
-              </div>
-            </div>
-
-            <!-- Prompt 面板 -->
+            <!-- Prompt 面板（子 tab 作为卡片头，与卡片同宽对齐） -->
             <div v-if="agentPane === 'prompt'" class="card agent-card">
-              <div class="agent-card-body" style="border-top:none">
+              <div class="agent-pane-tabs">
+                <div class="agent-pane-tabs-nav">
+                  <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
+                  <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
+                    Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
+                  </button>
+                </div>
+                <span class="agent-lang-follow dim">
+                  {{ t('settings.agents.followContentLang', { lang: contentLangLabel }) }}
+                </span>
+              </div>
+              <div class="agent-card-body">
                 <label class="field">
                   <span class="field-label">System Prompt <span class="dim">({{ t('settings.agents.promptHint', { file: promptFileName }) }})</span>
                     <span v-if="agentPromptFallback" class="tag agent-fallback-tag">{{ t('settings.agents.langFallback') }}</span>
@@ -411,8 +403,21 @@
               </div>
             </div>
 
-            <!-- Skills 面板 -->
+            <!-- Skills 面板（子 tab 同为卡片头） -->
             <template v-else>
+              <div class="agent-pane-tabs-wrap card">
+                <div class="agent-pane-tabs">
+                  <div class="agent-pane-tabs-nav">
+                    <button :class="['agent-pane-tab', { active: agentPane === 'prompt' }]" @click="agentPane = 'prompt'">System Prompt</button>
+                    <button :class="['agent-pane-tab', { active: agentPane === 'skills' }]" @click="agentPane = 'skills'">
+                      Skills<template v-if="agentSkillCount(selectedAgent) > 0"> ({{ agentSkillCount(selectedAgent) }})</template>
+                    </button>
+                  </div>
+                  <span class="agent-lang-follow dim">
+                    {{ t('settings.agents.followContentLang', { lang: contentLangLabel }) }}
+                  </span>
+                </div>
+              </div>
               <p class="settings-desc" style="margin-top:0">{{ t('settings.skills.desc') }}</p>
 
               <!-- 无 skill 提示 -->
@@ -655,6 +660,8 @@ import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
 import { providerIconUrl } from '~/composables/useProviderIcon'
+import { startTour, autoTour } from '~/composables/useTour'
+import { confirmUnifiedLanguage } from '~/composables/useUnifiedLanguage'
 
 const { t } = useI18n()
 
@@ -945,24 +952,19 @@ const contentLangOptions = [
   { value: 'ja', label: '日本語', shortLabel: '日本語' },
   { value: 'ko', label: '한국어', shortLabel: '한국어' },
 ]
-// ===== Agent 配置：prompt/skill 编辑的语言版本（默认跟随内容语言） =====
-const editLang = ref('zh')
+// ===== Agent 配置：prompt/skill 编辑的语言版本（只读跟随内容语言） =====
 const agentPromptFallback = ref(false)   // 当前语言无独立 prompt 文件，展示的是回退内容
 const skillContentFallback = ref(false)  // 同上，skill 编辑器
 const promptFileName = computed(() => `workspace/prompts/${selectedAgent.value}${editLang.value !== 'zh' ? `.${editLang.value}` : ''}.md`)
 const skillFileName = computed(() => `SKILL${editLang.value !== 'zh' ? `.${editLang.value}` : ''}.md`)
 
-async function setEditLang(lang) {
-  if (editLang.value === lang) return
-  editLang.value = lang
-  // 系统提示词、Skill 列表（名称/描述）、展开中的 Skill 内容同步切到目标语言
-  await Promise.all([loadAgentPrompt(selectedAgent.value), loadAllSkills()])
-  if (editingSkill.value) {
-    const id = editingSkill.value
-    editingSkill.value = null
-    await toggleSkillEdit(id)
-  }
-}
+// Agent 编辑语言 = 全局内容语言的只读镜像（改语言请到「通用」页）
+const editLang = computed(() => contentLanguage.value)
+const contentLangLabel = computed(() =>
+  contentLangOptions.find(l => l.value === contentLanguage.value)?.label || contentLanguage.value)
+
+// 内容语言变化时同步刷新 Agent 面板（提示词、Skill 列表与展开内容）
+// 内容语言切换后整页刷新（setUnifiedLanguage），无需局部 watch 同步
 // ===== 通用：外观主题（localStorage 持久化，即时生效） =====
 const { themeMode, setThemeMode } = useTheme()
 const themeOptions = computed(() => [
@@ -980,15 +982,8 @@ async function loadContentLanguage() {
 }
 async function setContentLanguage(lang) {
   if (contentLanguage.value === lang) return
-  const prev = contentLanguage.value
-  contentLanguage.value = lang
-  try {
-    await settingsAPI.setContentLanguage(lang)
-    toast.success(t('settings.general.languageSaved'))
-  } catch (e) {
-    contentLanguage.value = prev
-    toastError(e)
-  }
+  // UI 语言 = AI 内容语言：确认弹窗 → 统一切换 → 刷新（顶栏 LocaleSwitcher 同一入口）
+  await confirmUnifiedLanguage(lang)
 }
 onMounted(loadContentLanguage)
 
@@ -1169,6 +1164,14 @@ async function saveStyle() {
 
 onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
+// ===== 应用内引导（设置页）：快捷配置 + 手动模板两步 =====
+const SETTINGS_TOUR = [
+  { element: '.quick-card', titleKey: 'tour.settings.quick.title', descKey: 'tour.settings.quick.desc', popoverSide: 'bottom' },
+  { element: '.nav-item:has(.lucide-cpu), .nav-item:nth-of-type(1)', titleKey: 'tour.settings.nav.title', descKey: 'tour.settings.nav.desc', popoverSide: 'right' },
+]
+onMounted(() => setTimeout(() => autoTour('settings', SETTINGS_TOUR, t), 800))
+function replaySettingsTour() { startTour('settings', SETTINGS_TOUR, t) }
+
 // ===== 存储位置 =====
 const desktopBridge = useDesktopBridge()
 const { begin: beginMigrate, update: updateMigrate, end: endMigrate } = useMigrateState()
@@ -1319,6 +1322,11 @@ async function applyUpdate() {
 
 watch(tab, (t) => {
   if (t === 'about') refreshUpdateState()
+  // 进入 Agent 页总是按当前内容语言重载（幂等）：兜住「先切语言、后进 Agent」的时序
+  if (t === 'agents') {
+    loadAgentPrompt(selectedAgent.value)
+    loadAllSkills()
+  }
 })
 
 onBeforeUnmount(stopUsagePoll)
@@ -1350,6 +1358,8 @@ onBeforeUnmount(stopUsagePoll)
 
 .settings-content { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .settings-scroll { height: 100%; overflow-y: auto; padding: 20px 28px 48px; animation: fadeUp 0.3s var(--ease-out); }
+/* 各分组卡片之间的间距（通用页内容语言/外观等） */
+.settings-scroll > .card + .card { margin-top: 14px; }
 /* 宽屏下内容列限宽居中，两侧留出呼吸空间 */
 .settings-scroll > * { max-width: 1080px; margin-left: auto; margin-right: auto; }
 .settings-head { margin-bottom: 20px; }
@@ -1543,40 +1553,34 @@ onBeforeUnmount(stopUsagePoll)
   display: flex; align-items: center; justify-content: center;
   font-size: 16px; flex-shrink: 0;
 }
-.agent-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border); }
+.agent-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+/* tab 头在上，body 不再需要顶边框（头自带 border-bottom） */
 .agent-card-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
 
-/* Agent 右侧子 tab（System Prompt / Skills）与语言切换：两个独立胶囊，互不混排 */
+/* Agent 右侧子 tab（System Prompt / Skills）：作为卡片头，与卡片同宽，不再单独悬浮 */
 .agent-pane-tabs {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin: 14px 0 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
 }
+.agent-pane-tabs-wrap .agent-pane-tabs { border-bottom: 1px solid var(--border); }
+.agent-pane-tabs-wrap { padding: 0; margin-bottom: 14px; overflow: hidden; }
 .agent-pane-tabs-nav {
-  display: flex; gap: 2px; width: fit-content; padding: 3px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px;
   background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px;
 }
 .agent-pane-tab {
-  padding: 5px 16px; border: none; border-radius: 7px;
+  padding: 5px 18px; border: none; border-radius: 7px;
   background: transparent; color: var(--text-2);
   font: 600 12px var(--font-body); cursor: pointer;
+  white-space: nowrap; text-align: center;
   transition: background 0.15s, color 0.15s;
 }
 .agent-pane-tab:hover { color: var(--text-0); }
 .agent-pane-tab.active { background: var(--accent-bg); color: var(--accent-text); }
 
-/* 语言版本切换（prompt/skill 编辑器右上角） */
-.agent-lang-picker {
-  display: flex; gap: 2px; padding: 3px;
-  border-radius: 10px; background: var(--bg-1); border: 1px solid var(--border);
-}
-.agent-lang-option {
-  padding: 4px 12px; border: none; border-radius: 7px;
-  background: transparent; color: var(--text-3);
-  font: 600 11.5px var(--font-body); cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.agent-lang-option:hover { color: var(--text-1); }
-.agent-lang-option.on { background: var(--surface-raised); color: var(--text-0); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+/* Agent 编辑语言跟随提示（卡片头右侧只读说明，切换请到「通用」页） */
+.agent-lang-follow { font-size: 11px; }
 
 /* 「跟随中文」回退提示 */
 .agent-fallback-tag {
@@ -1593,8 +1597,8 @@ onBeforeUnmount(stopUsagePoll)
 .skills-layout { display: flex; height: 100%; overflow: hidden; }
 .skills-agent-list {
   width: 210px; flex-shrink: 0; border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  overflow-y: auto; padding: 4px 10px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; padding: 20px 10px 16px;  /* 顶 padding 与右侧标题行起点对齐 */
 }
 .skills-agent-title {
   font-size: 11px; font-weight: 650; letter-spacing: 0.06em;
@@ -1618,7 +1622,13 @@ onBeforeUnmount(stopUsagePoll)
 }
 .skills-agent-item.active .skill-count-badge { background: var(--accent-bg); color: var(--accent-text); }
 .skills-main { flex: 1; min-width: 0; }
-.skills-head { display: flex; align-items: flex-start; gap: 12px; }
+.skills-head {
+  display: flex;
+  align-items: flex-start;   /* 以标题块顶部为基线，徽章/按钮对齐标题第一行 */
+  gap: 12px;
+}
+.skills-head .settings-title { line-height: 26px; }
+.skills-head .btn { margin-top: -2px; }  /* 视觉上与标题第一行居中（按钮比标题行高） */
 .skills-head-badge { width: 32px; height: 32px; font-size: 16px; }
 .skills-head-copy { min-width: 0; }
 .skills-empty { padding: 48px 24px; text-align: center; }

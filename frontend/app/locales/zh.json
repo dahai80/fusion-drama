@@ -76,6 +76,15 @@
     },
     "localeSwitcher": {
       "label": "切换界面语言"
+    },
+    "langSwitch": {
+      "title": "切换语言为 {lang}？",
+      "message": "界面语言与 AI 内容语言将同步切换。",
+      "effectUi": "界面文案全部切换为该语言",
+      "effectAi": "剧本改写、资产提取、分镜、提示词等 AI 产出改用该语言（Agent 提示词/技能同步）",
+      "effectRefresh": "确认后界面会自动刷新",
+      "confirm": "切换并刷新",
+      "refreshing": "语言已切换，正在刷新…"
     }
   },
   "composables": {
@@ -235,12 +244,12 @@
     },
     "general": {
       "title": "通用",
-      "desc": "应用级通用设置。AI 内容语言与界面语言相互独立，分别控制。",
+      "desc": "应用级通用设置。语言切换同时作用于界面与 AI 生成内容。",
       "contentLanguage": "AI 内容语言",
-      "contentLanguageSub": "剧本改写、资产提取、分镜、提示词等 AI 产出统一使用的语言",
-      "languageLabel": "目标语言",
-      "languageNote": "仅影响新生成的内容，不会翻译已有内容",
-      "languageHint": "与界面语言相互独立。已有资产的「{'@'}引用」名字保持原名，新生成内容按所选语言产出。",
+      "contentLanguageSub": "界面与 AI 产出（剧本/资产/分镜/提示词）统一使用的语言",
+      "languageLabel": "语言",
+      "languageNote": "切换后界面与 AI 内容语言同步更新，并自动刷新",
+      "languageHint": "两处入口（顶栏语言按钮 / 此处）等价，切换即全局生效。",
       "languageSaved": "内容语言已保存",
       "appearance": "外观",
       "appearanceSub": "界面颜色主题，即时生效",
@@ -248,7 +257,13 @@
       "appearanceNote": "跟随系统时，随操作系统外观自动切换",
       "appearanceLight": "浅色",
       "appearanceDark": "深色",
-      "appearanceSystem": "跟随系统"
+      "appearanceSystem": "跟随系统",
+      "languageSavedWith": "AI 内容语言已切换为 {lang}，后续生成（剧本/资产/分镜/提示词）将使用该语言",
+      "langNameZh": "中文",
+      "langNameEn": "English",
+      "langNameJa": "日本語",
+      "langNameKo": "한국어",
+      "unifiedSwitchWarning": "已切换为 {lang}，界面与 AI 内容语言将同步更新，即将刷新…"
     },
     "ai": {
       "title": "AI 服务配置",
@@ -347,7 +362,7 @@
       "storyboardBreaker": "分镜拆解",
       "promptGenerator": "提示词",
       "langFallback": "跟随中文",
-      "langPickerTitle": "选择要编辑的语言版本（生成时按 AI 内容语言加载）"
+      "followContentLang": "编辑语言跟随：{lang}（在「通用 → AI 内容语言」切换）"
     },
     "skills": {
       "agentList": "Agent 列表",
@@ -851,5 +866,57 @@
     "moderation": "内容未通过审核，请调整提示词或切换模型后重试",
     "requestFailed": "请求失败（{status}）",
     "unknown": "操作失败，请重试"
+  },
+  "tour": {
+    "next": "下一步",
+    "prev": "上一步",
+    "done": "完成",
+    "helpTitle": "使用引导",
+    "index": {
+      "welcome": {
+        "title": "👋 欢迎使用火宝短剧",
+        "desc": "小说 → 剧本 → 资产 → 分镜 → 视频 → 成片，一站式 AI 短剧制作。先配置 AI 服务，再创建第一个项目。"
+      },
+      "create": {
+        "title": "第 2 步 · 新建项目",
+        "desc": "点「新建项目」：填写剧名、选择画面比例（横竖屏）与画面风格。"
+      },
+      "settings": {
+        "title": "第 1 步 · 配置 AI 服务",
+        "desc": "所有 AI 功能都要先配置。点这里进「设置」页，粘贴 Huobao API Key 一键完成文本/图片/视频三条配置。"
+      }
+    },
+    "settings": {
+      "quick": {
+        "title": "最快上手：快捷配置",
+        "desc": "粘贴 Huobao API Key，一键写入文本、图片、视频三条推荐配置，支持连通性测试。"
+      },
+      "nav": {
+        "title": "全部配置都在这",
+        "desc": "左侧切换：AI 服务、通用（界面语言/内容语言）、风格预设、Agent 提示词与技能、存储位置、关于更新。"
+      }
+    },
+    "episode": {
+      "topbar": {
+        "title": "顶栏：模型与状态",
+        "desc": "随时切换本次生成用的文本/图片/视频模型；分辨率与时长档位随模型联动。"
+      },
+      "script": {
+        "title": "第 1 步 · 剧本",
+        "desc": "（前提：设置页已配置 AI 服务）粘贴原始小说，点「AI 改写」生成拍摄剧本；满意后进入制作。"
+      },
+      "assets": {
+        "title": "第 2 步 · 资产制作",
+        "desc": "提取角色/场景/道具并生成一致性参考图，生视频时自动作为参考素材。"
+      },
+      "videos": {
+        "title": "第 3 步 · 视频制作",
+        "desc": "拆分分镜 → 检查提示词 → 批量生成视频；失败可一键重试。完成后在「拼接导出」合成成片。"
+      },
+      "help": {
+        "title": "随时重看引导",
+        "desc": "点这个「?」按钮可重新播放本页引导。祝创作顺利！"
+      }
+    }
   }
 }

@@ -24,7 +24,8 @@
 import { ref, computed } from 'vue'
 import { Languages } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { UI_LOCALES, setUiLocale } from '~/composables/i18n'
+import { UI_LOCALES } from '~/composables/i18n'
+import { confirmUnifiedLanguage } from '~/composables/useUnifiedLanguage'
 
 const { t, locale } = useI18n()
 
@@ -33,7 +34,8 @@ const open = ref(false)
 const currentLabel = computed(() => UI_LOCALES.find(l => l.value === locale.value)?.label || locale.value)
 
 function select(l) {
-  setUiLocale(l)
+  // UI 语言 = AI 内容语言：确认弹窗 → 统一切换 → 刷新界面
+  void confirmUnifiedLanguage(l)
   open.value = false
 }
 </script>

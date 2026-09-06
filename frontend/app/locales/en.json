@@ -76,6 +76,15 @@
     },
     "localeSwitcher": {
       "label": "Switch UI language"
+    },
+    "langSwitch": {
+      "title": "Switch language to {lang}?",
+      "message": "The UI language and AI content language will switch together.",
+      "effectUi": "All interface texts switch to this language",
+      "effectAi": "AI output (script rewriting, asset extraction, storyboard, prompts) uses this language, with matching agent prompts/skills",
+      "effectRefresh": "The page refreshes automatically after confirming",
+      "confirm": "Switch & Refresh",
+      "refreshing": "Language switched, refreshing…"
     }
   },
   "composables": {
@@ -235,12 +244,12 @@
     },
     "general": {
       "title": "General",
-      "desc": "App-wide general settings. AI content language and UI language are independent.",
+      "desc": "App-level settings. Language switching applies to both the UI and AI-generated content.",
       "contentLanguage": "AI Content Language",
-      "contentLanguageSub": "The language used for AI outputs: script rewriting, asset extraction, storyboards and prompts",
-      "languageLabel": "Target language",
-      "languageNote": "Only affects newly generated content; existing content is not translated",
-      "languageHint": "Independent from UI language. Existing asset names used in {'@'}mentions keep their original form; new content is produced in the selected language.",
+      "contentLanguageSub": "Language used by both the UI and AI output (script/assets/storyboard/prompts)",
+      "languageLabel": "Language",
+      "languageNote": "Switching updates UI and AI content language together, with an automatic refresh",
+      "languageHint": "Both entry points (top-bar button / here) are equivalent and apply globally.",
       "languageSaved": "Content language saved",
       "appearance": "Appearance",
       "appearanceSub": "Interface color theme, applied instantly",
@@ -248,7 +257,13 @@
       "appearanceNote": "In System mode, follows your OS appearance automatically",
       "appearanceLight": "Light",
       "appearanceDark": "Dark",
-      "appearanceSystem": "System"
+      "appearanceSystem": "System",
+      "languageSavedWith": "AI content language switched to {lang} — future generations (script/assets/storyboard/prompts) will use it",
+      "langNameZh": "Chinese",
+      "langNameEn": "English",
+      "langNameJa": "Japanese",
+      "langNameKo": "Korean",
+      "unifiedSwitchWarning": "Switched to {lang} — UI and AI content language update together. Refreshing…"
     },
     "ai": {
       "title": "AI Service Configs",
@@ -347,7 +362,7 @@
       "storyboardBreaker": "Storyboard Breaker",
       "promptGenerator": "Prompt Generator",
       "langFallback": "Falls back to Chinese",
-      "langPickerTitle": "Choose the language version to edit (loaded by AI content language at generation time)"
+      "followContentLang": "Editing language: {lang} (switch in General → AI Content Language)"
     },
     "skills": {
       "agentList": "Agents",
@@ -851,5 +866,57 @@
     "moderation": "Content was blocked by moderation. Adjust the prompt or switch models and retry.",
     "requestFailed": "Request failed ({status})",
     "unknown": "Operation failed. Please try again."
+  },
+  "tour": {
+    "next": "Next",
+    "prev": "Back",
+    "done": "Done",
+    "helpTitle": "Guide",
+    "index": {
+      "welcome": {
+        "title": "👋 Welcome to Huobao Drama",
+        "desc": "Novel → script → assets → storyboard → video → final cut, all in one place. Configure AI services first, then create your first project."
+      },
+      "create": {
+        "title": "Step 2 · Create a project",
+        "desc": "Click \"New Project\": name it, pick an aspect ratio (landscape/portrait) and a visual style."
+      },
+      "settings": {
+        "title": "Step 1 · Configure AI services",
+        "desc": "Every AI feature needs this first. Open Settings and paste a Huobao API Key to set up text/image/video in one click."
+      }
+    },
+    "settings": {
+      "quick": {
+        "title": "Fastest setup: Quick Setup",
+        "desc": "Paste a Huobao API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
+      },
+      "nav": {
+        "title": "Everything lives here",
+        "desc": "Switch sections on the left: AI services, general (UI & content language), style presets, agent prompts & skills, storage, about."
+      }
+    },
+    "episode": {
+      "topbar": {
+        "title": "Top bar: models & status",
+        "desc": "Switch the text/image/video model for this session any time; resolution and duration tiers follow the model."
+      },
+      "script": {
+        "title": "Step 1 · Script",
+        "desc": "(Prerequisite: AI services configured in Settings.) Paste the source novel and run \"AI Rewrite\" to get a shooting script."
+      },
+      "assets": {
+        "title": "Step 2 · Assets",
+        "desc": "Extract characters/scenes/props and generate consistent reference images, injected as reference material for videos."
+      },
+      "videos": {
+        "title": "Step 3 · Video production",
+        "desc": "Break down the storyboard → review prompts → batch-generate videos; retry failures in one click. Then merge & export."
+      },
+      "help": {
+        "title": "Replay anytime",
+        "desc": "Click this \"?\" button to replay this page's guide. Happy creating!"
+      }
+    }
   }
 }
