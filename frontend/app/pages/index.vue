@@ -454,20 +454,21 @@ onMounted(load)
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
-/* 封面：灰阶微渐变 + 首字符，状态色只在圆点上出现 */
+/* 封面：品牌柔光洗色 + 首字符，状态色只在圆点上出现 */
 .project-cover {
   position: relative;
   aspect-ratio: 2.1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--bg-1) 70%);
   border-bottom: 1px solid var(--border);
 }
 .cover-initial {
   font-size: 30px;
-  font-weight: 600;
-  color: var(--text-3);
+  font-weight: 700;
+  color: var(--accent-text);
+  opacity: 0.55;
   user-select: none;
 }
 .cover-ratio {

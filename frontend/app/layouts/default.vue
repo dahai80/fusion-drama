@@ -27,6 +27,16 @@
       </nav>
 
       <div class="header-right">
+        <a
+          class="github-link"
+          href="https://github.com/chatfire-AI/huobao-drama"
+          target="_blank"
+          rel="noopener"
+          aria-label="GitHub"
+          title="GitHub"
+        >
+          <Github :size="15" :stroke-width="1.8" />
+        </a>
         <ThemeToggle />
         <LocaleSwitcher />
       </div>
@@ -46,7 +56,7 @@
 </template>
 
 <script setup>
-import { LayoutGrid, Settings, TriangleAlert } from 'lucide-vue-next'
+import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/huobao-logo.png'
@@ -134,7 +144,11 @@ watch(locale, checkAiConfigs)
 .brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .brand-name {
   font-size: 15px; font-weight: 700;
-  color: var(--text-0);
+  /* ChatFire 签名：品牌字标火焰橙渐变 */
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   letter-spacing: -0.01em;
 }
 .brand-sub {
@@ -155,6 +169,23 @@ watch(locale, checkAiConfigs)
 .header-right {
   margin-left: auto;
   display: flex; align-items: center;
+}
+/* GitHub 入口 — 与 ThemeToggle 同款圆形图标按钮 */
+.github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+  transition: all 0.18s var(--ease-out);
+  line-height: 1;
+}
+.github-link:hover { color: var(--text-0); background: var(--bg-hover); }
+.github-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 .nav-link {
   display: flex; align-items: center; gap: 6px;

@@ -3560,6 +3560,7 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   animation: pipeSectionPulse 1.6s var(--ease-out) infinite;
 }
 .pipe-item {
+  position: relative;
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
   padding: 7px 10px;
   border-radius: var(--radius);
@@ -3577,6 +3578,17 @@ onMounted(async () => { await refresh(); loadConfigs(); syncExtractStatus() })
   color: var(--sel-text);
   border-color: transparent;
   box-shadow: none;
+}
+/* ChatFire 签名：激活步骤左侧 3px 品牌色圆角指示条 */
+.pipe-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 .pipe-item:focus-visible {
   outline: none;

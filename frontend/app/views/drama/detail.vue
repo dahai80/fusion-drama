@@ -952,7 +952,7 @@ onMounted(load)
 }
 
 .page-title {
-  font-size: 17px; font-weight: 650;
+  font-size: 17px; font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
   white-space: nowrap;
@@ -1103,7 +1103,10 @@ onMounted(load)
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
-.ep-enter:hover { background: var(--accent); color: var(--on-accent, #fff); }
+.ep-enter:hover {
+  background: var(--accent-gradient); color: var(--on-accent, #fff);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
 .ep-enter svg { transition: transform 0.18s var(--ease-out); }
 .ep-enter:hover svg { transform: translateX(2px); }
 .ep-status-btn {
