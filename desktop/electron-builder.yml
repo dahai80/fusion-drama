@@ -18,8 +18,12 @@ asarUnpack:
 extraResources:
   - { from: resources/frontend, to: frontend }
   - { from: resources/workspace-template, to: workspace-template }
-  - { from: resources/bin, to: bin }
+  # ${os} 宏：darwin → bin-darwin/（无扩展名二进制），win32 → bin-win32/（.exe），
+  # 各自只带本平台的 ffmpeg/ffprobe
+  - { from: "resources/bin-${os}", to: bin }
 npmRebuild: true
+# win 交叉打包修复：宿主机（mac）下载的原生预编译是 Mach-O，afterPack 换入官方 win32 .node
+afterPack: scripts/after-pack.mjs
 mac:
   target:
     - target: dmg
