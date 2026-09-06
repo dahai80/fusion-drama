@@ -19,7 +19,7 @@ test('video presets use official provider endpoints', () => {
   const presetsStart = settingsPage.indexOf('const providerPresets = {')
   const quickStart = settingsPage.indexOf('const huobaoQuickConfigs = [')
   const providerPresets = settingsPage.slice(presetsStart, quickStart)
-  assert.doesNotMatch(providerPresets, /api\.chatfire\.site/)
+  assert.doesNotMatch(providerPresets, /api\.firemux\.com/)
   assert.match(settingsPage, /https:\/\/ark\.cn-beijing\.volces\.com/)
   assert.match(providerPresets, /https:\/\/\{WorkspaceId\}\.cn-beijing\.maas\.aliyuncs\.com/)
   assert.doesNotMatch(settingsPage, /https:\/\/dashscope\.aliyuncs\.com/)
@@ -29,5 +29,5 @@ test('video presets use official provider endpoints', () => {
 test('Wan 3.0 quick preset targets the Qwen gateway namespace', () => {
   const quickStart = settingsPage.indexOf('const huobaoQuickConfigs = [')
   const quickConfigs = settingsPage.slice(quickStart)
-  assert.match(quickConfigs, /provider:\s*'aliyun'.*base_url:\s*'https:\/\/api\.chatfire\.site\/qwen'.*wan3\.0-video-prime.*wan3\.0-video/s)
+  assert.match(quickConfigs, /provider:\s*'aliyun'.*base_url:\s*'https:\/\/api\.firemux\.com\/qwen'.*wan3\.0-video-prime.*wan3\.0-video/s)
 })

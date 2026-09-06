@@ -100,7 +100,7 @@
             </div>
             <p class="setup-desc">
               {{ t('settings.ai.quickDesc') }}
-              <a class="huobao-site-link" href="https://api.chatfire.site" target="_blank" rel="noopener noreferrer">
+              <a class="huobao-site-link" href="https://api.firemux.com" target="_blank" rel="noopener noreferrer">
                 {{ t('settings.ai.getKey') }}
                 <ExternalLink :size="12" :stroke-width="1.8" />
               </a>
@@ -726,13 +726,13 @@ const providerPresets = {
   },
 }
 const huobaoQuickConfigs = [
-  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.chatfire.site', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
-  { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.chatfire.site', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
-  { service_type: 'image', provider: 'openai', name: '火宝图片服务 · OpenAI', base_url: 'https://api.chatfire.site', model: ['gpt-image-2'], priority: 99 },
-  { service_type: 'image', provider: 'gemini', name: '火宝图片服务 · Gemini', base_url: 'https://api.chatfire.site', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
-  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务 · Seedance', base_url: 'https://api.chatfire.site/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 98 },
-  { service_type: 'video', provider: 'aliyun', name: '火宝视频服务 · Wan 3.0', base_url: 'https://api.chatfire.site/qwen', model: ['wan3.0-video-prime', 'wan3.0-video'], priority: 97 },
-  { service_type: 'video', provider: 'minimax', name: '火宝视频服务 · MiniMax', base_url: 'https://api.chatfire.site/minimax', model: ['MiniMax-H3'], priority: 96 },
+  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
+  { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
+  { service_type: 'image', provider: 'openai', name: '火宝图片服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
+  { service_type: 'image', provider: 'gemini', name: '火宝图片服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
+  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务 · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 98 },
+  { service_type: 'video', provider: 'aliyun', name: '火宝视频服务 · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video-prime', 'wan3.0-video'], priority: 97 },
+  { service_type: 'video', provider: 'minimax', name: '火宝视频服务 · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
 ]
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }

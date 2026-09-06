@@ -22,7 +22,7 @@ test('settings page exposes official provider templates only', () => {
   assert.doesNotMatch(settingsPage, /huobaoPreset/i)
   assert.doesNotMatch(settingsPage, /applyHuobaoPreset/i)
   assert.doesNotMatch(settingsPage, /\/huobao-preset/)
-  assert.doesNotMatch(useApi, /api\.chatfire\.site/i)
+  assert.doesNotMatch(useApi, /api\.firemux\.com/i)
   assert.doesNotMatch(useApi, /applyHuobaoPreset/i)
   assert.doesNotMatch(useApi, /openrouter/i)
   assert.doesNotMatch(useApi, /huobaoPreset/i)
@@ -38,7 +38,7 @@ test('settings page exposes official provider templates only', () => {
   assert.doesNotMatch(settingsPage, /https:\/\/api\.vidu\.com/)
   assert.doesNotMatch(settingsPage, /\['ali'|'ali',|, 'ali'\]/)
   assert.match(settingsPage, /火宝快捷配置/)
-  assert.match(settingsPage, /https:\/\/api\.chatfire\.site/)
+  assert.match(settingsPage, /https:\/\/api\.firemux\.com/)
   assert.match(settingsPage, /applyHuobaoQuickConfig/)
   assert.doesNotMatch(settingsPage, /https:\/\/api\.minimax\.io/)
 })
@@ -74,7 +74,7 @@ test('settings page offers official default model IDs', () => {
 })
 
 test('only text service configs expose the connection test button', () => {
-  assert.match(settingsPage, /v-if="st\.type === 'text'" class="btn btn-ghost btn-sm" @click="testExistingCfg\(c\)">测试/)
+  assert.match(settingsPage, /v-if="st\.type === 'text'" class="btn btn-ghost btn-sm" @click="testExistingCfg\(c\)">\{\{ t\('settings\.ai\.test'\) \}\}/)
 })
 
 test('settings page offers the supported official provider presets', () => {
@@ -93,6 +93,6 @@ test('Huobao quick config includes Wan 3.0 through the Qwen gateway route', () =
   assert.notEqual(quickStart, -1)
   const quickConfigs = settingsPage.slice(quickStart, settingsPage.indexOf('\n]', quickStart) + 2)
   assert.match(quickConfigs, /provider:\s*'aliyun'/)
-  assert.match(quickConfigs, /base_url:\s*'https:\/\/api\.chatfire\.site\/qwen'/)
+  assert.match(quickConfigs, /base_url:\s*'https:\/\/api\.firemux\.com\/qwen'/)
   assert.match(quickConfigs, /model:\s*\['wan3\.0-video-prime', 'wan3\.0-video'\]/)
 })
