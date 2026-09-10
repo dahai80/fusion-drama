@@ -62,7 +62,9 @@ for (const t of targets) {
     continue
   }
   platforms[t.key] = {
-    url: `${baseUrl}/${encodeURIComponent(t.file)}`,
+    // GitHub 上传资产时会把空格规范化为点号(gh CLI 与 API 均如此,无法保留空格),
+    // URL 必须按服务端实际资产名生成,否则下载 404
+    url: `${baseUrl}/${encodeURIComponent(t.file.replace(/ /g, '.'))}`,
     sha256: await sha256(file),
     size: fs.statSync(file).size,
   }

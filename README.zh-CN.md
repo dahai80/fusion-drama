@@ -596,6 +596,16 @@ cd ../frontend && npm run build
 
 ---
 
+## 💬 微信群
+
+扫码加入微信群交流：
+
+<div align="center">
+  <img src="docs/images/wx-group.jpg" width="200" alt="微信群二维码" />
+</div>
+
+---
+
 > _"让 AI 帮我们做更有创造力的事"_
 
 ## 🔗 友情链接

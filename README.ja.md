@@ -598,6 +598,16 @@ cd ../frontend && npm run build
 
 ---
 
+## 💬 WeChat グループ
+
+QR コードをスキャンして WeChat グループに参加：
+
+<div align="center">
+  <img src="docs/images/wx-group.jpg" width="200" alt="WeChat グループ QR コード" />
+</div>
+
+---
+
 > _"AI にもっと創造的なことを手伝ってもらおう"_
 
 ## 🔗 関連リンク

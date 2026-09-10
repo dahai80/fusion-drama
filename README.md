@@ -597,6 +597,16 @@ If this project helps you, buy the author a coffee ☕ — your support keeps th
 
 ---
 
+## 💬 WeChat Group
+
+Scan the QR code to join the WeChat group:
+
+<div align="center">
+  <img src="docs/images/wx-group.jpg" width="200" alt="WeChat group QR code" />
+</div>
+
+---
+
 > _"Let AI do the creating with us"_
 
 ## 🔗 Links
