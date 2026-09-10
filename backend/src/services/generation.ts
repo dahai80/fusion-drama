@@ -6,7 +6,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
-import { downloadFile, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
+import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
@@ -256,12 +256,18 @@ async function processTask(id: number, config: AIConfig) {
       url: redactUrl(url),
       model: record.model,
     })
-    logTaskPayload(label, 'request payload', { id, method, url, headers, body })
+
+    const isMultipart = body instanceof FormData
+    logTaskPayload(label, 'request payload', {
+      id, method, url, headers,
+      // multipart 表单（如 OpenAI /v1/images/edits）无法 JSON 化，记录字段摘要
+      body: isMultipart ? `[multipart/form-data: ${[...(body as FormData).keys()].join(', ')}]` : body,
+    })
 
     const resp = await fetch(url, {
       method,
       headers,
-      body: JSON.stringify(body),
+      body: isMultipart ? (body as FormData) : JSON.stringify(body),
       signal: AbortSignal.timeout(600_000),
     })
 
@@ -494,6 +500,19 @@ async function normalizeReferenceImages(refs: string[] | null | undefined): Prom
         })
       } catch (err) {
         logTaskWarn('ImageTask', 'reference-read-failed', { path: localPath, error: (err as Error).message })
+        return null
+      }
+    }
+    // 远程 URL：下载压缩为 data URL，保证 multipart 上传（OpenAI edits）/ inline_data（Gemini）都可用
+    if (/^https?:\/\//.test(value)) {
+      try {
+        return await fetchImageAsCompressedDataUrl(value, {
+          maxWidth: 768,
+          maxHeight: 768,
+          quality: 68,
+        })
+      } catch (err) {
+        logTaskWarn('ImageTask', 'reference-fetch-failed', { url: value, error: (err as Error).message })
         return null
       }
     }

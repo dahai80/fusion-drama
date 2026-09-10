@@ -121,12 +121,39 @@ export async function readImageAsCompressedDataUrl(
     quality?: number
   } = {},
 ): Promise<string> {
-  const filePath = getAbsolutePath(relativePath)
+  return compressImageAsDataUrl(getAbsolutePath(relativePath), options)
+}
+
+/**
+ * 下载远程图片并压缩为 data URL（远程参考图归一化，供 multipart/base64 上传类厂商使用）
+ */
+export async function fetchImageAsCompressedDataUrl(
+  url: string,
+  options: {
+    maxWidth?: number
+    maxHeight?: number
+    quality?: number
+  } = {},
+): Promise<string> {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+  if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
+  return compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
+}
+
+/** sharp 输入 → 压缩 JPEG data URL（本地路径与远程下载共享同一压缩管线） */
+async function compressImageAsDataUrl(
+  input: string | Buffer,
+  options: {
+    maxWidth?: number
+    maxHeight?: number
+    quality?: number
+  } = {},
+): Promise<string> {
   const maxWidth = options.maxWidth ?? 768
   const maxHeight = options.maxHeight ?? 768
   const quality = options.quality ?? 68
 
-  const resized = sharp(filePath).rotate().resize({
+  const resized = sharp(input).rotate().resize({
     width: maxWidth,
     height: maxHeight,
     fit: 'inside',

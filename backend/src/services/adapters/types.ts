@@ -65,6 +65,11 @@ export interface ProviderRequest {
   url: string
   method: string
   headers: Record<string, string>
+  /**
+   * 普通请求为可 JSON 序列化的对象（generation.ts 统一 JSON.stringify）；
+   * multipart 上传（如 OpenAI /v1/images/edits）直接返回 FormData，
+   * 此时 headers 不要设置 Content-Type，边界由 fetch 自动生成。
+   */
   body: any
 }
 
