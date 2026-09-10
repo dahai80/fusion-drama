@@ -400,14 +400,27 @@ server {
 
 ### 🐳 Docker 배포(앱 내 업데이트 포함)
 
-저장소 루트에 올인원 `Dockerfile`(프런트엔드 generate + 백엔드 의존성/런타임 3단계, 백엔드는 서버 배포와 동일하게 tsx로 실행)과 `docker-compose.yml`(앱 + Watchtower)을 제공합니다:
+**방법 A — 사전 빌드 이미지(클론·빌드 불필요)**: 멀티 아키텍처(`linux/amd64` + `linux/arm64`), x86 서버와 ARM 디바이스 자동 매칭
+
+```bash
+docker pull huobao/huobao-drama:4.0.0
+
+docker run -d \
+  --name huobao-drama \
+  -p 5679:5679 \
+  -v huobao-data:/app/data \
+  --restart unless-stopped \
+  huobao/huobao-drama:4.0.0
+```
+
+**방법 B — docker compose(소스 빌드 + Watchtower 인앱 업데이트)**: 저장소 루트에 올인원 `Dockerfile`(프런트엔드 generate + 백엔드 의존성/런타임 3단계, 백엔드는 서버 배포와 동일하게 tsx로 실행)과 `docker-compose.yml`(앱 + Watchtower)을 제공합니다:
 
 ```bash
 # 1. 환경 설정(Watchtower 토큰, app과 watchtower 양쪽이 일치해야 함)
 cp .env.example .env   # WATCHTOWER_TOKEN 수정
 
 # 2. 빌드 및 시작(릴리스 시 버전을 주입하여 「정보 및 업데이트」 비교에 사용)
-HUOBAO_VERSION=1.0.0 docker compose up -d --build
+HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 # 3. http://localhost:5679 접속
 ```
@@ -415,7 +428,7 @@ HUOBAO_VERSION=1.0.0 docker compose up -d --build
 - **데이터 영속화**: 네임드 볼륨 `huobao-data`를 `/app/data`에 마운트(SQLite + 생성된 이미지/영상 + workspace/skills). 이미지 업데이트 시에도 데이터 유지
 - **앱 내 업데이트**: compose에 [Watchtower](https://containrrr.dev/watchtower/) 사이드카 포함(`--label-enable`로 라벨이 지정된 컨테이너만 업데이트, `--cleanup`으로 구 이미지 정리, 매일 자체 점검). 「설정 → 정보 및 업데이트」에서 새 버전 확인 및 「지금 업데이트」 가능 — 백엔드가 Watchtower HTTP API를 통해 트리거하여 새 이미지를 가져와 컨테이너를 재생성합니다. 몇 분 후 페이지를 새로고침하면 완료
 - **수동 모드**: `docker-compose.yml`에서 app의 `HUOBAO_WATCHTOWER_*` 환경 변수 2개(또는 watchtower 서비스 전체)를 삭제하면 「정보 및 업데이트」는 새 버전 알림 + 수동 명령 `docker compose pull && docker compose up -d`으로 전환됩니다
-- **이미지 릴리스**: `docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …`. 버전 매니페스트는 데스크톱 버전과 GitHub Releases의 `latest.json`을 공유(`HUOBAO_UPDATE_FEED`로 재정의 가능)
+- **이미지 릴리스**: `docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .`. 버전 매니페스트는 데스크톱 버전과 GitHub Releases의 `latest.json`을 공유(`HUOBAO_UPDATE_FEED`로 재정의 가능)
 
 ---
 

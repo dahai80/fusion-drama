@@ -400,14 +400,27 @@ server {
 
 ### 🐳 Docker Deployment (with in-app updates)
 
-The repo root provides an all-in-one `Dockerfile` (three stages: frontend generate + backend dependencies + runtime; the backend runs via tsx just like server deployment) and `docker-compose.yml` (app + Watchtower):
+**Option A — prebuilt image (no clone, no build):** multi-arch (`linux/amd64` + `linux/arm64`), x86 servers and ARM devices match automatically
+
+```bash
+docker pull huobao/huobao-drama:4.0.0
+
+docker run -d \
+  --name huobao-drama \
+  -p 5679:5679 \
+  -v huobao-data:/app/data \
+  --restart unless-stopped \
+  huobao/huobao-drama:4.0.0
+```
+
+**Option B — docker compose (source build + Watchtower in-app updates):** the repo root provides an all-in-one `Dockerfile` (three stages: frontend generate + backend dependencies + runtime; the backend runs via tsx just like server deployment) and `docker-compose.yml` (app + Watchtower):
 
 ```bash
 # 1. Configure the environment (Watchtower token — must match on the app and watchtower sides)
 cp .env.example .env   # edit WATCHTOWER_TOKEN
 
 # 2. Build and start (inject a version at publish time for "About & Updates" comparison)
-HUOBAO_VERSION=1.0.0 docker compose up -d --build
+HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 # 3. Visit http://localhost:5679
 ```
@@ -415,7 +428,7 @@ HUOBAO_VERSION=1.0.0 docker compose up -d --build
 - **Data persistence**: the named volume `huobao-data` mounts `/app/data` (SQLite + generated images/videos + workspace/skills) — image updates don't lose data
 - **In-app updates**: the compose file ships a [Watchtower](https://containrrr.dev/watchtower/) sidecar (`--label-enable` only updates labeled containers, `--cleanup` removes old images, daily self-check). "Settings → About & Updates" can check for new versions and "Update Now" — the backend triggers it via the Watchtower HTTP API, which pulls the new image and rebuilds the container; refresh the page after a few minutes
 - **Manual mode**: remove the app's two `HUOBAO_WATCHTOWER_*` env vars (or the whole watchtower service) from `docker-compose.yml` — "About & Updates" then degrades to a new-version notice + manual `docker compose pull && docker compose up -d`
-- **Publishing images**: `docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …` — the version manifest is shared with the desktop app via `latest.json` on GitHub Releases (overridable with `HUOBAO_UPDATE_FEED`)
+- **Publishing images**: `docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .` — the version manifest is shared with the desktop app via `latest.json` on GitHub Releases (overridable with `HUOBAO_UPDATE_FEED`)
 
 ---
 

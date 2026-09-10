@@ -9,7 +9,7 @@
 
 services:
   app:
-    image: ghcr.io/chatfire-ai/huobao-drama:latest
+    image: huobao/huobao-drama:latest
     build:
       context: .
       args:

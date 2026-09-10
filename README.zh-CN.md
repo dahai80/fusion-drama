@@ -399,14 +399,27 @@ server {
 
 ### 🐳 Docker 部署（含应用内更新）
 
-根目录提供一体化 `Dockerfile`（前端 generate + 后端依赖/运行时三阶段，后端与服务器部署一致走 tsx）与 `docker-compose.yml`（应用 + Watchtower）：
+**方式一：预构建镜像（免克隆、免构建）**：多架构镜像（`linux/amd64` + `linux/arm64`），x86 服务器与 ARM 设备自动匹配
+
+```bash
+docker pull huobao/huobao-drama:4.0.0
+
+docker run -d \
+  --name huobao-drama \
+  -p 5679:5679 \
+  -v huobao-data:/app/data \
+  --restart unless-stopped \
+  huobao/huobao-drama:4.0.0
+```
+
+**方式二：docker compose（源码构建 + Watchtower 应用内更新）**：根目录提供一体化 `Dockerfile`（前端 generate + 后端依赖/运行时三阶段，后端与服务器部署一致走 tsx）与 `docker-compose.yml`（应用 + Watchtower）：
 
 ```bash
 # 1. 配置环境（Watchtower 令牌，app 与 watchtower 两侧必须一致）
 cp .env.example .env   # 修改 WATCHTOWER_TOKEN
 
 # 2. 构建并启动（发布时注入版本号，供「关于更新」比对）
-HUOBAO_VERSION=1.0.0 docker compose up -d --build
+HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 # 3. 访问 http://localhost:5679
 ```
@@ -414,7 +427,7 @@ HUOBAO_VERSION=1.0.0 docker compose up -d --build
 - **数据持久化**：命名卷 `huobao-data` 挂载 `/app/data`（SQLite + 生成的图片/视频 + workspace/skills，更新镜像不丢数据）
 - **应用内更新**：compose 自带 [Watchtower](https://containrrr.dev/watchtower/) sidecar（`--label-enable` 只更新标记容器，`--cleanup` 清旧镜像，每天自检一次）。设置页「关于更新」可检查新版本并「立即更新」——后端经 Watchtower HTTP API 触发，拉新镜像重建容器，几分钟后刷新页面即可
 - **手动模式**：`docker-compose.yml` 中删除 app 的 `HUOBAO_WATCHTOWER_*` 两个环境变量（或整个 watchtower 服务）后，「关于更新」退化为新版本提示 + 手动命令 `docker compose pull && docker compose up -d`
-- **发布镜像**：`docker build --build-arg HUOBAO_VERSION=x.y.z -t ghcr.io/chatfire-ai/huobao-drama:x.y.z -t ghcr.io/chatfire-ai/huobao-drama:latest . && docker push …`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `HUOBAO_UPDATE_FEED` 覆盖）
+- **发布镜像**：`docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `HUOBAO_UPDATE_FEED` 覆盖）
 
 ---
 
