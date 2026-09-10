@@ -1,7 +1,7 @@
 {
   "name": "huobao-drama-desktop",
   "productName": "HuobaoDrama",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "private": true,
   "description": "火宝短剧桌面版（Electron 壳）",
   "author": "Huobao",
