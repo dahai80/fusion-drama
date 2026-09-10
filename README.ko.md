@@ -7,10 +7,11 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![다운로드](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | **한국어**
 
-[기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [배포](#-배포)
+[기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [다운로드](https://github.com/chatfire-AI/huobao-drama/releases/latest) • [배포](#-배포)
 
 <h2>🔑 <a href="https://api.firemux.com">Huobao API Key 받기 👉 바로 보기</a></h2>
 
@@ -279,6 +280,16 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 ## 📦 배포
 
 ### 🖥️ 데스크톱 앱(권장)
+
+**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+
+| 플랫폼 | 다운로드 파일 |
+|---|---|
+| macOS(Apple Silicon, M 시리즈) | `HuobaoDrama-<버전>-arm64.dmg` |
+| macOS(Intel) | `HuobaoDrama-<버전>.dmg` |
+| Windows | `HuobaoDrama Setup <버전>.exe` |
+
+빌드 불필요 — dmg/exe를 다운로드해 바로 설치하면 됩니다. 설치된 클라이언트는 내장 업데이터로 자동 업데이트됩니다. (소스에서 직접 패키징하려면 아래 명령을 참조하세요.)
 
 더블클릭 설치로 바로 사용할 수 있는 데스크톱 버전(macOS + Windows). 데이터베이스(SQLite), 생성된 미디어 파일, Agent 스킬은 모두 사용자 데이터 디렉터리에 저장되며 앱을 삭제필필도 데이터에 영향이 없습니다.
 

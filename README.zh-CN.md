@@ -7,10 +7,11 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![下载](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=%E4%B8%8B%E8%BD%BD)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
 
 [English](README.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [部署指南](#-部署指南)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [下载安装](https://github.com/chatfire-AI/huobao-drama/releases/latest) • [部署指南](#-部署指南)
 
 <h2>🔑 <a href="https://api.firemux.com">获取 Huobao API Key 👉 立即查看</a></h2>
 
@@ -280,6 +281,16 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 ## 📦 部署指南
 
 ### 🖥️ 桌面应用（推荐）
+
+**⬇️ 预编译安装包下载：[GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+
+| 平台 | 下载文件 |
+|---|---|
+| macOS（Apple Silicon，M 系列） | `HuobaoDrama-<版本号>-arm64.dmg` |
+| macOS（Intel） | `HuobaoDrama-<版本号>.dmg` |
+| Windows | `HuobaoDrama Setup <版本号>.exe` |
+
+无需构建 —— 下载 dmg/exe 直接安装即可，已安装客户端会通过内置更新器自动升级。（如需从源码自行打包，见下方命令。）
 
 双击安装、开箱即用的桌面版（macOS + Windows）：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
 

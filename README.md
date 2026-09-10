@@ -7,10 +7,11 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Download](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=Download)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
 
 **English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Deployment](#-deployment)
+[Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Download](https://github.com/chatfire-AI/huobao-drama/releases/latest) • [Deployment](#-deployment)
 
 <h2>🔑 <a href="https://api.firemux.com">Get a Huobao API Key 👉 Get started</a></h2>
 
@@ -279,6 +280,16 @@ The episode list shows the production status of every episode — click "Enter S
 ## 📦 Deployment
 
 ### 🖥️ Desktop App (recommended)
+
+**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+
+| Platform | File to download |
+|---|---|
+| macOS (Apple Silicon, M-series) | `HuobaoDrama-<version>-arm64.dmg` |
+| macOS (Intel) | `HuobaoDrama-<version>.dmg` |
+| Windows | `HuobaoDrama Setup <version>.exe` |
+
+No build required — download the dmg/exe and install. Installed clients auto-update via the built-in updater. (To package from source instead, see the commands below.)
 
 Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
 
