@@ -3,7 +3,6 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { v4 as uuid } from 'uuid'
 import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
@@ -11,10 +10,7 @@ import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
 import { ffmpeg, checkFfmpegSuite } from '../utils/ffmpeg.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../../data/static')
-const DATA_ROOT = path.resolve(__dirname, '../../../data')
+import { DATA_ROOT, STORAGE_ROOT } from '../utils/paths.js'
 
 function toAbsPath(relativePath: string): string {
   if (path.isAbsolute(relativePath)) return relativePath

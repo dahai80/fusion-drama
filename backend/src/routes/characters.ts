@@ -14,8 +14,8 @@ const CHARACTER_IMAGE_SIZE = '1920x1080'
 // POST /characters — 手动新增角色（传入 episode_id 时关联到该集）
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id required')
-  if (!body.name?.trim()) return badRequest(c, 'name required')
+  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.name?.trim()) return badRequest(c, '名称必填')
   const ts = now()
   const res = await db.insert(schema.characters).values({
     name: body.name.trim(),
@@ -82,11 +82,11 @@ app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
-  if (!char) return badRequest(c, 'Character not found')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  if (!char) return badRequest(c, '角色不存在')
+  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
 
   const stylePrompt = await getDramaStylePrompt(char.dramaId)
   const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
@@ -107,11 +107,11 @@ app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, id))
-  if (!char) return badRequest(c, 'Character not found')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  if (!char) return badRequest(c, '角色不存在')
+  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
 
   logTaskStart('FinalPrompt', 'character-generate', { characterId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
@@ -127,9 +127,9 @@ app.post('/:id/generate-prompt', async (c) => {
 app.post('/batch-generate-images', async (c) => {
   const body = await c.req.json()
   const ids: number[] = body.character_ids || []
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
   const results: number[] = []
   const stylePrompt = await getDramaStylePrompt(ep.dramaId)
   for (const cid of ids) {

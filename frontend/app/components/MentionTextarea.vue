@@ -29,16 +29,16 @@
               @mousedown.prevent="pick(opt)"
               @mousemove="highlightIdx = flatIndex(gi, oi)"
             >
-              <span :class="['mention-avatar', `mention-avatar-${opt.group === '场景' ? 'scene' : (opt.group === '道具' ? 'prop' : 'role')}`]">
+              <span :class="['mention-avatar', `mention-avatar-${opt.kind === 'scene' ? 'scene' : (opt.kind === 'prop' ? 'prop' : 'role')}`]">
                 <img v-if="opt.image" :src="opt.image" alt="" @error="$event.target.style.display = 'none'" />
-                <component v-else :is="groupIcon(opt.group)" :size="12" :stroke-width="2" />
+                <component v-else :is="groupIcon(opt.kind)" :size="12" :stroke-width="2" />
               </span>
               <span class="mention-name">@{{ opt.label }}</span>
               <span class="mention-type">{{ opt.group }}</span>
             </button>
           </template>
         </template>
-        <div v-else class="mention-empty">无匹配的参考</div>
+        <div v-else class="mention-empty">{{ t('components.mention.noMatch') }}</div>
       </div>
     </Teleport>
   </div>
@@ -47,13 +47,16 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { User, MapPin, Package } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
-// 无图资产在下拉中显示分组图标兜底（场景=定位、道具=包裹、角色=人物）
-const groupIcon = (group) => (group === '场景' ? MapPin : group === '道具' ? Package : User)
+const { t } = useI18n()
+
+// 无图资产在下拉中显示分组图标兜底（场景=定位、道具=包裹、角色=人物）——按 kind code 判断，不依赖显示文案
+const groupIcon = (kind) => (kind === 'scene' ? MapPin : kind === 'prop' ? Package : User)
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
-  // [{ label, value, group, image? }] — value 为插入的 @引用名
+  // [{ label, value, kind, group, image? }] — value 为插入的 @引用名，kind('character'|'scene'|'prop')为逻辑值，group 为显示分组文案
   options: { type: Array, default: () => [] },
   rows: { type: [Number, String], default: 4 },
   placeholder: { type: String, default: '' },
@@ -99,11 +102,11 @@ watch(() => props.modelValue, (v) => {
   mention.value.open = false
 })
 
-// 可引用名（按长度降序，保证最长匹配优先）及其分组样式
+// 可引用名（按长度降序，保证最长匹配优先）及其分组样式（kind code 判断）
 const mentionNames = computed(() => {
   const seen = new Map()
   for (const o of props.options) {
-    if (o.value && !seen.has(o.value)) seen.set(o.value, o.group === '场景' ? 'scene' : 'role')
+    if (o.value && !seen.has(o.value)) seen.set(o.value, o.kind === 'scene' ? 'scene' : 'role')
   }
   return [...seen.entries()].sort((a, b) => b[0].length - a[0].length)
 })
@@ -176,7 +179,7 @@ const filteredOptions = computed(() => {
 const groupedFiltered = computed(() => {
   const groups = []
   for (const opt of filteredOptions.value) {
-    const name = opt.group || '参考'
+    const name = opt.group || t('components.mention.fallbackGroup')
     const g = groups.find(item => item.group === name)
     if (g) g.options.push(opt)
     else groups.push({ group: name, options: [opt] })
@@ -379,12 +382,12 @@ function onBlur(e) {
   background: var(--accent-bg);
 }
 .mention-backdrop :deep(.mention-token-scene) {
-  color: #248a3d;
+  color: var(--tag-success-text);
   background: var(--success-bg);
 }
 .mention-dropdown {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-menu);
   width: 240px;
   max-height: 220px;
   overflow-y: auto;
@@ -392,7 +395,7 @@ function onBlur(e) {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-lg);
 }
 .mention-group-label {
   padding: 6px 8px 3px;
@@ -438,7 +441,7 @@ function onBlur(e) {
 }
 /* 无图时按分组着色图标底色 */
 .mention-avatar-role { color: var(--accent-text); background: var(--accent-bg); }
-.mention-avatar-scene { color: #248a3d; background: var(--success-bg); }
+.mention-avatar-scene { color: var(--tag-success-text); background: var(--success-bg); }
 .mention-avatar-prop { color: var(--text-2); background: var(--bg-2); }
 .mention-name {
   flex: 1;

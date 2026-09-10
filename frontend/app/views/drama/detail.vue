@@ -1,29 +1,27 @@
 <template>
   <div class="page" v-if="drama">
-    <!-- Header -->
+    <!-- Header：单行紧凑 -->
     <div class="page-head card">
-      <button class="back-btn" title="返回" @click="navigateTo('/')">
+      <button class="back-btn" :title="t('common.back')" @click="navigateTo('/')">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
         </svg>
       </button>
       <div class="head-info">
-        <div class="head-title-row">
-          <h1 class="page-title">{{ drama.title }}</h1>
-          <span v-if="drama.style" class="tag tag-accent">{{ drama.style }}</span>
-        </div>
+        <h1 class="page-title">{{ drama.title }}</h1>
+        <span v-if="drama.style" class="tag tag-accent">{{ drama.style }}</span>
         <div class="page-meta">
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            {{ drama.characters?.length || 0 }} 角色
+            {{ t('detail.head.charCount', { n: drama.characters?.length || 0 }) }}
           </span>
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>
-            {{ drama.scenes?.length || 0 }} 场景
+            {{ t('detail.head.sceneCount', { n: drama.scenes?.length || 0 }) }}
           </span>
           <span class="meta-item">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
-            {{ drama.episodes?.length || 0 }} 集
+            {{ t('detail.head.epCount', { n: drama.episodes?.length || 0 }) }}
           </span>
         </div>
       </div>
@@ -31,7 +29,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        添加集
+        {{ t('detail.head.addEpisode') }}
       </button>
     </div>
 
@@ -39,12 +37,12 @@
     <nav class="page-tabs">
       <button type="button" :class="['tab-btn', { on: activeTab === 'episodes' }]" @click="activeTab = 'episodes'">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="10" y1="8" x2="10" y2="16"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
-        剧集列表
+        {{ t('detail.tabs.episodes') }}
         <span class="tab-count">{{ drama.episodes?.length || 0 }}</span>
       </button>
       <button type="button" :class="['tab-btn', { on: activeTab === 'assets' }]" @click="switchToAssets">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        素材库
+        {{ t('detail.tabs.assets') }}
         <span v-if="assetTotal > 0" class="tab-count">{{ assetTotal }}</span>
       </button>
     </nav>
@@ -57,105 +55,119 @@
         :style="{ animationDelay: `${i * 0.05}s` }"
         @click="navigateTo(`/drama/${drama.id}/episode/${ep.episode_number || ep.episodeNumber}`)"
       >
-        <!-- 卡片顶部：编号 + 状态 + 操作 -->
-        <div class="ep-header">
+        <!-- 上区：编号 + 标题元数据 + 状态 -->
+        <div class="ep-card-top">
           <div :class="['ep-number', `ep-num-${epStatus(ep)}`]">
             <span class="ep-num-label">EP</span>
             <b>{{ String(ep.episode_number || ep.episodeNumber).padStart(2, '0') }}</b>
           </div>
+          <div class="ep-main">
+            <h3 class="ep-title">{{ ep.title }}</h3>
+            <div class="ep-meta-row">
+              <span v-if="ep.duration" class="ep-meta">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {{ ep.duration }}s
+              </span>
+              <span v-if="ep.scriptContent || ep.script_content" class="ep-meta ep-meta-ok">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                {{ t('detail.ep.scriptReady') }}
+              </span>
+              <span v-if="ep.videoUrl || ep.video_url" class="ep-meta ep-meta-ok">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                {{ t('detail.ep.merged') }}
+              </span>
+              <span v-if="ep.updatedAt || ep.updated_at" class="ep-meta ep-time">{{ formatEpTime(ep.updatedAt || ep.updated_at) }}</span>
+            </div>
+          </div>
           <div class="ep-badges" @click.stop>
-            <button type="button" :class="['tag', 'ep-status-btn', `ep-status-${epStatus(ep)}`]" title="点击标记本集状态" @click="epStatusMenuId = epStatusMenuId === ep.id ? null : ep.id">
-              <span :class="['status-dot', epStatusDotClass(ep)]"></span>
-              {{ epStatusLabel(ep) }}
-            </button>
-            <div v-if="epStatusMenuId === ep.id" class="status-menu">
-              <button
+            <AppMenu
+              :open="epStatusMenuId === ep.id"
+              placement="bottom-end"
+              :min-width="110"
+              @update:open="(v) => { epStatusMenuId = v ? ep.id : null }"
+            >
+              <template #trigger>
+                <button type="button" :class="['tag', 'ep-status-btn', `ep-status-${epStatus(ep)}`]" :title="t('detail.ep.statusTitle')">
+                  <span :class="['status-dot', epStatusDotClass(ep)]"></span>
+                  {{ epStatusLabel(ep) }}
+                </button>
+              </template>
+              <AppMenuItem
                 v-for="s in epStatusOptions"
                 :key="s.value"
-                type="button"
-                class="status-menu-item"
-                :class="{ on: epStatus(ep) === s.value }"
+                :selected="epStatus(ep) === s.value"
                 @click="setEpisodeStatus(ep, s.value)"
-              >{{ s.label }}</button>
-            </div>
-          </div>
-          <div class="ep-actions" @click.stop>
-            <button type="button" :class="['tag', 'ep-res-btn']" title="点击修改本集视频分辨率" @click="epResMenuId = epResMenuId === ep.id ? null : ep.id">
-              {{ epResolution(ep) }}
-            </button>
-            <div v-if="epResMenuId === ep.id" class="status-menu">
-              <button
-                v-for="r in resolutionOptions"
-                :key="r.value"
-                type="button"
-                class="status-menu-item"
-                :class="{ on: epResolution(ep) === r.value }"
-                @click="setEpisodeResolution(ep, r.value)"
-              >{{ r.label }}</button>
-            </div>
-            <button
-              class="btn btn-icon btn-sm ep-delete"
-              type="button"
-              title="删除本集"
-              @click="episodeToDelete = ep"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
-            </button>
+              >{{ s.label }}</AppMenuItem>
+            </AppMenu>
           </div>
         </div>
 
-        <!-- 标题 -->
-        <h3 class="ep-title">{{ ep.title }}</h3>
-
-        <!-- 元数据行 -->
-        <div class="ep-meta-row">
-          <span v-if="ep.duration" class="ep-meta">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            {{ ep.duration }}s
-          </span>
-          <span v-if="ep.scriptContent || ep.script_content" class="ep-meta ep-meta-ok">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            剧本已录入
-          </span>
-          <span v-if="ep.videoUrl || ep.video_url" class="ep-meta ep-meta-ok">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-            已合成
-          </span>
-        </div>
-
-        <!-- 底部：更新时间 + 进入箭头 -->
-        <div class="ep-footer">
-          <span v-if="ep.updatedAt || ep.updated_at" class="ep-time">{{ formatEpTime(ep.updatedAt || ep.updated_at) }}</span>
-          <svg class="ep-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
+        <!-- 下区：常驻操作条 — 分辨率 / 删除 / 进入制作 -->
+        <div class="ep-card-foot" @click.stop>
+          <AppMenu
+            :open="epResMenuId === ep.id"
+            placement="top-start"
+            :min-width="110"
+            @update:open="(v) => { epResMenuId = v ? ep.id : null }"
+          >
+            <template #trigger>
+              <button type="button" :class="['tag', 'ep-res-btn']" :title="t('detail.ep.resTitle')">
+                {{ epResolution(ep) }}
+              </button>
+            </template>
+            <AppMenuItem
+              v-for="r in resolutionOptions"
+              :key="r.value"
+              :selected="epResolution(ep) === r.value"
+              @click="setEpisodeResolution(ep, r.value)"
+            >{{ r.label }}</AppMenuItem>
+          </AppMenu>
+          <span class="ep-foot-spacer"></span>
+          <button
+            class="btn btn-icon btn-sm ep-delete"
+            type="button"
+            :title="t('detail.ep.deleteTitle')"
+            @click="episodeToDelete = ep"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="ep-enter"
+            @click="navigateTo(`/drama/${drama.id}/episode/${ep.episode_number || ep.episodeNumber}`)"
+          >
+            {{ t('detail.ep.enter') }}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
       </div>
 
       <!-- Empty episode state（点击也可直接添加第一集） -->
-      <div v-if="!drama.episodes?.length" class="card ep-empty" role="button" tabindex="0" title="点击创建第一集" @click="openAddEpisode" @keydown.enter="openAddEpisode">
+      <div v-if="!drama.episodes?.length" class="card ep-empty" role="button" tabindex="0" :title="t('detail.ep.emptyCreateTitle')" @click="openAddEpisode" @keydown.enter="openAddEpisode">
         <div class="ep-empty-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
           </svg>
         </div>
-        <p>点击创建第一集</p>
+        <p>{{ t('detail.ep.emptyCreateText') }}</p>
       </div>
 
       <!-- 已有剧集时，列表末尾常驻「添加下一集」卡片 -->
-      <div v-else class="card ep-empty ep-add" role="button" tabindex="0" :title="`添加第 ${(drama.episodes?.length || 0) + 1} 集`" @click="openAddEpisode" @keydown.enter="openAddEpisode">
+      <div v-else class="card ep-empty ep-add" role="button" tabindex="0" :title="t('detail.ep.addNextTitle', { n: (drama.episodes?.length || 0) + 1 })" @click="openAddEpisode" @keydown.enter="openAddEpisode">
         <div class="ep-empty-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
             <line x1="8" y1="12" x2="16" y2="12"/>
           </svg>
         </div>
-        <p>添加第 {{ (drama.episodes?.length || 0) + 1 }} 集</p>
+        <p>{{ t('detail.ep.addNextText', { n: (drama.episodes?.length || 0) + 1 }) }}</p>
       </div>
     </div>
 
@@ -179,8 +191,8 @@
             <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
           </svg>
         </div>
-        <p class="empty-title">还没有任何素材</p>
-        <p class="empty-desc">在剧情工作台中通过「提取资产」生成角色、场景与道具后，会自动收录到这里，并可直接生成素材图。</p>
+        <p class="empty-title">{{ t('detail.assets.emptyTitle') }}</p>
+        <p class="empty-desc">{{ t('detail.assets.emptyDesc') }}</p>
       </div>
 
       <div v-else-if="materials.length" class="asset-groups">
@@ -216,34 +228,34 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                       </div>
                       <span class="asset-cover-badge" :class="matHasImage(m) ? 'is-ready' : (isPending(m) ? 'is-pending' : '')">
-                        {{ matHasImage(m) ? '形象已生成' : (isPending(m) ? '形象生成中' : '形象待生成') }}
+                        {{ matHasImage(m) ? t('episode.asset.portraitReady') : (isPending(m) ? t('episode.asset.portraitPending') : t('episode.asset.portraitTodo')) }}
                       </span>
                     </div>
                     <div class="character-asset-head">
                       <div class="character-title-block">
                         <div class="character-name-row">
                           <strong class="character-name">{{ m.name }}</strong>
-                          <span class="tag">{{ m.role || '角色' }}</span>
+                          <span class="tag">{{ m.role || t('common.role') }}</span>
                         </div>
                         <div class="character-visual-summary" :title="matDesc(m)">
-                          <span>样貌：{{ m.appearance || '待补充' }}</span>
-                          <span>妆造：{{ m.styling || '待补充' }}</span>
+                          <span>{{ t('episode.asset.appearance') }}{{ m.appearance || t('detail.assets.todoShort') }}</span>
+                          <span>{{ t('episode.asset.styling') }}{{ m.styling || t('detail.assets.todoShort') }}</span>
                         </div>
                       </div>
                       <button class="btn btn-sm character-gen-btn" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
                         <span v-if="isPending(m)" class="ring-spinner sm"></span>
-                        {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
+                        {{ matHasImage(m) ? t('episode.asset.regen') : (isPending(m) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
                       </button>
-                      <button class="btn btn-sm" type="button" title="上传角色形象图" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
+                      <button class="btn btn-sm" type="button" :title="t('episode.asset.uploadCharImage')" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
                         <span v-if="isUploading(m)" class="ring-spinner sm"></span>
                         <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        上传
+                        {{ t('episode.asset.upload') }}
                       </button>
                     </div>
                   </div>
                   <div class="asset-final-prompt" :title="m.finalPrompt || ''">
-                    <span class="afp-label">最终提示词 · 三视图</span>
-                    <span :class="['afp-text', !m.finalPrompt && 'dim']">{{ m.finalPrompt || '首次生成形象时由提示词 Agent 自动生成' }}</span>
+                    <span class="afp-label">{{ t('episode.asset.finalPromptTurnaround') }}</span>
+                    <span :class="['afp-text', !m.finalPrompt && 'dim']">{{ m.finalPrompt || t('episode.asset.finalPromptAutoTurnaround') }}</span>
                   </div>
                 </div>
               </article>
@@ -268,37 +280,37 @@
                     <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                   </div>
                   <span class="asset-cover-badge" :class="matHasImage(m) ? 'is-ready' : (isPending(m) ? 'is-pending' : '')">
-                    {{ matHasImage(m) ? '已生成' : (isPending(m) ? '生成中' : '待生成') }}
+                    {{ matHasImage(m) ? t('episode.asset.ready') : (isPending(m) ? t('episode.asset.generating') : t('episode.asset.todo')) }}
                   </span>
                 </div>
                 <div class="asset-body">
                   <template v-if="g.kindKey === 'scene'">
                     <div class="asset-name" :title="m.location">{{ m.location }}</div>
-                    <div class="asset-meta asset-desc dim" :title="matDesc(m)">{{ matDesc(m) || '场景描述待补充' }}</div>
-                    <div v-if="m.lighting" class="asset-meta asset-light dim" :title="m.lighting">光照 · {{ m.lighting }}</div>
+                    <div class="asset-meta asset-desc dim" :title="matDesc(m)">{{ matDesc(m) || t('episode.asset.sceneDescTodo') }}</div>
+                    <div v-if="m.lighting" class="asset-meta asset-light dim" :title="m.lighting">{{ t('episode.asset.lighting') }}{{ m.lighting }}</div>
                   </template>
                   <template v-else>
                     <div class="prop-name-row">
                       <span class="asset-name" :title="m.name">{{ m.name }}</span>
-                      <span class="tag">{{ m.type || '道具' }}</span>
+                      <span class="tag">{{ m.type || t('common.prop') }}</span>
                     </div>
-                    <div class="asset-meta asset-desc dim" :title="m.description || ''">{{ m.description || '暂无描述' }}</div>
+                    <div class="asset-meta asset-desc dim" :title="m.description || ''">{{ m.description || t('episode.asset.noDescription') }}</div>
                   </template>
                   <div class="asset-meta asset-final" :class="{ dim: !m.finalPrompt }" :title="m.finalPrompt || ''">
-                    <span class="afp-label">{{ g.kindKey === 'scene' ? '最终提示词 · 固定视角' : '最终提示词 · 白底单品' }}</span>
-                    {{ m.finalPrompt || (g.kindKey === 'scene' ? '首次生成图片时由提示词 Agent 自动生成（前景/中景/后景）' : '首次生成图片时由提示词 Agent 自动生成（白底单品）') }}
+                    <span class="afp-label">{{ g.kindKey === 'scene' ? t('episode.asset.finalPromptFixed') : t('episode.asset.finalPromptWhiteBg') }}</span>
+                    {{ m.finalPrompt || (g.kindKey === 'scene' ? t('episode.asset.finalPromptAutoFixed') : t('episode.asset.finalPromptAutoWhiteBg')) }}
                   </div>
                 </div>
                 <div class="asset-foot">
                   <span :class="['dot', matHasImage(m) && 'ok', isPending(m) && 'pending']" />
-                  <button class="btn btn-sm ml-auto" type="button" title="上传图片" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
+                  <button class="btn btn-sm ml-auto" type="button" :title="t('episode.asset.uploadImage')" :disabled="isUploading(m)" @click.stop="uploadMaterial(m)">
                     <span v-if="isUploading(m)" class="ring-spinner sm"></span>
                     <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    上传
+                    {{ t('episode.asset.upload') }}
                   </button>
                   <button class="btn btn-sm" type="button" :disabled="isPending(m)" @click.stop="generateMaterial(m)">
                     <span v-if="isPending(m)" class="ring-spinner sm"></span>
-                    {{ matHasImage(m) ? '重绘' : (isPending(m) ? '生成中' : '生成') }}
+                    {{ matHasImage(m) ? t('episode.asset.regen') : (isPending(m) ? t('episode.asset.generating') : t('episode.asset.generate')) }}
                   </button>
                 </div>
               </div>
@@ -313,23 +325,23 @@
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
           </div>
-          <p class="empty-title">暂无{{ tabLabel(assetTab) }}素材</p>
-          <p class="empty-desc">在剧情工作台中提取并生成{{ tabLabel(assetTab) }}后，会显示在这里。</p>
+          <p class="empty-title">{{ t('detail.assets.emptyKindTitle', { kind: tabLabel(assetTab) }) }}</p>
+          <p class="empty-desc">{{ t('detail.assets.emptyKindDesc', { kind: tabLabel(assetTab) }) }}</p>
         </div>
       </div>
 
       <!-- 素材详情 / 编辑对话框（与工作台资产卡片同款布局） -->
       <div v-if="editDialog && editTarget" class="overlay mat-detail-overlay" @click.self="closeEdit">
-        <section class="dialog mat-detail-dialog" aria-label="素材详情">
+        <section class="dialog mat-detail-dialog" :aria-label="t('detail.mat.dialogAria')">
           <header class="dialog-head mat-detail-head">
             <div class="mat-detail-title-block">
-              <span class="mat-detail-kicker">{{ editTarget.kind === '角色' ? '角色资产' : editTarget.kind === '场景' ? '场景资产' : '道具资产' }}</span>
-              <h2 class="mat-detail-title">{{ editTarget.name || '未命名' }}</h2>
+              <span class="mat-detail-kicker">{{ editTarget.kindKey === 'character' ? t('episode.asset.typeChar') : editTarget.kindKey === 'scene' ? t('episode.asset.typeScene') : t('episode.asset.typeProp') }}</span>
+              <h2 class="mat-detail-title">{{ editTarget.name || t('detail.mat.unnamed') }}</h2>
             </div>
             <div class="mat-detail-head-actions">
-              <span v-if="editTarget.kindKey === 'character'" class="tag">{{ editTarget.role || '角色' }}</span>
-              <span v-else-if="editTarget.kindKey === 'prop'" class="tag">{{ editTarget.type || '道具' }}</span>
-              <span v-else class="tag">{{ editTarget.time || '未设时间' }}</span>
+              <span v-if="editTarget.kindKey === 'character'" class="tag">{{ editTarget.role || t('common.role') }}</span>
+              <span v-else-if="editTarget.kindKey === 'prop'" class="tag">{{ editTarget.type || t('common.prop') }}</span>
+              <span v-else class="tag">{{ editTarget.time || t('episode.asset.noTime') }}</span>
               <button class="btn btn-ghost btn-icon" @click="closeEdit">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
@@ -341,9 +353,9 @@
               <!-- 左侧：视觉预览 -->
               <aside class="mat-detail-preview-panel">
                 <div class="mat-detail-section-title">
-                  <span>视觉预览</span>
+                  <span>{{ t('episode.asset.visualPreview') }}</span>
                   <span :class="['mat-detail-state', matHasImage(editTarget) ? 'is-ready' : '']">
-                    {{ matHasImage(editTarget) ? '已生成' : '待生成' }}
+                    {{ matHasImage(editTarget) ? t('episode.asset.ready') : t('episode.asset.todo') }}
                   </span>
                 </div>
 
@@ -363,12 +375,12 @@
 
                 <div class="mat-detail-meta-row">
                   <div class="mat-detail-meta-item">
-                    <span>类型</span>
-                    <strong>{{ editTarget.kind === '角色' ? '角色形象' : editTarget.kind === '道具' ? '道具' : '场景图片' }}</strong>
+                    <span>{{ t('episode.asset.kindLabel') }}</span>
+                    <strong>{{ editTarget.kindKey === 'character' ? t('episode.asset.charPortrait') : editTarget.kindKey === 'prop' ? t('common.prop') : t('episode.asset.sceneImage') }}</strong>
                   </div>
                   <div class="mat-detail-meta-item">
-                    <span>{{ editTarget.kindKey === 'character' ? '定位' : editTarget.kindKey === 'prop' ? '道具类型' : '时间' }}</span>
-                    <strong>{{ editTarget.kindKey === 'character' ? (editTarget.role || '角色') : editTarget.kindKey === 'prop' ? (editTarget.type || '道具') : (editTarget.time || '未设时间') }}</strong>
+                    <span>{{ editTarget.kindKey === 'character' ? t('episode.asset.roleLabel') : editTarget.kindKey === 'prop' ? t('episode.asset.propTypeLabel') : t('episode.asset.timeLabel') }}</span>
+                    <strong>{{ editTarget.kindKey === 'character' ? (editTarget.role || t('common.role')) : editTarget.kindKey === 'prop' ? (editTarget.type || t('common.prop')) : (editTarget.time || t('episode.asset.noTime')) }}</strong>
                   </div>
                 </div>
               </aside>
@@ -376,67 +388,67 @@
               <!-- 右侧：编辑信息 -->
               <section class="mat-detail-editor-panel">
                 <div class="mat-detail-section-title">
-                  <span>编辑信息</span>
-                  <span class="dim">{{ editTarget.kindKey === 'character' ? '样貌与妆造会影响角色形象' : editTarget.kindKey === 'prop' ? '物品外貌会影响道具图' : '空间与光影会影响场景图' }}</span>
+                  <span>{{ t('episode.asset.editInfo') }}</span>
+                  <span class="dim">{{ editTarget.kindKey === 'character' ? t('episode.asset.editHintChar') : editTarget.kindKey === 'prop' ? t('episode.asset.editHintProp') : t('episode.asset.editHintScene') }}</span>
                 </div>
 
                 <!-- 道具：单列物品外貌 -->
                 <div v-if="editTarget.kindKey === 'prop'" class="mat-detail-edit-grid mat-detail-edit-grid--prop">
                   <label class="mat-detail-edit-field">
-                    <span>名称</span>
-                    <input v-model="editDraft.name" class="input" placeholder="道具名称" />
+                    <span>{{ t('episode.create.name') }}</span>
+                    <input v-model="editDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderProp')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>类型</span>
-                    <input v-model="editDraft.type" class="input" placeholder="如：武器 / 信物" />
+                    <span>{{ t('episode.create.typeField') }}</span>
+                    <input v-model="editDraft.type" class="input" :placeholder="t('detail.mat.propTypePlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>物品外貌</span>
-                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="6" placeholder="材质、颜色、形状、大小、新旧程度、磨损痕迹等" />
+                    <span>{{ t('episode.asset.appearanceOfObject') }}</span>
+                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="6" :placeholder="t('episode.asset.appearancePlaceholder')" />
                   </label>
                 </div>
 
                 <!-- 角色：样貌 + 妆造 -->
                 <div v-else-if="editTarget.kindKey === 'character'" class="mat-detail-edit-grid mat-detail-edit-grid--character">
                   <label class="mat-detail-edit-field">
-                    <span>名称</span>
-                    <input v-model="editDraft.name" class="input" placeholder="角色名" />
+                    <span>{{ t('episode.create.name') }}</span>
+                    <input v-model="editDraft.name" class="input" :placeholder="t('episode.create.namePlaceholderChar')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>定位</span>
-                    <input v-model="editDraft.role" class="input" placeholder="主角 / 反派 / 配角…" />
+                    <span>{{ t('episode.create.roleField') }}</span>
+                    <input v-model="editDraft.role" class="input" :placeholder="t('episode.create.rolePlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>样貌</span>
-                    <textarea v-model="editDraft.appearance" class="textarea mat-detail-textarea" rows="5" placeholder="年龄感、五官、体态、气质等" />
+                    <span>{{ t('episode.asset.appearanceField') }}</span>
+                    <textarea v-model="editDraft.appearance" class="textarea mat-detail-textarea" rows="5" :placeholder="t('episode.asset.appearanceFieldPlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>妆造</span>
-                    <textarea v-model="editDraft.styling" class="textarea mat-detail-textarea" rows="5" placeholder="发型、服装、妆面、配饰等" />
+                    <span>{{ t('episode.asset.stylingField') }}</span>
+                    <textarea v-model="editDraft.styling" class="textarea mat-detail-textarea" rows="5" :placeholder="t('episode.asset.stylingFieldPlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>人物设定</span>
-                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="4" placeholder="性格、背景、动机…" />
+                    <span>{{ t('detail.mat.personaField') }}</span>
+                    <textarea v-model="editDraft.description" class="textarea mat-detail-textarea" rows="4" :placeholder="t('detail.mat.personaPlaceholder')" />
                   </label>
                 </div>
 
                 <!-- 场景：描述 + 光影 -->
                 <div v-else class="mat-detail-edit-grid mat-detail-edit-grid--scene">
                   <label class="mat-detail-edit-field">
-                    <span>地点</span>
-                    <input v-model="editDraft.location" class="input" placeholder="如：故宫太和殿" />
+                    <span>{{ t('episode.create.location') }}</span>
+                    <input v-model="editDraft.location" class="input" :placeholder="t('detail.mat.locationPlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>时间</span>
-                    <input v-model="editDraft.time" class="input" placeholder="如：黄昏 / 深夜" />
+                    <span>{{ t('episode.create.time') }}</span>
+                    <input v-model="editDraft.time" class="input" :placeholder="t('detail.mat.timePlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>场景描述</span>
-                    <textarea v-model="editDraft.prompt" class="textarea mat-detail-textarea" rows="5" placeholder="空间、陈设、年代质感、关键视觉元素等" />
+                    <span>{{ t('episode.asset.sceneDescField') }}</span>
+                    <textarea v-model="editDraft.prompt" class="textarea mat-detail-textarea" rows="5" :placeholder="t('episode.asset.sceneDescPlaceholder')" />
                   </label>
                   <label class="mat-detail-edit-field">
-                    <span>场景光影</span>
-                    <textarea v-model="editDraft.lighting" class="textarea mat-detail-textarea" rows="5" placeholder="光源、色调、明暗、氛围等" />
+                    <span>{{ t('episode.asset.sceneLightField') }}</span>
+                    <textarea v-model="editDraft.lighting" class="textarea mat-detail-textarea" rows="5" :placeholder="t('episode.asset.sceneLightPlaceholder')" />
                   </label>
                 </div>
               </section>
@@ -445,30 +457,30 @@
             <!-- 最终提示词：可生成 / 重新生成 / 手动编辑 -->
             <section class="mat-detail-prompt-panel">
               <div class="mat-detail-section-title">
-                <span>最终提示词</span>
-                <span class="dim">由 AI 根据信息生成，可手动修改后保存</span>
+                <span>{{ t('detail.mat.finalPromptLabel') }}</span>
+                <span class="dim">{{ t('detail.mat.finalPromptSub') }}</span>
                 <button
                   class="btn btn-sm mat-detail-prompt-gen"
                   :disabled="finalPromptGen || !firstEpisodeId"
-                  :title="firstEpisodeId ? '由 AI 生成最终提示词' : '请先在「剧集列表」创建至少一集'"
+                  :title="firstEpisodeId ? t('detail.mat.genPromptTitle') : t('detail.mat.needEpisodeFirst')"
                   @click="generateFinalPrompt(editTarget)"
                 >
                   <svg v-if="!finalPromptGen" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m0 12v3m9-9h-3M6 12H3m13.5-6.5L14 8m-4 8-2.5 2.5m11 0L16 16M8 8 5.5 5.5"/><circle cx="12" cy="12" r="3"/></svg>
-                  {{ finalPromptGen ? '生成中…' : (editDraft.finalPrompt ? '重新生成' : '生成提示词') }}
+                  {{ finalPromptGen ? t('episode.asset.generating') + '…' : (editDraft.finalPrompt ? t('episode.sb.regenPrompt') : t('episode.asset.genPrompt')) }}
                 </button>
               </div>
               <textarea
                 v-model="editDraft.finalPrompt"
                 class="textarea mat-detail-prompt-text"
                 rows="5"
-                placeholder="点击「生成提示词」由 AI 根据信息生成，或在此手动填写。手动修改并保存后，下次生成图片将使用此提示词。"
+                :placeholder="t('detail.mat.promptPlaceholder')"
               ></textarea>
             </section>
           </div>
 
           <footer class="dialog-foot mat-detail-foot">
             <div class="mat-detail-secondary-actions">
-              <button class="btn" @click="closeEdit">关闭</button>
+              <button class="btn" @click="closeEdit">{{ t('common.close') }}</button>
             </div>
             <div class="mat-detail-primary-actions">
               <button
@@ -478,17 +490,17 @@
               >
                 <span v-if="isUploading(editTarget)" class="ring-spinner sm"></span>
                 <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                上传图片
+                {{ t('episode.asset.uploadImage') }}
               </button>
               <button
                 class="btn"
                 :disabled="isPending(editTarget)"
                 @click="generateMaterial(editTarget)"
               >
-                {{ matHasImage(editTarget) ? '重新生成' : (isPending(editTarget) ? '生成中…' : '生成图片') }}
+                {{ matHasImage(editTarget) ? t('episode.sb.regenPrompt') : (isPending(editTarget) ? t('episode.asset.generating') + '…' : t('detail.mat.genImage')) }}
               </button>
               <button class="btn btn-primary" :disabled="editSaving" @click="saveEdit">
-                {{ editSaving ? '保存中…' : '保存修改' }}
+                {{ editSaving ? t('detail.mat.saving') : t('episode.asset.saveChanges') }}
               </button>
             </div>
           </footer>
@@ -512,36 +524,36 @@
     <div v-if="addDialog" class="overlay" @click.self="addDialog = false">
       <div class="dialog ep-dialog">
         <div class="dialog-head">
-          <div class="dialog-title">创建新集</div>
+          <div class="dialog-title">{{ t('detail.epCreate.title') }}</div>
           <button class="btn btn-icon btn-sm btn-ghost ml-auto dialog-close" @click="addDialog = false">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="dialog-body">
           <label class="field">
-            <span class="field-label">标题</span>
-            <input v-model="newEpisodeTitle" class="input" placeholder="默认按集数自动命名" />
-            <span class="field-hint">留空时会自动按集数命名，例如“第 3 集”。</span>
+            <span class="field-label">{{ t('detail.epCreate.titleField') }}</span>
+            <input v-model="newEpisodeTitle" class="input" :placeholder="t('detail.epCreate.titlePlaceholder')" />
+            <span class="field-hint">{{ t('detail.epCreate.titleHint', { example: t('detail.epCreate.example', { n: 3 }) }) }}</span>
           </label>
           <label class="field">
-            <span class="field-label">视频分辨率</span>
-            <BaseSelect v-model="newEpisodeResolution" :options="resolutionOptions" placeholder="选择分辨率" />
-            <span class="field-hint">创建后本集视频按此分辨率生成，之后仍可在集卡片上修改。</span>
+            <span class="field-label">{{ t('detail.epCreate.resolution') }}</span>
+            <BaseSelect v-model="newEpisodeResolution" :options="resolutionOptions" :placeholder="t('detail.epCreate.resolutionPlaceholder')" />
+            <span class="field-hint">{{ t('detail.epCreate.resolutionHint') }}</span>
           </label>
         </div>
         <div class="dialog-foot">
-          <span class="dialog-foot-copy">创建后自动锁定当前启用的图片与视频生成能力。</span>
-          <button class="btn" @click="addDialog = false">取消</button>
+          <span class="dialog-foot-copy">{{ t('detail.epCreate.lockCopy') }}</span>
+          <button class="btn" @click="addDialog = false">{{ t('common.cancel') }}</button>
           <button class="btn btn-primary" :disabled="creatingEpisode" @click="addEpisode">
-            {{ creatingEpisode ? '创建中...' : '创建' }}
+            {{ creatingEpisode ? t('detail.epCreate.creating') : t('detail.epCreate.create') }}
           </button>
         </div>
       </div>
     </div>
     <ConfirmDialog
       :open="!!episodeToDelete"
-      title="删除本集"
-      :message="`确定删除「${episodeToDelete?.title || `第 ${episodeToDelete?.episode_number || episodeToDelete?.episodeNumber} 集`}」？删除后不可在列表中查看，其分镜与生成记录将不再可访问。`"
+      :title="t('detail.ep.deleteTitle')"
+      :message="t('detail.epDelete.message', { title: episodeToDelete?.title || t('detail.ep.episodeN', { n: episodeToDelete?.episode_number || episodeToDelete?.episodeNumber }) })"
       :loading="deletingEpisode"
       @confirm="confirmDelEpisode"
       @cancel="episodeToDelete = null"
@@ -551,8 +563,12 @@
 
 <script setup>
 import { toast } from 'vue-sonner'
+import { toastError } from '~/composables/useToast'
+import { useI18n } from 'vue-i18n'
 import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+
+const { t, locale } = useI18n()
 
 const route = useRoute()
 const drama = ref(null)
@@ -564,10 +580,10 @@ const episodeToDelete = ref(null)
 const deletingEpisode = ref(false)
 
 // 视频分辨率：创建集时固定（持久化到 episodes.resolution），集卡片上可修改
-const resolutionOptions = [
-  { label: '720p · 高清', value: '720p' },
-  { label: '480p · 流畅', value: '480p' },
-]
+const resolutionOptions = computed(() => ([
+  { label: t('detail.ep.res720'), value: '720p' },
+  { label: t('detail.ep.res480'), value: '480p' },
+]))
 const newEpisodeResolution = ref('720p')
 const epResMenuId = ref(null)
 
@@ -580,23 +596,23 @@ async function setEpisodeResolution(ep, resolution) {
   ep.resolution = resolution
   try {
     await episodeAPI.update(ep.id, { resolution })
-    toast.success(`本集视频分辨率已切换为 ${resolution}`)
+    toast.success(t('detail.ep.resSwitched', { res: resolution }))
   } catch (e) {
     ep.resolution = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
 // 集状态由用户手动标记（持久化到 episodes.status），不再按剧本内容自动推算
-const epStatusOptions = [
-  { label: '待开始', value: 'draft' },
-  { label: '进行中', value: 'active' },
-  { label: '已完成', value: 'completed' },
-]
+const epStatusOptions = computed(() => ([
+  { label: t('index.status.draft'), value: 'draft' },
+  { label: t('index.status.active'), value: 'active' },
+  { label: t('index.status.completed'), value: 'completed' },
+]))
 const epStatusMenuId = ref(null)
 
 function epStatus(ep) { return ep.status || 'draft' }
-function epStatusLabel(ep) { return epStatusOptions.find(s => s.value === epStatus(ep))?.label || '待开始' }
+function epStatusLabel(ep) { return epStatusOptions.value.find(s => s.value === epStatus(ep))?.label || t('index.status.draft') }
 function epStatusDotClass(ep) { return epStatus(ep) === 'active' ? 'dot-active' : epStatus(ep) === 'completed' ? 'dot-done' : 'dot-pending' }
 
 function formatEpTime(ts) {
@@ -604,9 +620,9 @@ function formatEpTime(ts) {
   const d = new Date(ts)
   const now = new Date()
   const diff = now - d
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3600_000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 86400_000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 60_000) return t('index.time.justNow')
+  if (diff < 3600_000) return t('index.time.minutesAgo', { n: Math.floor(diff / 60000) })
+  if (diff < 86400_000) return t('index.time.hoursAgo', { n: Math.floor(diff / 3600000) })
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
@@ -619,7 +635,7 @@ async function setEpisodeStatus(ep, status) {
     await episodeAPI.update(ep.id, { status })
   } catch (e) {
     ep.status = prev
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -627,7 +643,7 @@ async function load() {
   try {
     drama.value = await dramaAPI.get(dramaId)
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -646,11 +662,11 @@ async function addEpisode() {
       title: newEpisodeTitle.value || undefined,
       resolution: newEpisodeResolution.value,
     })
-    toast.success('已添加新集')
+    toast.success(t('detail.epCreate.added'))
     addDialog.value = false
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     creatingEpisode.value = false
   }
@@ -662,11 +678,11 @@ async function confirmDelEpisode() {
   try {
     deletingEpisode.value = true
     await episodeAPI.del(ep.id)
-    toast.success('已删除')
+    toast.success(t('index.deleted'))
     episodeToDelete.value = null
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     deletingEpisode.value = false
   }
@@ -677,12 +693,12 @@ const activeTab = ref('episodes')
 const assetTab = ref('all')
 const assetViewer = ref({ open: false, src: '', title: '' })
 const pendingMaterials = ref(new Set())
-const assetTabs = [
-  { label: '全部', value: 'all' },
-  { label: '角色', value: 'character' },
-  { label: '场景', value: 'scene' },
-  { label: '道具', value: 'prop' },
-]
+const assetTabs = computed(() => ([
+  { label: t('index.status.all'), value: 'all' },
+  { label: t('common.role'), value: 'character' },
+  { label: t('common.scene'), value: 'scene' },
+  { label: t('common.prop'), value: 'prop' },
+]))
 const KIND_ORDER = { character: 0, scene: 1, prop: 2 }
 
 // 素材库以 characters / scenes / props 三张资产表为源（后端生图会写回其 imageUrl）
@@ -702,15 +718,16 @@ function matDesc(m) {
 function tagClass(kindKey) {
   return kindKey === 'character' ? 'is-character' : kindKey === 'scene' ? 'is-scene' : 'is-prop'
 }
-function tabLabel(v) { return assetTabs.find(t => t.value === v)?.label || '' }
+function tabLabel(v) { return assetTabs.value.find(x => x.value === v)?.label || '' }
 
+// kind 为显示名（渲染时求值），kindKey 为逻辑值
 const materials = computed(() => {
   const d = drama.value
   if (!d) return []
   const list = []
-  for (const c of d.characters || []) list.push({ ...c, kind: '角色', kindKey: 'character' })
-  for (const s of d.scenes || []) list.push({ ...s, kind: '场景', kindKey: 'scene' })
-  for (const p of d.props || []) list.push({ ...p, kind: '道具', kindKey: 'prop' })
+  for (const c of d.characters || []) list.push({ ...c, kind: t('common.role'), kindKey: 'character' })
+  for (const s of d.scenes || []) list.push({ ...s, kind: t('common.scene'), kindKey: 'scene' })
+  for (const p of d.props || []) list.push({ ...p, kind: t('common.prop'), kindKey: 'prop' })
   return list.sort((a, b) => (KIND_ORDER[a.kindKey] - KIND_ORDER[b.kindKey]) || (a.id - b.id))
 })
 const visibleAssets = computed(() =>
@@ -720,9 +737,9 @@ const assetTotal = computed(() => materials.value.length)
 // 按类型分组：全部模式下分成 角色 / 场景 / 道具 三个分区；筛选单类时只保留该类
 const assetGroups = computed(() => {
   const groups = [
-    { kindKey: 'character', label: '角色', items: materials.value.filter(m => m.kindKey === 'character') },
-    { kindKey: 'scene', label: '场景', items: materials.value.filter(m => m.kindKey === 'scene') },
-    { kindKey: 'prop', label: '道具', items: materials.value.filter(m => m.kindKey === 'prop') },
+    { kindKey: 'character', label: t('common.role'), items: materials.value.filter(m => m.kindKey === 'character') },
+    { kindKey: 'scene', label: t('common.scene'), items: materials.value.filter(m => m.kindKey === 'scene') },
+    { kindKey: 'prop', label: t('common.prop'), items: materials.value.filter(m => m.kindKey === 'prop') },
   ]
   return assetTab.value === 'all'
     ? groups
@@ -736,7 +753,7 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 async function generateMaterial(m) {
   const epId = drama.value?.episodes?.[0]?.id
-  if (!epId) { toast.error('请先在「剧集列表」创建至少一集，才能生成素材图'); return }
+  if (!epId) { toast.error(t('detail.mat.needEpisodeForImage')); return }
   const key = pendingKey(m)
   if (pendingMaterials.value.has(key)) return
   pendingMaterials.value = new Set(pendingMaterials.value).add(key)
@@ -744,11 +761,11 @@ async function generateMaterial(m) {
     if (m.kindKey === 'character') await characterAPI.generateImage(m.id, epId)
     else if (m.kindKey === 'scene') await sceneAPI.generateImage(m.id, epId)
     else await propAPI.generateImage(m.id, epId)
-    toast.success(`${m.kind}「${m.name}」图片生成中`)
+    toast.success(t('detail.mat.generating', { kind: m.kind, name: m.name }))
     pollMaterial(m)
   } catch (e) {
     pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
-    toast.error(e.message)
+    toastError(e)
   }
 }
 
@@ -767,7 +784,7 @@ async function pollMaterial(m) {
     }
   }
   pendingMaterials.value = new Set([...pendingMaterials.value].filter(k => k !== key))
-  toast.info(`${m.kind}「${m.name}」生成超时，可稍后刷新查看`)
+  toast.info(t('detail.mat.genTimeout', { kind: m.kind, name: m.name }))
 }
 
 function switchToAssets() {
@@ -795,14 +812,14 @@ function uploadMaterial(m) {
       if (m.kindKey === 'character') await characterAPI.update(m.id, payload)
       else if (m.kindKey === 'scene') await sceneAPI.update(m.id, payload)
       else await propAPI.update(m.id, payload)
-      toast.success(`${m.kind}「${m.name}」图片已上传`)
+      toast.success(t('detail.mat.uploaded', { kind: m.kind, name: m.name }))
       await load()
       // 详情弹窗打开时同步刷新预览
       if (editTarget.value && editTarget.value.kindKey === m.kindKey && editTarget.value.id === m.id) {
         editTarget.value = { ...editTarget.value, image_url: res.path, local_path: res.path }
       }
     } catch (e) {
-      toast.error(e.message)
+      toastError(e)
     } finally {
       uploadingMaterials.value = new Set([...uploadingMaterials.value].filter(k => k !== key))
     }
@@ -821,7 +838,7 @@ function fmtDate(s) {
   if (!s) return ''
   const d = new Date(s)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : locale.value, { month: 'short', day: 'numeric' })
 }
 
 /* ===== 素材信息编辑 ===== */
@@ -850,7 +867,7 @@ const finalPromptGen = ref(false)
 const firstEpisodeId = computed(() => drama.value?.episodes?.[0]?.id || null)
 async function generateFinalPrompt(m) {
   const epId = firstEpisodeId.value
-  if (!epId) { toast.error('请先在「剧集列表」创建至少一集，才能生成最终提示词'); return }
+  if (!epId) { toast.error(t('detail.mat.needEpisodeForPrompt')); return }
   finalPromptGen.value = true
   try {
     let res
@@ -858,12 +875,12 @@ async function generateFinalPrompt(m) {
     else if (m.kindKey === 'scene') res = await sceneAPI.generatePrompt(m.id, epId, true)
     else res = await propAPI.generatePrompt(m.id, epId, true)
     const fp = res?.final_prompt || res?.finalPrompt
-    if (!fp) throw new Error('最终提示词生成失败，请重试')
+    if (!fp) throw new Error(t('episode.asset.promptGenFailedRetry'))
     editTarget.value = { ...m, finalPrompt: fp }
     editDraft.finalPrompt = fp
-    toast.success('最终提示词已生成')
+    toast.success(t('episode.asset.promptGenerated'))
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     finalPromptGen.value = false
   }
@@ -875,23 +892,23 @@ function closeEdit() {
 }
 
 async function saveEdit() {
-  const t = editTarget.value
-  if (!t) return
+  const target = editTarget.value
+  if (!target) return
   // 必填校验
-  if (t.kindKey === 'character' && !String(editDraft.name ?? '').trim()) { toast.error('请填写名称'); return }
-  if (t.kindKey === 'scene' && !String(editDraft.location ?? '').trim()) { toast.error('请填写地点'); return }
-  if (t.kindKey === 'prop' && !String(editDraft.name ?? '').trim()) { toast.error('请填写名称'); return }
+  if (target.kindKey === 'character' && !String(editDraft.name ?? '').trim()) { toast.error(t('episode.create.nameRequired')); return }
+  if (target.kindKey === 'scene' && !String(editDraft.location ?? '').trim()) { toast.error(t('detail.mat.locationRequired')); return }
+  if (target.kindKey === 'prop' && !String(editDraft.name ?? '').trim()) { toast.error(t('episode.create.nameRequired')); return }
   editSaving.value = true
   try {
     const fp = editDraft.finalPrompt || null
-    if (t.kindKey === 'character') await characterAPI.update(t.id, { name: editDraft.name, role: editDraft.role, appearance: editDraft.appearance, description: editDraft.description, styling: editDraft.styling, finalPrompt: fp })
-    else if (t.kindKey === 'scene') await sceneAPI.update(t.id, { location: editDraft.location, time: editDraft.time, prompt: editDraft.prompt, lighting: editDraft.lighting, finalPrompt: fp })
-    else await propAPI.update(t.id, { name: editDraft.name, type: editDraft.type, description: editDraft.description, finalPrompt: fp })
-    toast.success('已保存')
+    if (target.kindKey === 'character') await characterAPI.update(target.id, { name: editDraft.name, role: editDraft.role, appearance: editDraft.appearance, description: editDraft.description, styling: editDraft.styling, finalPrompt: fp })
+    else if (target.kindKey === 'scene') await sceneAPI.update(target.id, { location: editDraft.location, time: editDraft.time, prompt: editDraft.prompt, lighting: editDraft.lighting, finalPrompt: fp })
+    else await propAPI.update(target.id, { name: editDraft.name, type: editDraft.type, description: editDraft.description, finalPrompt: fp })
+    toast.success(t('common.saved'))
     closeEdit()
     load()
   } catch (e) {
-    toast.error(e.message)
+    toastError(e)
   } finally {
     editSaving.value = false
   }
@@ -902,49 +919,51 @@ onMounted(load)
 
 <style scoped>
 .page {
-  padding: 28px 48px 40px;
+  padding: 20px 28px 40px;
   overflow-y: auto;
   height: 100%;
   animation: fadeUp 0.35s var(--ease-out) both;
 }
 
-/* Header card */
+/* Header card：单行紧凑 */
 .page-head {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  border-radius: var(--radius-xl);
-  margin-bottom: 24px;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
 }
-.head-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.head-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.head-info { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .head-action { flex-shrink: 0; }
 
 .back-btn {
-  width: 36px; height: 36px; flex-shrink: 0;
+  width: 30px; height: 30px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: none; border-radius: 50%;
-  background: rgba(0,0,0,0.05); color: var(--text-1);
+  background: var(--overlay-track); color: var(--text-1);
   cursor: pointer;
   transition: background 0.16s var(--ease-out), color 0.16s var(--ease-out), box-shadow 0.16s var(--ease-out);
 }
-.back-btn:hover { background: rgba(0,0,0,0.09); color: var(--text-0); }
+.back-btn:hover { background: var(--bg-active); color: var(--text-0); }
 .back-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3.5px var(--button-focus);
 }
 
 .page-title {
-  font-size: 22px; font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 17px; font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.page-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.page-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .meta-item {
   display: flex; align-items: center; gap: 5px;
-  font-size: 12.5px; color: var(--text-2);
+  font-size: 12px; color: var(--text-2);
 }
 
 /* 主 Tab 导航 */
@@ -953,7 +972,7 @@ onMounted(load)
   align-items: center;
   gap: 4px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .tab-btn {
   position: relative;
@@ -962,9 +981,9 @@ onMounted(load)
   gap: 7px;
   border: none;
   background: transparent;
-  padding: 10px 4px 12px;
+  padding: 8px 4px 10px;
   margin-right: 20px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-2);
   cursor: pointer;
@@ -981,7 +1000,7 @@ onMounted(load)
   transition: background 0.16s var(--ease-out);
 }
 .tab-btn:hover { color: var(--text-0); }
-.tab-btn.on { color: var(--text-0); font-weight: 700; }
+.tab-btn.on { color: var(--text-0); font-weight: 650; }
 .tab-btn.on::after { background: var(--accent); }
 .tab-count {
   display: inline-flex;
@@ -999,97 +1018,107 @@ onMounted(load)
 }
 .tab-btn.on .tab-count { background: var(--accent-bg); color: var(--accent-text); }
 
-/* Episode Grid — auto-fill 多列卡片 */
+/* Episode Grid — 横向紧凑卡片，多列 */
 .ep-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 10px;
 }
 
-/* 卡片主体 — 垂直面板 */
+/* 卡片主体 — 上信息区 + 下常驻操作条 */
 .ep-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
+  gap: 10px;
+  padding: 12px 14px 10px;
   cursor: pointer;
-  border-top: 3px solid transparent;
   animation: fadeUp 0.35s var(--ease-out) both;
-  transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), transform 0.15s var(--ease-out);
+  transition: border-color 0.18s var(--ease-out), background 0.18s var(--ease-out);
 }
 .ep-card:hover {
-  box-shadow: var(--shadow-lift);
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
 }
-/* 顶部状态色条 */
-.ep-card-draft { border-top-color: var(--text-3); }
-.ep-card-active { border-top-color: var(--success); }
-.ep-card-completed { border-top-color: var(--accent); }
 
-/* ---- 卡片头部：编号 / 状态 / 操作 ---- */
-.ep-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+/* 上区：编号 + 标题元数据 + 状态 */
+.ep-card-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
+/* 编号徽标：统一中性，状态由圆点表达 */
 .ep-number {
-  width: 46px; height: 46px; flex-shrink: 0;
+  width: 40px; height: 40px; flex-shrink: 0;
   border-radius: var(--radius);
+  border: 1px solid var(--border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-family: var(--font-mono);
-  background: var(--accent-bg); color: var(--accent-text);
-  transition: background 0.16s, color 0.16s;
+  background: var(--bg-2); color: var(--text-1);
 }
 .ep-num-label {
-  font-size: 8px; letter-spacing: 0.18em; font-weight: 700;
-  opacity: 0.75; line-height: 1; margin-bottom: 1px;
+  font-size: 7.5px; letter-spacing: 0.18em; font-weight: 600;
+  opacity: 0.55; line-height: 1; margin-bottom: 1px;
 }
 .ep-number b {
-  font-size: 17px; font-weight: 800; line-height: 1;
+  font-size: 15px; font-weight: 600; line-height: 1;
 }
-.ep-num-active { background: var(--success-bg); color: var(--success); }
-.ep-num-completed { background: var(--accent-bg); color: var(--accent-text); }
-.ep-num-draft { background: var(--bg-2); color: var(--text-1); }
 
-.ep-badges { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-.ep-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.18s; }
-.ep-card:hover .ep-actions { opacity: 1; }
-
-/* 标题 */
+/* 中部：标题 + 元数据（单行不换行，防止卡片被撑高错位） */
+.ep-main { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
 .ep-title {
-  font-size: 15px; font-weight: 700; color: var(--text-0);
-  line-height: 1.3; margin: 0 0 10px 0;
-  overflow: hidden; text-overflow: ellipsis;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: 13.5px; font-weight: 600; color: var(--text-0);
+  line-height: 1.35; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-
-/* 元数据行 */
-.ep-meta-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: auto; }
+.ep-meta-row {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap; overflow: hidden;
+  white-space: nowrap;
+}
 .ep-meta {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11.5px; color: var(--text-3);
+  font-size: 11px; color: var(--text-3);
+  white-space: nowrap; flex-shrink: 0;
 }
 .ep-meta svg { opacity: 0.7; flex-shrink: 0; }
-.ep-meta-ok { color: var(--success); }
-.ep-meta-ok svg { opacity: 1; }
+.ep-meta-ok { color: var(--text-2); }
+.ep-time { flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
 
-/* 底部栏 */
-.ep-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 12px; padding-top: 10px;
+/* 状态胶囊：中性底 + 彩色圆点，颜色只出现在点上 */
+.ep-badges { display: flex; align-items: center; flex-shrink: 0; }
+
+/* 下区：常驻操作条 */
+.ep-card-foot {
+  display: flex; align-items: center; gap: 6px;
+  padding-top: 9px;
   border-top: 1px solid var(--border);
 }
-.ep-time { font-size: 11px; color: var(--text-3); opacity: 0.6; }
-.ep-arrow { color: var(--text-3); transition: transform 0.18s var(--ease-out), color 0.18s; }
-.ep-card:hover .ep-arrow { transform: translateX(2px); color: var(--accent); }
+.ep-foot-spacer { flex: 1; }
 
-/* 状态胶囊 */
+/* 进入制作 — 卡片主操作 */
+.ep-enter {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px;
+  border: none; border-radius: var(--radius);
+  background: var(--accent-bg); color: var(--accent-text);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.ep-enter:hover {
+  background: var(--accent-gradient); color: var(--on-accent, #fff);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+.ep-enter svg { transition: transform 0.18s var(--ease-out); }
+.ep-enter:hover svg { transform: translateX(2px); }
 .ep-status-btn {
   cursor: pointer; border: none; font: inherit;
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 2px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px;
+  background: var(--bg-2); color: var(--text-2);
+  font-size: 11px; font-weight: 500;
   transition: background 0.14s, color 0.14s;
+  white-space: nowrap;
 }
-.ep-status-draft { background: var(--bg-2); color: var(--text-2); }
-.ep-status-active { background: rgba(34,197,94,0.1); color: #16a34a; }
-.ep-status-completed { background: var(--accent-bg); color: var(--accent-text); }
+.ep-status-btn:hover { color: var(--text-0); background: var(--bg-3); }
 
 /* 分辨率标签 */
 .ep-res-btn {
@@ -1106,35 +1135,9 @@ onMounted(load)
 .status-dot {
   width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
 }
-.dot-active { background: var(--success); box-shadow: 0 0 4px rgba(34,197,94,0.35); }
+.dot-active { background: var(--success); }
 .dot-done { background: var(--accent); }
 .dot-pending { background: var(--text-3); }
-
-/* 下拉菜单 */
-.status-menu {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 0;
-  width: 110px;
-  display: grid;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-}
-.status-menu-item {
-  min-height: var(--button-height-sm);
-  display: flex; align-items: center;
-  border: none; border-radius: 6px;
-  background: transparent; color: var(--text-1);
-  padding: 0 9px; text-align: left;
-  font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all 0.14s var(--ease-out);
-}
-.status-menu-item:hover { background: var(--bg-hover); color: var(--text-0); }
-.status-menu-item.on { color: var(--accent); background: var(--accent-bg); }
 
 /* 删除按钮 */
 .ep-delete {
@@ -1143,25 +1146,23 @@ onMounted(load)
 }
 .ep-delete:hover { color: var(--action-danger); }
 
-/* Empty */
+/* Empty / 添加卡片：与剧集卡片等高的虚线条 */
 .ep-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 48px; text-align: center; color: var(--text-3); font-size: 13px;
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
+  min-height: 104px;
+  padding: 8px; text-align: center; color: var(--text-3); font-size: 12.5px;
   border-style: dashed;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 .ep-empty:hover { border-color: var(--accent-text); color: var(--accent-text); background: var(--accent-bg); }
-.ep-empty:hover .ep-empty-icon { transform: scale(1.06); }
-/* 列表末尾的「添加下一集」卡片：与剧集卡片等高、内容居中 */
-.ep-add { justify-content: center; min-height: 150px; padding: 24px; }
-.ep-add .ep-empty-icon { width: 40px; height: 40px; }
 .ep-empty-icon {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: var(--accent-bg); color: var(--accent-text);
-  display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-2); color: var(--text-3);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: transform 0.2s, background 0.2s, color 0.2s;
 }
+.ep-empty:hover .ep-empty-icon { background: var(--accent-bg); color: var(--accent-text); }
 
 /* Create Episode Dialog (on top of global .dialog skeleton) */
 .ep-dialog { width: min(480px, 100%); }
@@ -1216,10 +1217,10 @@ onMounted(load)
 }
 .asset-group-head.is-character { border-left-color: var(--accent); background: var(--accent-bg); color: var(--accent-text); }
 .asset-group-head.is-character .group-icon { color: var(--accent-text); }
-.asset-group-head.is-scene { border-left-color: #16a34a; background: rgba(34,197,94,0.1); color: #15803d; }
-.asset-group-head.is-scene .group-icon { color: #15803d; }
-.asset-group-head.is-prop { border-left-color: #b45309; background: rgba(180,83,9,0.1); color: #b45309; }
-.asset-group-head.is-prop .group-icon { color: #b45309; }
+.asset-group-head.is-scene { border-left-color: var(--success); background: var(--success-bg); color: var(--tag-success-text); }
+.asset-group-head.is-scene .group-icon { color: var(--tag-success-text); }
+.asset-group-head.is-prop { border-left-color: var(--warning); background: var(--warning-bg); color: var(--warn-text); }
+.asset-group-head.is-prop .group-icon { color: var(--warn-text); }
 .asset-card {
   display: flex; flex-direction: column; overflow: hidden;
   transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
@@ -1372,17 +1373,17 @@ onMounted(load)
   align-items: center;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.85);
+  background: var(--header-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-xs);
   color: var(--text-2);
   font-size: 9.5px;
   font-weight: 700;
 }
 .asset-cover-badge.is-ready {
   background: var(--success-bg);
-  color: #248a3d;
+  color: var(--tag-success-text);
 }
 .asset-cover-badge.is-pending {
   background: var(--accent-bg);
@@ -1457,7 +1458,7 @@ onMounted(load)
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 4px;
 }
-.empty-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
+.empty-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .empty-desc { font-size: 12px; color: var(--text-3); max-width: 260px; line-height: 1.6; }
 
 .viewer-overlay { align-items: center; }
@@ -1544,7 +1545,7 @@ onMounted(load)
 .mat-detail-state {
   min-height: 20px; display: inline-flex; align-items: center;
   padding: 0 7px; border-radius: 999px;
-  background: rgba(0,0,0,0.05); color: var(--text-3);
+  background: var(--overlay-track); color: var(--text-3);
   font-size: 10px; font-weight: 760; white-space: nowrap;
 }
 .mat-detail-state.is-ready { color: var(--success); background: var(--success-bg); }
@@ -1616,7 +1617,7 @@ onMounted(load)
 .mat-detail-primary-actions { display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: 860px) {
-  .page { padding: 20px 20px 32px; }
+  .page { padding: 16px 16px 32px; }
   .page-head { flex-wrap: wrap; }
   .ep-grid { grid-template-columns: 1fr; }
   .ep-actions { opacity: 1; } /* 移动端始终显示操作按钮 */

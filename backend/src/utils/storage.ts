@@ -3,12 +3,9 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 import { v4 as uuid } from 'uuid'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const STORAGE_ROOT = process.env.STORAGE_PATH || path.resolve(__dirname, '../../../data/static')
+import { STORAGE_ROOT } from './paths.js'
 
 /**
  * 下载远程文件到本地存储

@@ -1,111 +1,71 @@
 <template>
-  <div class="model-select" ref="rootEl">
+  <div class="model-select">
     <span class="model-select-label">{{ label }}</span>
-    <button type="button" class="model-select-trigger" :class="{ open: isOpen }" @click="toggle">
-      <span v-if="currentOption?.provider" class="model-select-provider">{{ currentOption.provider }}</span>
-      <span class="model-select-value">{{ currentLabel }}</span>
-      <ChevronDown :size="11" class="model-select-arrow" />
-    </button>
+    <AppMenu v-model:open="isOpen" :min-width="280">
+      <template #trigger>
+        <button type="button" class="model-select-trigger" :class="{ open: isOpen }">
+          <img v-if="triggerIcon" :src="triggerIcon" class="model-select-icon" alt="" />
+          <span v-else-if="currentOption?.provider" class="model-select-provider">{{ currentOption.provider }}</span>
+          <span class="model-select-value">{{ currentLabel }}</span>
+          <ChevronDown :size="11" class="model-select-arrow" :class="{ open: isOpen }" />
+        </button>
+      </template>
 
-    <Teleport to="body">
-      <div v-if="isOpen" class="model-select-menu" :style="menuStyle" ref="menuEl">
-        <button
-          v-if="!hideDefault"
-          type="button"
-          :class="['model-select-option', { selected: modelValue === '' }]"
-          @click="pick('')"
-        >
-          <Check :size="12" class="opt-check" />
-          <span class="opt-model dim">{{ defaultLabel }}</span>
-        </button>
-        <button
-          v-for="o in options"
-          :key="o.key || o.model"
-          type="button"
-          :class="['model-select-option', { selected: modelValue === (o.key || o.model) }]"
-          @click="pick(o.key || o.model)"
-        >
-          <Check :size="12" class="opt-check" />
-          <span class="opt-model">{{ o.model }}</span>
-          <span v-if="o.provider" class="opt-provider">{{ o.provider }}</span>
-          <span v-if="showConfig" class="opt-config">{{ o.configName }}</span>
-        </button>
-      </div>
-      <div v-if="isOpen" class="model-select-backdrop" @click="close" />
-    </Teleport>
+      <AppMenuItem v-if="!hideDefault" :selected="modelValue === ''" @click="pick('')">
+        <img v-if="defaultIcon" :src="defaultIcon" class="model-select-icon sm" alt="" />
+        <span class="model-select-dim">{{ effectiveDefaultLabel }}</span>
+      </AppMenuItem>
+      <AppMenuItem
+        v-for="o in options"
+        :key="o.key || o.model"
+        :selected="modelValue === (o.key || o.model)"
+        :title="`${o.model}${o.configName ? ` · ${o.configName}` : ''}`"
+        @click="pick(o.key || o.model)"
+      >
+        <span class="model-select-option-name">{{ o.model }}</span>
+        <template v-if="modelIconUrl(o.provider, o.model)" #trailing>
+          <img :src="modelIconUrl(o.provider, o.model)" class="model-select-icon sm" alt="" />
+        </template>
+      </AppMenuItem>
+    </AppMenu>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
-import { ChevronDown, Check } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ChevronDown } from 'lucide-vue-next'
+import { modelIconUrl } from '~/composables/useProviderIcon'
 
 const props = defineProps({
   label: { type: String, required: true },          // 改写 / 图片 / 视频
   modelValue: { type: String, default: '' },        // '' = 默认（配置首个模型）；选中值为 'provider/model' 复合键
   options: { type: Array, default: () => [] },      // [{ key, model, provider, configId, configName }]
-  defaultLabel: { type: String, default: '默认' },
+  defaultLabel: { type: String, default: '' },      // 缺省回退 t('common.default')
   showConfig: { type: Boolean, default: false },    // 多配置时显示来源配置名
   hideDefault: { type: Boolean, default: false },   // 无「默认」语义的选择器（如分辨率）隐藏默认项
 })
 const emit = defineEmits(['update:modelValue'])
 
+const { t } = useI18n()
+
 const isOpen = ref(false)
-const rootEl = ref()
-const menuEl = ref()
-const menuStyle = ref({})
 
+const effectiveDefaultLabel = computed(() => props.defaultLabel || t('common.default'))
 const currentOption = computed(() => props.options.find(o => (o.key || o.model) === props.modelValue) || null)
-const currentLabel = computed(() => currentOption.value?.model || props.defaultLabel)
-
-function toggle() { isOpen.value ? close() : open() }
-
-async function open() {
-  isOpen.value = true
-  await nextTick()
-  positionMenu()
-  menuEl.value?.querySelector('.selected')?.scrollIntoView({ block: 'nearest' })
-}
-
-function close() { isOpen.value = false }
+const currentLabel = computed(() => currentOption.value?.model || effectiveDefaultLabel.value)
+// 默认 = 首个选项；未显式选模型时也展示默认模型的厂商图标（与 defaultLabel 取 options[0] 同口径）
+// 图标按模型名推断（网关 provider=openai 但模型实为 deepseek 等场景），回退 provider
+const defaultIcon = computed(() => modelIconUrl(props.options[0]?.provider, props.options[0]?.model))
+const triggerIcon = computed(() =>
+  currentOption.value
+    ? modelIconUrl(currentOption.value.provider, currentOption.value.model)
+    : defaultIcon.value)
 
 function pick(model) {
   emit('update:modelValue', model)
-  close()
+  isOpen.value = false
 }
-
-function positionMenu() {
-  const rect = rootEl.value?.getBoundingClientRect()
-  if (!rect) return
-  const menuWidth = Math.max(rect.width, 240)
-  const left = Math.min(rect.left, window.innerWidth - menuWidth - 12)
-  menuStyle.value = {
-    position: 'fixed',
-    top: `${rect.bottom + 6}px`,
-    left: `${Math.max(12, left)}px`,
-    minWidth: `${menuWidth}px`,
-    maxHeight: `${Math.min(window.innerHeight - rect.bottom - 20, 340)}px`,
-  }
-}
-
-function onKeydown(e) {
-  if (e.key === 'Escape') close()
-}
-
-watch(isOpen, (val) => {
-  if (val) {
-    document.addEventListener('scroll', positionMenu, true)
-    document.addEventListener('keydown', onKeydown)
-  } else {
-    document.removeEventListener('scroll', positionMenu, true)
-    document.removeEventListener('keydown', onKeydown)
-  }
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('scroll', positionMenu, true)
-  document.removeEventListener('keydown', onKeydown)
-})
 </script>
 
 <style scoped>
@@ -134,7 +94,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
 }
-.model-select-trigger:hover { border-color: rgba(0,0,0,0.22); }
+.model-select-trigger:hover { border-color: var(--border-hover); }
 .model-select-trigger.open,
 .model-select-trigger:focus-visible {
   border-color: var(--border-focus);
@@ -146,12 +106,20 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.model-select-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  border-radius: 2.5px;
+}
+.model-select-icon.sm { width: 12px; height: 12px; }
 .model-select-provider {
   flex-shrink: 0;
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--accent-bg, rgba(0,113,227,0.10));
-  color: var(--accent, #0071e3);
+  background: var(--accent-bg);
+  color: var(--accent);
   font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
@@ -162,77 +130,14 @@ onBeforeUnmount(() => {
   color: var(--text-3);
   transition: transform 0.18s var(--ease-out);
 }
-.model-select-trigger.open .model-select-arrow { transform: rotate(180deg); }
-</style>
+.model-select-arrow.open { transform: rotate(180deg); }
 
-<!-- 菜单 Teleport 到 body，不能用 scoped -->
-<style>
-.model-select-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 990;
-}
-.model-select-menu {
-  z-index: 991;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 5px;
-  border-radius: 12px;
-  background: var(--bg-1, #fff);
-  border: 1px solid var(--border);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
-  overflow-y: auto;
-  animation: modelMenuIn 0.16s var(--ease-out, ease-out);
-}
-@keyframes modelMenuIn {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-.model-select-option {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  padding: 7px 9px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-1);
-  font: 12px var(--font-body);
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.model-select-option:hover { background: var(--accent-bg, rgba(0,113,227,0.08)); }
-.model-select-option .opt-check {
-  flex-shrink: 0;
-  color: var(--accent, #0071e3);
-  opacity: 0;
-}
-.model-select-option.selected .opt-check { opacity: 1; }
-.model-select-option.selected .opt-model { font-weight: 600; color: var(--text-0); }
-.model-select-option .opt-model {
+/* 菜单项：模型名完整优先，超长才省略（tooltip 有全名） */
+.model-select-option-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  max-width: 320px;
 }
-.model-select-option .opt-model.dim { color: var(--text-3); }
-.model-select-option .opt-provider {
-  flex-shrink: 0;
-  margin-left: auto;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--bg-3, rgba(0,0,0,0.06));
-  color: var(--text-3);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-.model-select-option .opt-config {
-  flex-shrink: 0;
-  font-size: 10px;
-  color: var(--text-3);
-}
+.model-select-dim { color: var(--text-3); }
 </style>

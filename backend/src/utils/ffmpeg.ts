@@ -10,15 +10,23 @@
 import { spawn } from 'child_process'
 import fs from 'fs'
 import ffmpeg from 'fluent-ffmpeg'
-import ffmpegPathImport from 'ffmpeg-static'
 import { createRequire } from 'module'
 
-// ffprobe-static 无类型声明,用 createRequire 引入(仓库 .gitignore 忽略 *.d.ts)
-const ffprobeStatic = createRequire(import.meta.url)('ffprobe-static') as { path: string }
+// ffmpeg-static / ffprobe-static 均为可选依赖：npm 安装时提供内置二进制；
+// 桌面版打包不携带这两个 npm 包（二进制随 resources/bin 分发），缺失时走 FFMPEG_BIN/FFPROBE_BIN
+const req = createRequire(import.meta.url)
 
-// ffmpeg-static 类型声明为 string,实际平台不支持时为 null
-const ffmpegPath = ffmpegPathImport as string | null
-const ffprobePath = (ffprobeStatic?.path as string | null) || null
+function resolveStatic(moduleName: string): string | null {
+  try {
+    const mod = req(moduleName)
+    return (moduleName === 'ffprobe-static' ? mod?.path : mod) ?? null
+  } catch {
+    return null
+  }
+}
+
+const ffmpegPath = process.env.FFMPEG_BIN || resolveStatic('ffmpeg-static')
+const ffprobePath = process.env.FFPROBE_BIN || resolveStatic('ffprobe-static')
 
 // 系统未安装 ffmpeg 时使用项目内置二进制
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
@@ -72,7 +80,7 @@ export async function checkFfmpegSuite(): Promise<FfmpegSuite> {
     console.warn(
       `[ffmpeg] 内置二进制不可用 (ffmpeg=${ffmpegOk ? 'ok' : 'FAIL'}, ffprobe=${ffprobeOk ? 'ok' : 'FAIL'})。` +
       `海报帧提取与视频拼接将跳过/失败。修复：删除 node_modules 后在本机重新 npm install，` +
-      `或设置 FFMPEG_BIN 指向有效的 ffmpeg 可执行文件`
+      `或设置 FFMPEG_BIN/FFPROBE_BIN 指向有效的可执行文件`
     )
   }
   return suite

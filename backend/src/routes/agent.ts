@@ -32,7 +32,7 @@ function normalizeToolResult(entry: any) {
 app.post('/:type/chat', async (c) => {
   const agentType = c.req.param('type')
   if (!validAgentTypes.includes(agentType)) {
-    return badRequest(c, `Invalid agent type: ${agentType}`)
+    return badRequest(c, `无效的 Agent 类型：${agentType}`)
   }
 
   const body = await c.req.json()
@@ -47,13 +47,13 @@ app.post('/:type/chat', async (c) => {
 
   if (!episode_id || !drama_id) {
     logTaskError('Agent', agentType, { reason: 'missing drama_id or episode_id' })
-    return badRequest(c, 'drama_id and episode_id are required')
+    return badRequest(c, '需要 drama_id 与 episode_id')
   }
 
   const agent = mastra.getAgent(agentType)
   if (!agent) {
     logTaskError('Agent', agentType, { reason: 'agent not found' })
-    return badRequest(c, 'Agent not found')
+    return badRequest(c, 'Agent 不存在')
   }
 
   const requestContext = buildAgentRequestContext({
@@ -103,14 +103,14 @@ app.post('/:type/chat', async (c) => {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskError('Agent', agentType, { elapsedSeconds: elapsed, error: err.message })
     console.error(err.stack || err)
-    return badRequest(c, err.message || 'Agent execution failed')
+    return badRequest(c, err.message || 'Agent 执行失败')
   }
 })
 
 // GET /agent/:type/debug
 app.get('/:type/debug', async (c) => {
   const agentType = c.req.param('type')
-  if (!validAgentTypes.includes(agentType)) return badRequest(c, 'Invalid agent type')
+  if (!validAgentTypes.includes(agentType)) return badRequest(c, '无效的 Agent 类型')
   return success(c, { agent_type: agentType, valid: true })
 })
 

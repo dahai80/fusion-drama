@@ -12,8 +12,8 @@ const app = new Hono()
 // POST /scenes — 手动新增场景（传入 episode_id 时关联到该集）
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id required')
-  if (!body.location?.trim()) return badRequest(c, 'location required')
+  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.location?.trim()) return badRequest(c, '地点必填')
   const ts = now()
   const res = await db.insert(schema.scenes).values({
     dramaId: body.drama_id,
@@ -68,19 +68,21 @@ app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
-  if (!scene) return badRequest(c, 'Scene not found')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  if (!scene) return badRequest(c, '场景不存在')
+  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
 
   const stylePrompt = await getDramaStylePrompt(scene.dramaId)
   const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
+  // 回退拼接也要守住无人物约束：场景描述(prompt)可能含人物活动，直接拼会让人混进图里
   const prompt = finalPrompt || [
     stylePrompt || '',
     scene.location,
     scene.time || '',
     scene.prompt || '高质量场景',
     scene.lighting || '电影感光影',
+    '画面中没有任何人物，空场景，只有场景本身',
   ].filter(Boolean).join(', ')
   try {
     logTaskStart('SceneImage', 'generate', { sceneId: id, episodeId: ep.id, dramaId: scene.dramaId, location: scene.location })
@@ -100,11 +102,11 @@ app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
-  if (!scene) return badRequest(c, 'Scene not found')
-  if (!body.episode_id) return badRequest(c, 'episode_id is required')
+  if (!scene) return badRequest(c, '场景不存在')
+  if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
-  if (!ep) return badRequest(c, 'Episode not found')
+  if (!ep) return badRequest(c, '剧集不存在')
 
   logTaskStart('FinalPrompt', 'scene-generate', { sceneId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })

@@ -21,7 +21,7 @@ test('backend provider registry does not expose ChatFire as a model provider', (
   assert.doesNotMatch(registry, /chatfire/i)
   assert.doesNotMatch(ai, /chatfire/i)
   assert.doesNotMatch(ai, /openrouter/i)
-  assert.doesNotMatch(aiConfigRoute, /api\.chatfire\.site/i)
+  assert.doesNotMatch(aiConfigRoute, /api\.firemux\.com/i)
   assert.doesNotMatch(aiConfigRoute, /provider:\s*'chatfire'/i)
   assert.doesNotMatch(aiConfigRoute, /openrouter/i)
   assert.doesNotMatch(aiConfigRoute, /\/huobao-preset/)
@@ -70,7 +70,7 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   assert.match(route, /isOfficialProvider/)
   assert.match(route, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
   assert.match(route, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(route, /Unsupported service_type\/provider/)
+  assert.match(route, /不支持的 service_type\/provider/)
 })
 
 test('AI config routes reject unsupported service/provider pairs in create, test, and update paths', () => {
@@ -81,18 +81,18 @@ test('AI config routes reject unsupported service/provider pairs in create, test
 
   assert.match(createRoute, /if \(!body\.service_type \|\| !body\.provider\)/)
   assert.match(createRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(createRoute, /badRequest\(c,\s*'Unsupported service_type\/provider'\)/)
+  assert.match(createRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(testRoute, /if \(!body\.service_type \|\| !body\.provider \|\| !body\.base_url\)/)
   assert.match(testRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(testRoute, /badRequest\(c,\s*'Unsupported service_type\/provider'\)/)
+  assert.match(testRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(updateRoute, /const serviceType = 'service_type' in body \? body\.service_type : existing\.serviceType/)
   assert.match(updateRoute, /const provider = 'provider' in body \? body\.provider : existing\.provider/)
   assert.doesNotMatch(updateRoute, /body\.service_type \|\| existing\.serviceType/)
   assert.doesNotMatch(updateRoute, /body\.provider \|\| existing\.provider/)
   assert.match(updateRoute, /isOfficialProvider\(serviceType,\s*provider\)/)
-  assert.match(updateRoute, /badRequest\(c,\s*'Unsupported service_type\/provider'\)/)
+  assert.match(updateRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 })
 
 test('AI config update route persists service type changes after validation', () => {
@@ -178,7 +178,7 @@ test('new image and video models use their current API shapes', () => {
   assert.match(geminiImage, /\/v1beta'[\s\S]*'\/interactions'/)
   assert.match(geminiImage, /response_format/)
   assert.doesNotMatch(geminiImage, /Authorization': `Bearer/)
-  assert.match(volcVideo, /doubao-seedance-2-0-fast-260128/)
+  assert.match(volcVideo, /doubao-seedance-2-0-mini-260615/)
   // Seedance 2.0 多模态能力
   assert.match(volcVideo, /SEEDANCE2_MODEL_PREFIX/)
   assert.match(volcVideo, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)

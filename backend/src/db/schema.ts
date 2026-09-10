@@ -1,49 +1,51 @@
 /**
- * Drizzle schema - MySQL column mappings.
+ * Drizzle schema - SQLite column mappings.
+ * 自 MySQL 迁移：varchar(x)→text（SQLite 不校验长度）、int→integer、
+ * boolean→integer boolean mode、时间戳仍为 text 存 ISO 字符串，表/列名不变。
  */
-import { mysqlTable, text, int, double, boolean, primaryKey, varchar } from 'drizzle-orm/mysql-core'
+import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core'
 
-export const dramas = mysqlTable('dramas', {
-  id: int('id').primaryKey().autoincrement(),
+export const dramas = sqliteTable('dramas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
   description: text('description'),
   genre: text('genre'),
-  style: varchar('style', { length: 64 }).default('3d'),
-  aspectRatio: varchar('aspect_ratio', { length: 16 }).default('16:9'),
-  totalEpisodes: int('total_episodes').default(1),
-  totalDuration: int('total_duration').default(0),
-  status: varchar('status', { length: 64 }).notNull().default('draft'),
+  style: text('style').default('3d'),
+  aspectRatio: text('aspect_ratio').default('16:9'),
+  totalEpisodes: integer('total_episodes').default(1),
+  totalDuration: integer('total_duration').default(0),
+  status: text('status').notNull().default('draft'),
   thumbnail: text('thumbnail'),
   tags: text('tags'),
   metadata: text('metadata'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
-export const episodes = mysqlTable('episodes', {
-  id: int('id').primaryKey().autoincrement(),
-  dramaId: int('drama_id').notNull(),
-  episodeNumber: int('episode_number').notNull(),
+export const episodes = sqliteTable('episodes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  episodeNumber: integer('episode_number').notNull(),
   title: text('title').notNull(),
   content: text('content'),
   scriptContent: text('script_content'),
   description: text('description'),
-  duration: int('duration').default(0),
-  status: varchar('status', { length: 64 }).default('draft'),
+  duration: integer('duration').default(0),
+  status: text('status').default('draft'),
   videoUrl: text('video_url'),
   thumbnail: text('thumbnail'),
-  imageConfigId: int('image_config_id'),
-  videoConfigId: int('video_config_id'),
-  resolution: varchar('resolution', { length: 16 }).default('720p'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  imageConfigId: integer('image_config_id'),
+  videoConfigId: integer('video_config_id'),
+  resolution: text('resolution').default('720p'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
-export const characters = mysqlTable('characters', {
-  id: int('id').primaryKey().autoincrement(),
-  dramaId: int('drama_id').notNull(),
+export const characters = sqliteTable('characters', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
   name: text('name').notNull(),
   role: text('role'),
   description: text('description'),
@@ -54,63 +56,63 @@ export const characters = mysqlTable('characters', {
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
   seedValue: text('seed_value'),
-  sortOrder: int('sort_order'),
+  sortOrder: integer('sort_order'),
   localPath: text('local_path'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
 // Episode-Character many-to-many
-export const episodeCharacters = mysqlTable('episode_characters', {
-  id: int('id').primaryKey().autoincrement(),
-  episodeId: int('episode_id').notNull(),
-  characterId: int('character_id').notNull(),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
+export const episodeCharacters = sqliteTable('episode_characters', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull(),
+  characterId: integer('character_id').notNull(),
+  createdAt: text('created_at').notNull(),
 })
 
 // Episode-Scene many-to-many
-export const episodeScenes = mysqlTable('episode_scenes', {
-  id: int('id').primaryKey().autoincrement(),
-  episodeId: int('episode_id').notNull(),
-  sceneId: int('scene_id').notNull(),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
+export const episodeScenes = sqliteTable('episode_scenes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull(),
+  sceneId: integer('scene_id').notNull(),
+  createdAt: text('created_at').notNull(),
 })
 
 // Episode-Prop many-to-many
-export const episodeProps = mysqlTable('episode_props', {
-  id: int('id').primaryKey().autoincrement(),
-  episodeId: int('episode_id').notNull(),
-  propId: int('prop_id').notNull(),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
+export const episodeProps = sqliteTable('episode_props', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull(),
+  propId: integer('prop_id').notNull(),
+  createdAt: text('created_at').notNull(),
 })
 
-export const scenes = mysqlTable('scenes', {
-  id: int('id').primaryKey().autoincrement(),
-  dramaId: int('drama_id').notNull(),
-  episodeId: int('episode_id'),
+export const scenes = sqliteTable('scenes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  episodeId: integer('episode_id'),
   location: text('location').notNull(),
-  time: varchar('time', { length: 64 }).notNull(),
+  time: text('time').notNull(),
   prompt: text('prompt').notNull(),
   lighting: text('lighting'),
   finalPrompt: text('final_prompt'),
-  storyboardCount: int('storyboard_count').default(1),
+  storyboardCount: integer('storyboard_count').default(1),
   imageUrl: text('image_url'),
-  status: varchar('status', { length: 64 }).default('pending'),
+  status: text('status').default('pending'),
   localPath: text('local_path'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
-export const storyboards = mysqlTable('storyboards', {
-  id: int('id').primaryKey().autoincrement(),
-  episodeId: int('episode_id').notNull(),
-  sceneId: int('scene_id'),
-  storyboardNumber: int('storyboard_number').notNull(),
+export const storyboards = sqliteTable('storyboards', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id').notNull(),
+  sceneId: integer('scene_id'),
+  storyboardNumber: integer('storyboard_number').notNull(),
   title: text('title'),
   location: text('location'),
-  time: varchar('time', { length: 64 }),
+  time: text('time'),
   shotType: text('shot_type'),
   angle: text('angle'),
   movement: text('movement'),
@@ -121,7 +123,7 @@ export const storyboards = mysqlTable('storyboards', {
   bgmPrompt: text('bgm_prompt'),
   soundEffect: text('sound_effect'),
   description: text('description'),
-  duration: int('duration').default(0),
+  duration: integer('duration').default(0),
   composedImage: text('composed_image'),
   firstFrameImage: text('first_frame_image'),
   lastFrameImage: text('last_frame_image'),
@@ -129,82 +131,82 @@ export const storyboards = mysqlTable('storyboards', {
   videoUrl: text('video_url'),
   subtitleUrl: text('subtitle_url'),
   composedVideoUrl: text('composed_video_url'),
-  status: varchar('status', { length: 64 }).default('pending'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  status: text('status').default('pending'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
-export const storyboardCharacters = mysqlTable('storyboard_characters', {
-  storyboardId: int('storyboard_id').notNull(),
-  characterId: int('character_id').notNull(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.storyboardId, table.characterId] }),
-}))
+export const storyboardCharacters = sqliteTable('storyboard_characters', {
+  storyboardId: integer('storyboard_id').notNull(),
+  characterId: integer('character_id').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.storyboardId, table.characterId] }),
+])
 
-export const storyboardProps = mysqlTable('storyboard_props', {
-  storyboardId: int('storyboard_id').notNull(),
-  propId: int('prop_id').notNull(),
-}, (table) => ({
-  pk: primaryKey({ columns: [table.storyboardId, table.propId] }),
-}))
+export const storyboardProps = sqliteTable('storyboard_props', {
+  storyboardId: integer('storyboard_id').notNull(),
+  propId: integer('prop_id').notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.storyboardId, table.propId] }),
+])
 
-export const aiServiceConfigs = mysqlTable('ai_service_configs', {
-  id: int('id').primaryKey().autoincrement(),
-  serviceType: varchar('service_type', { length: 64 }).notNull(),
-  provider: varchar('provider', { length: 64 }),
+export const aiServiceConfigs = sqliteTable('ai_service_configs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  serviceType: text('service_type').notNull(),
+  provider: text('provider'),
   name: text('name').notNull(),
   baseUrl: text('base_url').notNull(),
   apiKey: text('api_key').notNull(),
   model: text('model'),
   endpoint: text('endpoint'),
   queryEndpoint: text('query_endpoint'),
-  priority: int('priority').default(0),
-  isDefault: boolean('is_default').default(false),
-  isActive: boolean('is_active').default(true),
+  priority: integer('priority').default(0),
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
   settings: text('settings'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
   // 注意: 此表无 deleted_at
 })
 
-export const aiServiceProviders = mysqlTable('ai_service_providers', {
-  id: int('id').primaryKey().autoincrement(),
+export const aiServiceProviders = sqliteTable('ai_service_providers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   displayName: text('display_name'),
-  serviceType: varchar('service_type', { length: 64 }).notNull(),
-  provider: varchar('provider', { length: 64 }).notNull(),
+  serviceType: text('service_type').notNull(),
+  provider: text('provider').notNull(),
   defaultUrl: text('default_url'),
   presetModels: text('preset_models'),
   description: text('description'),
-  isActive: boolean('is_active').default(true),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
 
-export const stylePresets = mysqlTable('style_presets', {
-  id: int('id').primaryKey().autoincrement(),
-  name: varchar('name', { length: 64 }).notNull(),
-  value: varchar('value', { length: 64 }).notNull(),
+export const stylePresets = sqliteTable('style_presets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  value: text('value').notNull(),
   prompt: text('prompt').notNull(),
   description: text('description'),
-  sortOrder: int('sort_order').default(0),
-  isActive: boolean('is_active').default(true),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  // 注意: 此表无 deleted_at（硬删除），value 列有唯一索引（见 DDL）
+  sortOrder: integer('sort_order').default(0),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  // 注意: 此表无 deleted_at（硬删除），value 列有唯一索引（见 sqlite-schema.ts DDL）
 })
 
 // 统一生成任务表：图片/视频生成共用，type 区分，生成参数存 params(JSON)
-export const sysTask = mysqlTable('sys_task', {
-  id: int('id').primaryKey().autoincrement(),
-  type: varchar('type', { length: 16 }).notNull(), // image | video
-  storyboardId: int('storyboard_id'),
-  dramaId: int('drama_id'),
-  sceneId: int('scene_id'),
-  characterId: int('character_id'),
-  propId: int('prop_id'),
-  provider: varchar('provider', { length: 64 }),
+export const sysTask = sqliteTable('sys_task', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  type: text('type').notNull(), // image | video
+  storyboardId: integer('storyboard_id'),
+  dramaId: integer('drama_id'),
+  sceneId: integer('scene_id'),
+  characterId: integer('character_id'),
+  propId: integer('prop_id'),
+  provider: text('provider'),
   prompt: text('prompt'),
   model: text('model'),
   // image: {size, frameType, referenceImages[]}
@@ -213,34 +215,34 @@ export const sysTask = mysqlTable('sys_task', {
   taskId: text('task_id'),
   resultUrl: text('result_url'),
   localPath: text('local_path'),
-  status: varchar('status', { length: 64 }).default('processing'),
+  status: text('status').default('processing'),
   errorMsg: text('error_msg'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  completedAt: varchar('completed_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  completedAt: text('completed_at'),
 })
 
-export const videoMerges = mysqlTable('video_merges', {
-  id: int('id').primaryKey().autoincrement(),
-  episodeId: int('episode_id'),
-  dramaId: int('drama_id'),
+export const videoMerges = sqliteTable('video_merges', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id'),
+  dramaId: integer('drama_id'),
   title: text('title'),
-  provider: varchar('provider', { length: 64 }),
+  provider: text('provider'),
   model: text('model'),
-  status: varchar('status', { length: 64 }).default('pending'),
+  status: text('status').default('pending'),
   scenes: text('scenes'), // JSON
   mergedUrl: text('merged_url'),
-  duration: int('duration'),
+  duration: integer('duration'),
   taskId: text('task_id'),
   errorMsg: text('error_msg'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  completedAt: varchar('completed_at', { length: 64 }),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  completedAt: text('completed_at'),
+  deletedAt: text('deleted_at'),
 })
 
-export const props = mysqlTable('props', {
-  id: int('id').primaryKey().autoincrement(),
-  dramaId: int('drama_id').notNull(),
+export const props = sqliteTable('props', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
   name: text('name').notNull(),
   type: text('type'),
   description: text('description'),
@@ -249,17 +251,17 @@ export const props = mysqlTable('props', {
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
   localPath: text('local_path'),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
 })
 
-export const assets = mysqlTable('assets', {
-  id: int('id').primaryKey().autoincrement(),
-  dramaId: int('drama_id'),
-  episodeId: int('episode_id'),
-  storyboardId: int('storyboard_id'),
-  storyboardNum: int('storyboard_num'),
+export const assets = sqliteTable('assets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id'),
+  episodeId: integer('episode_id'),
+  storyboardId: integer('storyboard_id'),
+  storyboardNum: integer('storyboard_num'),
   name: text('name'),
   description: text('description'),
   type: text('type'),
@@ -267,17 +269,23 @@ export const assets = mysqlTable('assets', {
   url: text('url'),
   thumbnailUrl: text('thumbnail_url'),
   localPath: text('local_path'),
-  fileSize: int('file_size'),
+  fileSize: integer('file_size'),
   mimeType: text('mime_type'),
-  width: int('width'),
-  height: int('height'),
-  duration: int('duration'),
+  width: integer('width'),
+  height: integer('height'),
+  duration: integer('duration'),
   format: text('format'),
-  imageGenId: int('image_gen_id'),
-  videoGenId: int('video_gen_id'),
-  isFavorite: boolean('is_favorite').default(false),
-  viewCount: int('view_count').default(0),
-  createdAt: varchar('created_at', { length: 64 }).notNull(),
-  updatedAt: varchar('updated_at', { length: 64 }).notNull(),
-  deletedAt: varchar('deleted_at', { length: 64 }),
+  imageGenId: integer('image_gen_id'),
+  videoGenId: integer('video_gen_id'),
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).default(false),
+  viewCount: integer('view_count').default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  deletedAt: text('deleted_at'),
+})
+
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })
