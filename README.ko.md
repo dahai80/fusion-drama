@@ -283,7 +283,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 데스크톱 앱(권장)
 
-**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [중국용 미러(Tencent COS)](https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/v4.0.0/)**
+**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [중국용 미러(Tencent COS)](https://huobao-installer-1304922933.cos.ap-guangzhou.myqcloud.com/huobao-drama/v4.0.0/)**
 
 | 플랫폼 | 다운로드 파일 |
 |---|---|

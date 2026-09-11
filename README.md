@@ -283,7 +283,7 @@ The episode list shows the production status of every episode — click "Enter S
 
 ### 🖥️ Desktop App (recommended)
 
-**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [Mirror for China (Tencent COS)](https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/v4.0.0/)**
+**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [Mirror for China (Tencent COS)](https://huobao-installer-1304922933.cos.ap-guangzhou.myqcloud.com/huobao-drama/v4.0.0/)**
 
 | Platform | File to download |
 |---|---|

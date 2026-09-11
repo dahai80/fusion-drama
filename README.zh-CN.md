@@ -284,7 +284,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 桌面应用（推荐）
 
-**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/v4.0.0/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://huobao-installer-1304922933.cos.ap-guangzhou.myqcloud.com/huobao-drama/v4.0.0/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
 
 | 平台 | 下载文件 |
 |---|---|
