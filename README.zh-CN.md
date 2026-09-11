@@ -20,6 +20,7 @@
 部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
 
 <h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">下载桌面版（macOS / Windows）</a></h3>
+<h3>🌐 <a href="https://www.chatfire.site">官方网站</a></h3>
 
 </div>
 

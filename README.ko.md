@@ -20,6 +20,7 @@
 배포 후 「설정 → 火宝快捷 설정」에 Key 를 붙여넣으면 추천 설정 3개가 한 번에 입력됩니다
 
 <h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">데스크톱 앱 다운로드 (macOS / Windows)</a></h3>
+<h3>🌐 <a href="https://www.chatfire.site">공식 웹사이트</a></h3>
 
 </div>
 

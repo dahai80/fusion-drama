@@ -20,6 +20,7 @@
 デプロイ後、「設定 → 火宝クイック設定」に Key を貼るだけで、3 つの推奨設定をワンクリックで書き込み
 
 <h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">デスクトップ版をダウンロード（macOS / Windows）</a></h3>
+<h3>🌐 <a href="https://www.chatfire.site">公式サイト</a></h3>
 
 </div>
 

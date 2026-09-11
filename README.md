@@ -20,6 +20,7 @@
 After deploying, paste the key in "Settings → Huobao Quick Setup" to write three recommended configs in one click
 
 <h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">Download Desktop App (macOS / Windows)</a></h3>
+<h3>🌐 <a href="https://www.chatfire.site">Official Website</a></h3>
 
 </div>
 
