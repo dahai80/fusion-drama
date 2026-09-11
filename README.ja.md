@@ -283,7 +283,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ デスクトップアプリ（推奨）
 
-**⬇️ ビルド済みインストーラー: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [中国向けミラー（Tencent COS）](https://huobao-installer-1304922933.cos.ap-guangzhou.myqcloud.com/huobao-drama/v4.0.0/)**
+**⬇️ ビルド済みインストーラー: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [中国向けミラー（Tencent COS）](https://installer.chatfire.site/huobao-drama/v4.0.0/)**
 
 | プラットフォーム | ダウンロードファイル |
 |---|---|

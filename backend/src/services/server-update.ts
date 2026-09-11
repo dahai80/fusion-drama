@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url'
 const FEED_URLS = process.env.HUOBAO_UPDATE_FEED
   ? [process.env.HUOBAO_UPDATE_FEED]
   : [
-    'https://huobao-installer-1304922933.cos.ap-guangzhou.myqcloud.com/huobao-drama/latest.json',
+    'https://installer.chatfire.site/huobao-drama/latest.json',
     'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json',
   ]
 
