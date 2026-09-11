@@ -1,7 +1,8 @@
 /**
  * 应用内更新器（无 Apple 签名方案，同 Tauri updater 思路）
  *
- * - 清单：HUOBAO_UPDATE_FEED（默认 GitHub Releases 的 releases/latest/download/latest.json）
+ * - 清单：HUOBAO_UPDATE_FEED；未设置时双源 —— 国内 COS 优先，GitHub Releases 兜底
+ *   （两个源返回同一份清单结构，仅下载 URL 域名不同，见 desktop/scripts/publish-release.mjs）
  * - macOS：下载 zip（.app 归档）→ sha256 校验 → 解压 → 旧包改名 .old 备胎 → 新包就位
  *   → `open` 拉起新应用 → 当前实例退出；下次启动清理 .old
  * - Windows：下载 Setup.exe → sha256 校验 → detached 静默安装（/S）→ 当前实例退出
@@ -15,8 +16,13 @@ import * as path from 'path'
 import crypto from 'crypto'
 import { spawn, execFile } from 'child_process'
 
-const FEED_URL = process.env.HUOBAO_UPDATE_FEED
-  || 'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json'
+// 双源：COS（国内直连）优先，GitHub（海外）兜底；HUOBAO_UPDATE_FEED 可整体覆盖
+const FEED_URLS = process.env.HUOBAO_UPDATE_FEED
+  ? [process.env.HUOBAO_UPDATE_FEED]
+  : [
+    'https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/latest.json',
+    'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json',
+  ]
 
 export interface UpdateState {
   status: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'error'
@@ -73,11 +79,19 @@ function installedAppBundle(): string {
 }
 
 async function fetchFeed(): Promise<{ version: string, notes?: string, platforms: Record<string, { url: string, sha256: string, size?: number }> }> {
-  const res = await fetch(FEED_URL, { signal: AbortSignal.timeout(15_000) })
-  if (!res.ok) throw new Error(`版本清单请求失败（HTTP ${res.status}）`)
-  const feed = await res.json()
-  if (!feed?.version || !feed?.platforms) throw new Error('版本清单格式不正确')
-  return feed
+  let lastError: unknown
+  for (const url of FEED_URLS) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const feed = await res.json()
+      if (!feed?.version || !feed?.platforms) throw new Error('版本清单格式不正确')
+      return feed
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw new Error(`版本清单请求失败（已尝试 ${FEED_URLS.length} 个源）：${(lastError as Error)?.message ?? ''}`)
 }
 
 // ---- 检查 ----

@@ -11,8 +11,13 @@ import { readFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-const FEED_URL = process.env.HUOBAO_UPDATE_FEED
-  || 'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json'
+// 双源：COS（国内直连）优先，GitHub（海外）兜底；HUOBAO_UPDATE_FEED 可整体覆盖
+const FEED_URLS = process.env.HUOBAO_UPDATE_FEED
+  ? [process.env.HUOBAO_UPDATE_FEED]
+  : [
+    'https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/latest.json',
+    'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json',
+  ]
 
 const WATCHTOWER_URL = process.env.HUOBAO_WATCHTOWER_URL?.replace(/\/+$/, '')
 const WATCHTOWER_TOKEN = process.env.HUOBAO_WATCHTOWER_TOKEN || ''
@@ -66,13 +71,23 @@ export function getServerUpdateState(): ServerUpdateState {
   }
 }
 
-/** POST /check — 拉取发布清单比较版本 */
+/** POST /check — 拉取发布清单比较版本（双源依次尝试） */
 export async function checkServerUpdate(): Promise<ServerUpdateState> {
   try {
-    const res = await fetch(FEED_URL, { signal: AbortSignal.timeout(15_000) })
-    if (!res.ok) throw new Error(`版本清单请求失败（HTTP ${res.status}）`)
-    const feed = await res.json()
-    if (!feed?.version) throw new Error('版本清单格式不正确')
+    let feed: any
+    let lastError: unknown
+    for (const url of FEED_URLS) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        feed = await res.json()
+        if (!feed?.version) throw new Error('版本清单格式不正确')
+        break
+      } catch (err) {
+        lastError = err
+      }
+    }
+    if (!feed) throw new Error(`版本清单请求失败（已尝试 ${FEED_URLS.length} 个源）：${(lastError as Error)?.message ?? ''}`)
     const latestVersion = String(feed.version).replace(/^v/, '')
     lastState = {
       status: compareVersions(latestVersion, currentVersion()) > 0 ? 'available' : 'up-to-date',

@@ -283,13 +283,15 @@ The episode list shows the production status of every episode — click "Enter S
 
 ### 🖥️ Desktop App (recommended)
 
-**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [Mirror for China (Tencent COS)](https://drama-1304922933.cos.ap-shanghai.myqcloud.com/huobao-drama/v4.0.0/)**
 
 | Platform | File to download |
 |---|---|
-| macOS (Apple Silicon, M-series) | `HuobaoDrama-<version>-arm64.dmg` |
-| macOS (Intel) | `HuobaoDrama-<version>.dmg` |
-| Windows | `HuobaoDrama Setup <version>.exe` |
+| macOS (Apple Silicon, M-series) | `HuobaoDrama-4.0.0-arm64.dmg` |
+| macOS (Intel) | `HuobaoDrama-4.0.0.dmg` |
+| Windows | `HuobaoDrama.Setup.4.0.0.exe` |
+
+> China users: use the COS mirror above (GitHub is slow/unreachable in mainland China). The in-app updater also checks the COS mirror first, then falls back to GitHub.
 
 No build required — download the dmg/exe and install. Installed clients auto-update via the built-in updater. (To package from source instead, see the commands below.)
 
