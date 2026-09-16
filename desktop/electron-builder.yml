@@ -35,6 +35,16 @@ mac:
   # 先出未签名包：正式分发需 Apple Developer 签名 + notarize（配置位已留）
   identity: null
   icon: assets/icon.icns
+# dmg 窗口内置「修复已损坏」双击脚本：未签名包被浏览器打上 quarantine 后
+# Gatekeeper 误报"已损坏"，用户拖完 app 双击该脚本即自动 xattr -cr
+dmg:
+  window:
+    width: 540
+    height: 400
+  contents:
+    - { x: 130, y: 180, type: file }
+    - { x: 410, y: 180, type: link, path: /Applications }
+    - { x: 270, y: 330, type: file, path: assets/如提示已损坏请双击我.command }
 win:
   target:
     - target: nsis

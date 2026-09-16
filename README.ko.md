@@ -294,6 +294,15 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 > 중국 본토에서는 GitHub이 불안정하므로 Tencent COS 미러를 이용하세요. 앱 내 업데이터도 COS를 우선하고 GitHub으로 폴백합니다.
 
+**커맨드라인 설치(권장, 복구 불필요)**: curl로 다운로드하면 macOS 격리 속성이 붙지 않아 "손상됨" 경고 없이 바로 실행됩니다(Apple Silicon은 `-arm64.dmg`, Intel은 일반 dmg 사용):
+
+```bash
+curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.0/HuobaoDrama-4.0.0-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
+  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
+  && hdiutil detach /Volumes/HuobaoDrama*
+```
+
 빌드 불필요 — dmg/exe를 다운로드해 바로 설치하면 됩니다. 설치된 클라이언트는 내장 업데이터로 자동 업데이트됩니다. (소스에서 직접 패키징하려면 아래 명령을 참조하세요.)
 
 더블클릭 설치로 바로 사용할 수 있는 데스크톱 버전(macOS + Windows). 데이터베이스(SQLite), 생성된 미디어 파일, Agent 스킬은 모두 사용자 데이터 디렉터리에 저장되며 앱을 삭제필필도 데이터에 영향이 없습니다.
@@ -311,7 +320,11 @@ npm run dist:win    # Windows NSIS 설치 프로그램(win-x64, macOS에서 크�
 
 설치 안내:
 
-- macOS 미서명 패키지는 첫 실행 시 우클릭 → 열기, 또는 `xattr -cr /Applications/HuobaoDrama.app` 실행
+- macOS 미서명 패키지는 첫 실행 시 "App이 손상되어 열 수 없습니다"라는 메시지가 뜰 수 있습니다(Apple Silicon에서 흔함). 이는 Gatekeeper 격리 속성 때문이며 파일이 실제로 손상된 것은 아닙니다. 복구 방법은 두 가지입니다:
+  1. **dmg에 복구 스크립트 포함**: 앱을 "응용 프로그램"으로 드래그한 후 dmg 창 하단의 "如提示已损坏请双击我.command"를 더블클릭하면 자동으로 복구됩니다;
+  2. 또는 터미널에서 `sudo xattr -cr /Applications/HuobaoDrama.app` 실행.
+
+  복구는 처음 한 번만 필요하며, 이후에는 정상 실행되고 앱 내 자동 업데이트에도 영향이 없습니다.
 - Windows 미서명 패키지는 SmartScreen에서 「추가 정보 → 실행」 선택
 - 사용자 데이터 디렉터리: `~/Library/Application Support/HuobaoDrama/`(데이터베이스, 생성된 미디어, 온라인 편집한 스킬 복사본)
 - FFmpeg/FFprobe 바이너리 내장, 시스템 설치 불필요

@@ -294,6 +294,15 @@ The episode list shows the production status of every episode — click "Enter S
 
 > China users: use the COS mirror above (GitHub is slow/unreachable in mainland China). The in-app updater also checks the COS mirror first, then falls back to GitHub.
 
+**Command-line install (recommended, no Gatekeeper fix needed)**: downloading via curl never sets macOS's quarantine attribute, so the app opens cleanly with no "damaged" prompt (use the `-arm64.dmg` for Apple Silicon, the plain dmg for Intel):
+
+```bash
+curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.0/HuobaoDrama-4.0.0-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
+  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
+  && hdiutil detach /Volumes/HuobaoDrama*
+```
+
 No build required — download the dmg/exe and install. Installed clients auto-update via the built-in updater. (To package from source instead, see the commands below.)
 
 Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
@@ -311,7 +320,11 @@ npm run dist:win    # Windows NSIS installer (win-x64, cross-buildable on macOS)
 
 Installation notes:
 
-- The macOS build is unsigned — on first launch, right-click → Open, or run `xattr -cr /Applications/HuobaoDrama.app`
+- The macOS build is unsigned — on first launch you may see "App is damaged and can't be opened" (common on Apple Silicon). This is Gatekeeper's quarantine attribute, not actual file damage. Two ways to fix it:
+  1. **The dmg bundles a fix script**: after dragging the app into Applications, double-click the "如提示已损坏请双击我.command" script at the bottom of the dmg window — it removes the quarantine attribute automatically;
+  2. Or run `sudo xattr -cr /Applications/HuobaoDrama.app` in Terminal.
+
+  The fix is one-time only — the app then launches normally, and in-app auto-updates are not affected.
 - The Windows build is unsigned — SmartScreen will prompt "More info → Run anyway"
 - User-data directory: `~/Library/Application Support/HuobaoDrama/` (database, generated media, writable copies of online-edited skills)
 - FFmpeg/FFprobe binaries are bundled — no system install needed

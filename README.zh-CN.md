@@ -295,6 +295,15 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 > 国内用户请用腾讯云镜像直链下载（GitHub 在国内访问不稳定）。应用内更新器同样国内源优先、GitHub 兜底。
 
+**命令行安装（推荐，免修复）**：用 curl 下载不会触发 macOS 隔离属性，安装后双击即开，不会遇到「已损坏」提示（Apple Silicon 把 `arm64` 文件名换成对应版本，Intel 用无后缀 dmg）：
+
+```bash
+curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.0/HuobaoDrama-4.0.0-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
+  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
+  && hdiutil detach /Volumes/HuobaoDrama*
+```
+
 无需构建 —— 下载 dmg/exe 直接安装即可，已安装客户端会通过内置更新器自动升级。（如需从源码自行打包，见下方命令。）
 
 双击安装、开箱即用的桌面版（macOS + Windows）：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
@@ -312,7 +321,11 @@ npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉�
 
 安装说明：
 
-- macOS 未签名包首次打开需右键 → 打开，或执行 `xattr -cr /Applications/HuobaoDrama.app`
+- macOS 未签名包首次打开可能提示「App 已损坏，无法打开」（Apple Silicon 常见），这是 Gatekeeper 隔离属性导致，并非文件损坏。两种修复方式任选：
+  1. **dmg 内自带修复脚本**：把 app 拖入「应用程序」后，双击 dmg 窗口底部的「如提示已损坏请双击我.command」，自动完成修复；
+  2. 或终端执行 `sudo xattr -cr /Applications/HuobaoDrama.app`。
+
+  修复只需一次，之后双击图标即可启动，应用内自动更新也不受影响。
 - Windows 未签名包 SmartScreen 会提示「更多信息 → 仍要运行」
 - 用户数据目录：`~/Library/Application Support/HuobaoDrama/`（数据库、生成的媒体、技能在线编辑的副本）
 - 内置 FFmpeg/FFprobe 二进制，无需系统安装

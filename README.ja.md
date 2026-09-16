@@ -294,6 +294,15 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 > 中国本土では GitHub が不安定なため、Tencent COS ミラーをご利用ください。アプリ内アップデーターも COS を優先し、GitHub にフォールバックします。
 
+**コマンドラインインストール（推奨・修復不要）**：curl でのダウンロードは macOS の隔離属性が付かないため、「壊れている」警告なしでそのまま起動できます（Apple Silicon は `-arm64.dmg`、Intel は無印の dmg）：
+
+```bash
+curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.0/HuobaoDrama-4.0.0-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
+  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
+  && hdiutil detach /Volumes/HuobaoDrama*
+```
+
 ビルド不要 —— dmg/exe をダウンロードしてそのままインストールできます。インストール済みクライアントは内蔵アップデーターで自動更新されます。（ソースから自分でパッケージングする場合は以下のコマンドを参照。）
 
 ダブルクリックでインストール、すぐに使えるデスクトップ版（macOS + Windows）。データベース（SQLite）、生成メディア、Agent スキルはすべてユーザーデータディレクトリに保存され、アプリをアンインストールしてもデータに影響しません。
@@ -311,7 +320,11 @@ npm run dist:win    # Windows NSIS インストーラー（win-x64、macOS 上�
 
 インストール時の注意：
 
-- macOS 未署名パッケージは初回起動時に右クリック → 開く、または `xattr -cr /Applications/HuobaoDrama.app` を実行
+- macOS 未署名パッケージは初回起動時に「Appが壊れているため開けません」と表示される場合があります（Apple Silicon で多発）。これは Gatekeeper の隔離属性によるもので、ファイルは壊れていません。修復方法は 2 つあります：
+  1. **dmg に修復スクリプトを同梱**：アプリを「アプリケーション」にドラッグした後、dmg ウィンドウ下部の「如提示已损坏请双击我.command」をダブルクリックすれば自動で修復されます；
+  2. またはターミナルで `sudo xattr -cr /Applications/HuobaoDrama.app` を実行。
+
+  修復は初回の 1 回だけ。その後は普通に起動でき、アプリ内自動更新にも影響しません。
 - Windows 未署名パッケージは SmartScreen で「詳細情報 → 実行」を選択
 - ユーザーデータディレクトリ：`~/Library/Application Support/HuobaoDrama/`（データベース、生成メディア、オンライン編集したスキルのコピー）
 - FFmpeg/FFprobe バイナリ内蔵。システムへのインストール不要
