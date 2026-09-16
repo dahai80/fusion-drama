@@ -39,3 +39,33 @@ export function setContentLanguage(lang: ContentLanguage): ContentLanguage {
     .run()
   return lang
 }
+
+const TOURS_SEEN_KEY = 'tours_seen'
+const MAX_TOURS_SEEN = 64
+
+function sanitizeTourIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return []
+  return [...new Set(ids.filter(v => typeof v === 'string' && v.length > 0 && v.length <= 100))].slice(0, MAX_TOURS_SEEN)
+}
+
+/** 已看过的引导漫游 id 列表（JSON 数组存储）；桌面端端口随启动变化，localStorage 不可靠，故落库 */
+export function getToursSeen(): string[] {
+  const row = db.select().from(schema.appSettings)
+    .where(eq(schema.appSettings.key, TOURS_SEEN_KEY))
+    .get()
+  try { return sanitizeTourIds(JSON.parse(row?.value || '[]')) } catch { return [] }
+}
+
+/** 写入已看过的引导漫游 id 列表（upsert） */
+export function setToursSeen(ids: unknown): string[] {
+  const clean = sanitizeTourIds(ids)
+  const value = JSON.stringify(clean)
+  db.insert(schema.appSettings)
+    .values({ key: TOURS_SEEN_KEY, value, updatedAt: now() })
+    .onConflictDoUpdate({
+      target: schema.appSettings.key,
+      set: { value, updatedAt: now() },
+    })
+    .run()
+  return clean
+}

@@ -2,7 +2,7 @@
  * 应用设置路由 — 全局配置的读写入口（当前：AI 内容语言）
  */
 import { Hono } from 'hono'
-import { getContentLanguage, setContentLanguage, CONTENT_LANGUAGES, type ContentLanguage } from '../services/app-settings.js'
+import { getContentLanguage, setContentLanguage, getToursSeen, setToursSeen, CONTENT_LANGUAGES, type ContentLanguage } from '../services/app-settings.js'
 import { success, badRequest } from '../utils/response.js'
 
 const app = new Hono()
@@ -21,6 +21,20 @@ app.put('/content-language', async (c) => {
   }
   const saved = await setContentLanguage(language as ContentLanguage)
   return success(c, { language: saved })
+})
+
+// GET /tours-seen — 已看过的引导漫游 id 列表
+app.get('/tours-seen', async (c) => {
+  return success(c, { seen: await getToursSeen() })
+})
+
+// PUT /tours-seen — 写入已看过的引导漫游 id 列表（body: { seen: string[] }）
+app.put('/tours-seen', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  if (!Array.isArray(body?.seen) || !body.seen.every((v: unknown) => typeof v === 'string')) {
+    return badRequest(c, 'seen 必须是字符串数组')
+  }
+  return success(c, { seen: await setToursSeen(body.seen) })
 })
 
 export default app

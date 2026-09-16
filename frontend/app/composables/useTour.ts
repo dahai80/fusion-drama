@@ -2,8 +2,9 @@
  * 应用内引导漫游（driver.js）— 轻量方案
  *
  * - 各页面定义步骤（selector + i18n 文案 key），经 startTour() 启动
- * - 「看过」标记按 tour id 存 localStorage（huobao:tours），首次自动弹、
- *   帮助按钮随时重看；跳过/完成都算看过
+ * - 「看过」标记存服务端 app_settings（tours_seen）：桌面端每次启动端口随机，
+ *   localStorage 随 origin 失效，故落库；localStorage 仅作离线兜底缓存
+ * - 首次自动弹、帮助按钮随时重看；跳过/完成都算看过
  * - 主题样式沿用设计 token（火焰橙 accent），见 app.vue 内 .driver-theme 覆写
  */
 import { driver } from 'driver.js'
@@ -11,20 +12,59 @@ import 'driver.js/dist/driver.css'
 
 const SEEN_KEY = 'huobao:tours'
 
-function readSeen(): string[] {
+let seenSet = new Set<string>()
+let hydrated = false
+let hydratePromise: Promise<void> | null = null
+
+function readLocal(): string[] {
   try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '[]') } catch { return [] }
 }
 
+function writeLocal(ids: string[]) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(ids)) } catch { /* ignore */ }
+}
+
+/**
+ * 从服务端拉取已看过的 tour id，与本地缓存取并集（保留升级前 localStorage 里的标记）。
+ * 由客户端插件在应用启动时调用；autoTour 在 onMounted 后延迟数百 ms 触发，此时已就绪。
+ */
+export function hydrateTours(): Promise<void> {
+  if (hydratePromise) return hydratePromise
+  hydratePromise = (async () => {
+    try {
+      const res = await fetch('/api/v1/settings/tours-seen')
+      const json = await res.json().catch(() => null)
+      const server: string[] = Array.isArray(json?.data?.seen) ? json.data.seen : []
+      seenSet = new Set([...server, ...readLocal()])
+    } catch {
+      seenSet = new Set(readLocal())
+    }
+    hydrated = true
+    writeLocal([...seenSet])
+  })()
+  return hydratePromise
+}
+
 export function tourSeen(id: string): boolean {
-  return readSeen().includes(id)
+  return seenSet.has(id) || readLocal().includes(id)
 }
 
 export function markTourSeen(id: string) {
-  const seen = readSeen()
-  if (!seen.includes(id)) {
-    seen.push(id)
-    localStorage.setItem(SEEN_KEY, JSON.stringify(seen))
-  }
+  if (seenSet.has(id)) return
+  seenSet.add(id)
+  writeLocal([...seenSet])
+  // 落库（fire-and-forget）；未水合时先合并服务端数据避免覆盖其他页面已标记的 tour
+  void (async () => {
+    try {
+      if (!hydrated) await hydrateTours()
+      seenSet.add(id)
+      await fetch('/api/v1/settings/tours-seen', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seen: [...seenSet] }),
+      })
+    } catch { /* 服务端不可达时 localStorage 已兜底 */ }
+  })()
 }
 
 export interface TourStep {
