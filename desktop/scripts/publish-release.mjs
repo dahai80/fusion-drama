@@ -58,9 +58,16 @@ if (!existing.length) {
 // ---- 1. GitHub(海外通道) ----
 if (!skipGh) {
   console.log(`[1/3] GitHub Release ${tag} …`)
+  // gh release upload 要求 Release 已存在，不存在则先创建（--clobber 才能重复传）
+  try {
+    execFileSync('gh', ['release', 'view', tag], { stdio: 'ignore' })
+  } catch {
+    console.log(`  Release 不存在，先创建 …`)
+    execFileSync('gh', ['release', 'create', tag, '--title', tag, '--notes', notes || tag], { stdio: 'inherit' })
+  }
   const ghArgs = ['release', 'upload', tag, ...existing.map(f => path.join(RELEASE, f)), '--clobber']
   execFileSync('gh', ghArgs, { stdio: 'inherit' })
-  console.log(`  ✓ 已上传 ${existing.length} 个资产(Release 不存在时会自动创建草稿,需 gh release edit 发布)`)
+  console.log(`  ✓ 已上传 ${existing.length} 个资产`)
 }
 
 // ---- 2. latest.json(双通道各一份:GitHub 版指向 GitHub,COS 版指向 COS) ----
