@@ -38,14 +38,17 @@ function argOf(flag) { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1]
 const notes = argOf('--notes') || ''
 const skipGh = argv.includes('--skip-gh')
 
-// 与 make-update-feed 相同的产物清单(GitHub 服务端会把空格转点号,统一用点号名)
+// 与 make-update-feed 相同的产物清单。注意 electron-builder 的 NSIS 本地产物带空格
+// （HuobaoDrama Setup X.Y.Z.exe），GitHub 服务端会规范化为点号；COS key/URL 需自行归一化
 const assets = [
   `HuobaoDrama-${version}-arm64.dmg`,
   `HuobaoDrama-${version}.dmg`,
   `HuobaoDrama-${version}-arm64-mac.zip`,
   `HuobaoDrama-${version}-mac.zip`,
-  `HuobaoDrama.Setup.${version}.exe`,
+  `HuobaoDrama Setup ${version}.exe`,
 ]
+// URL/COS key 使用的规范化文件名（空格 → 点号，与 GitHub 服务端一致）
+const dotName = (f) => f.replace(/ /g, '.')
 const existing = assets.filter(f => fs.existsSync(path.join(RELEASE, f)))
 if (!existing.length) {
   console.error(`release/ 下没有版本 ${version} 的产物,请先 npm run dist / dist:win`)
@@ -77,7 +80,7 @@ const buildFeed = async (baseUrl) => {
     // 同一平台 dmg/zip 都存在时只取 zip(更新器用),dmg 是给手动安装的
     if (key !== 'win32-x64' && !f.endsWith('.zip')) continue
     platforms[key] = {
-      url: `${baseUrl}/${encodeURIComponent(f)}`,
+      url: `${baseUrl}/${encodeURIComponent(dotName(f))}`,
       sha256: await sha256(path.join(RELEASE, f)),
       size: fs.statSync(path.join(RELEASE, f)).size,
     }
@@ -98,10 +101,10 @@ console.log(`  ✓ latest.json(GitHub) / latest.cos.json(COS) 平台: ${Object.k
 // ---- 3. COS(国内通道) ----
 console.log('[3/3] 上传腾讯 COS …')
 for (const f of existing) {
-  await cosPut(path.join(RELEASE, f), `${COS_KEY_PREFIX}/v${version}/${f}`, {
+  await cosPut(path.join(RELEASE, f), `${COS_KEY_PREFIX}/v${version}/${dotName(f)}`, {
     cacheControl: 'public, max-age=2592000', // 安装包按版本命名内容不变,缓存 30 天
   })
-  console.log(`  ✓ v${version}/${f}`)
+  console.log(`  ✓ v${version}/${dotName(f)}`)
 }
 await cosPut(path.join(RELEASE, 'latest.cos.json'), `${COS_KEY_PREFIX}/latest.json`, {
   cacheControl: 'no-cache', // 更新发现入口,必须实时
