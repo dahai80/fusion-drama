@@ -4,6 +4,10 @@
  * - filesystem：jail 到 backend/workspace/ 目录，Agent 获得文件读写工具
  * - skills：从 workspace/skills/ 下注册各 Agent 专属的 SKILL.md
  * 注入 instructions 时仍拼接技能全文（原生注入只有元数据，全文注入保证行为一致）
+ *
+ * 注意：filesystem instructions 刻意覆写为无 "workspace" 字样的中文描述——
+ * 默认文案含绝对路径（路径里有 workspace 目录名），Gemini 系低思考档位下
+ * 偶发把其脑补成 Google Workspace 然后以"组织政策"为由拒绝调用工具。
  */
 import fs from 'fs'
 import path from 'path'
@@ -17,6 +21,11 @@ const WORKSPACE_DIR = process.env.WORKSPACE_PATH
   ? path.resolve(process.env.WORKSPACE_PATH)
   : path.resolve(__dirname, '../../workspace')
 const SKILLS_DIR = path.join(WORKSPACE_DIR, 'skills')
+
+// 覆写默认 filesystem instructions（默认文案带绝对路径，暴露 workspace 字样）
+const FILESYSTEM_INSTRUCTIONS =
+  '本地文件目录：用于读写技能定义、提示词等项目文件。相对路径均以此目录为根解析；文件访问仅限此目录之内。'
+const localFilesystem = () => new LocalFilesystem({ basePath: WORKSPACE_DIR, instructions: FILESYSTEM_INSTRUCTIONS })
 
 // 启动时确保工作目录存在（Agent 文件读写的 jail 根）
 // 桌面版打包后模块可能仍从只读位置加载，失败不阻断启动（路由层会给出明确报错）
@@ -47,7 +56,7 @@ export const skillWorkspaces: Record<string, Workspace> = Object.fromEntries(
     new Workspace({
       id: `workspace-${agentType}`,
       name: `${agentType} workspace`,
-      filesystem: new LocalFilesystem({ basePath: WORKSPACE_DIR }),
+      filesystem: localFilesystem(),
       skills: () => scanSkillPaths().filter(p =>
         prefixes.some(prefix => p === `skills/${prefix}` || p.startsWith(`skills/${prefix}/`))),
     }),
@@ -78,7 +87,7 @@ function scanSkillPaths(): string[] {
 export const skillsManagerWorkspace = new Workspace({
   id: 'workspace-skills-manager',
   name: 'skills manager',
-  filesystem: new LocalFilesystem({ basePath: WORKSPACE_DIR }),
+  filesystem: localFilesystem(),
   skills: () => scanSkillPaths(),
 })
 
