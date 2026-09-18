@@ -19,7 +19,7 @@ import type {
 import { joinProviderUrl } from './url'
 
 const SUPPORTED_MODELS = new Set(['wan3.0-video-prime', 'wan3.0-video'])
-const DEFAULT_MODEL = 'wan3.0-video-prime'
+const DEFAULT_MODEL = 'wan3.0-video'
 const PROMPT_MAX_CHARS = 20_000
 const MAX_SEED = 2_147_483_647
 const REF_LIMITS = { images: 10, videos: 5, audios: 5, total: 20 } as const
