@@ -507,7 +507,29 @@
           </label>
           <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" placeholder="sk-..." /></label>
           <label class="field"><span class="field-label">Base URL</span><input v-model="cfgForm.base_url" class="input" placeholder="https://..." /></label>
-          <label class="field"><span class="field-label">{{ t('settings.cfg.models') }}</span><input v-model="cfgForm.modelStr" class="input" placeholder="model-name" /></label>
+          <div class="field">
+            <span class="field-label">{{ t('settings.cfg.models') }}</span>
+            <div v-if="cfgForm.models.length" class="model-chips">
+              <span
+                v-for="(m, i) in cfgForm.models" :key="`${m}-${i}`"
+                :class="['model-chip', { 'is-default': i === 0 }]"
+                :title="t('settings.cfg.modelChipHint')"
+                @click="pinModelTop(i)"
+              >
+                {{ m }}<em v-if="i === 0">{{ t('common.default') }}</em>
+                <button type="button" class="model-chip-x" :title="t('common.delete')" @click.stop="removeModel(i)"><X :size="11" /></button>
+              </span>
+            </div>
+            <div class="model-add-row">
+              <input
+                v-model="modelInput" class="input" :placeholder="t('settings.cfg.modelPlaceholder')"
+                @keydown.enter.prevent="addModel"
+                @paste="onModelPaste"
+              />
+              <button type="button" class="btn btn-sm" :disabled="!modelInput.trim()" @click="addModel">{{ t('common.add') }}</button>
+            </div>
+            <span class="field-hint">{{ t('settings.cfg.modelsHint') }}</span>
+          </div>
           <label v-if="cfgForm.service_type === 'text'" class="field">
             <span class="field-label">Temperature <span class="dim">({{ t('settings.cfg.tempHint') }})</span></span>
             <input v-model="cfgForm.temperature" class="input" type="number" step="0.1" min="0" max="2" :placeholder="t('settings.cfg.tempPlaceholder')" />
@@ -650,7 +672,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
@@ -684,7 +706,28 @@ const cfgTesting = ref(false)
 const cfgTestResult = ref(null)
 const huobaoApiKey = ref('')
 const huobaoSaving = ref(false)
-const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text', priority: 0, temperature: '' })
+const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', models: [], service_type: 'text', priority: 0, temperature: '' })
+// 模型标签编辑器：首位即默认模型；输入框支持回车添加、逗号/换行批量粘贴
+const modelInput = ref('')
+function addModel() {
+  const names = modelInput.value.split(/[,，\n]/).map(s => s.trim()).filter(Boolean)
+  for (const n of names) if (!cfgForm.models.includes(n)) cfgForm.models.push(n)
+  modelInput.value = ''
+}
+function onModelPaste(e) {
+  const text = e.clipboardData?.getData('text') || ''
+  if (!/[,，\n]/.test(text)) return // 单模型走默认粘贴
+  e.preventDefault()
+  for (const n of text.split(/[,，\n]/).map(s => s.trim()).filter(Boolean)) {
+    if (!cfgForm.models.includes(n)) cfgForm.models.push(n)
+  }
+}
+function removeModel(i) { cfgForm.models.splice(i, 1) }
+function pinModelTop(i) {
+  if (i <= 0) return
+  const [m] = cfgForm.models.splice(i, 1)
+  cfgForm.models.unshift(m)
+}
 // 服务类型 label/desc 渲染时求值（语言切换即时生效），type 为逻辑值
 const serviceTypes = computed(() => [
   { type: 'text', label: t('common.serviceType.text') },
@@ -700,7 +743,7 @@ const serviceMeta = computed(() => ({
 }))
 const providerPresets = {
   text: {
-    gemini: { label: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'] },
+    gemini: { label: 'Gemini 官方', baseUrl: 'https://generativelanguage.googleapis.com', models: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'] },
     openai: { label: 'OpenAI 官方', baseUrl: 'https://api.openai.com', models: ['deepseek-v4-pro', 'gpt-5.6-terra'] },
   },
   image: {
@@ -714,8 +757,8 @@ const providerPresets = {
   },
 }
 const huobaoQuickConfigs = [
-  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.1-pro-preview', 'gemini-3.5-flash', 'gemini-3-flash-preview'], priority: 100 },
-  { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 101 },
+  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'], priority: 101 },
+  { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 100 },
   { service_type: 'image', provider: 'openai', name: '火宝图片服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
   { service_type: 'image', provider: 'gemini', name: '火宝图片服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
   { service_type: 'video', provider: 'aliyun', name: '火宝视频服务 · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video', 'wan3.0-video-prime'], priority: 98 },
@@ -735,7 +778,7 @@ function applyProviderPreset(type, provider) {
   if (!preset) return
   cfgForm.provider = provider
   cfgForm.base_url = preset.baseUrl
-  cfgForm.modelStr = preset.models.join(', ')
+  cfgForm.models = [...preset.models]
   // 配置名持久化进 DB：用 provider 英文 + 服务类型英文标识拼，不随界面语言漂移
   cfgForm.name = `${preset.label}-${type}`
 }
@@ -799,7 +842,7 @@ async function applyHuobaoQuickConfig() {
 function startAddCfg(t) {
   cfgEditId.value = null
   cfgTestResult.value = null
-  Object.assign(cfgForm, { name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: t, priority: 0, temperature: '' })
+  Object.assign(cfgForm, { name: '', provider: '', api_key: '', base_url: '', models: [], service_type: t, priority: 0, temperature: '' })
   const firstPreset = presetsByType(t)[0]
   if (firstPreset) applyProviderPreset(t, firstPreset.provider)
   cfgDialog.value = true
@@ -812,7 +855,7 @@ function startEditCfg(c) {
     provider: c.provider,
     api_key: c.api_key || '',
     base_url: c.base_url || '',
-    modelStr: fmtModel(c.model),
+    models: Array.isArray(c.model) ? [...c.model] : String(c.model || '').split(',').map(s => s.trim()).filter(Boolean),
     service_type: c.service_type,
     priority: c.priority ?? 0,
     temperature: c.temperature ?? '',
@@ -837,7 +880,7 @@ async function testDraftCfg() {
     provider: cfgForm.provider,
     api_key: cfgForm.api_key,
     base_url: cfgForm.base_url,
-    model: cfgForm.modelStr.split(',').map(s => s.trim()).filter(Boolean),
+    model: [...cfgForm.models],
   })
 }
 async function testExistingCfg(c) {
@@ -852,7 +895,7 @@ async function testExistingCfg(c) {
 }
 async function saveCfg() {
   if (!cfgForm.provider) { toast.warning(t('settings.cfg.providerRequired')); return }
-  const models = cfgForm.modelStr.split(',').map(s => s.trim()).filter(Boolean)
+  const models = [...cfgForm.models]
   const temperature = cfgForm.temperature === '' || cfgForm.temperature === null ? null : Number(cfgForm.temperature)
   if (temperature !== null && (!Number.isFinite(temperature) || temperature < 0 || temperature > 2)) {
     toast.warning(t('settings.cfg.tempInvalid')); return
@@ -1439,6 +1482,52 @@ onBeforeUnmount(stopUsagePoll)
   color: var(--accent-text);
   background: var(--accent-bg);
 }
+
+/* 模型标签编辑器（配置弹窗） */
+.model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--bg-2);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .15s, color .15s;
+}
+.model-chip:hover { border-color: var(--accent); color: var(--text-1); }
+.model-chip.is-default { color: var(--text-1); font-weight: 600; border-color: var(--accent); }
+.model-chip em {
+  font-style: normal;
+  padding: 0 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-bg);
+}
+.model-chip-x {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.model-chip-x:hover { color: var(--error); background: var(--bg-3); }
+.model-add-row { display: flex; gap: 8px; }
+.model-add-row .input { flex: 1; }
 
 /* 手动模板 */
 .setup-panel { padding: 18px 20px; margin-bottom: 16px; }
