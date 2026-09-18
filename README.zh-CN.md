@@ -285,20 +285,20 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 桌面应用（推荐）
 
-**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://installer.chatfire.site/huobao-drama/v4.0.3/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://installer.chatfire.site/huobao-drama/v4.0.4/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
 
 | 平台 | 下载文件 |
 |---|---|
-| macOS（Apple Silicon，M 系列） | `HuobaoDrama-4.0.3-arm64.dmg` |
-| macOS（Intel） | `HuobaoDrama-4.0.3.dmg` |
-| Windows | `HuobaoDrama.Setup.4.0.3.exe` |
+| macOS（Apple Silicon，M 系列） | `HuobaoDrama-4.0.4-arm64.dmg` |
+| macOS（Intel） | `HuobaoDrama-4.0.4.dmg` |
+| Windows | `HuobaoDrama.Setup.4.0.4.exe` |
 
 > 国内用户请用腾讯云镜像直链下载（GitHub 在国内访问不稳定）。应用内更新器同样国内源优先、GitHub 兜底。
 
 **命令行安装（推荐，免修复）**：用 curl 下载不会触发 macOS 隔离属性，安装后双击即开，不会遇到「已损坏」提示（Apple Silicon 把 `arm64` 文件名换成对应版本，Intel 用无后缀 dmg）：
 
 ```bash
-curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.3/HuobaoDrama-4.0.3-arm64.dmg \
+curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.4/HuobaoDrama-4.0.4-arm64.dmg \
   && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
   && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
   && hdiutil detach /Volumes/HuobaoDrama*
