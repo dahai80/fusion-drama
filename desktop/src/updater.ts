@@ -175,6 +175,18 @@ async function doDownload(): Promise<UpdateState> {
 
 // ---- 安装（成功后当前实例退出，不会返回） ----
 
+/** 把换包阶段的原始错误转成可行动的中文提示（EPERM 是最常见：macOS「App 管理」隐私权限） */
+function describeApplyError(err: unknown): string {
+  const e = err as NodeJS.ErrnoException
+  if (e?.code === 'EPERM' || e?.code === 'EACCES') {
+    return `系统权限不足（${e.code}）：请在 系统设置 → 隐私与安全性 → App 管理 中允许 HuobaoDrama 后重试；或下载最新 dmg 覆盖安装（数据不受影响）`
+  }
+  if (e?.code === 'EROFS') {
+    return '应用正运行在只读位置（可能直接在 dmg 挂载卷里），请先把 HuobaoDrama 拖入「应用程序」再更新'
+  }
+  return e?.message || String(err)
+}
+
 async function doApply(): Promise<void> {
   if (state.status !== 'downloaded' || !state.downloadedFile) {
     // 兜底：直接查询 temp 里的最新产物
@@ -185,28 +197,33 @@ async function doApply(): Promise<void> {
   if (process.platform === 'darwin') {
     const bundle = installedAppBundle()
     const tmpExtract = path.join(app.getPath('temp'), `huobao-update-extract-${Date.now()}`)
-    await new Promise<void>((resolve, reject) => {
-      execFile('unzip', ['-q', '-o', downloaded, '-d', tmpExtract], err => (err ? reject(err) : resolve()))
-    })
-    const newApp = path.join(tmpExtract, 'HuobaoDrama.app')
-    if (!fs.existsSync(newApp)) throw new Error('更新包内容异常（未找到 HuobaoDrama.app）')
-
-    const oldBundle = `${bundle}.old`
-    fs.rmSync(oldBundle, { recursive: true, force: true })
-    fs.renameSync(bundle, oldBundle)
     try {
-      fs.renameSync(newApp, bundle)
+      await new Promise<void>((resolve, reject) => {
+        execFile('unzip', ['-q', '-o', downloaded, '-d', tmpExtract], err => (err ? reject(err) : resolve()))
+      })
+      const newApp = path.join(tmpExtract, 'HuobaoDrama.app')
+      if (!fs.existsSync(newApp)) throw new Error('更新包内容异常（未找到 HuobaoDrama.app）')
+
+      const oldBundle = `${bundle}.old`
+      fs.rmSync(oldBundle, { recursive: true, force: true })
+      fs.renameSync(bundle, oldBundle)
+      try {
+        fs.renameSync(newApp, bundle)
+      } catch (err) {
+        // 就位失败：旧包回滚
+        fs.renameSync(oldBundle, bundle)
+        throw err
+      }
+      // detached 拉起新应用后当前实例退出；下次启动清理 .old 备胎
+      spawn('open', [bundle], { detached: true, stdio: 'ignore' }).unref()
+      app.quit()
+      return
     } catch (err) {
-      // 就位失败：旧包回滚
-      fs.renameSync(oldBundle, bundle)
-      throw err
+      throw new Error(describeApplyError(err))
     } finally {
+      // 任何失败路径都不能留解压残留（旧实现 rename 失败时会泄漏整个 .app）
       fs.rmSync(tmpExtract, { recursive: true, force: true })
     }
-    // detached 拉起新应用后当前实例退出；下次启动清理 .old 备胎
-    spawn('open', [bundle], { detached: true, stdio: 'ignore' }).unref()
-    app.quit()
-    return
   }
 
   if (process.platform === 'win32') {
@@ -235,7 +252,15 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
       throw err
     }
   })
-  ipcMain.handle('huobao:update-apply', () => doApply())
+  ipcMain.handle('huobao:update-apply', async () => {
+    try {
+      await doApply()
+    } catch (err) {
+      // 写入状态让渲染层错误行显示具体原因（否则用户只看到笼统的「安装失败」toast）
+      setState({ status: 'error', error: (err as Error).message })
+      throw err
+    }
+  })
 
   // 启动后静默检查一次（发现新版时渲染层经 update-state 轮询/toast 提示）
   setTimeout(() => { if (!quittingApp()) void doCheck() }, 20_000).unref?.()

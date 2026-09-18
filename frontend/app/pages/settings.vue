@@ -1360,6 +1360,7 @@ async function applyUpdate() {
   } catch (e) {
     updateApplying.value = false
     toastError(e, { fallback: desktopBridge ? 'settings.about.installFailed' : 'settings.about.serverApplyFailed' })
+    refreshUpdateState()  // 桌面端 apply 失败会把具体原因写进 updateState.error，刷新显示在错误行
   }
 }
 
