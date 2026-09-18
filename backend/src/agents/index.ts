@@ -199,10 +199,16 @@ function createThinkingOffFetch(providerName: string, baseURL: string): typeof f
       if (init?.body && typeof init.body === 'string') {
         const body = JSON.parse(init.body)
         if (providerName === 'gemini' && Array.isArray(body?.contents)) {
-          // Gemini 原生格式
+          // Gemini 原生格式。Gemini 3 系列思考参数改名 thinkingLevel(low/high)，
+          // 旧参数 thinkingBudget 会被 400 拒绝("requires thinkingLevel, not thinkingBudget")；
+          // 2.x 及更早仍用 thinkingBudget: 0。模型名从 URL(/models/<model>:)或 body 嗅探
+          const url = String(typeof input === 'string' ? input : input?.url || '')
+          const isGemini3 = /gemini-3/i.test(url) || /gemini-3/i.test(String(body?.model || ''))
           body.generationConfig = {
             ...(body.generationConfig || {}),
-            thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
+            thinkingConfig: isGemini3
+              ? { thinkingLevel: 'low' }
+              : { thinkingBudget: 0, includeThoughts: false },
           }
           init = { ...init, body: JSON.stringify(body) }
         } else if (Array.isArray(body?.messages)) {
