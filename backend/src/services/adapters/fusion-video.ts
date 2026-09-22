@@ -38,14 +38,14 @@ function numFramesForDuration(duration?: number | null, maxSeconds = 15): number
 
 /** LTX-Video legacy 2B（Lightricks/LTX-Video）无 temporal upsampler：输出帧数
  *  = num_frames（约束 num_frames%8==1）。按目标时长直算到最近 8k+1。
- *  VAE 不分块解码，帧数×像素 OOM 风险。maxSeconds=1（25帧）：49帧(2s)实测在
- *  1344×768 下 denoise step 29/40 触发 fusion memory enforcer fatal_exit
- *  （active 16.45GB + Metal cache 超 102GB ceiling 被杀）；25帧(1s)实测安全
- *  （768×1344×25 帧 diff 21.46，VAE AdaLayerNorm 修复后黑帧根除 #947）。
- *  超 1s 需等上游 VAE tiling（issue #945）。 */
-function numFramesForDurationLegacy(duration?: number | null, maxSeconds = 1): number {
+ *  VAE 不分块解码，帧数×像素 OOM 风险。maxSeconds=2（49帧）：#951 修复后
+ *  （cf765fa6 signal_video_abort 1s trip wire）49帧 1344×768 denoise 40 步 +
+ *  VAE decode 全程跑完 server 存活（~441s）。25帧(1s) 亦安全。
+ *  LTX-2.5 5s 高分辨率产出 LOW_MOTION（后半段冻结），legacy 2B 2s 质量更优。
+ *  超 2s 需等上游 VAE tiling（issue #945）。 */
+function numFramesForDurationLegacy(duration?: number | null, maxSeconds = 2): number {
   const fps = 24
-  const seconds = Math.min(maxSeconds, Math.max(1, Math.round(Number(duration || 1))))
+  const seconds = Math.min(maxSeconds, Math.max(1, Math.round(Number(duration || 2))))
   const target = seconds * fps
   const k = Math.max(1, Math.round((target - 1) / 8))
   return 8 * k + 1
@@ -116,10 +116,10 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       }
     }
 
-    // VAE OOM 保护：legacy 2B 限 1s（49帧 denoise 触发 memory enforcer fatal_exit）；
-    // LTX-2.5 高分辨率（短边≥1000）限 5s，超长日志告警（上游 issue #945）
-    const maxSeconds = legacy ? 1 : (shortEdge >= 1000 ? 5 : 15)
-    const requested = Number(record.duration) || (legacy ? 1 : 5)
+    // VAE OOM 保护：legacy 2B 限 2s（#951 修复后 49帧可跑）；LTX-2.5 高分辨率（短边≥1000）
+    // 限 5s，超长日志告警（上游 issue #945）
+    const maxSeconds = legacy ? 2 : (shortEdge >= 1000 ? 5 : 15)
+    const requested = Number(record.duration) || (legacy ? 2 : 5)
     if (requested > maxSeconds) {
       console.warn(
         `[fusion-video] ${legacy ? 'legacy 2B' : '高分辨率'}(短边${shortEdge})时长${requested}s` +

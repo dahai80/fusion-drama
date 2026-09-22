@@ -66,7 +66,7 @@ configs/   — 遗留死配置，代码零引用
   - **全局串行队列**（`enqueueTask`/`taskChain`）：所有图片/视频任务严格按提交顺序逐一执行——本地模型（fusion-mlx）无法并行（显存挤占），云端并发易触发限流。**不要改成并行**
   - 适配器注册表 `services/adapters/registry.ts`：图片 openai/gemini/volcengine；视频 volcengine/minimax/aliyun/fusion（官方清单在 `services/ai.ts` 的 officialProviders）
   - **fusion** = fusion-mlx 本地视频（`adapters/fusion-video.ts`）：同步 `/v1/videos/generate` 直接返回 base64 data URI（无轮询），`downloadFile` 解码落盘后 `result_url` 存 localPath（**勿存 data URI**——37MB base64 会污染 DB/API）；fusion 中文 prompt 先经文本模型译英文（Gemma T5 编码器不识 CJK）
-  - **模型感知适配**（`isLegacyLtx`）：LTX-2.5（`ltx-2.5`）短边 1088、temporal upsampler ×2（输出 = 16T−7 帧反推）、高分辨率(短边≥1000)限 5s；LTX-Video legacy 2B（`Lightricks--LTX-Video`，无 upsampler）短边 768、`num_frames=8k+1` 直算、限 1s（25帧；49帧 denoise 触发 fusion memory enforcer fatal_exit，超 1s 需上游 VAE tiling issue #945）。两者不可同时驻留 fusion（video mutex，issue #950）——切换模型前先 `POST /v1/models/{id}/unload`
+  - **模型感知适配**（`isLegacyLtx`）：LTX-2.5（`ltx-2.5`）短边 1088、temporal upsampler ×2（输出 = 16T−7 帧反推）、高分辨率(短边≥1000)限 5s，但 5s 产出 LOW_MOTION（后半段冻结，diff≈3.9、55% 帧冻结）；LTX-Video legacy 2B（`Lightricks--LTX-Video`，无 upsampler）短边 768、`num_frames=8k+1` 直算、限 2s（49帧；#951 修复 cf765fa6 signal_video_abort 1s trip wire 后 49帧 denoise+VAE 全程跑完 server 存活，质量优于 LTX-2.5 5s：diff≈26、0% 冻结）。两者不可同时驻留 fusion（video mutex，issue #950）——切换模型前先 `POST /v1/models/{id}/unload`
   - 中文图片提示词先经文本模型翻译成英文再生图（FLUX 不识中文，失败回退原文不阻断）
 - **视频拼接**: `services/ffmpeg-merge.ts`，FFmpeg 二进制内置（ffmpeg-static），可用 `FFMPEG_BIN`/`FFPROBE_BIN` 覆盖
 
