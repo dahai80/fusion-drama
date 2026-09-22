@@ -249,7 +249,11 @@ const saveStoryboards = createTool({
   id: 'save_storyboards',
   description: 'Save storyboards for this episode. Call in batches of at most 8 storyboards: the first batch must set replace_existing: true (clears all old storyboards for the episode, then writes), every following batch omits replace_existing (appends). Rows are upserted by shot_number, so overlapping batches and retries never create duplicates.',
   inputSchema: z.object({
-    replace_existing: z.boolean().optional(),
+    replace_existing: z.union([z.boolean(), z.string(), z.undefined()]).transform(v => {
+      // 本地小模型常把布尔写成字符串 "true"/"false"，宽松归一
+      if (typeof v === 'boolean') return v
+      return String(v).trim().toLowerCase() === 'true'
+    }).optional(),
     storyboards: z.array(storyboardFields),
   }),
   execute: async ({ storyboards, replace_existing }, context) => {

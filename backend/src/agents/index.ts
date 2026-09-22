@@ -8,6 +8,7 @@ import { Agent } from '@mastra/core/agent'
 import type { RequestContext } from '@mastra/core/request-context'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
+import { Agent as UndiciAgent } from 'undici'
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
 import { logTaskProgress } from '../utils/task-logger.js'
 import { scriptTools } from './tools/script-tools.js'
@@ -291,7 +292,7 @@ function createMaxTokensFetch(providerName: string, inner?: typeof fetch): typeo
   }
 }
 
-async function getModel(fileModel: string | undefined, modelOverride?: string, textConfigId?: number) {
+export async function getModel(fileModel: string | undefined, modelOverride?: string, textConfigId?: number) {
   // 请求可指定文本配置（含其 provider/baseUrl/apiKey），否则回退到当前启用配置
   const textConfig = (textConfigId ? await getConfigById(textConfigId) : null) || await getTextConfig()
   const modelName = modelOverride || fileModel || textConfig.model
@@ -314,9 +315,18 @@ async function getModel(fileModel: string | undefined, modelOverride?: string, t
   const tempFetch = temperature !== null
     ? createTemperatureFetch(providerName, temperature, thinkingOffFetch)
     : thinkingOffFetch
-  const fetchImpl = isOfficialOpenAIHost(resolvedBaseURL)
-    ? tempFetch
+  let fetchImpl = isOfficialOpenAIHost(resolvedBaseURL)
+    ? (tempFetch ?? fetch)
     : createMaxTokensFetch(providerName, tempFetch)
+
+  // 本地/中转端点：解除 undici 默认 300s headers 超时。
+  // 本地大模型（如 fusion-mlx 27B）长上下文首 token 延迟可超 300s，
+  // 会被 Node 全局 fetch 的 Headers Timeout 掐断（"Cannot connect to API: Headers Timeout Error"）
+  if (!isOfficialTextHost(resolvedBaseURL)) {
+    const dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
+    const inner = fetchImpl
+    fetchImpl = ((input: any, init?: any) => inner(input, { ...init, dispatcher } as any)) as typeof fetch
+  }
 
   if (providerName === 'gemini') {
     const googleProvider = createGoogleGenerativeAI({

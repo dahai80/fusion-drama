@@ -14,6 +14,17 @@ export async function downloadFile(url: string, subDir: string): Promise<string>
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
+  // data URI（如本地模型同步返回的 data:video/mp4;base64,...）直接解码落盘
+  if (url.startsWith('data:')) {
+    const match = /^data:([^;,]+);base64,(.*)$/s.exec(url)
+    if (!match) throw new Error('Unsupported data URI (only base64 is supported)')
+    const ext = mimeTypeExt(match[1]) || '.bin'
+    const filename = `${uuid()}${ext}`
+    const filePath = path.join(dir, filename)
+    fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'))
+    return `static/${subDir}/${filename}`
+  }
+
   const ext = getExtFromUrl(url)
   const filename = `${uuid()}${ext}`
   const filePath = path.join(dir, filename)
@@ -50,6 +61,19 @@ function getExtFromUrl(url: string): string {
     if (ext && ext.length <= 5) return ext
   } catch {}
   return '.bin'
+}
+
+/** 常见 MIME 类型 → 文件扩展名（data URI 落盘用） */
+function mimeTypeExt(mime: string): string | null {
+  const map: Record<string, string> = {
+    'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'video/quicktime': '.mov',
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+  }
+  return map[mime.toLowerCase()] ?? null
 }
 
 /**

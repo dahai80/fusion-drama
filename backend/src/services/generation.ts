@@ -10,7 +10,9 @@ import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readIm
 import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import type { AIConfig } from './adapters/types'
+import { getModel } from '../agents/index.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
+import { Agent as UndiciAgent } from 'undici'
 
 type TaskType = 'image' | 'video'
 
@@ -172,11 +174,24 @@ async function createTask(
   })
 
   const id = getInsertId(res)
-  processTask(id, config).catch(err => {
-    logTaskError(taskLabel(type), 'process', { id, error: err.message })
-    console.error(`${taskLabel(type)} ${id} failed:`, err)
-  })
+  enqueueTask(id, type, config)
   return id
+}
+
+// ===== 全局串行执行队列 =====
+// 背景：本地模型（fusion-mlx）无法并行处理多个生成请求（显存互相挤占/排队超时），
+// 且批量生成（角色/场景/道具/分镜）并发提交会互相拖垮。
+// 所有生成任务（图片/视频）统一入队，严格按提交顺序逐一执行。
+// 云端厂商同样受益：避免并发限流。
+let taskChain: Promise<void> = Promise.resolve()
+
+function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
+  taskChain = taskChain
+    .then(() => processTask(id, config))
+    .catch(err => {
+      logTaskError(taskLabel(type), 'process', { id, error: err.message })
+      console.error(`${taskLabel(type)} ${id} failed:`, err)
+    })
 }
 
 function parseTaskParams(raw: string | null | undefined): Record<string, any> {
@@ -185,6 +200,50 @@ function parseTaskParams(raw: string | null | undefined): Record<string, any> {
     return JSON.parse(raw) || {}
   } catch {
     return {}
+  }
+}
+
+/** 检测文本是否含中文（FLUX 等文生图模型不识中文，中文段会被忽略导致出图雷同） */
+function containsChinese(text: string): boolean {
+  return /[\u4e00-\u9fff]/.test(text)
+}
+
+/**
+ * 生图前把含中文的提示词翻译成英文（走当前文本模型，一次直出）。
+ * 失败时返回原文并记警告——翻译只是增强，不阻断生成。
+ */
+async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: number): Promise<string> {
+  if (!prompt || !containsChinese(prompt)) return prompt
+  try {
+    const { getTextConfig, getTextProviderBaseUrl } = await import('./ai.js')
+    const textConfig = await getTextConfig()
+    const baseUrl = getTextProviderBaseUrl(textConfig)
+    const dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${textConfig.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: textConfig.model,
+        messages: [
+          { role: 'system', content: 'You are a translation engine for image-generation prompts. Translate the user text to English. Keep the visual details, style words, and structure verbatim in meaning; output ONLY the translated prompt text, no explanations, no quotes.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 4096,
+      }),
+      dispatcher,
+    } as any)
+    if (!resp.ok) throw new Error(`translate API ${resp.status}`)
+    const result = await resp.json() as any
+    const translated = result?.choices?.[0]?.message?.content?.trim()
+    if (!translated) return prompt
+    logTaskProgress(taskLabel_, 'prompt-translated', { id, originalLength: prompt.length, translatedLength: translated.length })
+    return translated
+  } catch (err: any) {
+    logTaskWarn(taskLabel_, 'prompt-translate-failed', { id, error: err?.message })
+    return prompt
   }
 }
 
@@ -208,10 +267,12 @@ async function processTask(id: number, config: AIConfig) {
     if (type === 'image') {
       const adapter = getImageAdapter(config.provider)
       const resolvedReferenceImages = await normalizeReferenceImages(params.referenceImages)
+      // FLUX 等文生图模型不识中文：中文提示词先经文本模型译成英文，否则中文段被忽略导致不同角色出图雷同
+      const effectivePrompt = await translatePromptToEnglish(record.prompt || '', label, id)
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
         model: record.model,
-        prompt: record.prompt,
+        prompt: effectivePrompt,
         size: params.size,
         frameType: params.frameType,
         referenceImages: resolvedReferenceImages.length ? JSON.stringify(resolvedReferenceImages) : null,
@@ -226,10 +287,15 @@ async function processTask(id: number, config: AIConfig) {
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
       const resolvedReferenceFileUrl = resolvePublicMediaUrl(params.referenceFileUrl, 'file')
+      // fusion LTX-2.5 text encoder (Gemma) 不识中文，中文 prompt 产噪声视频；
+      // 云端中国厂商模型（volcengine/minimax/aliyun）识中文不译。仅 fusion 翻译。
+      const effectiveVideoPrompt = config.provider === 'fusion'
+        ? await translatePromptToEnglish(record.prompt || '', label, id)
+        : record.prompt
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
         model: record.model,
-        prompt: record.prompt,
+        prompt: effectiveVideoPrompt,
         referenceMode: params.referenceMode,
         imageUrl: resolvedImageUrl,
         firstFrameUrl: resolvedFirstFrameUrl,
@@ -268,8 +334,10 @@ async function processTask(id: number, config: AIConfig) {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
-      signal: AbortSignal.timeout(600_000),
-    })
+      signal: AbortSignal.timeout(1_800_000),
+      // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
+      dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
+    } as any)
 
     if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`)
     const result = await resp.json() as any
@@ -363,7 +431,8 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         method,
         headers,
         signal: AbortSignal.timeout(remainingMs),
-      })
+        dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
+      } as any)
       if (!resp.ok) continue
       const result = await resp.json() as any
 
@@ -462,8 +531,11 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   const localPath = await downloadFile(videoUrl, 'videos')
   // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频
   await extractVideoPoster(localPath)
+  // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
+  // 否则 37MB base64 污染 DB 与 API 响应。远端 URL 原样保留（前端 http 判定直连）。
+  const resultUrl = videoUrl.startsWith('data:') ? localPath : videoUrl
   await db.update(schema.sysTask)
-    .set({ resultUrl: videoUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
+    .set({ resultUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(eq(schema.sysTask.id, record.id))
 
   logTaskSuccess('VideoTask', 'downloaded', { id: record.id, localPath, storyboardId: record.storyboardId, duration })
