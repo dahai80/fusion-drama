@@ -94,23 +94,24 @@ test('fusion legacy 2B uses 768 short edge + direct frame mapping', () => {
   const request = adapter.buildGenerateRequest(legacyConfig, {
     id: 10,
     prompt: 'cat on beach',
-    duration: 2,
+    duration: 1,
   })
   // legacy: short edge 768, 16:9 long = 768*16/9≈1365 -> round 1344 (64-align)
   assert.equal(request.body.width, 1344)
   assert.equal(request.body.height, 768)
-  // legacy maxSeconds=2: 2s*24=48 -> nearest 8k+1 = 49
-  assert.equal(request.body.num_frames, 49)
+  // legacy maxSeconds=1: 1s*24=24 -> nearest 8k+1 = 25 (49帧 denoise OOM)
+  assert.equal(request.body.num_frames, 25)
 })
 
-test('fusion legacy 2B caps duration at 2s (VAE OOM protection)', () => {
+test('fusion legacy 2B caps duration at 1s (memory enforcer OOM protection)', () => {
   const frames = (duration?: number | null) =>
     adapter.buildGenerateRequest(legacyConfig, { id: 11, prompt: 'x', duration }).body.num_frames
-  // maxSeconds=2: all durations clamp to 2s -> 49 frames
-  assert.equal(frames(2), 49)
-  assert.equal(frames(5), 49)
-  assert.equal(frames(10), 49)
-  assert.equal(frames(null), 49)
+  // maxSeconds=1: all durations clamp to 1s -> 25 frames (49帧触发 fatal_exit)
+  assert.equal(frames(1), 25)
+  assert.equal(frames(2), 25)
+  assert.equal(frames(5), 25)
+  assert.equal(frames(10), 25)
+  assert.equal(frames(null), 25)
 })
 
 test('fusion legacy 2B respects aspect ratio', () => {
