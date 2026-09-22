@@ -30,6 +30,9 @@ test('fusion request hits sync endpoint with 16:9 full-res default', () => {
   assert.equal(request.body.response_format, 'b64_json')
   assert.equal(request.body.seed, undefined)
   assert.equal(request.body.image, undefined)
+  // LTX-2.5 distilled 管线自带 cfg，不覆盖
+  assert.equal(request.body.cfg_scale, undefined)
+  assert.equal(request.body.num_inference_steps, undefined)
 })
 
 test('fusion frame mapping accounts for temporal upsampler x2', () => {
@@ -101,6 +104,9 @@ test('fusion legacy 2B uses 768 short edge + direct frame mapping', () => {
   assert.equal(request.body.height, 768)
   // legacy maxSeconds=2: 2s*24=48 -> nearest 8k+1 = 49 (#951 修复后可跑)
   assert.equal(request.body.num_frames, 49)
+  // rectified-flow 蒸馏模型官方推荐 cfg=1.0（fusion 默认 3.0 致逐帧亮度闪烁）
+  assert.equal(request.body.cfg_scale, 1.0)
+  assert.equal(request.body.num_inference_steps, 30)
 })
 
 test('fusion legacy 2B caps duration at 2s (#951 fix — 49-frame OOM guard)', () => {

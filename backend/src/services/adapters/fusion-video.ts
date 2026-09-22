@@ -131,6 +131,15 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       ? numFramesForDurationLegacy(record.duration, maxSeconds)
       : numFramesForDuration(record.duration, maxSeconds)
 
+    // LTX-Video legacy 2B 是 rectified-flow 蒸馏模型，官方推荐 cfg_scale=1.0
+    // （fusion 默认 3.0 过高 → CFG 噪声放大 → 全局亮度逐帧振荡闪烁）。
+    // steps=30 足够（默认 40 多跑无质量增益、增 OOM 风险）。
+    // LTX-2.5 distilled 管线自带 cfg，不覆盖。
+    if (legacy) {
+      body.cfg_scale = 1.0
+      body.num_inference_steps = 30
+    }
+
     if (record.seed != null && Number.isFinite(Number(record.seed))) {
       body.seed = Number(record.seed)
     }
