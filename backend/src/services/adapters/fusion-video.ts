@@ -76,6 +76,21 @@ function isLegacyLtx(model: string): boolean {
     && !m.includes('ltx-2.5') && !m.includes('ltx2.5') && !m.includes('ltx2_5')
 }
 
+/** referenceImageUrls 是 JSON 数组字符串（见 types.ts）；取首张有效 URL。 */
+function firstReferenceUrl(raw?: string | null): string | null {
+  if (!raw) return null
+  try {
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) {
+      for (const u of arr) {
+        const s = String(u || '').trim()
+        if (s) return s
+      }
+    }
+  } catch { /* 非法 JSON 视为无参考图 */ }
+  return null
+}
+
 export class FusionVideoAdapter implements VideoProviderAdapter {
   provider = 'fusion'
 
@@ -86,8 +101,11 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     const prompt = (record.prompt || '').trim()
     if (!prompt) throw new Error('视频生成需要 prompt')
 
-    // 参考图：本地模型仅支持单张首帧（ltx 后端不支持 i2v 时由服务端 422 提示）
-    const firstFrame = record.firstFrameUrl || record.imageUrl || null
+    // 参考图：本地模型仅支持单张首帧（ltx 后端不支持 i2v 时由服务端 422 提示）。
+    // #968 缺陷3：referenceImageUrls（参考图模式）此前被忽略——取首张作 I2V 条件。
+    const firstFrame = record.firstFrameUrl
+      || record.imageUrl
+      || firstReferenceUrl(record.referenceImageUrls)
 
     const legacy = isLegacyLtx(model)
     const shortEdgeBase = legacy ? SHORT_EDGE_BASE_LEGACY : SHORT_EDGE_BASE_LTX25

@@ -3016,11 +3016,11 @@ async function setAsMainVideo() {
   } catch (e) { toastError(e, { fallback: 'episode.vid.setMainFailed' }) }
 }
 
-async function removeHistoryVideo(t) {
+async function removeHistoryVideo(task) {
   try {
-    await taskAPI.del(t.id)
-    sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== t.id)
-    if (previewVideoUrl.value === taskVideoPath(t)) previewVideoUrl.value = ''
+    await taskAPI.del(task.id)
+    sbVideoHistory.value = sbVideoHistory.value.filter(x => x.id !== task.id)
+    if (previewVideoUrl.value === taskVideoPath(task)) previewVideoUrl.value = ''
     toast.success(t('episode.vid.historyDeleted'))
   } catch (e) { toastError(e, { fallback: 'common.deleteFailed' }) }
 }
