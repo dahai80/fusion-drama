@@ -1,7 +1,7 @@
 /**
  * 应用内更新器（无 Apple 签名方案，同 Tauri updater 思路）
  *
- * - 清单：HUOBAO_UPDATE_FEED；未设置时双源 —— 国内 COS 优先，GitHub Releases 兜底
+ * - 清单：FUSION_UPDATE_FEED；未设置时双源 —— 国内 COS 优先，GitHub Releases 兜底
  *   （两个源返回同一份清单结构，仅下载 URL 域名不同，见 desktop/scripts/publish-release.mjs）
  * - macOS：下载 zip（.app 归档）→ sha256 校验 → 解压 → 旧包改名 .old 备胎 → 新包就位
  *   → `open` 拉起新应用 → 当前实例退出；下次启动清理 .old
@@ -16,12 +16,12 @@ import * as path from 'path'
 import crypto from 'crypto'
 import { spawn, execFile } from 'child_process'
 
-// 双源：COS（国内直连）优先，GitHub（海外）兜底；HUOBAO_UPDATE_FEED 可整体覆盖
-const FEED_URLS = process.env.HUOBAO_UPDATE_FEED
-  ? [process.env.HUOBAO_UPDATE_FEED]
+// 双源：COS（国内直连）优先，GitHub（海外）兜底；FUSION_UPDATE_FEED 可整体覆盖
+const FEED_URLS = process.env.FUSION_UPDATE_FEED
+  ? [process.env.FUSION_UPDATE_FEED]
   : [
-    'https://installer.chatfire.site/huobao-drama/latest.json',
-    'https://github.com/chatfire-AI/huobao-drama/releases/latest/download/latest.json',
+    'https://installer.chatfire.site/fusion-drama/latest.json',
+    'https://github.com/chatfire-AI/fusion-drama/releases/latest/download/latest.json',
   ]
 
 export interface UpdateState {
@@ -39,7 +39,7 @@ let mainWindow: () => BrowserWindow | null
 
 function sendProgress(percent: number) {
   state.downloadProgress = percent
-  mainWindow()?.webContents.send('huobao:update-progress', percent)
+  mainWindow()?.webContents.send('fusion:update-progress', percent)
 }
 
 function setState(patch: Partial<UpdateState>) {
@@ -74,7 +74,7 @@ function platformKey(): string {
 
 /** 已安装 app 的 .app 路径（仅 macOS、打包态有效） */
 function installedAppBundle(): string {
-  // process.execPath = .../HuobaoDrama.app/Contents/MacOS/HuobaoDrama
+  // process.execPath = .../FusionDrama.app/Contents/MacOS/FusionDrama
   return path.resolve(path.dirname(process.execPath), '..', '..')
 }
 
@@ -133,7 +133,7 @@ async function doDownload(): Promise<UpdateState> {
   if (!res.ok || !res.body) throw new Error(`更新包下载失败（HTTP ${res.status}）`)
 
   const total = asset.size || Number(res.headers.get('content-length')) || 0
-  const dir = path.join(app.getPath('temp'), 'huobao-update')
+  const dir = path.join(app.getPath('temp'), 'fusion-update')
   await fsp.mkdir(dir, { recursive: true })
   const fileName = decodeURIComponent(asset.url.split('/').pop() || `update-${Date.now()}`)
   const dest = path.join(dir, fileName)
@@ -179,10 +179,10 @@ async function doDownload(): Promise<UpdateState> {
 function describeApplyError(err: unknown): string {
   const e = err as NodeJS.ErrnoException
   if (e?.code === 'EPERM' || e?.code === 'EACCES') {
-    return `系统权限不足（${e.code}）：请在 系统设置 → 隐私与安全性 → App 管理 中允许 HuobaoDrama 后重试；或下载最新 dmg 覆盖安装（数据不受影响）`
+    return `系统权限不足（${e.code}）：请在 系统设置 → 隐私与安全性 → App 管理 中允许 FusionDrama 后重试；或下载最新 dmg 覆盖安装（数据不受影响）`
   }
   if (e?.code === 'EROFS') {
-    return '应用正运行在只读位置（可能直接在 dmg 挂载卷里），请先把 HuobaoDrama 拖入「应用程序」再更新'
+    return '应用正运行在只读位置（可能直接在 dmg 挂载卷里），请先把 FusionDrama 拖入「应用程序」再更新'
   }
   return e?.message || String(err)
 }
@@ -196,13 +196,13 @@ async function doApply(): Promise<void> {
 
   if (process.platform === 'darwin') {
     const bundle = installedAppBundle()
-    const tmpExtract = path.join(app.getPath('temp'), `huobao-update-extract-${Date.now()}`)
+    const tmpExtract = path.join(app.getPath('temp'), `fusion-update-extract-${Date.now()}`)
     try {
       await new Promise<void>((resolve, reject) => {
         execFile('unzip', ['-q', '-o', downloaded, '-d', tmpExtract], err => (err ? reject(err) : resolve()))
       })
-      const newApp = path.join(tmpExtract, 'HuobaoDrama.app')
-      if (!fs.existsSync(newApp)) throw new Error('更新包内容异常（未找到 HuobaoDrama.app）')
+      const newApp = path.join(tmpExtract, 'FusionDrama.app')
+      if (!fs.existsSync(newApp)) throw new Error('更新包内容异常（未找到 FusionDrama.app）')
 
       const oldBundle = `${bundle}.old`
       fs.rmSync(oldBundle, { recursive: true, force: true })
@@ -242,9 +242,9 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
   mainWindow = getWindow
   state.currentVersion = app.getVersion()
 
-  ipcMain.handle('huobao:update-state', () => state)
-  ipcMain.handle('huobao:update-check', () => doCheck())
-  ipcMain.handle('huobao:update-download', async () => {
+  ipcMain.handle('fusion:update-state', () => state)
+  ipcMain.handle('fusion:update-check', () => doCheck())
+  ipcMain.handle('fusion:update-download', async () => {
     try {
       return await doDownload()
     } catch (err) {
@@ -252,7 +252,7 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
       throw err
     }
   })
-  ipcMain.handle('huobao:update-apply', async () => {
+  ipcMain.handle('fusion:update-apply', async () => {
     try {
       await doApply()
     } catch (err) {
@@ -279,10 +279,10 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
 
 function quittingApp(): boolean {
   // updater 自身无 quitting 状态，避免循环依赖：main 设置 global 注入
-  return (globalThis as { __huobaoQuitting?: boolean }).__huobaoQuitting === true
+  return (globalThis as { __fusionQuitting?: boolean }).__fusionQuitting === true
 }
 
 /** main.ts 在 before-quit 时调用 */
 export function markQuitting(): void {
-  ;(globalThis as { __huobaoQuitting?: boolean }).__huobaoQuitting = true
+  ;(globalThis as { __fusionQuitting?: boolean }).__fusionQuitting = true
 }

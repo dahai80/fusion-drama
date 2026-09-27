@@ -52,6 +52,7 @@ function normalizeVideoRequest(body: any) {
     seed: body.seed ?? parameters.seed,
     prompt_extend: body.prompt_extend ?? parameters.prompt_extend,
     watermark: body.watermark ?? parameters.watermark,
+    video_pipeline: body.video_pipeline ?? parameters.video_pipeline,
     official_media: media,
   }
 }
@@ -193,6 +194,7 @@ app.post('/', async (c) => {
         seed: videoBody!.seed,
         promptExtend: videoBody!.prompt_extend,
         watermark: videoBody!.watermark,
+        videoPipeline: videoBody!.video_pipeline,
         configId,
       })
 

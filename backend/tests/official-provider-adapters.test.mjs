@@ -24,8 +24,8 @@ test('backend provider registry does not expose ChatFire as a model provider', (
   assert.doesNotMatch(aiConfigRoute, /api\.firemux\.com/i)
   assert.doesNotMatch(aiConfigRoute, /provider:\s*'chatfire'/i)
   assert.doesNotMatch(aiConfigRoute, /openrouter/i)
-  assert.doesNotMatch(aiConfigRoute, /\/huobao-preset/)
-  assert.doesNotMatch(useApi, /huobaoPreset/)
+  assert.doesNotMatch(aiConfigRoute, /\/fusion-preset/)
+  assert.doesNotMatch(useApi, /fusionPreset/)
 })
 
 test('text agents use the official Gemini provider for gemini configs', () => {

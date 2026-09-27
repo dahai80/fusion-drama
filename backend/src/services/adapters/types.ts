@@ -110,6 +110,8 @@ export interface VideoGenerationRecord {
   seed?: number | null
   promptExtend?: number | boolean | null
   watermark?: number | boolean | null
+  /** 画质档（仅 fusion LTX-2.5）：'dev'=高质量单阶段，缺省 distilled */
+  videoPipeline?: string | null
   // ... 其他字段
 }
 

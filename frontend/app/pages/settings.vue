@@ -85,21 +85,21 @@
             </div>
             <p class="setup-desc">
               {{ t('settings.ai.quickDesc') }}
-              <a class="huobao-site-link" href="https://api.firemux.com" target="_blank" rel="noopener noreferrer">
+              <a class="fusion-site-link" href="https://api.firemux.com" target="_blank" rel="noopener noreferrer">
                 {{ t('settings.ai.getKey') }}
                 <ExternalLink :size="12" :stroke-width="1.8" />
               </a>
             </p>
-            <div class="huobao-quick-row">
-              <input v-model="huobaoApiKey" class="input" type="password" placeholder="Huobao API Key" />
-              <button class="btn btn-primary" :disabled="huobaoSaving" @click="applyHuobaoQuickConfig">
-                <Loader2 v-if="huobaoSaving" :size="13" class="animate-spin" />
+            <div class="fusion-quick-row">
+              <input v-model="fusionApiKey" class="input" type="password" placeholder="Fusion API Key" />
+              <button class="btn btn-primary" :disabled="fusionSaving" @click="applyFusionQuickConfig">
+                <Loader2 v-if="fusionSaving" :size="13" class="animate-spin" />
                 <Sparkles v-else :size="13" />
                 {{ t('settings.ai.applyQuick') }}
               </button>
             </div>
-            <div class="huobao-quick-models">
-              <div v-for="q in huobaoQuickConfigs" :key="q.name" class="hqm-row">
+            <div class="fusion-quick-models">
+              <div v-for="q in fusionQuickConfigs" :key="q.name" class="hqm-row">
                 <span class="hqm-label">{{ serviceMeta[q.service_type].label }}</span>
                 <span class="hqm-provider">
                   <img v-if="providerIconUrl(q.provider)" :src="providerIconUrl(q.provider)" class="hqm-provider-icon" alt="" />
@@ -704,8 +704,8 @@ const cfgDialog = ref(false)
 const cfgEditId = ref(null)
 const cfgTesting = ref(false)
 const cfgTestResult = ref(null)
-const huobaoApiKey = ref('')
-const huobaoSaving = ref(false)
+const fusionApiKey = ref('')
+const fusionSaving = ref(false)
 const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', models: [], service_type: 'text', priority: 0, temperature: '' })
 // 模型标签编辑器：首位即默认模型；输入框支持回车添加、逗号/换行批量粘贴
 const modelInput = ref('')
@@ -756,14 +756,14 @@ const providerPresets = {
     minimax: { label: 'MiniMax H3 官方', baseUrl: 'https://api.minimaxi.com', models: ['MiniMax-H3'] },
   },
 }
-const huobaoQuickConfigs = [
-  { service_type: 'text', provider: 'gemini', name: '火宝文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'], priority: 101 },
-  { service_type: 'text', provider: 'openai', name: '火宝文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 100 },
-  { service_type: 'image', provider: 'openai', name: '火宝图片服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
-  { service_type: 'image', provider: 'gemini', name: '火宝图片服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
-  { service_type: 'video', provider: 'aliyun', name: '火宝视频服务 · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video', 'wan3.0-video-prime'], priority: 98 },
-  { service_type: 'video', provider: 'volcengine', name: '火宝视频服务 · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 97 },
-  { service_type: 'video', provider: 'minimax', name: '火宝视频服务 · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
+const fusionQuickConfigs = [
+  { service_type: 'text', provider: 'gemini', name: 'Fuse文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'], priority: 101 },
+  { service_type: 'text', provider: 'openai', name: 'Fuse文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 100 },
+  { service_type: 'image', provider: 'openai', name: 'Fuse图片服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
+  { service_type: 'image', provider: 'gemini', name: 'Fuse图片服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
+  { service_type: 'video', provider: 'aliyun', name: 'Fuse视频服务 · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video', 'wan3.0-video-prime'], priority: 98 },
+  { service_type: 'video', provider: 'volcengine', name: 'Fuse视频服务 · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 97 },
+  { service_type: 'video', provider: 'minimax', name: 'Fuse视频服务 · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
 ]
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }
@@ -819,24 +819,24 @@ async function setDefaultModel(type, c, m) {
 }
 async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
 async function delCfg(id) { await aiConfigAPI.del(id); toast.success(t('index.deleted')); loadCfgs() }
-async function applyHuobaoQuickConfig() {
-  const apiKey = huobaoApiKey.value.trim()
+async function applyFusionQuickConfig() {
+  const apiKey = fusionApiKey.value.trim()
   if (!apiKey) { toast.warning(t('settings.ai.apiKeyRequired')); return }
-  huobaoSaving.value = true
+  fusionSaving.value = true
   try {
-    for (const preset of huobaoQuickConfigs) {
+    for (const preset of fusionQuickConfigs) {
       const payload = { ...preset, api_key: apiKey }
       const existing = cfgs.value.find(c => c.name === preset.name || (c.service_type === preset.service_type && c.provider === preset.provider && c.base_url === preset.base_url))
       if (existing) await aiConfigAPI.update(existing.id, payload)
       else await aiConfigAPI.create(payload)
     }
     toast.success(t('settings.ai.quickApplied'))
-    huobaoApiKey.value = ''
+    fusionApiKey.value = ''
     await loadCfgs()
   } catch (e) {
     toastError(e)
   } finally {
-    huobaoSaving.value = false
+    fusionSaving.value = false
   }
 }
 function startAddCfg(t) {
@@ -1410,7 +1410,7 @@ onBeforeUnmount(stopUsagePoll)
 .settings-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .settings-desc { font-size: 13px; color: var(--text-2); margin-top: 6px; }
 
-/* 火宝快捷配置 */
+/* Fuse快捷配置 */
 .quick-card {
   padding: 20px;
   margin-bottom: 16px;
@@ -1420,19 +1420,19 @@ onBeforeUnmount(stopUsagePoll)
 .quick-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .setup-title { font-size: 15px; font-weight: 700; color: var(--text-0); }
 .setup-desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 14px; }
-.huobao-site-link {
+.fusion-site-link {
   display: inline-flex; align-items: center; gap: 3px;
   margin-left: 6px;
   color: var(--accent); text-decoration: none;
   font-weight: 600; white-space: nowrap;
 }
-.huobao-site-link:hover { text-decoration: underline; }
-.huobao-quick-row {
+.fusion-site-link:hover { text-decoration: underline; }
+.fusion-quick-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
 }
-.huobao-quick-models {
+.fusion-quick-models {
   margin-top: 14px;
   display: flex;
   flex-direction: column;

@@ -189,6 +189,9 @@
       "resolution": "영상 해상도",
       "resolutionPlaceholder": "해상도 선택",
       "resolutionHint": "생성 후 이 화의 영상은 이 해상도로 생성되며, 이후 화 카드에서도 변경할 수 있습니다.",
+      "qualityTier": "영상 품질",
+      "tierFast": "빠름",
+      "tierDev": "고품질 (느림)",
       "lockCopy": "생성 시 현재 활성화된 이미지·영상 생성 기능이 고정됩니다.",
       "creating": "생성 중...",
       "create": "생성",
@@ -270,7 +273,7 @@
       "desc": "먼저 추천 템플릿으로 설정을 만들고, 서비스 유형별로 미세 조정합니다. 워크벤치에서 화를 생성할 때 선택한 이미지·영상 기능이 고정됩니다.",
       "quickTitle": "화바오 빠른 설정",
       "recommended": "추천",
-      "quickDesc": "Huobao API Key를 입력하면 텍스트·이미지·영상 세 개의 추천 설정을 한 번에 작성합니다.",
+      "quickDesc": "Fusion API Key를 입력하면 텍스트·이미지·영상 세 개의 추천 설정을 한 번에 작성합니다.",
       "getKey": "api.firemux.com에서 Key 받기",
       "applyQuick": "화바오 설정 작성",
       "manualTitle": "수동 템플릿",
@@ -282,7 +285,7 @@
       "setDefault": "이 유형의 기본 모델로 설정",
       "noBaseUrl": "Base URL 미설정",
       "test": "테스트",
-      "apiKeyRequired": "Huobao API Key를 입력하세요",
+      "apiKeyRequired": "Fusion API Key를 입력하세요",
       "quickApplied": "화바오 빠른 설정이 작성되었습니다",
       "defaultModelSwitched": "기본 {type} 모델이 {model}(으)로 변경되었습니다",
       "meta": {
@@ -492,6 +495,9 @@
       "rewrite": "AI 재작성",
       "charCount": "{n}자",
       "saved": "저장되었습니다",
+      "importFile": "파일 가져오기",
+      "imported": "{name} 가져옴",
+      "importFailed": "가져오기 실패: 파일을 읽을 수 없거나 지원하지 않는 인코딩입니다",
       "rawPlaceholder": "소설 원문, 스토리 개요, 스토리보드 메모를 붙여넣기...",
       "skipRewrite": "재작성 건거이",
       "rewriteAgain": "다시 재작성",
@@ -887,13 +893,13 @@
       },
       "settings": {
         "title": "1단계 · AI 서비스 설정",
-        "desc": "모든 AI 기능에 사전 설정이 필요합니다. 설정 페이지에서 Huobao API 키를 붙여넣어 텍스트/이미지/영상을 한 번에 설정하세요."
+        "desc": "모든 AI 기능에 사전 설정이 필요합니다. 설정 페이지에서 Fusion API 키를 붙여넣어 텍스트/이미지/영상을 한 번에 설정하세요."
       }
     },
     "settings": {
       "quick": {
         "title": "가장 빠른 설정: 빠른 설정",
-        "desc": "Huobao API 키를 붙여넣으면 추천 설정 3종(텍스트/이미지/영상)을 한 번에 등록합니다. 연결 테스트 지원."
+        "desc": "Fusion API 키를 붙여넣으면 추천 설정 3종(텍스트/이미지/영상)을 한 번에 등록합니다. 연결 테스트 지원."
       },
       "nav": {
         "title": "모든 설정이 여기에",

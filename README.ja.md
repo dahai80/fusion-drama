@@ -1,4 +1,4 @@
-# 🎬 Huobao Drama - AI ショートドラマ生成プラットフォーム
+# 🎬 Fusion Drama - AI ショートドラマ生成プラットフォーム
 
 <div align="center">
 
@@ -7,19 +7,19 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![ダウンロード](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![ダウンロード](https://img.shields.io/github/v/release/chatfire-AI/fusion-drama?style=flat&logo=github&label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89)](https://github.com/chatfire-AI/fusion-drama/releases/latest)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | **日本語** | [한국어](README.ko.md)
 
 [機能](#-機能) • [クイックスタート](#-クイックスタート) • [チュートリアル](#-チュートリアル画像付き) • [デスクトップ版](#-デスクトップアプリ推奨) • [デプロイ](#-デプロイ)
 
-<h2>🔑 <a href="https://api.firemux.com">Huobao API Key を取得 👉 今すぐ見る</a></h2>
+<h2>🔑 <a href="https://api.firemux.com">Fusion API Key を取得 👉 今すぐ見る</a></h2>
 
 **テキスト・画像・動画のすべての AI 機能を、1 つの Key で有効化**
 
-デプロイ後、「設定 → 火宝クイック設定」に Key を貼るだけで、3 つの推奨設定をワンクリックで書き込み
+デプロイ後、「設定 → Fuseクイック設定」に Key を貼るだけで、3 つの推奨設定をワンクリックで書き込み
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">デスクトップ版をダウンロード（macOS / Windows）</a></h3>
+<h3>📥 <a href="https://github.com/chatfire-AI/fusion-drama/releases/latest">デスクトップ版をダウンロード（macOS / Windows）</a></h3>
 <h3>🌐 <a href="https://www.chatfire.site">公式サイト</a></h3>
 
 </div>
@@ -28,7 +28,7 @@
 
 ## 📖 プロジェクト概要
 
-Huobao Drama は AI ベースのショートドラマ自動制作プラットフォームです。脚本生成、キャラクターデザイン、分镜制作から動画合成まで、全工程を自動化します。
+Fusion Drama は AI ベースのショートドラマ自動制作プラットフォームです。脚本生成、キャラクターデザイン、分镜制作から動画合成まで、全工程を自動化します。
 
 ### 🎯 コアバリュー
 
@@ -118,10 +118,10 @@ data/       — 生成アセットと SQLite データベース
 
 | 変数 | デフォルト値 | 説明 |
 |---|---|---|
-| `SQLITE_PATH` | `<リポジトリ>/data/huobao.sqlite3` | SQLite データベースファイルの場所 |
+| `SQLITE_PATH` | `<リポジトリ>/data/fusion.sqlite3` | SQLite データベースファイルの場所 |
 | `PORT` | `5679` | バックエンドサービスのポート |
 | `STORAGE_PATH` | `<リポジトリ>/data/static` | 生成ファイルの保存ディレクトリ |
-| `HUOBAO_DATA_DIR` | — | デスクトップ版で Electron メインプロセスが注入（userData データルート） |
+| `FUSION_DATA_DIR` | — | デスクトップ版で Electron メインプロセスが注入（userData データルート） |
 | `WORKSPACE_PATH` | `backend/workspace` | Agent スキル/プロンプトディレクトリ（デスクトップ版は userData の書き込み可能なコピー） |
 | `FRONTEND_DIST` | `frontend/dist` | フロントエンド静的ビルドディレクトリ |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内蔵バイナリ | カスタム ffmpeg/ffprobe の実行ファイルパス |
@@ -133,8 +133,8 @@ data/       — 生成アセットと SQLite データベース
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/chatfire-AI/huobao-drama.git
-cd huobao-drama
+git clone https://github.com/chatfire-AI/fusion-drama.git
+cd fusion-drama
 
 # バックエンドの依存をインストール
 cd backend && npm install
@@ -183,7 +183,7 @@ cd ../backend && npm start
 
 ### 🗄️ データベース
 
-SQLite 内蔵（`better-sqlite3` + WAL モード）。初回起動時にテーブルを自動作成（冪等な DDL リプレイ + シードデータ）。デフォルトのファイルは `data/huobao.sqlite3`、`SQLITE_PATH` で変更可能。デスクトップ版はユーザーデータディレクトリ（`~/Library/Application Support/HuobaoDrama/data/`）に保存します。
+SQLite 内蔵（`better-sqlite3` + WAL モード）。初回起動時にテーブルを自動作成（冪等な DDL リプレイ + シードデータ）。デフォルトのファイルは `data/fusion.sqlite3`、`SQLITE_PATH` で変更可能。デスクトップ版はユーザーデータディレクトリ（`~/Library/Application Support/FusionDrama/data/`）に保存します。
 
 旧 MySQL からのデータ移行：
 
@@ -201,7 +201,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 起動後、すべての AI 機能（テキスト/画像/動画）を使うには、先にモデルサービスの設定が必要です。未設定の場合、ページ上部にバナーで案内されます：
 
 1. 「設定」ページを開く
-2. 「火宝クイック設定」に Huobao API Key を貼る（[api.firemux.com で取得](https://api.firemux.com)）。テキスト・画像・動画の 3 つの推奨設定をワンクリックで書き込み
+2. 「Fuseクイック設定」に Fusion API Key を貼る（[api.firemux.com で取得](https://api.firemux.com)）。テキスト・画像・動画の 3 つの推奨設定をワンクリックで書き込み
 3. または「手動テンプレート」でプロバイダーごとに追加。接続テストに対応
 
 設定が完了するとバナーは自動で消え、エピソード制作を開始できます。
@@ -226,7 +226,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### ステップ 2 · AI サービス設定（初回）
 
-設定ページの「火宝クイック設定」に API キーを貼り付けると推奨 3 設定を一括書き込み。手動テンプレートでの追加も可能です。使用モデルは上部バーでいつでも切り替えられます（ステップ 5 参照）。
+設定ページの「Fuseクイック設定」に API キーを貼り付けると推奨 3 設定を一括書き込み。手動テンプレートでの追加も可能です。使用モデルは上部バーでいつでも切り替えられます（ステップ 5 参照）。
 
 <p align="center">
   <img src="docs/screenshots/03-settings-quick.png" alt="AI サービス設定" width="800">
@@ -284,23 +284,23 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ デスクトップアプリ（推奨）
 
-**⬇️ ビルド済みインストーラー: [GitHub Releases](https://github.com/chatfire-AI/huobao-drama/releases/latest) · [中国向けミラー（Tencent COS）](https://installer.chatfire.site/huobao-drama/v4.0.4/)**
+**⬇️ ビルド済みインストーラー: [GitHub Releases](https://github.com/chatfire-AI/fusion-drama/releases/latest) · [中国向けミラー（Tencent COS）](https://installer.chatfire.site/fusion-drama/v4.0.4/)**
 
 | プラットフォーム | ダウンロードファイル |
 |---|---|
-| macOS（Apple Silicon、M シリーズ） | `HuobaoDrama-4.0.4-arm64.dmg` |
-| macOS（Intel） | `HuobaoDrama-4.0.4.dmg` |
-| Windows | `HuobaoDrama.Setup.4.0.4.exe` |
+| macOS（Apple Silicon、M シリーズ） | `FusionDrama-4.0.4-arm64.dmg` |
+| macOS（Intel） | `FusionDrama-4.0.4.dmg` |
+| Windows | `FusionDrama.Setup.4.0.4.exe` |
 
 > 中国本土では GitHub が不安定なため、Tencent COS ミラーをご利用ください。アプリ内アップデーターも COS を優先し、GitHub にフォールバックします。
 
 **コマンドラインインストール（推奨・修復不要）**：curl でのダウンロードは macOS の隔離属性が付かないため、「壊れている」警告なしでそのまま起動できます（Apple Silicon は `-arm64.dmg`、Intel は無印の dmg）：
 
 ```bash
-curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.4/HuobaoDrama-4.0.4-arm64.dmg \
-  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
-  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
-  && hdiutil detach /Volumes/HuobaoDrama*
+curl -L -o /tmp/FusionDrama.dmg https://installer.chatfire.site/fusion-drama/v4.0.4/FusionDrama-4.0.4-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/FusionDrama.dmg \
+  && cp -R /Volumes/FusionDrama*/FusionDrama.app /Applications/ \
+  && hdiutil detach /Volumes/FusionDrama*
 ```
 
 ビルド不要 —— dmg/exe をダウンロードしてそのままインストールできます。インストール済みクライアントは内蔵アップデーターで自動更新されます。（ソースから自分でパッケージングする場合は以下のコマンドを参照。）
@@ -313,20 +313,20 @@ npm run dist        # macOS dmg（arm64 + Intel）
 npm run dist:win    # Windows NSIS インストーラー（win-x64、macOS 上でクロスビルド可能）
 
 # 成果物
-# desktop/release/HuobaoDrama-<バージョン>-arm64.dmg      (Apple Silicon)
-# desktop/release/HuobaoDrama-<バージョン>.dmg            (Intel)
-# desktop/release/HuobaoDrama Setup <バージョン>.exe      (Windows)
+# desktop/release/FusionDrama-<バージョン>-arm64.dmg      (Apple Silicon)
+# desktop/release/FusionDrama-<バージョン>.dmg            (Intel)
+# desktop/release/FusionDrama Setup <バージョン>.exe      (Windows)
 ```
 
 インストール時の注意：
 
 - macOS 未署名パッケージは初回起動時に「Appが壊れているため開けません」と表示される場合があります（Apple Silicon で多発）。これは Gatekeeper の隔離属性によるもので、ファイルは壊れていません。修復方法は 2 つあります：
   1. **dmg に修復スクリプトを同梱**：アプリを「アプリケーション」にドラッグした後、dmg ウィンドウ下部の「如提示已损坏请双击我.command」をダブルクリックすれば自動で修復されます；
-  2. またはターミナルで `sudo xattr -cr /Applications/HuobaoDrama.app` を実行。
+  2. またはターミナルで `sudo xattr -cr /Applications/FusionDrama.app` を実行。
 
   修復は初回の 1 回だけ。その後は普通に起動でき、アプリ内自動更新にも影響しません。
 - Windows 未署名パッケージは SmartScreen で「詳細情報 → 実行」を選択
-- ユーザーデータディレクトリ：`~/Library/Application Support/HuobaoDrama/`（データベース、生成メディア、オンライン編集したスキルのコピー）
+- ユーザーデータディレクトリ：`~/Library/Application Support/FusionDrama/`（データベース、生成メディア、オンライン編集したスキルのコピー）
 - FFmpeg/FFprobe バイナリ内蔵。システムへのインストール不要
 - Electron は 37.x に固定：better-sqlite3 の win32 プリビルドがこの ABI までしか対応していないため（クロスパッケージでコンパイル不要にする鍵）
 - アプリ内の外部リンク（「api.firemux.com で Key を取得」など）はシステムブラウザで直接開きます
@@ -346,7 +346,7 @@ cd desktop && npm run feed
 # 3. 公開：latest.json + インストーラー + zip を GitHub Release にアップロード（タグは v1.0.1 形式）
 ```
 
-インストール済みのクライアントは起動後にマニフェストを自動チェックし（「設定 → 关于更新」から手動チェックも可能）、新バージョンを検出するとダウンロードとインストールを促します。マニフェストの URL は `HUOBAO_UPDATE_FEED` 環境変数で変更可能です。
+インストール済みのクライアントは起動後にマニフェストを自動チェックし（「設定 → 关于更新」から手動チェックも可能）、新バージョンを検出するとダウンロードとインストールを促します。マニフェストの URL は `FUSION_UPDATE_FEED` 環境変数で変更可能です。
 
 デスクトップ版の開発デバッグ：
 
@@ -396,7 +396,7 @@ server {
     # sendfile ゼロコピー + 長期キャッシュ
     # （ファイルは uuid 命名で内容不変のため immutable キャッシュが安全）
     location /static/ {
-        alias /path/to/huobao-drama/data/static/;
+        alias /path/to/fusion-drama/data/static/;
         sendfile on;
         tcp_nopush on;
         expires 1y;
@@ -419,14 +419,14 @@ server {
 **方法 A — ビルド済みイメージ（クローン・ビルド不要）**：マルチアーキテクチャ（`linux/amd64` + `linux/arm64`）、x86 サーバーと ARM デバイスの両方に自動対応
 
 ```bash
-docker pull huobao/huobao-drama:4.0.0
+docker pull fusion/fusion-drama:4.0.0
 
 docker run -d \
-  --name huobao-drama \
+  --name fusion-drama \
   -p 5679:5679 \
-  -v huobao-data:/app/data \
+  -v fusion-data:/app/data \
   --restart unless-stopped \
-  huobao/huobao-drama:4.0.0
+  fusion/fusion-drama:4.0.0
 ```
 
 **方法 B — docker compose（ソースビルド + Watchtower アプリ内更新）**：リポジトリルートにオールインワンの `Dockerfile`（フロントエンド generate + バックエンド依存/ランタイムの 3 ステージ。バックエンドはサーバーデプロイと同様に tsx で実行）と `docker-compose.yml`（アプリ + Watchtower）を用意：
@@ -436,15 +436,15 @@ docker run -d \
 cp .env.example .env   # WATCHTOWER_TOKEN を変更
 
 # 2. ビルドして起動（リリース時にバージョンを注入し、「关于更新」での比較に使用）
-HUOBAO_VERSION=4.0.0 docker compose up -d --build
+FUSION_VERSION=4.0.0 docker compose up -d --build
 
 # 3. http://localhost:5679 にアクセス
 ```
 
-- **データ永続化**：名前付きボリューム `huobao-data` を `/app/data` にマウント（SQLite + 生成画像/動画 + workspace/skills）。イメージ更新でもデータを失いません
+- **データ永続化**：名前付きボリューム `fusion-data` を `/app/data` にマウント（SQLite + 生成画像/動画 + workspace/skills）。イメージ更新でもデータを失いません
 - **アプリ内更新**：compose に [Watchtower](https://containrrr.dev/watchtower/) sidecar を同梱（`--label-enable` でラベル付きコンテナのみ更新、`--cleanup` で旧イメージ削除、毎日セルフチェック）。「設定 → 关于更新」で新バージョンの確認と「今すぐ更新」が可能。バックエンドが Watchtower HTTP API 経由でトリガーし、新イメージを pull してコンテナを再構築。数分後にページを更新すれば完了です
-- **手動モード**：`docker-compose.yml` から app の `HUOBAO_WATCHTOWER_*` の 2 つの環境変数（または watchtower サービス全体）を削除すると、「关于更新」は新バージョン通知 + 手動コマンド `docker compose pull && docker compose up -d` に退化します
-- **イメージの公開**：`docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .`。バージョンマニフェストはデスクトップ版と GitHub Releases の `latest.json` を共用（`HUOBAO_UPDATE_FEED` で上書き可能）
+- **手動モード**：`docker-compose.yml` から app の `FUSION_WATCHTOWER_*` の 2 つの環境変数（または watchtower サービス全体）を削除すると、「关于更新」は新バージョン通知 + 手動コマンド `docker compose pull && docker compose up -d` に退化します
+- **イメージの公開**：`docker buildx build --platform linux/amd64,linux/arm64 --build-arg FUSION_VERSION=x.y.z -t fusion/fusion-drama:x.y.z -t fusion/fusion-drama:latest --push .`。バージョンマニフェストはデスクトップ版と GitHub Releases の `latest.json` を共用（`FUSION_UPDATE_FEED` で上書き可能）
 
 ---
 
@@ -479,7 +479,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 ### Q: デスクトップ版のデータはどこに保存されますか？
 
-A: `~/Library/Application Support/HuobaoDrama/data/`（SQLite データベース + 生成画像/動画）。オンライン編集したスキルのコピーは同階層の `workspace/` ディレクトリにあります。開発モードではリポジトリの `data/` ディレクトリを使用します。
+A: `~/Library/Application Support/FusionDrama/data/`（SQLite データベース + 生成画像/動画）。オンライン編集したスキルのコピーは同階層の `workspace/` ディレクトリにあります。開発モードではリポジトリの `data/` ディレクトリを使用します。
 
 ### Q: 旧 MySQL データを SQLite に移行するには？
 
@@ -491,7 +491,7 @@ A: インストール不要です。プロジェクトに `ffmpeg-static` / `ffp
 
 ### Q: ページ上部に「モデル未設定」と表示される？
 
-A: 初回デプロイ時の正常な案内です。「設定」ページで「火宝クイック設定」に API Key を貼ってワンクリックで書き込むか、「手動テンプレート」でプロバイダーを追加してください。テキスト・画像・動画の 3 類すべてに有効な設定があるとバナーは自動で消えます。
+A: 初回デプロイ時の正常な案内です。「設定」ページで「Fuseクイック設定」に API Key を貼ってワンクリックで書き込むか、「手動テンプレート」でプロバイダーを追加してください。テキスト・画像・動画の 3 類すべてに有効な設定があるとバナーは自動で消えます。
 
 ### Q: フロントエンドがバックエンド API に接続できない？
 
@@ -542,7 +542,7 @@ A: バックエンドは初回起動時に全テーブルを自動作成しま�
   - `docker/init.sql` とエクスポートスクリプトを追加（DBA レビュー / 事前テーブル作成）
 - 初回利用ガイド
   - AI サービス未設定時にサイト上部にバナーを表示し設定ページへ誘導
-  - 設定ページに「火宝クイック設定」を追加：1 つの Key でテキスト/画像/動画の 3 つの推奨設定を書き込み
+  - 設定ページに「Fuseクイック設定」を追加：1 つの Key でテキスト/画像/動画の 3 つの推奨設定を書き込み
   - モデル未設定エラーの中国語化と設定ページへの誘導
 - 動画モデルのデフォルトを Seedance 2.0 Fast に変更
 - プロバイダー集約：OpenAI / Gemini / Volcano Engine のみ残存

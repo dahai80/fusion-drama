@@ -46,6 +46,15 @@
             :show-config="videoModelMultiCfg"
           />
           <ModelSelect
+            v-model="videoQualityTier"
+            :label="t('episode.topbar.qualityTier')"
+            :options="[
+              { key: 'fast', model: t('episode.topbar.tierFast') },
+              { key: 'dev', model: t('episode.topbar.tierDev') },
+            ]"
+            hide-default
+          />
+          <ModelSelect
             v-model="episodeResolution"
             :label="t('episode.topbar.resolution')"
             :options="resolutionOptions"
@@ -174,6 +183,11 @@
             </div>
             <div class="toolbar-right">
               <span v-if="rawLen" class="char-count">{{ t('episode.script.charCount', { n: rawLen }) }}</span>
+              <button class="btn btn-sm" @click="importRawInput?.click()">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                {{ t('episode.script.importFile') }}
+              </button>
+              <input ref="importRawInput" type="file" accept=".txt,.md,text/plain,text/markdown" class="visually-hidden" @change="onImportRawFile" />
               <button class="btn btn-sm" @click="saveRaw(); toast.success(t('episode.script.saved'))">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 {{ t('common.save') }}
@@ -1451,7 +1465,7 @@ const episodeNumber = Number(route.params.episodeNumber)
 const drama = ref(null), episode = ref(null), chars = ref([]), scenes = ref([]), propItems = ref([]), sbs = ref([]), mergeData = ref(null)
 // 工作台面板位置记忆（按剧集隔离）：仅页面刷新(reload)时恢复到上次所在步骤；
 // 从列表/详情页点击进入时始终默认「剧本」面板
-const PANEL_STORE_KEY = `huobao:workbench:panel:${dramaId}:${episodeNumber}`
+const PANEL_STORE_KEY = `fusion:workbench:panel:${dramaId}:${episodeNumber}`
 const isPageReload = (() => {
   try { return performance.getEntriesByType('navigation')[0]?.type === 'reload' } catch { return false }
 })()
@@ -1465,6 +1479,28 @@ const panel = ref(['production', 'export'].includes(storedPanel?.panel) ? stored
 const { running: rn, runningType: rt, run: runAgent } = useAgent()
 
 const localRaw = ref(''), localScript = ref('')
+// 导入文件填充原始内容（.txt/.md）；FileReader 默认按 UTF-8 解码，
+// 出现替换符（U+FFFD）说明编码不符（常见 GBK），自动回退 GBK 重读一次
+const importRawInput = ref(null)
+const onImportRawFile = (e) => {
+  const input = e.target
+  const file = input.files?.[0]
+  input.value = '' // 允许重复选择同一文件
+  if (!file) return
+  const readFile = (encoding) => {
+    const fr = new FileReader()
+    fr.onerror = () => toastError(t('episode.script.importFailed'))
+    fr.onload = () => {
+      const text = String(fr.result || '')
+      if (encoding !== 'gbk' && text.includes('\uFFFD')) { readFile('gbk'); return }
+      if (encoding === 'gbk' && text.includes('\uFFFD')) { toastError(t('episode.script.importFailed')); return }
+      localRaw.value = text
+      toast.success(t('episode.script.imported', { name: file.name }))
+    }
+    fr.readAsText(file, encoding)
+  }
+  readFile('utf-8')
+}
 const rawContent = computed(() => episode.value?.content || '')
 const scriptContent = computed(() => episode.value?.script_content || episode.value?.scriptContent || '')
 const epId = computed(() => episode.value?.id || 0)
@@ -1514,7 +1550,7 @@ watch([panel, scriptStep, prodTab], ([p, s, pt]) => {
   try { localStorage.setItem(PANEL_STORE_KEY, JSON.stringify({ panel: p, scriptStep: s, prodTab: pt })) } catch { /* 静默 */ }
 })
 // ===== 视频制作三栏宽度：拖拽调节 + 全局持久化（双击分隔条恢复默认） =====
-const VIDEO_COL_STORE_KEY = 'huobao:workbench:video-cols'
+const VIDEO_COL_STORE_KEY = 'fusion:workbench:video-cols'
 const VIDEO_COL_DEFAULTS = { left: 236, right: 340 }
 const VIDEO_COL_LIMITS = { left: [180, 420], right: [260, 560] }
 const storedVideoCols = (() => {
@@ -1562,12 +1598,12 @@ const imageConfigs = ref([])
 const videoConfigs = ref([])
 const textConfigs = ref([])
 // 生成时可选模型：空串 = 跟随配置默认（models[0]）；选择持久化到 localStorage，刷新页面后保留
-const MODEL_STORE_KEYS = { chat: 'huobao:model:chat', image: 'huobao:model:image', video: 'huobao:model:video' }
+const MODEL_STORE_KEYS = { chat: 'fusion:model:chat', image: 'fusion:model:image', video: 'fusion:model:video' }
 function readStoredModel(key, legacyKey = '') {
   try { return localStorage.getItem(key) || (legacyKey && localStorage.getItem(legacyKey)) || '' } catch { return '' }
 }
 // 顶栏文本模型：适用于所有 Chat Agent 调用（改写/提取/拆镜/视频提示词/最终提示词），空串 = 跟随配置默认
-const chatModel = ref(readStoredModel(MODEL_STORE_KEYS.chat, 'huobao:model:rewrite'))
+const chatModel = ref(readStoredModel(MODEL_STORE_KEYS.chat, 'fusion:model:rewrite'))
 const imageModel = ref(readStoredModel(MODEL_STORE_KEYS.image))
 const videoModel = ref(readStoredModel(MODEL_STORE_KEYS.video))
 function persistModel(modelRef, key) {
@@ -1578,8 +1614,13 @@ function persistModel(modelRef, key) {
 persistModel(chatModel, MODEL_STORE_KEYS.chat)
 persistModel(imageModel, MODEL_STORE_KEYS.image)
 persistModel(videoModel, MODEL_STORE_KEYS.video)
+// 视频画质档：'fast'=distilled（默认，~80s）| 'dev'=高质量单阶段（~1600s，无音频）
+const videoQualityTier = ref(localStorage.getItem('fusion:videoQualityTier') === 'dev' ? 'dev' : 'fast')
+watch(videoQualityTier, v => {
+  try { localStorage.setItem('fusion:videoQualityTier', v) } catch {}
+})
 // 左侧菜单栏收起/展开：收起为窄图标栏给内容区让位，持久化到 localStorage
-const SIDEBAR_COLLAPSED_KEY = 'huobao:sidebar-collapsed'
+const SIDEBAR_COLLAPSED_KEY = 'fusion:sidebar-collapsed'
 const sidebarCollapsed = ref((() => {
   try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1' } catch { return false }
 })())
@@ -3253,6 +3294,8 @@ function uploadAssetImage(kind, id) {
 
 async function genVid(sb, opts = {}) {
   const referenceImages = getShotReferenceImages(sb)
+  // 画质档：'dev'=高质量单阶段（慢），缺省 distilled（快）。#995 后 dev 同样支持联合 A/V。
+  const useDevPipeline = videoQualityTier.value === 'dev'
   // 参考素材完全来自分镜绑定的角色/场景/道具图片
   const params = {
     storyboard_id: sb.id,
@@ -3261,6 +3304,7 @@ async function genVid(sb, opts = {}) {
     duration: Number(sb.duration || 10),
     aspect_ratio: dramaAspectRatio.value,
     generate_audio: true,
+    video_pipeline: useDevPipeline ? 'dev' : undefined,
     model: bareModelName(videoModel.value) || undefined,
     config_id: ownerConfigId(videoModelOptions.value, videoModel.value),
     reference_image_urls: referenceImages,
@@ -3920,6 +3964,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 }
 .step-name { font-size: 12.5px; font-weight: 700; color: var(--text-1); font-family: var(--font-display); }
 .char-count { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Editor Area */
 .step-editor { flex: 1; display: flex; flex-direction: column; min-height: 0; }

@@ -24,12 +24,12 @@ RUN npm prune --omit=dev && npm i tsx@^4.21.0 --no-save --no-audit --no-fund --r
 
 # ===== 运行时 =====
 FROM node:20-bookworm-slim
-ARG HUOBAO_VERSION=dev
+ARG FUSION_VERSION=dev
 ENV NODE_ENV=production \
-    HUOBAO_VERSION=${HUOBAO_VERSION} \
+    FUSION_VERSION=${FUSION_VERSION} \
     PORT=5679 \
-    HUOBAO_DATA_DIR=/app/data \
-    SQLITE_PATH=/app/data/huobao.sqlite3 \
+    FUSION_DATA_DIR=/app/data \
+    SQLITE_PATH=/app/data/fusion.sqlite3 \
     WORKSPACE_PATH=/app/data/workspace \
     FRONTEND_DIST=/app/frontend-dist
 

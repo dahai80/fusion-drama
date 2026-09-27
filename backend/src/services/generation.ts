@@ -59,6 +59,8 @@ interface GenerateVideoParams {
   seed?: number
   promptExtend?: boolean
   watermark?: boolean
+  /** 画质档（仅 fusion LTX-2.5）：'dev'=高质量单阶段（慢），缺省 distilled=快速 */
+  videoPipeline?: string
   configId?: number
 }
 
@@ -130,6 +132,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     seed: params.seed,
     promptExtend: params.promptExtend,
     watermark: params.watermark,
+    videoPipeline: params.videoPipeline,
   })
 
   logTaskStart('VideoTask', 'enqueue', {
@@ -312,6 +315,7 @@ async function processTask(id: number, config: AIConfig) {
         seed: params.seed,
         promptExtend: params.promptExtend,
         watermark: params.watermark,
+        videoPipeline: params.videoPipeline,
       }))
     }
 

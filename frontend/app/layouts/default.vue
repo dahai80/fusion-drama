@@ -5,12 +5,12 @@
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
           <div class="brand-mark">
-            <img v-if="showBrandImage" :src="brandLogo" alt="火宝短剧" class="brand-logo" @error="showBrandImage = false" />
+            <img v-if="showBrandImage" :src="brandLogo" alt="Fuse 短剧" class="brand-logo" @error="showBrandImage = false" />
             <span v-else class="brand-fallback">火</span>
           </div>
           <div class="brand-text">
-            <span class="brand-name">火宝短剧</span>
-            <span class="brand-sub">Huobao Shorts</span>
+            <span class="brand-name">Fuse 短剧</span>
+            <span class="brand-sub">Fusion Shorts</span>
           </div>
         </button>
       </div>
@@ -29,7 +29,7 @@
       <div class="header-right">
         <a
           class="github-link"
-          href="https://github.com/chatfire-AI/huobao-drama"
+          href="https://github.com/chatfire-AI/fusion-drama"
           target="_blank"
           rel="noopener"
           aria-label="GitHub"
@@ -59,7 +59,7 @@
 import { LayoutGrid, Settings, TriangleAlert, Github } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { aiConfigAPI } from '~/composables/useApi'
-import brandLogo from '~/assets/huobao-logo.png'
+import brandLogo from '~/assets/fusion-logo.png'
 
 const { t, locale } = useI18n()
 const route = useRoute()

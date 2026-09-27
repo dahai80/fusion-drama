@@ -19,14 +19,14 @@ function providerPresetBlock(serviceType) {
 test('settings page exposes official provider templates only', () => {
   assert.doesNotMatch(settingsPage, /provider:\s*'chatfire'/i)
   assert.doesNotMatch(settingsPage, /openrouter/i)
-  assert.doesNotMatch(settingsPage, /huobaoPreset/i)
-  assert.doesNotMatch(settingsPage, /applyHuobaoPreset/i)
-  assert.doesNotMatch(settingsPage, /\/huobao-preset/)
+  assert.doesNotMatch(settingsPage, /fusionPreset/i)
+  assert.doesNotMatch(settingsPage, /applyFusionPreset/i)
+  assert.doesNotMatch(settingsPage, /\/fusion-preset/)
   assert.doesNotMatch(useApi, /api\.firemux\.com/i)
-  assert.doesNotMatch(useApi, /applyHuobaoPreset/i)
+  assert.doesNotMatch(useApi, /applyFusionPreset/i)
   assert.doesNotMatch(useApi, /openrouter/i)
-  assert.doesNotMatch(useApi, /huobaoPreset/i)
-  assert.doesNotMatch(useApi, /\/huobao-preset/)
+  assert.doesNotMatch(useApi, /fusionPreset/i)
+  assert.doesNotMatch(useApi, /\/fusion-preset/)
 
   assert.match(settingsPage, /const providers = \['gemini', 'openai', 'volcengine', 'minimax', 'aliyun'\]/)
   assert.match(settingsPage, /https:\/\/generativelanguage\.googleapis\.com/)
@@ -37,9 +37,9 @@ test('settings page exposes official provider templates only', () => {
   assert.doesNotMatch(settingsPage, /https:\/\/dashscope\.aliyuncs\.com/)
   assert.doesNotMatch(settingsPage, /https:\/\/api\.vidu\.com/)
   assert.doesNotMatch(settingsPage, /\['ali'|'ali',|, 'ali'\]/)
-  assert.match(settingsPage, /火宝快捷配置/)
+  assert.match(settingsPage, /Fuse快捷配置/)
   assert.match(settingsPage, /https:\/\/api\.firemux\.com/)
-  assert.match(settingsPage, /applyHuobaoQuickConfig/)
+  assert.match(settingsPage, /applyFusionQuickConfig/)
   assert.doesNotMatch(settingsPage, /https:\/\/api\.minimax\.io/)
 })
 
@@ -88,8 +88,8 @@ test('settings page offers the supported official provider presets', () => {
   assert.doesNotMatch(settingsPage, /audio:\s*\{/)
 })
 
-test('Huobao quick config includes Wan 3.0 through the Qwen gateway route', () => {
-  const quickStart = settingsPage.indexOf('const huobaoQuickConfigs = [')
+test('Fusion quick config includes Wan 3.0 through the Qwen gateway route', () => {
+  const quickStart = settingsPage.indexOf('const fusionQuickConfigs = [')
   assert.notEqual(quickStart, -1)
   const quickConfigs = settingsPage.slice(quickStart, settingsPage.indexOf('\n]', quickStart) + 2)
   assert.match(quickConfigs, /provider:\s*'aliyun'/)

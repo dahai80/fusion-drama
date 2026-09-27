@@ -158,6 +158,21 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       body.num_inference_steps = 30
     }
 
+    // 画质档（可选 dev）：22B bf16 单阶段全分辨率（20 步 CFG=4，质量最佳，
+    // 实测 ~1600s/41f）；缺省走 distilled（8/3 步，~80s）。
+    // #995 后 dev 同样支持联合 A/V，audio 由下方 generateAudio 映射统一处理。
+    if (!legacy && record.videoPipeline === 'dev') {
+      body.pipeline = 'dev'
+      body.num_inference_steps = 20
+      body.cfg_scale = 4.0
+    }
+
+    // 音频（LTX-2.5 联合 A/V，distilled/dev 均支持）：generateAudio 缺省开
+    // （createTask 侧 false 才存 0）；legacy 2B 无音频支路，不传。
+    if (!legacy && record.generateAudio) {
+      body.audio = true
+    }
+
     if (record.seed != null && Number.isFinite(Number(record.seed))) {
       body.seed = Number(record.seed)
     }

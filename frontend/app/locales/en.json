@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "Huobao Shorts",
+    "title": "Fusion Shorts",
     "updateAvailable": "New version v{version} is available. Upgrade in Settings → About."
   },
   "common": {
@@ -189,6 +189,9 @@
       "resolution": "Video resolution",
       "resolutionPlaceholder": "Select resolution",
       "resolutionHint": "Videos of this episode are generated at this resolution; you can still change it on the episode card later.",
+      "qualityTier": "Video quality",
+      "tierFast": "Fast",
+      "tierDev": "High quality (slow)",
       "lockCopy": "The currently active image and video generation capabilities will be locked on creation.",
       "creating": "Creating...",
       "create": "Create",
@@ -268,11 +271,11 @@
     "ai": {
       "title": "AI Service Configs",
       "desc": "Start with a recommended template, then fine-tune per service type. The workbench locks the chosen image and video capabilities when creating an episode.",
-      "quickTitle": "Huobao Quick Config",
+      "quickTitle": "Fusion Quick Config",
       "recommended": "Recommended",
-      "quickDesc": "Enter a Huobao API Key to write three recommended configs (text, image, video) at once.",
+      "quickDesc": "Enter a Fusion API Key to write three recommended configs (text, image, video) at once.",
       "getKey": "Get a key at api.firemux.com",
-      "applyQuick": "Apply Huobao Config",
+      "applyQuick": "Apply Fusion Config",
       "manualTitle": "Manual Templates",
       "manualDesc": "Pick a service type, then fill the recommended `provider / base URL / model` from a template.",
       "activeCount": "{n} active",
@@ -282,8 +285,8 @@
       "setDefault": "Set as default model for this type",
       "noBaseUrl": "Base URL not set",
       "test": "Test",
-      "apiKeyRequired": "Please enter a Huobao API Key",
-      "quickApplied": "Huobao quick config written",
+      "apiKeyRequired": "Please enter a Fusion API Key",
+      "quickApplied": "Fusion quick config written",
       "defaultModelSwitched": "Default {type} model switched to {model}",
       "meta": {
         "text": "Text capabilities: script rewriting, asset extraction, storyboard breaking",
@@ -387,7 +390,7 @@
       "addTitle": "Add {type} Service",
       "sub": "Pick a template first — a sensible `Base URL` and default models will be filled in automatically.",
       "name": "Config name",
-      "namePlaceholder": "e.g. Huobao default image service",
+      "namePlaceholder": "e.g. Fusion default image service",
       "provider": "Provider",
       "providerPlaceholder": "Select a provider",
       "priority": "Priority",
@@ -492,6 +495,9 @@
       "rewrite": "AI Rewrite",
       "charCount": "{n} chars",
       "saved": "Saved",
+      "importFile": "Import File",
+      "imported": "Imported {name}",
+      "importFailed": "Import failed: file unreadable or unsupported encoding",
       "rawPlaceholder": "Paste the novel text, story outline or shot descriptions...",
       "skipRewrite": "Skip Rewrite",
       "rewriteAgain": "Rewrite Again",
@@ -878,7 +884,7 @@
     "helpTitle": "Guide",
     "index": {
       "welcome": {
-        "title": "👋 Welcome to Huobao Drama",
+        "title": "👋 Welcome to Fusion Drama",
         "desc": "Novel → script → assets → storyboard → video → final cut, all in one place. Configure AI services first, then create your first project."
       },
       "create": {
@@ -887,13 +893,13 @@
       },
       "settings": {
         "title": "Step 1 · Configure AI services",
-        "desc": "Every AI feature needs this first. Open Settings and paste a Huobao API Key to set up text/image/video in one click."
+        "desc": "Every AI feature needs this first. Open Settings and paste a Fusion API Key to set up text/image/video in one click."
       }
     },
     "settings": {
       "quick": {
         "title": "Fastest setup: Quick Setup",
-        "desc": "Paste a Huobao API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
+        "desc": "Paste a Fusion API Key to write the three recommended configs (text/image/video) at once, with connectivity testing."
       },
       "nav": {
         "title": "Everything lives here",

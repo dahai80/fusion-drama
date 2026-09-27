@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "火宝短剧",
+    "title": "Fuse 短剧",
     "updateAvailable": "发现新版本 v{version}，可在「设置 → 关于更新」中升级"
   },
   "common": {
@@ -189,6 +189,9 @@
       "resolution": "视频分辨率",
       "resolutionPlaceholder": "选择分辨率",
       "resolutionHint": "创建后本集视频按此分辨率生成，之后仍可在集卡片上修改。",
+      "qualityTier": "视频画质",
+      "tierFast": "快速",
+      "tierDev": "高质量（慢）",
       "lockCopy": "创建后自动锁定当前启用的图片与视频生成能力。",
       "creating": "创建中...",
       "create": "创建",
@@ -268,11 +271,11 @@
     "ai": {
       "title": "AI 服务配置",
       "desc": "先用推荐模板快速落配置，再按服务类型微调。工作台创建集时会锁定所选图片和视频能力。",
-      "quickTitle": "火宝快捷配置",
+      "quickTitle": "Fuse快捷配置",
       "recommended": "推荐",
-      "quickDesc": "输入 Huobao API Key，一次写入文本、图片、视频三条推荐配置。",
+      "quickDesc": "输入 Fusion API Key，一次写入文本、图片、视频三条推荐配置。",
       "getKey": "前往 api.firemux.com 获取 Key",
-      "applyQuick": "写入火宝配置",
+      "applyQuick": "写入Fuse配置",
       "manualTitle": "手动模板",
       "manualDesc": "选择服务类型后，直接用模板填充推荐的 `provider / base URL / model`。",
       "activeCount": "{n} 已启用",
@@ -282,8 +285,8 @@
       "setDefault": "设为该类型默认模型",
       "noBaseUrl": "未设置 Base URL",
       "test": "测试",
-      "apiKeyRequired": "请填写 Huobao API Key",
-      "quickApplied": "火宝快捷配置已写入",
+      "apiKeyRequired": "请填写 Fusion API Key",
+      "quickApplied": "Fuse快捷配置已写入",
       "defaultModelSwitched": "默认{type}模型已切换为 {model}",
       "meta": {
         "text": "剧本改写、角色场景提取、分镜拆解等 Agent 文本能力",
@@ -387,7 +390,7 @@
       "addTitle": "添加{type}服务",
       "sub": "推荐先选择模板，系统会自动填入更合理的 `Base URL` 与默认模型。",
       "name": "配置名称",
-      "namePlaceholder": "如 火宝默认图像服务",
+      "namePlaceholder": "如 Fuse默认图像服务",
       "provider": "服务商",
       "providerPlaceholder": "选择服务商",
       "priority": "优先级",
@@ -492,6 +495,9 @@
       "rewrite": "AI 改写",
       "charCount": "{n} 字",
       "saved": "已保存",
+      "importFile": "导入文件",
+      "imported": "已导入 {name}",
+      "importFailed": "导入失败：文件无法读取或编码不支持",
       "rawPlaceholder": "粘贴小说原文、故事大纲或分镜描述...",
       "skipRewrite": "跳过改写",
       "rewriteAgain": "重新改写",
@@ -878,7 +884,7 @@
     "helpTitle": "使用引导",
     "index": {
       "welcome": {
-        "title": "👋 欢迎使用火宝短剧",
+        "title": "👋 欢迎使用Fuse 短剧",
         "desc": "小说 → 剧本 → 资产 → 分镜 → 视频 → 成片，一站式 AI 短剧制作。先配置 AI 服务，再创建第一个项目。"
       },
       "create": {
@@ -887,13 +893,13 @@
       },
       "settings": {
         "title": "第 1 步 · 配置 AI 服务",
-        "desc": "所有 AI 功能都要先配置。点这里进「设置」页，粘贴 Huobao API Key 一键完成文本/图片/视频三条配置。"
+        "desc": "所有 AI 功能都要先配置。点这里进「设置」页，粘贴 Fusion API Key 一键完成文本/图片/视频三条配置。"
       }
     },
     "settings": {
       "quick": {
         "title": "最快上手：快捷配置",
-        "desc": "粘贴 Huobao API Key，一键写入文本、图片、视频三条推荐配置，支持连通性测试。"
+        "desc": "粘贴 Fusion API Key，一键写入文本、图片、视频三条推荐配置，支持连通性测试。"
       },
       "nav": {
         "title": "全部配置都在这",

@@ -1,4 +1,4 @@
-# 🎬 Huobao Drama - AI 短剧生成平台
+# 🎬 Fusion Drama - AI 短剧生成平台
 
 <div align="center">
 
@@ -7,19 +7,19 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![下载](https://img.shields.io/github/v/release/chatfire-AI/huobao-drama?style=flat&logo=github&label=%E4%B8%8B%E8%BD%BD)](https://github.com/chatfire-AI/huobao-drama/releases/latest)
+[![下载](https://img.shields.io/github/v/release/chatfire-AI/fusion-drama?style=flat&logo=github&label=%E4%B8%8B%E8%BD%BD)](https://github.com/chatfire-AI/fusion-drama/releases/latest)
 
 [English](README.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [桌面版](#-桌面应用推荐) • [部署指南](#-部署指南)
 
-<h2>🔑 <a href="https://api.firemux.com">获取 Huobao API Key 👉 立即查看</a></h2>
+<h2>🔑 <a href="https://api.firemux.com">获取 Fusion API Key 👉 立即查看</a></h2>
 
 **文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
 
-部署完成后在「设置 → 火宝快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
+部署完成后在「设置 → Fuse快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
 
-<h3>📥 <a href="https://github.com/chatfire-AI/huobao-drama/releases/latest">下载桌面版（macOS / Windows）</a></h3>
+<h3>📥 <a href="https://github.com/chatfire-AI/fusion-drama/releases/latest">下载桌面版（macOS / Windows）</a></h3>
 <h3>🌐 <a href="https://www.chatfire.site">官方网站</a></h3>
 
 </div>
@@ -28,7 +28,7 @@
 
 ## 📖 项目简介
 
-Huobao Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
+Fusion Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本生成、角色设计、分镜制作到视频合成的全流程自动化。
 
 ### 🎯 核心价值
 
@@ -118,10 +118,10 @@ data/       — 生成资源文件与 SQLite 数据库
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `SQLITE_PATH` | `<仓库根>/data/huobao.sqlite3` | SQLite 数据库文件位置 |
+| `SQLITE_PATH` | `<仓库根>/data/fusion.sqlite3` | SQLite 数据库文件位置 |
 | `PORT` | `5679` | 后端服务端口 |
 | `STORAGE_PATH` | `<仓库根>/data/static` | 生成文件存储目录 |
-| `HUOBAO_DATA_DIR` | — | 桌面版由 Electron 主进程注入（userData 数据根） |
+| `FUSION_DATA_DIR` | — | 桌面版由 Electron 主进程注入（userData 数据根） |
 | `WORKSPACE_PATH` | `backend/workspace` | Agent 技能/提示词目录（桌面版指向 userData 可写副本） |
 | `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
@@ -133,8 +133,8 @@ data/       — 生成资源文件与 SQLite 数据库
 
 ```bash
 # 克隆项目
-git clone https://github.com/chatfire-AI/huobao-drama.git
-cd huobao-drama
+git clone https://github.com/chatfire-AI/fusion-drama.git
+cd fusion-drama
 
 # 安装后端依赖
 cd backend && npm install
@@ -182,7 +182,7 @@ cd ../backend && npm start
 
 ### 🗄️ 数据库
 
-内置 SQLite（`better-sqlite3` + WAL 模式），数据库表在首次启动时自动创建（幂等重放 DDL 与种子数据），默认文件位于 `data/huobao.sqlite3`，可通过 `SQLITE_PATH` 重定向。桌面版数据存放在用户数据目录（`~/Library/Application Support/HuobaoDrama/data/`）。
+内置 SQLite（`better-sqlite3` + WAL 模式），数据库表在首次启动时自动创建（幂等重放 DDL 与种子数据），默认文件位于 `data/fusion.sqlite3`，可通过 `SQLITE_PATH` 重定向。桌面版数据存放在用户数据目录（`~/Library/Application Support/FusionDrama/data/`）。
 
 从旧版 MySQL 迁移数据：
 
@@ -200,7 +200,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 启动后所有 AI 功能（文本/生图/视频）都需要先配置模型服务，未配置时页面顶部会有横幅引导：
 
 1. 打开「设置」页
-2. 在「火宝快捷配置」中粘贴 Huobao API Key（[前往 api.firemux.com 获取](https://api.firemux.com)），一键写入文本、图片、视频三条推荐配置
+2. 在「Fuse快捷配置」中粘贴 Fusion API Key（[前往 api.firemux.com 获取](https://api.firemux.com)），一键写入文本、图片、视频三条推荐配置
 3. 或使用「手动模板」按厂商逐个添加，支持连通性测试
 
 配置完成横幅自动消失，即可开始创建剧集生产。
@@ -227,7 +227,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 第 2 步 · 配置 AI 服务（首次）
 
-设置页「火宝快捷配置」粘贴 API Key 一键写入三条推荐配置；或用「手动模板」按厂商自选模型（顶栏可随时切换当前模型，见第 5 步）。
+设置页「Fuse快捷配置」粘贴 API Key 一键写入三条推荐配置；或用「手动模板」按厂商自选模型（顶栏可随时切换当前模型，见第 5 步）。
 
 <p align="center">
   <img src="docs/screenshots/03-settings-quick.png" alt="AI 服务配置" width="800">
@@ -285,23 +285,23 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 桌面应用（推荐）
 
-**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://installer.chatfire.site/huobao-drama/v4.0.4/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/huobao-drama/releases/latest)**
+**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://installer.chatfire.site/fusion-drama/v4.0.4/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/fusion-drama/releases/latest)**
 
 | 平台 | 下载文件 |
 |---|---|
-| macOS（Apple Silicon，M 系列） | `HuobaoDrama-4.0.4-arm64.dmg` |
-| macOS（Intel） | `HuobaoDrama-4.0.4.dmg` |
-| Windows | `HuobaoDrama.Setup.4.0.4.exe` |
+| macOS（Apple Silicon，M 系列） | `FusionDrama-4.0.4-arm64.dmg` |
+| macOS（Intel） | `FusionDrama-4.0.4.dmg` |
+| Windows | `FusionDrama.Setup.4.0.4.exe` |
 
 > 国内用户请用腾讯云镜像直链下载（GitHub 在国内访问不稳定）。应用内更新器同样国内源优先、GitHub 兜底。
 
 **命令行安装（推荐，免修复）**：用 curl 下载不会触发 macOS 隔离属性，安装后双击即开，不会遇到「已损坏」提示（Apple Silicon 把 `arm64` 文件名换成对应版本，Intel 用无后缀 dmg）：
 
 ```bash
-curl -L -o /tmp/HuobaoDrama.dmg https://installer.chatfire.site/huobao-drama/v4.0.4/HuobaoDrama-4.0.4-arm64.dmg \
-  && hdiutil attach -nobrowse /tmp/HuobaoDrama.dmg \
-  && cp -R /Volumes/HuobaoDrama*/HuobaoDrama.app /Applications/ \
-  && hdiutil detach /Volumes/HuobaoDrama*
+curl -L -o /tmp/FusionDrama.dmg https://installer.chatfire.site/fusion-drama/v4.0.4/FusionDrama-4.0.4-arm64.dmg \
+  && hdiutil attach -nobrowse /tmp/FusionDrama.dmg \
+  && cp -R /Volumes/FusionDrama*/FusionDrama.app /Applications/ \
+  && hdiutil detach /Volumes/FusionDrama*
 ```
 
 无需构建 —— 下载 dmg/exe 直接安装即可，已安装客户端会通过内置更新器自动升级。（如需从源码自行打包，见下方命令。）
@@ -314,20 +314,20 @@ npm run dist        # macOS dmg（arm64 + Intel）
 npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉打包）
 
 # 产物
-# desktop/release/HuobaoDrama-<版本>-arm64.dmg        (Apple Silicon)
-# desktop/release/HuobaoDrama-<版本>.dmg              (Intel)
-# desktop/release/HuobaoDrama Setup <版本>.exe        (Windows)
+# desktop/release/FusionDrama-<版本>-arm64.dmg        (Apple Silicon)
+# desktop/release/FusionDrama-<版本>.dmg              (Intel)
+# desktop/release/FusionDrama Setup <版本>.exe        (Windows)
 ```
 
 安装说明：
 
 - macOS 未签名包首次打开可能提示「App 已损坏，无法打开」（Apple Silicon 常见），这是 Gatekeeper 隔离属性导致，并非文件损坏。两种修复方式任选：
   1. **dmg 内自带修复脚本**：把 app 拖入「应用程序」后，双击 dmg 窗口底部的「如提示已损坏请双击我.command」，自动完成修复；
-  2. 或终端执行 `sudo xattr -cr /Applications/HuobaoDrama.app`。
+  2. 或终端执行 `sudo xattr -cr /Applications/FusionDrama.app`。
 
   修复只需一次，之后双击图标即可启动，应用内自动更新也不受影响。
 - Windows 未签名包 SmartScreen 会提示「更多信息 → 仍要运行」
-- 用户数据目录：`~/Library/Application Support/HuobaoDrama/`（数据库、生成的媒体、技能在线编辑的副本）
+- 用户数据目录：`~/Library/Application Support/FusionDrama/`（数据库、生成的媒体、技能在线编辑的副本）
 - 内置 FFmpeg/FFprobe 二进制，无需系统安装
 - Electron 锁定 37.x：better-sqlite3 的 win32 预编译最高覆盖到该版本的 ABI（交叉打包免编译的关键）
 - 应用内点击外部链接（如「前往 api.firemux.com 获取 Key」）直接用系统浏览器打开
@@ -347,7 +347,7 @@ cd desktop && npm run feed
 # 3. 发布：把 latest.json + 安装包 + zip 上传到 GitHub Release（tag 形如 v1.0.1）
 ```
 
-已安装的客户端会在启动后自动检查清单（也可在「设置 → 关于更新」手动检查），发现新版即提示下载安装。自定义清单地址：`HUOBAO_UPDATE_FEED` 环境变量。
+已安装的客户端会在启动后自动检查清单（也可在「设置 → 关于更新」手动检查），发现新版即提示下载安装。自定义清单地址：`FUSION_UPDATE_FEED` 环境变量。
 
 桌面版开发调试：
 
@@ -395,7 +395,7 @@ server {
     # 生成的图片/视频直连磁盘，不经过 Node：sendfile 零拷贝 + 长缓存
     # （产物按 uuid 命名、内容不变，可安全 immutable 缓存）
     location /static/ {
-        alias /path/to/huobao-drama/data/static/;
+        alias /path/to/fusion-drama/data/static/;
         sendfile on;
         tcp_nopush on;
         expires 1y;
@@ -418,14 +418,14 @@ server {
 **方式一：预构建镜像（免克隆、免构建）**：多架构镜像（`linux/amd64` + `linux/arm64`），x86 服务器与 ARM 设备自动匹配
 
 ```bash
-docker pull huobao/huobao-drama:4.0.0
+docker pull fusion/fusion-drama:4.0.0
 
 docker run -d \
-  --name huobao-drama \
+  --name fusion-drama \
   -p 5679:5679 \
-  -v huobao-data:/app/data \
+  -v fusion-data:/app/data \
   --restart unless-stopped \
-  huobao/huobao-drama:4.0.0
+  fusion/fusion-drama:4.0.0
 ```
 
 **方式二：docker compose（源码构建 + Watchtower 应用内更新）**：根目录提供一体化 `Dockerfile`（前端 generate + 后端依赖/运行时三阶段，后端与服务器部署一致走 tsx）与 `docker-compose.yml`（应用 + Watchtower）：
@@ -435,15 +435,15 @@ docker run -d \
 cp .env.example .env   # 修改 WATCHTOWER_TOKEN
 
 # 2. 构建并启动（发布时注入版本号，供「关于更新」比对）
-HUOBAO_VERSION=4.0.0 docker compose up -d --build
+FUSION_VERSION=4.0.0 docker compose up -d --build
 
 # 3. 访问 http://localhost:5679
 ```
 
-- **数据持久化**：命名卷 `huobao-data` 挂载 `/app/data`（SQLite + 生成的图片/视频 + workspace/skills，更新镜像不丢数据）
+- **数据持久化**：命名卷 `fusion-data` 挂载 `/app/data`（SQLite + 生成的图片/视频 + workspace/skills，更新镜像不丢数据）
 - **应用内更新**：compose 自带 [Watchtower](https://containrrr.dev/watchtower/) sidecar（`--label-enable` 只更新标记容器，`--cleanup` 清旧镜像，每天自检一次）。设置页「关于更新」可检查新版本并「立即更新」——后端经 Watchtower HTTP API 触发，拉新镜像重建容器，几分钟后刷新页面即可
-- **手动模式**：`docker-compose.yml` 中删除 app 的 `HUOBAO_WATCHTOWER_*` 两个环境变量（或整个 watchtower 服务）后，「关于更新」退化为新版本提示 + 手动命令 `docker compose pull && docker compose up -d`
-- **发布镜像**：`docker buildx build --platform linux/amd64,linux/arm64 --build-arg HUOBAO_VERSION=x.y.z -t huobao/huobao-drama:x.y.z -t huobao/huobao-drama:latest --push .`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `HUOBAO_UPDATE_FEED` 覆盖）
+- **手动模式**：`docker-compose.yml` 中删除 app 的 `FUSION_WATCHTOWER_*` 两个环境变量（或整个 watchtower 服务）后，「关于更新」退化为新版本提示 + 手动命令 `docker compose pull && docker compose up -d`
+- **发布镜像**：`docker buildx build --platform linux/amd64,linux/arm64 --build-arg FUSION_VERSION=x.y.z -t fusion/fusion-drama:x.y.z -t fusion/fusion-drama:latest --push .`，版本清单与桌面版共用 GitHub Releases 的 `latest.json`（可用 `FUSION_UPDATE_FEED` 覆盖）
 
 ---
 
@@ -478,7 +478,7 @@ HUOBAO_VERSION=4.0.0 docker compose up -d --build
 
 ### Q: 桌面版数据存在哪里？
 
-A: `~/Library/Application Support/HuobaoDrama/data/`（SQLite 数据库 + 生成的图片/视频），技能在线编辑的副本在同级 `workspace/` 目录。开发模式下则使用仓库 `data/` 目录。
+A: `~/Library/Application Support/FusionDrama/data/`（SQLite 数据库 + 生成的图片/视频），技能在线编辑的副本在同级 `workspace/` 目录。开发模式下则使用仓库 `data/` 目录。
 
 ### Q: 旧版 MySQL 数据怎么迁移到 SQLite？
 
@@ -490,7 +490,7 @@ A: 无需安装。项目内置 `ffmpeg-static` / `ffprobe-static` 二进制（�
 
 ### Q: 页面顶部提示「尚未配置模型」？
 
-A: 这是正常的首次部署引导。前往「设置」页，用「火宝快捷配置」粘贴 API Key 一键写入，或通过「手动模板」按厂商添加。文本、图片、视频三类均有启用中的配置后横幅自动消失。
+A: 这是正常的首次部署引导。前往「设置」页，用「Fuse快捷配置」粘贴 API Key 一键写入，或通过「手动模板」按厂商添加。文本、图片、视频三类均有启用中的配置后横幅自动消失。
 
 ### Q: 前端无法连接后端 API？
 
@@ -540,7 +540,7 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
   - 新增 `docker/init.sql` 及导出脚本（DBA 审核 / 预建表）
 - 首次使用引导
   - 未配置 AI 服务时全站顶部横幅提示并引导至设置页
-  - 设置页新增「火宝快捷配置」：一个 Key 写入文本/图片/视频三条推荐配置
+  - 设置页新增「Fuse快捷配置」：一个 Key 写入文本/图片/视频三条推荐配置
   - 未配置模型的报错中文化并指引设置页
 - 视频模型默认调整为 Seedance 2.0 Fast
 - 厂商收敛：仅保留 OpenAI / Gemini / 火山引擎
