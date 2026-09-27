@@ -124,6 +124,7 @@ app.post('/', async (c) => {
     let configId: number | undefined = body.config_id
     let episodeResolution: string | undefined
     let storyboardDramaId: number | undefined
+    let autoFirstFrameUrl: string | undefined
     if (body.storyboard_id) {
       const [sb] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, Number(body.storyboard_id)))
       if (sb) {
@@ -132,6 +133,20 @@ app.post('/', async (c) => {
         if (locked != null && configId == null) configId = locked
         if (type === 'video' && ep?.resolution) episodeResolution = ep.resolution
         storyboardDramaId = ep?.dramaId ?? undefined
+        // issue #1: 视频任务未显式传任何参考素材时，自动把该分镜最新完成的成图（composedImage 优先，其次 firstFrameImage）
+        // 作为首帧注入，避免纯 T2V 生成与分镜画面无关的内容
+        if (type === 'video' && videoBody) {
+          const hasExplicitRef = Boolean(
+            videoBody.first_frame_url || videoBody.image_url || videoBody.last_frame_url
+            || (videoBody.reference_image_urls?.length)
+            || (videoBody.reference_video_urls?.length)
+            || videoBody.file_url || videoBody.link_url,
+          )
+          if (!hasExplicitRef) {
+            const sbImage = sb.composedImage || sb.firstFrameImage
+            if (sbImage) autoFirstFrameUrl = sbImage
+          }
+        }
       }
     }
 
@@ -180,7 +195,7 @@ app.post('/', async (c) => {
         model: videoBody!.model,
         referenceMode: 'reference',
         imageUrl: videoBody!.image_url,
-        firstFrameUrl: videoBody!.first_frame_url,
+        firstFrameUrl: videoBody!.first_frame_url || autoFirstFrameUrl,
         lastFrameUrl: videoBody!.last_frame_url,
         referenceImageUrls: videoBody!.reference_image_urls,
         referenceVideoUrls: videoBody!.reference_video_urls,
