@@ -17,23 +17,18 @@ import type {
 } from './types'
 import { joinProviderUrl } from './url'
 
-/** LTX-2.5 管线含 temporal upsampler x2：请求 num_frames=1+8k（latent 周期 T=k+1），
- *  VAE 解码最终输出 = 16T-7 帧。直接把目标时长换算成帧会得到双倍时长
- *  （如请求 128 帧实际输出 249 帧 ≈10.4s），故按目标时长反推 latent 周期数。
- *
- *  sigma 修复（fusion-mlx scheduler.py 已合入 linear_quadratic_schedule）后，
- *  T=6-9 噪声 bug 根除——Stage2 sigma 起始 1.0 full-noise 而非 0.909 继承。
- *  所有 T 均可用，不再需要 BAD_PERIODS 规避。
+/** LTX-2.5 帧数换算。fusion-mlx #978 起 temporal upsampler 已从 distilled 管线移除：
+ *  输出帧数 = num_frames（不再有 16T-7 双倍放大），直接按目标时长请求 8k+1 帧。
+ *  （旧管线按 16T-7 反推 latent 周期的逻辑随 upsampler 一并作废。）
  *
  *  VAE OOM 保护（issue #945）：fusion VAE 全量解码不分块，内存 ∝ 帧数×像素。
- *  实测 1920×1088×121帧(5s) OK，×233帧(9.7s) hard pressure abort。
- *  高分辨率（短边≥1000）限 maxSeconds=5；超长需等上游 VAE tiling。 */
+ *  高分辨率（短边≥1000）上限仍按 maxSeconds 钳制（由调用方传入）。 */
 function numFramesForDuration(duration?: number | null, maxSeconds = 15): number {
   const fps = 24
   const seconds = Math.min(maxSeconds, Math.max(2, Math.round(Number(duration || 5))))
-  const targetFrames = seconds * fps
-  const periods = Math.max(1, Math.round((targetFrames + 7) / 16))
-  return 1 + 8 * (periods - 1)
+  const target = seconds * fps
+  // num_frames 约束 %8==1：取最近 8k+1
+  return Math.max(9, Math.round((target - 1) / 8) * 8 + 1)
 }
 
 /** LTX-Video legacy 2B（Lightricks/LTX-Video）无 temporal upsampler：输出帧数
@@ -91,6 +86,22 @@ function firstReferenceUrl(raw?: string | null): string | null {
   return null
 }
 
+/** 取末张有效 URL：视频参考图列表约定场景图在前、角色图在后，
+ *  I2V 条件应优先角色形象（bug3：取首张钉在场景图导致人物幻觉）。 */
+function lastReferenceUrl(raw?: string | null): string | null {
+  if (!raw) return null
+  try {
+    const arr = JSON.parse(raw)
+    if (Array.isArray(arr)) {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const s = String(arr[i] || '').trim()
+        if (s) return s
+      }
+    }
+  } catch { /* 非法 JSON 视为无参考图 */ }
+  return null
+}
+
 export class FusionVideoAdapter implements VideoProviderAdapter {
   provider = 'fusion'
 
@@ -103,8 +114,14 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
 
     // 参考图：本地模型仅支持单张首帧（ltx 后端不支持 i2v 时由服务端 422 提示）。
     // #968 缺陷3：referenceImageUrls（参考图模式）此前被忽略——取首张作 I2V 条件。
+    // bug3 修复：referenceImageUrls 的拼装顺序是场景图在前、角色图在后，
+    // 取首张会把 I2V 条件钉在场景图上，角色形象完全缺席 → 模型幻觉出无关人物。
+    // 这里改为在列表中优先挑选角色图（按 storyboard_characters 绑定名匹配不了，
+    // 由调用方保证顺序——适配器侧做保底：取 reference 列表的最后一张（角色图约定排后），
+    // 显式 firstFrameUrl/imageUrl 仍最高优先。
     const firstFrame = record.firstFrameUrl
       || record.imageUrl
+      || lastReferenceUrl(record.referenceImageUrls)
       || firstReferenceUrl(record.referenceImageUrls)
 
     const legacy = isLegacyLtx(model)

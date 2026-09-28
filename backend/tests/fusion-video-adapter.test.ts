@@ -20,9 +20,9 @@ test('fusion request hits sync endpoint with 16:9 full-res default', () => {
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/videos/generate')
   assert.equal(request.method, 'POST')
   assert.equal(request.headers.Authorization, 'Bearer REDACTED-LOCAL-KEY')
-  // temporal upsampler x2: 输出 = 16T-7 帧。5s 反推 T=8 -> num_frames=57 -> 输出 121 帧 ≈5.0s
-  // sigma 修复后 T=6-9 不再规避
-  assert.equal(request.body.num_frames, 57)
+  // fusion-mlx #978: temporal upsampler 已移除，输出帧数 = num_frames。
+  // 5s → 目标 120 帧 → 最近 8k+1 = 121
+  assert.equal(request.body.num_frames, 121)
   // 短边 1088（官方 distilled 口径 1920x1088，sigma 修复后高分辨率可用）
   assert.equal(request.body.width, 1920)
   assert.equal(request.body.height, 1088)
@@ -35,19 +35,19 @@ test('fusion request hits sync endpoint with 16:9 full-res default', () => {
   assert.equal(request.body.num_inference_steps, undefined)
 })
 
-test('fusion frame mapping accounts for temporal upsampler x2', () => {
+test('fusion frame mapping after temporal upsampler removal (#978)', () => {
   const frames = (duration?: number | null) =>
     adapter.buildGenerateRequest(config, { id: 2, prompt: 'x', duration }).body.num_frames
 
-  // 输出 = 16T-7 帧；sigma 修复后所有 T 可用。
-  // VAE OOM 保护：短边 1088(≥1000) 限 5s，duration>5 截断到 57 帧（issue #945）
-  assert.equal(frames(2), 17)   // T=3, 输出 41 帧 ≈1.7s
-  assert.equal(frames(3), 33)   // T=5, 输出 73 帧 ≈3.0s
-  assert.equal(frames(4), 41)   // T=6, 输出 89 帧 ≈3.7s
-  assert.equal(frames(5), 57)   // T=8, 输出 121 帧 ≈5.0s
-  assert.equal(frames(8), 57)   // 截断 5s（高分辨率 VAE OOM 保护）
-  assert.equal(frames(15), 57)  // 截断 5s
-  assert.equal(frames(null), 57) // 默认 5s→T=8
+  // 输出帧数 = num_frames（8k+1），直接按目标时长请求。
+  // VAE OOM 保护：短边 1088(≥1000) 限 5s，duration>5 截断（issue #945）
+  assert.equal(frames(2), 49)    // 2s → 48+1
+  assert.equal(frames(3), 73)    // 3s → 72+1
+  assert.equal(frames(4), 97)    // 4s → 96+1
+  assert.equal(frames(5), 121)   // 5s → 120+1
+  assert.equal(frames(8), 121)   // 截断 5s（高分辨率 VAE OOM 保护）
+  assert.equal(frames(15), 121)  // 截断 5s
+  assert.equal(frames(null), 121) // 默认 5s
 })
 
 test('fusion respects aspect ratio and clamps to 64 alignment', () => {
