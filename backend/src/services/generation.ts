@@ -535,6 +535,13 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   const localPath = await downloadFile(videoUrl, 'videos')
   // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频
   await extractVideoPoster(localPath)
+  // issue: LTX-2.5 联合 A/V 仅产出环境底噪，对白缺失——
+  // 分镜提示词含对白时用 TTS 合成配音并混入音轨（失败不阻断主流程）
+  try {
+    const { dubVideoDialogue } = await import('../utils/video-dub.js')
+    const params = parseTaskParams(record.params)
+    await dubVideoDialogue(localPath, params.prompt, record.id)
+  } catch { /* 配音失败保持原音轨 */ }
   // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
   // 否则 37MB base64 污染 DB 与 API 响应。远端 URL 原样保留（前端 http 判定直连）。
   const resultUrl = videoUrl.startsWith('data:') ? localPath : videoUrl
