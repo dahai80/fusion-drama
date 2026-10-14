@@ -9,7 +9,7 @@ description: Professional rules for storyboard breakdown — splitting a script 
 
 One storyboard = one **storyboard segment** = one video-generation task.
 
-- Each segment is **8-15 seconds** long and internally carries **2-4 sub-shots**
+- Each segment is **8-10 seconds** long and internally carries **2-4 sub-shots**
 - Cuts between sub-shots **are allowed**: change shot size, angle, or subject, joined with hard cuts
 - Sub-shots **never cross scenes**: a segment takes place in a single scene (`scene_id` is a segment-level binding)
 - Each sub-shot is 2-6 seconds, focused on one visual unit (one action, one reaction, one close-up)
@@ -28,8 +28,8 @@ Determine duration by the segment's function — do not use one size for all:
 | Segment type | Duration | Notes |
 |---|---|---|
 | Transition segment | 8-10 s | Traveling, empty shots, environment establishment, transitions |
-| Narrative segment | 10-15 s | Regular plot advancement, dialogue |
-| Payoff segment | 12-15 s | Close-ups, rule reveals, emotional eruptions, reversals; slower sub-shot pacing, a single sub-shot may hold for 4-6 s |
+| Narrative segment | 8-10 s | Regular plot advancement, dialogue |
+| Payoff segment | 8-10 s | Close-ups, rule reveals, emotional eruptions, reversals; slower sub-shot pacing, a single sub-shot may hold for 4-6 s |
 
 ## Dialogue Duration Floor (Hard Rule)
 
@@ -48,7 +48,7 @@ Dialogue that does not fit must be moved to the next segment; cramming unperform
 7. **Visual description** `description`: describe sub-shot by sub-shot as `【镜头1】…【镜头2】…` what the audience actually sees and hears — the visuals (who + specific action + body-language details + expression) come first; when a sub-shot has dialogue, write it inside the corresponding `【镜头N】` as "CharacterName says: "line"", and narration as "Narration: content"
 8. **Visual result** `result`: the immediate consequence at the end of the segment + visual details
 9. **Atmosphere** `atmosphere`: lighting + color tone + sound + overall mood
-10. **Duration** `duration`: total segment duration 8-15 seconds, and it must satisfy the dialogue duration floor
+10. **Duration** `duration`: total segment duration 8-10 seconds, and it must satisfy the dialogue duration floor
 11. **Scene binding**: if it can be matched to an existing scene, `scene_id` must be filled in
 12. **Character binding**: fill in `character_ids`, binding 0 to multiple characters involved in this segment
 13. **Prop binding**: fill in `prop_ids`, binding 0 to multiple key props appearing in this segment

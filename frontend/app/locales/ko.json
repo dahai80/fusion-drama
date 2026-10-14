@@ -798,7 +798,8 @@
       "sbN": "스토리보드 #{n}",
       "generic": "일반",
       "fullMerge": "화 전체 병합",
-      "mergeKind": "병합"
+      "mergeKind": "병합",
+      "extractKind": "에셋 추출"
     },
     "export": {
       "notReadyDesc": "먼저 스토리보드와 제작 단계를 완료하세요",

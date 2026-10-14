@@ -206,6 +206,7 @@ export const sqliteSchemaStatements = [
     type TEXT NOT NULL,
     storyboard_id INTEGER,
     drama_id INTEGER,
+    episode_id INTEGER,
     scene_id INTEGER,
     character_id INTEGER,
     prop_id INTEGER,
@@ -377,6 +378,12 @@ const REMOVE_SQL = 'DELETE FROM style_presets WHERE "value" = ? AND "prompt" = ?
 export function initSqliteSchema(sqlite: Database.Database) {
   for (const statement of sqliteSchemaStatements) {
     sqlite.exec(statement)
+  }
+  // 增量迁移：sys_task.episode_id（提取/资产类任务按集归属，聚合面板可见）
+  const taskCols = sqlite.prepare(`PRAGMA table_info(sys_task)`).all() as { name: string }[]
+  if (taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
+    sqlite.exec(`ALTER TABLE sys_task ADD COLUMN episode_id INTEGER`)
+    console.log('🧩 sys_task 已补 episode_id 列')
   }
   const insertSeed = sqlite.prepare(SEED_SQL)
   const upgradeSeed = sqlite.prepare(UPGRADE_SQL)

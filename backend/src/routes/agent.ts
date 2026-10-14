@@ -2,11 +2,15 @@
  * Agent 聊天路由 — 非流式版本
  */
 import { Hono } from 'hono'
+import { eq } from 'drizzle-orm'
 import { validAgentTypes } from '../agents/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
+import { enqueueGpuWork } from '../services/gpu-queue.js'
 import { mastra } from '../mastra/index.js'
+import { db, schema } from '../db/index.js'
+import { now } from '../utils/response.js'
 import { success, badRequest } from '../utils/response.js'
-import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 
 const app = new Hono()
 
@@ -66,10 +70,12 @@ app.post('/:type/chat', async (c) => {
   const startTime = performance.now()
 
   try {
-    const result = await agent.generate(
+    // Agent 推理打文本模型（Qwen3.5 decode burst），与图片/视频生成共用 GPU 串行队列，
+    // 避免与 LTX-2.5/FLUX 并发争用触发 Metal crash（见 gpu-queue.ts 注释）
+    const result = await enqueueGpuWork(`Agent-${agentType}`, () => agent.generate(
       [{ role: 'user', content: message }],
       { maxSteps: 20, requestContext },
-    )
+    ))
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskSuccess('Agent', agentType, { elapsedSeconds: elapsed })
@@ -92,6 +98,23 @@ app.post('/:type/chat', async (c) => {
       toolResults: normalizedToolResults.map((tr: any) => tr.toolName),
     })
     logTaskPayload('Agent', `${agentType} tool-results`, normalizedToolResults)
+
+    // script_rewriter 兜底：小模型（Qwen3.5-4B）常生成完整剧本在 text 但不调 save_script，
+    // 直接返回导致 script_content 空。检测 text 以「## S」开头（格式化剧本场景头）且未调
+    // save_script 时自动落库，避免 E2E 断链。
+    if (agentType === 'script_rewriter') {
+      const calledSave = normalizedToolCalls.some((tc: any) => tc.toolName === 'save_script' || tc.toolName === 'saveScript')
+      const text = (result.text || '').trim()
+      if (!calledSave && /^##\s*S\d/.test(text) && text.length > 200) {
+        try {
+          await db.update(schema.episodes).set({ scriptContent: text, updatedAt: now() })
+            .where(eq(schema.episodes.id, episode_id))
+          logTaskWarn('Agent', 'script-autosave', { episodeId: episode_id, reason: 'save_script not called, text looks like screenplay', len: text.length })
+        } catch (e: any) {
+          logTaskError('Agent', 'script-autosave', { episodeId: episode_id, error: e?.message })
+        }
+      }
+    }
 
     return success(c, {
       type: 'done',

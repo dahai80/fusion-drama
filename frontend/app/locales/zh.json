@@ -798,7 +798,8 @@
       "sbN": "分镜 #{n}",
       "generic": "通用",
       "fullMerge": "整集拼接",
-      "mergeKind": "合并"
+      "mergeKind": "合并",
+      "extractKind": "资产提取"
     },
     "export": {
       "notReadyDesc": "请先完成分镜和制作流程",

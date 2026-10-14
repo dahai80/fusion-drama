@@ -798,7 +798,8 @@
       "sbN": "分镜 #{n}",
       "generic": "汎用",
       "fullMerge": "話全体の結合",
-      "mergeKind": "結合"
+      "mergeKind": "結合",
+      "extractKind": "アセット抽出"
     },
     "export": {
       "notReadyDesc": "先に分镜と制作の工程を完了してください",

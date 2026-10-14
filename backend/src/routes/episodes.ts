@@ -5,6 +5,7 @@ import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
+import { startStoryboardBreakdown } from '../services/storyboard-breakdown.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
 
 const app = new Hono()
@@ -133,7 +134,7 @@ app.post('/:id/extract', async (c) => {
   if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target 必须是 characters / scenes / props')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
   if (!ep) return notFound(c, '剧集不存在')
-  const started = startExtraction(ep.id, ep.dramaId, target, { model: body.model || undefined, configId: body.config_id ?? undefined })
+  const started = await startExtraction(ep.id, ep.dramaId, target, { model: body.model || undefined, configId: body.config_id ?? undefined })
   return success(c, { target, status: 'running', already_running: !started })
 })
 
@@ -141,6 +142,15 @@ app.post('/:id/extract', async (c) => {
 app.get('/:id/extract-status', async (c) => {
   const id = Number(c.req.param('id'))
   return success(c, getExtractionStatus(id))
+})
+
+// POST /episodes/:id/storyboard-breakdown — 异步分镜拆解（直接 LLM，绕过 Mastra Agent），立即返回
+app.post('/:id/storyboard-breakdown', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return notFound(c, '剧集不存在')
+  await startStoryboardBreakdown(ep.id, ep.dramaId)
+  return success(c, { status: 'running' })
 })
 
 // POST /episodes/:id/generate-video-prompts — 异步批量为缺少视频提示词的分镜生成（立即返回，前端轮询状态）
@@ -238,6 +248,7 @@ app.get('/:id/generation-tasks', async (c) => {
   const allTasks = await db.select().from(schema.sysTask).where(eq(schema.sysTask.dramaId, ep.dramaId))
   const tasks = allTasks
     .filter(t =>
+      (t.episodeId && t.episodeId === episodeId) ||
       (t.storyboardId && storyboardIds.has(t.storyboardId)) ||
       (t.sceneId && sceneIds.has(t.sceneId)) ||
       (t.characterId && characterIds.has(t.characterId)) ||

@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
+import { enqueueGpuWork } from './gpu-queue.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 export interface VideoPromptBatchStatus {
@@ -57,7 +58,10 @@ export async function startVideoPromptBatch(
   tasks.set(episodeId, task)
 
   logTaskStart('VideoPrompt', 'batch', { episodeId, dramaId, total: pending.length, model: opts.model || undefined })
-  ;(async () => {
+  // 批量提示词生成与图片/视频任务共用 GPU 串行队列——prompt_generator 的
+  // agent.generate 打文本模型（Qwen3.5 decode burst），与 LTX-2.5/FLUX 并发会
+  // GPU 争用触发 Metal crash（见 gpu-queue.ts 注释），整个批次占锁一次，内部逐分镜串行
+  enqueueGpuWork(`VideoPrompt-batch-ep${episodeId}`, async () => {
     const agent = mastra.getAgent('prompt_generator')
     if (!agent) throw new Error('视频提示词 Agent 不可用')
     const requestContext = buildAgentRequestContext({
@@ -87,7 +91,7 @@ export async function startVideoPromptBatch(
         logTaskError('VideoPrompt', 'batch-shot', { storyboardId: sb.id, error: err?.message })
       }
     }
-  })()
+  })
     .then(() => {
       task.status = 'done'
       task.finished_at = new Date().toISOString()

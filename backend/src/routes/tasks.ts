@@ -146,6 +146,11 @@ app.post('/', async (c) => {
             const sbImage = sb.composedImage || sb.firstFrameImage
             if (sbImage) autoFirstFrameUrl = sbImage
           }
+          // 分镜 duration 兜底：未显式传 duration 时用分镜时长（分镜拆解设 8-10s），
+          // 否则 sys_task 默认 5s → 121 帧 → 视频 5s 装不下 TTS 对白被 dub 丢弃
+          if (videoBody && !videoBody.duration && sb.duration) {
+            videoBody.duration = sb.duration
+          }
         }
       }
     }

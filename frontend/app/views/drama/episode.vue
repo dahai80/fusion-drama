@@ -1649,9 +1649,13 @@ let genTasksTimer = null
 function openTaskDrawer() {
   taskDrawer.value = true
   loadGenTasks()
+  // 抽屉打开期间持续轮询：点击生成后任务行/状态实时出现（关抽屉即停）
+  stopGenTasksPolling()
+  genTasksTimer = setInterval(() => { loadGenTasks() }, 5000)
 }
 function closeTaskDrawer() {
   taskDrawer.value = false
+  stopGenTasksPolling()
 }
 const imageViewer = ref({ open: false, src: '', title: '' })
 const activeMerge = ref(null) // 成片大预览弹窗中正在播放的拼接记录
@@ -2288,6 +2292,13 @@ const genTaskFailedCount = computed(() =>
 )
 
 function genTaskTargetLabel(task) {
+  if (task.type === 'extract') {
+    // extract 任务：params(JSON).target = characters | scenes | props
+    let target = ''
+    try { target = typeof task.params === 'string' ? (JSON.parse(task.params || '{}')?.target || '') : (task.params?.target || '') } catch {}
+    const hit = EXTRACT_TARGETS.value.find(x => x.key === target)
+    return `${t('episode.tasks.extractKind')}${hit?.label ? ' · ' + hit.label : ''}`
+  }
   if (task.storyboard_id) {
     const sb = sbs.value.find(x => x.id === task.storyboard_id)
     return t('episode.tasks.sbN', { n: sb?.storyboard_number ?? sb?.storyboardNumber ?? task.storyboard_id })
@@ -2341,7 +2352,7 @@ const genTaskRows = computed(() => {
 })
 
 function genTaskKindLabel(kind) {
-  return kind === 'image' ? t('common.serviceType.image') : kind === 'video' ? t('common.serviceType.video') : t('episode.tasks.mergeKind')
+  return kind === 'extract' ? t('episode.tasks.extractKind') : kind === 'image' ? t('common.serviceType.image') : kind === 'video' ? t('common.serviceType.video') : t('episode.tasks.mergeKind')
 }
 
 function genTaskStatusLabel(status) {
@@ -2925,6 +2936,8 @@ async function genCharImg(id) {
 function batchCharImages() {
   const ids = visualChars.value.filter(c => !(c.image_url || c.imageUrl)).map(c => c.id)
   if (!ids.length) { toast.info(t('episode.image.allCharsDone')); return }
+  // 防重复提交：上一批未跑完时再点，同角色会重复建任务（服务端已有去重，这里双保险）
+  if (ids.some(id => pendingCharImageIds.value.includes(id))) { toast.info(t('episode.image.batchGeneratingChar')); return }
   pendingCharImageIds.value = [...new Set([...pendingCharImageIds.value, ...ids])]
   characterAPI.batchImages(ids, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(async () => {
     toast.success(t('episode.image.batchGeneratingChar'))
@@ -2994,6 +3007,8 @@ async function genPropImg(id) {
 function batchSceneImages() {
   const ids = scenes.value.filter(s => !(s.image_url || s.imageUrl)).map(s => s.id)
   if (!ids.length) { toast.info(t('episode.image.allScenesDone')); return }
+  // 防重复提交：上一批未跑完时再点，同场景会重复建任务（服务端已有去重，这里双保险）
+  if (ids.some(id => pendingSceneImageIds.value.includes(id))) { toast.info(t('episode.image.batchGeneratingScene')); return }
   pendingSceneImageIds.value = [...new Set([...pendingSceneImageIds.value, ...ids])]
   ids.forEach(id => { sceneAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
   toast.success(t('episode.image.batchGeneratingScene'))
@@ -3007,6 +3022,8 @@ function batchSceneImages() {
 function batchPropImages() {
   const ids = propItems.value.filter(p => !(p.image_url || p.imageUrl)).map(p => p.id)
   if (!ids.length) { toast.info(t('episode.image.allPropsDone')); return }
+  // 防重复提交：上一批未跑完时再点，同一道具会重复建任务（服务端已有去重，这里双保险）
+  if (ids.some(id => pendingPropImageIds.value.includes(id))) { toast.info(t('episode.image.batchGeneratingProp')); return }
   pendingPropImageIds.value = [...new Set([...pendingPropImageIds.value, ...ids])]
   ids.forEach(id => { propAPI.generateImage(id, epId.value, bareModelName(imageModel.value) || undefined, ownerConfigId(imageModelOptions.value, imageModel.value), chatModelOverride(), chatConfigId()).then(() => refresh()).catch(e => toastError(e)) })
   toast.success(t('episode.image.batchGeneratingProp'))

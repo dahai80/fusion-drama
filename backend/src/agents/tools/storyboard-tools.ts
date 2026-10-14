@@ -8,8 +8,11 @@ import { z } from 'zod'
 import { db, getInsertId, schema } from '../../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
-import { logTaskProgress, logTaskSuccess } from '../../utils/task-logger.js'
+import { logTaskProgress, logTaskSuccess, logTaskWarn } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId } from '../context.js'
+
+/** 防循环：记录每集 save_storyboards 调用签名（replace_existing+镜头号）→ 次数 */
+const saveSignatures = new Map<number, Map<string, number>>()
 
 async function syncStoryboardCharacters(storyboardId: number, characterIds: number[]) {
   await db.delete(schema.storyboardCharacters)
@@ -247,7 +250,9 @@ const storyboardFields = z.object({
 
 const saveStoryboards = createTool({
   id: 'save_storyboards',
-  description: 'Save storyboards for this episode. Call in batches of at most 8 storyboards: the first batch must set replace_existing: true (clears all old storyboards for the episode, then writes), every following batch omits replace_existing (appends). Rows are upserted by shot_number, so overlapping batches and retries never create duplicates.',
+  description: 'Save storyboards for this episode. Call in batches of at most 8 storyboards: the first batch must set replace_existing: true (clears all old storyboards for the episode, then writes), every following batch omits replace_existing (appends). Rows are upserted by shot_number, so overlapping batches and retries never create duplicates. When every storyboard is saved, STOP calling this tool and finish your reply — do not re-save the same batch.',
+  // 防循环：同一集内相同签名（replace_existing + 镜头号列表）的保存重复出现时，
+  // 说明模型陷入了重复调用，第 3 次起直接拒绝并返回终止指令
   inputSchema: z.object({
     replace_existing: z.union([z.boolean(), z.string(), z.undefined()]).transform(v => {
       // 本地小模型常把布尔写成字符串 "true"/"false"，宽松归一
@@ -261,6 +266,21 @@ const saveStoryboards = createTool({
     if ('error' in ids) return ids
     const { episodeId, dramaId } = ids
     const ts = now()
+
+    // 防循环：相同签名（replace_existing + 镜头号列表）在本集重复保存 ≥2 次即拒绝，
+    // 避免本地小模型陷入"反复重存同一批分镜"的工具调用循环拖住整个请求
+    const signature = `${replace_existing === true}|${storyboards.map(sb => sb.shot_number).join(',')}`
+    const sigCounts = saveSignatures.get(episodeId) ?? new Map<string, number>()
+    const sigCount = (sigCounts.get(signature) ?? 0) + 1
+    sigCounts.set(signature, sigCount)
+    saveSignatures.set(episodeId, sigCounts)
+    if (sigCount >= 3) {
+      logTaskWarn('StoryboardTool', 'save-loop-blocked', { episodeId, signature, repeats: sigCount })
+      return {
+        error: `Storyboard batch [${signature}] has already been saved ${sigCount - 1} times with identical content — all data is stored. STOP calling save_storyboards. Finish your reply with a summary of the storyboards now.`,
+      }
+    }
+
     logTaskProgress('StoryboardTool', 'save-begin', {
       episodeId,
       dramaId,

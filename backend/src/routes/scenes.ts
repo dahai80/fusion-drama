@@ -73,10 +73,17 @@ app.post('/:id/generate-image', async (c) => {
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
   if (!ep) return badRequest(c, '剧集不存在')
 
+  // 去重：该场景已有进行中的图片任务则跳过——批量点击是逐场景并发请求，连点会重复建任务
+  const [dup] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask)
+    .where(and(eq(schema.sysTask.sceneId, id), eq(schema.sysTask.status, 'processing')))
+    .limit(1)
+  if (dup) return success(c, { image_generation_id: dup.id, skipped: true })
+
+  // 建行前置：缓存 finalPrompt 或模板拼接立即入队（任务面板即刻可见）；
+  // 无缓存时由下方后台富化补齐，赶在串行队列执行前更新任务 prompt。
   const stylePrompt = await getDramaStylePrompt(scene.dramaId)
-  const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
   // 回退拼接也要守住无人物约束：场景描述(prompt)可能含人物活动，直接拼会让人混进图里
-  const prompt = finalPrompt || [
+  const prompt = scene.finalPrompt || [
     stylePrompt || '',
     scene.location,
     scene.time || '',
@@ -87,7 +94,13 @@ app.post('/:id/generate-image', async (c) => {
   try {
     logTaskStart('SceneImage', 'generate', { sceneId: id, episodeId: ep.id, dramaId: scene.dramaId, location: scene.location })
     await db.update(schema.scenes).set({ status: 'processing', updatedAt: now() }).where(eq(schema.scenes.id, id))
-    const genId = await generateImage({ sceneId: id, dramaId: scene.dramaId, prompt, model: body.model, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+    const genId = await generateImage({
+      sceneId: id, dramaId: scene.dramaId, prompt, model: body.model,
+      configId: body.config_id ?? ep.imageConfigId ?? undefined,
+      // 无缓存提示词时由队列内 enrichImagePromptIfNeeded 在生图前补齐（与生图严格串行）
+      enrichEpisodeId: scene.finalPrompt ? undefined : ep.id,
+      textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
+    })
     logTaskSuccess('SceneImage', 'generate', { sceneId: id, generationId: genId })
     return success(c, { image_generation_id: genId })
   } catch (err: any) {

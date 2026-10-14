@@ -200,9 +200,10 @@ export const stylePresets = sqliteTable('style_presets', {
 // 统一生成任务表：图片/视频生成共用，type 区分，生成参数存 params(JSON)
 export const sysTask = sqliteTable('sys_task', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  type: text('type').notNull(), // image | video
+  type: text('type').notNull(), // image | video | extract
   storyboardId: integer('storyboard_id'),
   dramaId: integer('drama_id'),
+  episodeId: integer('episode_id'),
   sceneId: integer('scene_id'),
   characterId: integer('character_id'),
   propId: integer('prop_id'),

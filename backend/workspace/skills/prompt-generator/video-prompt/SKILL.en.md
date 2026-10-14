@@ -5,7 +5,7 @@ description: Video prompt specification — generates a time-segmented video-gen
 
 # Video Prompt (storyboard segment → video_prompt)
 
-From a single storyboard segment's description (containing the 【镜头N】 sub-shot structure and dialogue/narration) / atmosphere / duration, generate the `video_prompt` that drives AI video generation. **One storyboard segment = one 8-15-second video, with cuts allowed inside it**: consecutive segments may be different shots (change of shot size/angle/subject), joined with hard cuts; but the whole segment **never crosses scenes** and never uses flashbacks.
+From a single storyboard segment's description (containing the 【镜头N】 sub-shot structure and dialogue/narration) / atmosphere / duration, generate the `video_prompt` that drives AI video generation. **One storyboard segment = one 8-10-second video, with cuts allowed inside it**: consecutive segments may be different shots (change of shot size/angle/subject), joined with hard cuts; but the whole segment **never crosses scenes** and never uses flashbacks.
 
 ## Format
 
@@ -23,7 +23,7 @@ Header rules:
 - When a prop has a notable appearance, it may be appended to the header (e.g. `; Props: @Letter`)
 - The header is its own line, ending with a period, followed by the time segments
 
-Split into 3-second segments, each segment on its own line separated by newlines, with time ranges continuous and adjoining (no overlaps, no gaps).
+Split into 3-second segments, each segment on its own line separated by newlines. **The line must start with a time range `N-Ms:`** (e.g. `0-3s:`, `3-6s:`), with time ranges continuous and adjoining (no overlaps, no gaps). Omitting the time range causes TTS dubbing to be unable to locate dialogue timing, compressing everything to the start.
 
 ## Mapping to the Storyboard Description
 
@@ -44,7 +44,13 @@ Organize each segment's content in this order (items with no content may be omit
 - **Shot size/camera move**: one camera state per segment (close shot / medium shot / wide shot / close-up; static / push / pull / pan / tracking); the camera move is continuous within a single sub-shot and may change after a cut
 - **Action**: one main action per segment, with concrete visible verbs (walk, turn around, look up, clench, pause)
 - **All emotion must become visible description**: no abstract words like "he is very sad / the mood is tense" — write it as "he lowers his head, fingers clench the rim of the cup, breathing grows heavier"
-- **Dialogue/narration**: write "CharacterName says: "line""; narration as "Narration: content"; a long line that cannot be spoken within 3 seconds is split across multiple segments; a segment without dialogue may note ambient/action sounds (e.g. "machines keep roaring")
+- **Dialogue/narration**: write "CharacterName says: "line""; narration as "Narration: content"; a segment without dialogue may note ambient/action sounds (e.g. "machines keep roaring")
+- **Dialogue character hard limit** (TTS dubbing synthesizes at ~3.3 chars/sec; lines that are too long get truncated and lose the second half — must be strictly observed):
+    - Single-segment dialogue ≤ segment seconds × 3 chars (leaving performance pauses)
+    - Total dialogue across the segment ≤ (segment duration − 2) × 3 chars (leaving 2 seconds of pure visuals)
+    - Lines exceeding the limit must be trimmed to fit, or moved to the next storyboard segment; **no single sentence may exceed 12 chars**
+    - Examples: a 3s segment ≤ 9 chars; a 5s segment total ≤ 9 chars; an 8s segment total ≤ 18 chars; a 10s segment total ≤ 24 chars
+    - Bad example (forbidden): a 5s segment with the line 「弟子孙悟空，叩谢师父赐名之恩！好一个悟空，悟彻了空，便见真如。」(30 chars, exceeding the 9-char limit by 3×)
 
 ## Reference Rules
 

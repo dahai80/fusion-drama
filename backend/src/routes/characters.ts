@@ -89,11 +89,15 @@ app.post('/:id/generate-image', async (c) => {
   if (!ep) return badRequest(c, '剧集不存在')
 
   const stylePrompt = await getDramaStylePrompt(char.dramaId)
-  const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
-  const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
+  const prompt = char.finalPrompt || characterImagePrompt(char, stylePrompt)
   try {
     logTaskStart('CharacterImage', 'generate', { characterId: id, episodeId: ep.id, dramaId: char.dramaId })
-    const genId = await generateImage({ characterId: id, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+    const genId = await generateImage({
+      characterId: id, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE,
+      configId: body.config_id ?? ep.imageConfigId ?? undefined,
+      enrichEpisodeId: char.finalPrompt ? undefined : ep.id,
+      textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
+    })
     logTaskSuccess('CharacterImage', 'generate', { characterId: id, generationId: genId })
     return success(c, { image_generation_id: genId })
   } catch (err: any) {
@@ -131,19 +135,41 @@ app.post('/batch-generate-images', async (c) => {
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
   if (!ep) return badRequest(c, '剧集不存在')
   const results: number[] = []
+  const skipped: number[] = []
   const stylePrompt = await getDramaStylePrompt(ep.dramaId)
+
+  // 第一遍（毫秒级）：立即为每个角色建任务并入队——面板即刻全部可见，POST 不悬挂。
+  // 有缓存 finalPrompt 的直接用；没有的先用模板提示词，由下方后台富化补齐。
+  const needEnrich: { taskId: number; charId: number }[] = []
   for (const cid of ids) {
     const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, cid))
     if (!char) continue
-    const finalPrompt = await ensureCharacterFinalPrompt(char, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
-    const prompt = finalPrompt || characterImagePrompt(char, stylePrompt)
+    // 去重：该角色已有进行中的图片任务则跳过——多次点击/客户端断开后服务端循环
+    // 继续推进/多个循环并发时，会为同一角色重复建任务（同一秒 4 条仙童的实证）
+    const [dup] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask)
+      .where(and(eq(schema.sysTask.characterId, cid), eq(schema.sysTask.status, 'processing')))
+      .limit(1)
+    if (dup) { skipped.push(cid); continue }
     try {
-      const genId = await generateImage({ characterId: cid, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+      const prompt = char.finalPrompt || characterImagePrompt(char, stylePrompt)
+      const genId = await generateImage({
+        characterId: cid, dramaId: char.dramaId, prompt, model: body.model, size: CHARACTER_IMAGE_SIZE,
+        configId: body.config_id ?? ep.imageConfigId ?? undefined,
+        // 无缓存提示词时由队列内 enrichImagePromptIfNeeded 在生图前补齐（与生图严格串行）
+        enrichEpisodeId: char.finalPrompt ? undefined : ep.id,
+        textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
+      })
       results.push(genId)
-    } catch {}
+      if (!char.finalPrompt) needEnrich.push({ taskId: genId, charId: cid })
+    } catch (e: any) {
+      logTaskError('CharacterImage', String(cid), { episodeId: ep.id, error: e?.message || '生成失败' })
+    }
   }
-  logTaskSuccess('CharacterImage', 'batch-generate', { episodeId: ep.id, requested: ids.length, started: results.length })
-  return success(c, { count: results.length, ids: results })
+
+  // 富化不再后台并发：无缓存提示词的任务由队列内 enrichImagePromptIfNeeded 在生图前补齐
+  // （后台富化与 FLUX 生图并发曾致 G2 毒死 + fusion-mlx 服务冻结，2026-10-13 实证）
+  logTaskSuccess('CharacterImage', 'batch-generate', { episodeId: ep.id, requested: ids.length, started: results.length, skipped: skipped.length, enriching: needEnrich.length })
+  return success(c, { count: results.length, ids: results, skipped, enriching: needEnrich.length })
 })
 
 export default app

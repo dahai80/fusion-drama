@@ -111,12 +111,25 @@ app.post('/:id/generate-image', async (c) => {
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
   if (!ep) return badRequest(c, '剧集不存在')
 
+  // 去重：该道具已有进行中的图片任务则跳过——批量点击是逐道具并发请求，连点会重复建任务
+  const [dup] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask)
+    .where(and(eq(schema.sysTask.propId, id), eq(schema.sysTask.status, 'processing')))
+    .limit(1)
+  if (dup) return success(c, { image_generation_id: dup.id, skipped: true })
+
+  // 建行前置：缓存 finalPrompt 或模板拼接立即入队（任务面板即刻可见）；
+  // 无缓存时由下方后台富化补齐，赶在串行队列执行前更新任务 prompt。
   const stylePrompt = await getDramaStylePrompt(prop.dramaId)
-  const finalPrompt = await ensurePropFinalPrompt(prop, ep.id, false, { model: body.text_model, configId: body.text_config_id ?? undefined })
-  const prompt = finalPrompt || propImagePrompt(prop, stylePrompt)
+  const prompt = prop.finalPrompt || propImagePrompt(prop, stylePrompt)
   try {
     logTaskStart('PropImage', 'generate', { propId: id, episodeId: ep.id, dramaId: prop.dramaId })
-    const genId = await generateImage({ propId: id, dramaId: prop.dramaId, prompt, model: body.model, size: PROP_IMAGE_SIZE, configId: body.config_id ?? ep.imageConfigId ?? undefined })
+    const genId = await generateImage({
+      propId: id, dramaId: prop.dramaId, prompt, model: body.model, size: PROP_IMAGE_SIZE,
+      configId: body.config_id ?? ep.imageConfigId ?? undefined,
+      // 无缓存提示词时由队列内 enrichImagePromptIfNeeded 在生图前补齐（与生图严格串行）
+      enrichEpisodeId: prop.finalPrompt ? undefined : ep.id,
+      textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
+    })
     logTaskSuccess('PropImage', 'generate', { propId: id, generationId: genId })
     return success(c, { image_generation_id: genId })
   } catch (err: any) {
