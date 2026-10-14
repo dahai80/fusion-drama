@@ -31,7 +31,7 @@ configs/   — 遗留死配置，代码零引用
 - **测试**（无 npm script，用 node 内置 test runner + tsx loader）：
   - 全量：`node --import tsx --test`（自动发现 `tests/` 下 `.mjs`/`.ts`）
   - 单文件：`node --import tsx --test tests/<file>`
-  - ⚠️ 套件当前红：约 13 个结构测试过期（如 `remove-minimax-*` 写于 MiniMax 移除时，后来 MiniMax H3 视频适配器又加回，测试未同步）。结构测试断言源码文本模式——重构源码破坏断言时改测试，别改源码。
+  - 结构测试断言源码文本模式——重构源码破坏断言时改测试，别改源码（2026-10-15 曾整批同步 13 个过期用例：mysql-schema 断言随 SQLite 迁移作废、MiniMax 断言随 H3 重新接入反转、错误文案/提示词副本随前端 API 化过期）。
 
 ### Frontend (`frontend/`)
 - `npm run dev` — Vite 开发服务（端口 3013，代理 /api 与 /static 到 5679）

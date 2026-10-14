@@ -9,7 +9,7 @@ test('characters route supports manual create and soft delete', () => {
   const route = read('src/routes/characters.ts')
 
   assert.match(route, /app\.post\('\/'/)
-  assert.match(route, /name required/)
+  assert.match(route, /名称必填/)
   // 传入 episode_id 时关联到该集
   assert.match(route, /insert\(schema\.episodeCharacters\)/)
   // 软删除
@@ -22,7 +22,7 @@ test('scenes route links new scenes to episode and soft deletes', () => {
   const route = read('src/routes/scenes.ts')
 
   assert.match(route, /app\.post\('\/'/)
-  assert.match(route, /location required/)
+  assert.match(route, /地点必填/)
   assert.match(route, /insert\(schema\.episodeScenes\)/)
   // 软删除（原为硬删，保留历史生成记录）
   assert.match(route, /app\.delete\('\/:id'/)
@@ -34,7 +34,7 @@ test('props route supports manual create and soft delete', () => {
   const route = read('src/routes/props.ts')
 
   assert.match(route, /app\.post\('\/'/)
-  assert.match(route, /name required/)
+  assert.match(route, /名称必填/)
   assert.match(route, /insert\(schema\.episodeProps\)/)
   assert.match(route, /app\.delete\('\/:id'/)
   assert.match(route, /deletedAt: now\(\)/)

@@ -6,36 +6,26 @@ const root = new URL('../..', import.meta.url)
 const read = (path) => readFileSync(new URL(path, root), 'utf8')
 const exists = (path) => existsSync(new URL(path, root))
 
-test('MiniMax image and video provider surfaces are removed', () => {
+// 2026-10 更新：MiniMax 曾整体移除，后随 MiniMax-H3 时代重新接入为官方
+// 视频供应商（云端 H3 API + 本地 H3 走 fusion 供应商，见 fusion-video.ts）。
+// 本文件改为断言当前形态：视频面存在、图片面仍缺位。
+// （MySQL 启动清理MiniMax 配置的历史断言随 mysql-schema.ts 删除一并作废。）
+
+test('MiniMax is an official video provider with a cloud video adapter', () => {
   const ai = read('backend/src/services/ai.ts')
-  const route = read('backend/src/routes/aiConfigs.ts')
   const registry = read('backend/src/services/adapters/registry.ts')
   const settings = read('frontend/app/pages/settings.vue')
   const readme = read('README.md')
 
-  assert.doesNotMatch(ai, /minimax/i)
-  assert.doesNotMatch(route, /p === 'minimax'/i)
-  assert.doesNotMatch(registry, /minimax/i)
-  assert.doesNotMatch(settings, /minimax/i)
-  assert.doesNotMatch(readme, /minimax/i)
+  // 官方视频供应商清单含 minimax
+  assert.match(ai, /video:\s*\[\s*'volcengine',\s*'minimax',\s*'aliyun',\s*'fusion'\s*\]/)
+  // 适配器注册表挂载云端 MiniMax 视频适配器（本地 H3 走 fusion 适配器）
+  assert.match(registry, /import \{ MiniMaxVideoAdapter \} from '\.\/minimax-video'/)
+  assert.match(registry, /minimax: new MiniMaxVideoAdapter\(\)/)
+  assert.equal(exists('backend/src/services/adapters/minimax-video.ts'), true)
+  // 图片侧未恢复：无 minimax 图片适配器
   assert.equal(exists('backend/src/services/adapters/minimax-image.ts'), false)
-  assert.equal(exists('backend/src/services/adapters/minimax-video.ts'), false)
-})
-
-test('MySQL startup removes all saved MiniMax configurations including audio', () => {
-  const mysqlSchema = read('backend/src/db/mysql-schema.ts')
-  const detachImage = 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`image_config_id` = c.`id` SET e.`image_config_id` = NULL WHERE c.`provider` = ?'
-  const detachVideo = 'UPDATE `episodes` e JOIN `ai_service_configs` c ON e.`video_config_id` = c.`id` SET e.`video_config_id` = NULL WHERE c.`provider` = ?'
-  const deleteConfigs = 'DELETE FROM `ai_service_configs` WHERE `provider` = ?'
-
-  assert.match(mysqlSchema, /mysqlDataCleanupStatements/)
-  assert.match(mysqlSchema, /DELETE FROM `ai_service_configs` WHERE `provider` = \?/)
-  assert.match(mysqlSchema, /DELETE FROM `ai_service_providers` WHERE `provider` = \?/)
-  assert.ok(mysqlSchema.includes(detachImage))
-  assert.ok(mysqlSchema.includes(detachVideo))
-  assert.ok(mysqlSchema.indexOf(detachImage) < mysqlSchema.indexOf(deleteConfigs))
-  assert.ok(mysqlSchema.indexOf(detachVideo) < mysqlSchema.indexOf(deleteConfigs))
-  assert.equal((mysqlSchema.match(/params:\s*\['minimax'\]/g) || []).length, 4)
-  assert.doesNotMatch(mysqlSchema, /params:\s*\['minimax', 'image', 'video'\]/)
-  assert.match(mysqlSchema, /pool\.query\(cleanup\.sql, cleanup\.params\)/)
+  // 前端设置页提供 MiniMax 视频供应商选项；README 有文档
+  assert.match(settings, /minimax: \{ label: 'MiniMax H3 官方'/)
+  assert.match(readme, /minimax/i)
 })
