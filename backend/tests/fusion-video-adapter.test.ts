@@ -89,47 +89,9 @@ test('fusion parses sync b64 response and rejects polling', () => {
   assert.throws(() => adapter.buildPollRequest(config, 'task-1'), /同步接口/)
 })
 
-// #947: LTX-Video legacy 2B (Lightricks/LTX-Video) — no temporal upsampler,
-// output = num_frames (%8==1). VAE AdaLayerNorm fixed (black frames resolved).
-const legacyConfig = { ...config, model: 'Lightricks--LTX-Video' }
-
-test('fusion legacy 2B uses 768 short edge + direct frame mapping', () => {
-  const request = adapter.buildGenerateRequest(legacyConfig, {
-    id: 10,
-    prompt: 'cat on beach',
-    duration: 2,
-  })
-  // legacy: short edge 768, 16:9 long = 768*16/9≈1365 -> round 1344 (64-align)
-  assert.equal(request.body.width, 1344)
-  assert.equal(request.body.height, 768)
-  // legacy maxSeconds=2: 2s*24=48 -> nearest 8k+1 = 49 (#951 修复后可跑)
-  assert.equal(request.body.num_frames, 49)
-  // rectified-flow 蒸馏模型官方推荐 cfg=1.0（fusion 默认 3.0 致逐帧亮度闪烁）
-  assert.equal(request.body.cfg_scale, 1.0)
-  assert.equal(request.body.num_inference_steps, 30)
-})
-
-test('fusion legacy 2B caps duration at 2s (#951 fix — 49-frame OOM guard)', () => {
-  const frames = (duration?: number | null) =>
-    adapter.buildGenerateRequest(legacyConfig, { id: 11, prompt: 'x', duration }).body.num_frames
-  // maxSeconds=2: all durations clamp to 2s -> 49 frames
-  assert.equal(frames(1), 25)
-  assert.equal(frames(2), 49)
-  assert.equal(frames(5), 49)
-  assert.equal(frames(10), 49)
-  assert.equal(frames(null), 49)
-})
-
-test('fusion legacy 2B respects aspect ratio', () => {
-  const dims = (aspectRatio?: string | null) => {
-    const body = adapter.buildGenerateRequest(legacyConfig, { id: 12, prompt: 'x', aspectRatio }).body
-    return [body.width, body.height]
-  }
-  // short edge 768; long edge 64-aligned
-  assert.deepEqual(dims('16:9'), [1344, 768])   // 768*16/9≈1365 -> 1344
-  assert.deepEqual(dims('9:16'), [768, 1344])
-  assert.deepEqual(dims('1:1'), [768, 768])
-})
+// LTX-Video legacy 2B routing removed (2026-10-15): 2s cap / 768-only / no
+// A/V made it useless next to LTX-2.5; model files deleted from
+// ~/.fusion-mlx/models. Remaining routes: LTX-2.5 / MiniMax-H3 / Wan2.2-TI2V-5B.
 
 // MiniMax-H3 (33B Omni-Transformer): quantize=dit8_te4 + turbo LoRA, 4 steps, no audio,
 // fl2va i2va/l2va, cap 5s, no 8k+1 frame constraint.

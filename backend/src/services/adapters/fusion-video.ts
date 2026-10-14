@@ -22,28 +22,13 @@ import { joinProviderUrl } from './url'
  *  （旧管线按 16T-7 反推 latent 周期的逻辑随 upsampler 一并作废。）
  *
  *  VAE OOM 保护（issue #945）：上游已落地 temporal-only tiling（tiling="auto"，
- *  >65 帧自动分块解码），非 legacy 管线时长上限放宽到 15s。 */
+ *  >65 帧自动分块解码），时长上限放宽到 15s。 */
 function numFramesForDuration(duration?: number | null, maxSeconds = 15): number {
   const fps = 24
   const seconds = Math.min(maxSeconds, Math.max(2, Math.round(Number(duration || 5))))
   const target = seconds * fps
   // num_frames 约束 %8==1：取最近 8k+1
   return Math.max(9, Math.round((target - 1) / 8) * 8 + 1)
-}
-
-/** LTX-Video legacy 2B（Lightricks/LTX-Video）无 temporal upsampler：输出帧数
- *  = num_frames（约束 num_frames%8==1）。按目标时长直算到最近 8k+1。
- *  VAE 不分块解码，帧数×像素 OOM 风险。maxSeconds=2（49帧）：#951 修复后
- *  （cf765fa6 signal_video_abort 1s trip wire）49帧 1344×768 denoise 40 步 +
- *  VAE decode 全程跑完 server 存活（~441s）。25帧(1s) 亦安全。
- *  LTX-2.5 5s 高分辨率产出 LOW_MOTION（后半段冻结），legacy 2B 2s 质量更优。
- *  超 2s 需等上游 VAE tiling（issue #945）。 */
-function numFramesForDurationLegacy(duration?: number | null, maxSeconds = 2): number {
-  const fps = 24
-  const seconds = Math.min(maxSeconds, Math.max(1, Math.round(Number(duration || 2))))
-  const target = seconds * fps
-  const k = Math.max(1, Math.round((target - 1) / 8))
-  return 8 * k + 1
 }
 
 /** 尺寸按 64 对齐（最近取整）：Stage1 = 目标尺寸/2 须为 32 的倍数。
@@ -60,10 +45,6 @@ function alignDim(value: number, fallback: number): number {
  *  128GB 机器不可行，收口 768。质量经实证可接受（帧 diff avg 正常区间）。 */
 const SHORT_EDGE_BASE_LTX25 = 768
 
-/** LTX-Video legacy 2B：单阶段 2B 模型，无 distilled 半分辨率。短边 768
- *  （768×1344 实测 145s/25帧，luma 57 帧diff 21）。1088 短边 ASGI 超时（>67s/9帧）。 */
-const SHORT_EDGE_BASE_LEGACY = 768
-
 /** MiniMax-H3：33B Omni-Transformer。短边 576（16:9 → 1024x576）。
  *  实测：768 短边（1344x768）token 数 6552+，10 步即 OOM（MLX cache 累积超 120GB）；
  *  576 短边（1024x576）spatial tokens=2304（同 768x768），10 步 107s 完成 1.17s 输出。
@@ -76,13 +57,6 @@ const SHORT_EDGE_BASE_H3 = 576
  *  （fusion-mlx #1208）。544 短边 seq=10710 走 bf16 快路径：实测 525s 完成
  *  81 帧 3.375s 输出。上游修复 #1208 后可回升 704。 */
 const SHORT_EDGE_BASE_WAN5B = 544
-
-/** 判定是否为 LTX-Video legacy 2B（Lightricks/LTX-Video，非 ltx-2.5）。 */
-function isLegacyLtx(model: string): boolean {
-  const m = model.toLowerCase()
-  return (m.includes('ltx-video') || m.includes('ltx_video') || m.includes('ltxv-2b'))
-    && !m.includes('ltx-2.5') && !m.includes('ltx2.5') && !m.includes('ltx2_5')
-}
 
 /** 判定是否为 MiniMax-H3（33B Omni-Transformer，fl2va/i2va/l2va）。
  *  H3 路由独立于 LTX：需 quantize=dit8_te4（61GB）否则 144GB OOM（128GB 机器）；
@@ -211,16 +185,15 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       || pickReferenceUrl(prompt, record.referenceImageUrls)
       || firstReferenceUrl(record.referenceImageUrls)
 
-    const legacy = isLegacyLtx(model)
     const h3 = isMiniMaxH3(model)
     const wan5b = isWan22Ti2v5b(model)
-    // H3 短边 768（resolution "768p" 口径）；legacy 2B 768；LTX-2.5 768；Wan 5B 704。
-    const shortEdgeBase = legacy
-      ? SHORT_EDGE_BASE_LEGACY
-      : (h3 ? SHORT_EDGE_BASE_H3 : (wan5b ? SHORT_EDGE_BASE_WAN5B : SHORT_EDGE_BASE_LTX25))
+    // H3 短边 576（resolution "768p" 口径）；LTX-2.5 768；Wan 5B 544。
+    const shortEdgeBase = h3
+      ? SHORT_EDGE_BASE_H3
+      : (wan5b ? SHORT_EDGE_BASE_WAN5B : SHORT_EDGE_BASE_LTX25)
 
     // 尺寸必须显式指定：不传时 fusion 默认 768x512，Stage1 仅 384x256 发糊。
-    // 短边锁 base（LTX-2.5=768 / legacy 2B=768 / H3=768）；长边按宽高比推算 64 对齐
+    // 短边锁 base（LTX-2.5=768 / H3=576 / Wan5B=544）；长边按宽高比推算 64 对齐
     // （64 是 16 的倍数，满足 H3 dim_divisibility=16 与 LTX 32 约束）。
     const ar = record.aspectRatio
     const [aw, ah] = ar ? String(ar).split(':').map(Number) : [16, 9]
@@ -245,17 +218,16 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     }
 
     // VAE OOM / 时长保护：
-    // legacy 2B 限 2s（#951 修复后 49帧可跑）。
     // LTX-2.5 上限 10s（241帧峰值 ~110GB 贴 128GB 水位）。
     // H3 上限 5s（120帧）：8 步实测 2s/3s/4s/5s 全通过（峰值 ~56GB），
     // 6s(144f) MLX cache 累积超 120GB ceiling 被 memory guard 取消。
     // Wan2.2-TI2V-5B 上限 10s（241帧；16×16×4 高压缩 VAE latent 极小，
     // 5B 去噪 + 分块解码内存远低于 LTX-2.5，待实测确认后可放宽）。
-    const maxSeconds = legacy ? 2 : (h3 ? 5 : 10)
-    const requested = Number(record.duration) || (legacy ? 2 : 5)
+    const maxSeconds = h3 ? 5 : 10
+    const requested = Number(record.duration) || 5
     if (requested > maxSeconds) {
       console.warn(
-        `[fusion-video] ${legacy ? 'legacy 2B' : h3 ? 'H3' : wan5b ? 'Wan5B' : ''}(短边${shortEdge})` +
+        `[fusion-video] ${h3 ? 'H3' : wan5b ? 'Wan5B' : 'LTX-2.5'}(短边${shortEdge})` +
         `时长${requested}s 超安全上限${maxSeconds}s，截断为 ${maxSeconds}s。` +
         `分镜拆解侧应控制单镜 ≤${maxSeconds}s`,
       )
@@ -264,24 +236,13 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       ? numFramesForDurationH3(record.duration, maxSeconds)
       : wan5b
         ? numFramesForDurationWan(record.duration, maxSeconds)
-        : legacy
-          ? numFramesForDurationLegacy(record.duration, maxSeconds)
-          : numFramesForDuration(record.duration, maxSeconds)
-
-    // LTX-Video legacy 2B 是 rectified-flow 蒸馏模型，官方推荐 cfg_scale=1.0
-    // （fusion 默认 3.0 过高 → CFG 噪声放大 → 全局亮度逐帧振荡闪烁）。
-    // steps=30 足够（默认 40 多跑无质量增益、增 OOM 风险）。
-    // LTX-2.5 distilled 管线自带 cfg，不覆盖。
-    if (legacy) {
-      body.cfg_scale = 1.0
-      body.num_inference_steps = 30
-    }
+        : numFramesForDuration(record.duration, maxSeconds)
 
     // 画质档（可选 dev）：22B bf16 单阶段全分辨率（20 步 CFG=4，质量最佳，
     // 实测 ~1600s/41f）；缺省走 distilled（8/3 步，~80s）。
     // #995 后 dev 同样支持联合 A/V，audio 由下方 generateAudio 映射统一处理。
     // H3 / Wan5B 无 dev/distilled pipeline 概念，跳过。
-    if (!legacy && !h3 && !wan5b && record.videoPipeline === 'dev') {
+    if (!h3 && !wan5b && record.videoPipeline === 'dev') {
       body.pipeline = 'dev'
       body.num_inference_steps = 20
       body.cfg_scale = 4.0
@@ -303,12 +264,12 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     }
 
     // 音频（LTX-2.5 联合 A/V，distilled/dev 均支持）：generateAudio 缺省开
-    // （createTask 侧 false 才存 0）；legacy 2B / H3 / Wan5B 无联合音频支路，不传。
+    // （createTask 侧 false 才存 0）；H3 / Wan5B 无联合音频支路，不传。
     // H3 joint audio(t2va-av) 与 fl2va image 互斥（generate.py:843），且
     // t2va-av 管线 UNVERIFIED（generate.py:160）→ H3 永远不传 audio，
     // 台词配音统一走 TTS dub（video-dub）独立管线。
     // LTX-2.5 有首帧时亦关闭（fl2va image 与 joint audio 互斥，上游硬校验）。
-    if (!legacy && !h3 && !wan5b && record.generateAudio) {
+    if (!h3 && !wan5b && record.generateAudio) {
       if (firstFrame) {
         console.warn(
           `[fusion-video] 首帧 I2V 与联合音频互斥（上游硬校验），自动关闭 audio。` +
@@ -324,7 +285,7 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     }
     if (firstFrame) body.image = firstFrame
     // H3 fl2va：last_frame_image 作末帧条件（l2va）；与首帧 image 联合即 fl2va。
-    // 仅 H3 支持末帧锚定（LTX-2.5 / legacy 后端不接受 last_frame_image）。
+    // 仅 H3 支持末帧锚定（LTX-2.5 后端不接受 last_frame_image）。
     if (h3 && record.lastFrameUrl) {
       body.last_frame_image = record.lastFrameUrl
     }
