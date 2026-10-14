@@ -58,17 +58,29 @@ configs/   — 遗留死配置，代码零引用
 
 ### Backend
 - **HTTP**: Hono（入口 `src/index.ts`），路由挂 `/api/v1`（dramas/episodes/storyboards/scenes/characters/props/tasks/upload/ai-configs/ai-providers/style-presets/prompts/agent/merge/skills/props/settings/storage/server-update）；`/static` 服务 DATA_ROOT 且标记 immutable 长缓存（uuid 命名内容不变）；生产托管前端静态目录；`/api/v1/health` 返回 `FUSION_VERSION`
+  - **中间件**（`middleware/logger.ts`）：`requestLogger`（彩色请求日志）+ `errorHandler`（统一错误捕获）；CORS 锁 `localhost:3013`/`5679`（`credentials:true`）
+  - **启动清理**：进程重启后内存轮询线程全丢，`index.ts` 启动时把残留 `processing` 任务统一标 `failed`（errorMsg「服务重启，生成任务中断，请重试」），避免前端永久「生成中」
 - **Database**: SQLite（better-sqlite3 + WAL），`SQLITE_PATH` 覆盖库文件位置；DDL 在 `src/db/sqlite-schema.ts`，启动时幂等重放；Drizzle 表定义 `src/db/schema.ts`（sqlite-core）
 - **路径锚点**: `src/utils/paths.ts` 统一解析 DATA_ROOT/STORAGE_ROOT；桌面版由 Electron 主进程注入 env（`FUSION_DATA_DIR`/`SQLITE_PATH`/`WORKSPACE_PATH`/`FRONTEND_DIST`/`FFMPEG_BIN`/`FFPROBE_BIN`），dev 走仓库相对路径默认值
 - **AI Agents**: Mastra，4 个静态 agent（script_rewriter / extractor / storyboard_breaker / prompt_generator）注册于 `agents/index.ts` 的 agentRegistry；instructions 按请求动态拼接 = `workspace/prompts/<type>.md`（按目标语言选 .md/.en/.ja/.ko）+ skills + 语言指令块（非中文时强制覆盖旧模板的语言约束）；模型按请求解析（RequestContext 可覆盖 model/config_id）
+  - **工具绑定**（`AGENT_TOOLS`，`agents/tools/`）：script_rewriter→`script-tools`、extractor→`extract-tools`、storyboard_breaker→`storyboard-tools`、prompt_generator→`image-prompt-tools` + 复用 storyboard 的 `readStoryboardContext`/`updateStoryboard`；工具经 Mastra RequestContext 拿 episodeId/dramaId/language（`agents/context.ts` 的 `buildAgentRequestContext`）
   - **fetch 补丁链**（agents/index.ts）：① 关思考（`AI_DISABLE_THINKING` 总开关、`AI_THINKING_OFF_PATCH` JSON 覆盖注入参数；官方 OpenAI/Gemini host 跳过）② 温度注入 ③ undici dispatcher 解除 300s headers 超时（本地大模型长上下文首 token 可超 300s）。generation.ts 的生成/轮询请求同样挂 undici 零超时 dispatcher
 - **媒体生成**: `services/generation.ts` 统一任务生命周期（sys_task 表）
-  - **全局串行队列**（`enqueueTask`/`taskChain`）：所有图片/视频任务严格按提交顺序逐一执行——本地模型（fusion-mlx）无法并行（显存挤占），云端并发易触发限流。**不要改成并行**
+  - **GPU 串行队列**（`services/gpu-queue.ts` 的 `enqueueGpuWork`/`gpuChain`）：所有 GPU 密集任务（图片/视频生成、资产提取 Agent、Agent 对话路由 `routes/agent.ts`、视频提示词批量 `services/video-prompts.ts`）共用一把锁，任意时刻仅一个 GPU 任务运行——本地模型（fusion-mlx）无法并行多模型（FLUX ~34GB + Qwen3.5 decode burst → GPU 争用 → Metal command buffer execution failed → SIGTERM 进程挂死）。云端并发易触发限流。**不要改成并行**
+  - **FLUX 模型卸载**（`unloadFusionImageModel`）：fusion-mlx 的 `model_settings.json` 中 FLUX.1-dev 无 `ttl_seconds` → 图片生成后不自动卸载，常驻 ~34GB 挤占后续提取 Agent。图片任务完成（成功/失败）后主动 `POST /v1/models/{id}/unload` 释放。仅对 fusion-mlx 本地配置生效
+  - **资产提取串行**（`extraction.ts`）：前端 `doExtractAll()` 并发 3 POST（characters/scenes/props），每类各起 `agent.generate`（maxSteps:20）打 Qwen3.5；三类共享 GPU 串行队列，逐个执行避免并发 decode 争用
   - 适配器注册表 `services/adapters/registry.ts`：图片 openai/gemini/volcengine；视频 volcengine/minimax/aliyun/fusion（官方清单在 `services/ai.ts` 的 officialProviders）
-  - **fusion** = fusion-mlx 本地视频（`adapters/fusion-video.ts`）：同步 `/v1/videos/generate` 直接返回 base64 data URI（无轮询），`downloadFile` 解码落盘后 `result_url` 存 localPath（**勿存 data URI**——37MB base64 会污染 DB/API）；fusion 中文 prompt 先经文本模型译英文（Gemma T5 编码器不识 CJK）
-  - **模型感知适配**（`isLegacyLtx`）：LTX-2.5（`ltx-2.5`）短边 1088、temporal upsampler ×2（输出 = 16T−7 帧反推）、高分辨率(短边≥1000)限 5s，但 5s 产出 LOW_MOTION（后半段冻结，diff≈3.9、55% 帧冻结）；LTX-Video legacy 2B（`Lightricks--LTX-Video`，无 upsampler）短边 768、`num_frames=8k+1` 直算、限 2s（49帧）、`cfg_scale=1.0`+`num_inference_steps=30`（rectified-flow 蒸馏模型官方推荐 cfg=1.0；fusion 默认 3.0 致逐帧亮度振荡闪烁，luma_std 12.5→4.8）；#951 修复 cf765fa6 后 49帧 denoise+VAE 全程跑完 server 存活。两者不可同时驻留 fusion（video mutex，issue #950）——切换模型前先 `POST /v1/models/{id}/unload`
+  - **fusion** = fusion-mlx 本地视频（`adapters/fusion-video.ts`）：同步 `/v1/videos/generate` 直接返回 base64 data URI（无轮询），`downloadFile` 解码落盘后 `result_url` 存 localPath（**勿存 data URI**——37MB base64 会污染 DB/API）；fusion 中文 prompt 先经文本模型译英文（Gemma T5 编码器不识 CJK）——**但 H3 跳过翻译**（MiniMax 中文模型识 CJK，且翻译会加载文本模型与 H3 竞争内存导致 memory guard SIGTERM）；`referenceImageUrls` 映射为 I2V 首帧（无参考图时自动注入分镜图作首帧，commit 0fe5c89）；有首帧时联合 A/V 音频降级关闭——对白由独立 TTS 配音管线合成（见下）
+  - **模型感知适配**（`isLegacyLtx`/`isMiniMaxH3`/`isWan22Ti2v5b`，后两者已 export 供 generation.ts 判定跳翻译）：四模型路由——
+    **LTX-2.5**（`ltx-2.5`，主力）：短边 768（1344x768 实测 197s/5.01s/117f 安全；1088 短边 VAE decode 12min+ OOM 114GB>112GB），#978 起 temporal upsampler 移除、输出帧数 = `num_frames`（8k+1 直算），上限 10s；联合 A/V（无首帧时 `audio:true`），有首帧时 audio 降级关闭（fl2va 与 joint audio 互斥）；
+    **MiniMax-H3**（`minimax`/`h3`，高质量慢速）：33B 须 `quantize=dit8_te4`（DiT 8-bit+TE 4-bit ≈61GB，否则 144GB OOM），`num_inference_steps=8`（10 步限 1s；8 步实测 2s-5s 全通过，6s OOM），短边 576（16:9→1024x576），无 8k+1 约束（1..361 帧直算），上限 5s（120帧），永不传 audio（fl2va image 互斥 + t2va-av UNVERIFIED → TTS dub），支持 `last_frame_image`（fl2va 末帧锚定）；实测 1024x576/120f/8步 838s 完成 5.0s 输出 + TTS dub；H3 跳翻译（MiniMax 中文模型），翻译会加载文本模型竞争内存触发 memory guard SIGTERM；
+    **LTX-Video legacy 2B**（`Lightricks--LTX-Video`）：短边 768、`num_frames=8k+1` 直算、限 2s（49帧）、`cfg_scale=1.0`+`num_inference_steps=30`（rectified-flow 蒸馏模型官方推荐 cfg=1.0；fusion 默认 3.0 致逐帧亮度振荡闪烁）；
+    **Wan2.2-TI2V-5B**（`Anes1032--Wan2.2-TI2V-5B-mlx-q8`，2026-10 试点）：5B compact DiT + Wan2.2-VAE 16×16×4 高压缩（latent 帧数少 4 倍），T2V/I2V 统一单模型，短边 544（16:9→960×544；原生 720P 1280×704 在 MLX 侧 seq=18480 超过 `FUSION_WAN2_Q8_FP32_SEQ`(16384) 阈值走 fp32 慢路径 ~95s/步且触发 memory enforcer 硬压力，上游 #1208，修复后回升 704；544 短边 seq=10710 走 bf16 快路径，实测 525s/81帧/3.375s 输出），帧约束 `(nf-1)%4==0`（4k+1 直算，与 8k+1 兼容），上限 10s；UMT5 文本编码器原生识中文（跳过翻译步）；不传 audio/quantize/steps（q8 权重已预量化，服务端默认 40 步）；
+    四者不可同时驻留 fusion（video mutex，issue #950）——切换模型前先 `POST /v1/models/{id}/unload`
+  - **TTS 对白配音**（`utils/video-dub.ts`，commit b7cc013）：修复 LTX-2.5 联合 A/V 只出环境底噪无清晰对白。流程 = 从分镜 `video_prompt` 提取「角色名：台词」→ 逐条调 fusion-mlx `/v1/audio/speech`（Kokoro TTS）合成 → 按顺序拼成一条音轨 → 与原视频混流（原音轨降噪保留环境声，TTS 音轨置前）。`generation.ts` 视频落盘后调 `dubVideoDialogue(localPath, prompt, taskId)`；任一步失败返回原视频路径不阻断主流程。TTS 上游读 `ai_service_configs` 表 active 配置，缺失则跳过
   - 中文图片提示词先经文本模型翻译成英文再生图（FLUX 不识中文，失败回退原文不阻断）
 - **视频拼接**: `services/ffmpeg-merge.ts`，FFmpeg 二进制内置（ffmpeg-static），可用 `FFMPEG_BIN`/`FFPROBE_BIN` 覆盖
+- **其他 services**：`ai.ts`（AI 配置 CRUD + `officialProviders` 官方清单 + `getActiveConfig`）、`extraction.ts`（资产提取编排）、`final-prompt.ts`（图片最终提示词组装）、`video-prompts.ts`（按集内存态批量为缺 `video_prompt` 的分镜跑 prompt_generator，运行中不重启，重启丢状态）、`app-settings.ts`（全局设置含 `content_language`）、`server-update.ts`（watchtower/GitHub feed 更新检查）
 
 ### Frontend
 - Nuxt 3 SPA，动态路由在 `nuxt.config.ts` 的 `pages:extend` 手动注册（views/drama/：detail.vue 剧集列表 + episode.vue 工作台）

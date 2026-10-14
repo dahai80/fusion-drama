@@ -9,6 +9,9 @@ import { now } from '../utils/response.js'
 import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
+import { isMiniMaxH3, isWan22Ti2v5b } from './adapters/fusion-video'
+import { enqueueGpuWork } from './gpu-queue'
+import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
 import type { AIConfig } from './adapters/types'
 import { getModel } from '../agents/index.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
@@ -36,6 +39,10 @@ interface GenerateImageParams {
   referenceImages?: string[]
   frameType?: string
   configId?: number
+  /** 队列内富化：资产缺最终提示词时，生图前在 GPU 串行队列内跑 prompt_generator 补齐 */
+  enrichEpisodeId?: number
+  textModel?: string
+  textConfigId?: number
 }
 
 interface GenerateVideoParams {
@@ -83,6 +90,9 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     size: params.size || '1920x1080',
     frameType: params.frameType,
     referenceImages: params.referenceImages,
+    enrichEpisodeId: params.enrichEpisodeId,
+    textModel: params.textModel,
+    textConfigId: params.textConfigId,
   })
 
   logTaskStart('ImageTask', 'enqueue', {
@@ -185,12 +195,10 @@ async function createTask(
 // 背景：本地模型（fusion-mlx）无法并行处理多个生成请求（显存互相挤占/排队超时），
 // 且批量生成（角色/场景/道具/分镜）并发提交会互相拖垮。
 // 所有生成任务（图片/视频）统一入队，严格按提交顺序逐一执行。
-// 云端厂商同样受益：避免并发限流。
-let taskChain: Promise<void> = Promise.resolve()
-
+// 云端厂商同样受益：避免并发限流。与资产提取共用 gpu-queue（FLUX + Qwen3.5 并发
+// 会 GPU 争用致 Metal command buffer 崩溃 → fusion-mlx SIGTERM 挂死）。
 function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
-  taskChain = taskChain
-    .then(() => processTask(id, config))
+  enqueueGpuWork(`${taskLabel(type)}-${id}`, () => processTask(id, config))
     .catch(err => {
       logTaskError(taskLabel(type), 'process', { id, error: err.message })
       console.error(`${taskLabel(type)} ${id} failed:`, err)
@@ -209,6 +217,28 @@ function parseTaskParams(raw: string | null | undefined): Record<string, any> {
 /** 检测文本是否含中文（FLUX 等文生图模型不识中文，中文段会被忽略导致出图雷同） */
 function containsChinese(text: string): boolean {
   return /[\u4e00-\u9fff]/.test(text)
+}
+
+/** fusion-mlx \u56fe\u7247\u6a21\u578b\uff08FLUX.1-dev\uff09\u65e0 ttl_seconds \u4e0d\u4f1a\u81ea\u52a8\u9a71\u9010\uff0c
+ *  \u56fe\u751f\u6210\u540e\u5e38\u9a7b ~34GB GPU \u5185\u5b58\uff0c\u4e0e\u540e\u7eed\u8d44\u4ea7\u63d0\u53d6 Qwen3.5 decode \u4e89\u7528 \u2192
+ *  Metal command buffer \u5d29\u6e83 \u2192 fusion-mlx SIGTERM\u3002\u56fe\u5b8c\u6210\u540e\u663e\u5f0f\u5378\u8f7d\u3002
+ *  \u4ec5\u5bf9 baseUrl \u6307\u5411 fusion-mlx\uff08localhost:11434\uff09\u7684 openai \u56fe\u7247\u914d\u7f6e\u751f\u6548\u3002 */
+async function unloadFusionImageModel(config: AIConfig, model: string | null): Promise<void> {
+  try {
+    const baseUrl = config.baseUrl || ''
+    if (!/127\.0\.0\.1:11434|localhost:11434/.test(baseUrl)) return
+    const m = model || config.model || ''
+    if (!m) return
+    const url = `${baseUrl.replace(/\/+$/, '')}/v1/models/${m}/unload`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${config.apiKey || ''}` },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (res.ok) logTaskProgress('ImageTask', 'model-unloaded', { model: m })
+  } catch (err: any) {
+    logTaskWarn('ImageTask', 'model-unload-failed', { model, error: err?.message })
+  }
 }
 
 /**
@@ -250,6 +280,51 @@ async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: 
   }
 }
 
+/** 队列内富化：路由建行时用模板提示词的任务，执行前在此补最终提示词。
+ *  必须在 GPU 串行队列内执行——队列外并发富化（LLM Agent）与 FLUX 生图曾致
+ *  G2 毒死 + fusion-mlx 服务冻结（2026-10-13 08:24/08:47 两轮实证）。 */
+async function enrichImagePromptIfNeeded(
+  record: typeof schema.sysTask.$inferSelect,
+  params: Record<string, any>,
+  label: string,
+): Promise<string> {
+  const episodeId = params.enrichEpisodeId
+  if (!episodeId) return record.prompt || ''
+  try {
+    if (record.characterId) {
+      const [char] = await db.select().from(schema.characters).where(eq(schema.characters.id, record.characterId))
+      if (!char) return record.prompt || ''
+      const fp = await ensureCharacterFinalPrompt(char, episodeId, false, { model: params.textModel, configId: params.textConfigId ?? undefined })
+      if (fp) {
+        await db.update(schema.sysTask).set({ prompt: fp, updatedAt: now() }).where(eq(schema.sysTask.id, record.id))
+        logTaskProgress(label, 'prompt-enriched', { id: record.id, characterId: record.characterId })
+        return fp
+      }
+    } else if (record.sceneId) {
+      const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, record.sceneId))
+      if (!scene) return record.prompt || ''
+      const fp = await ensureSceneFinalPrompt(scene, episodeId, false, { model: params.textModel, configId: params.textConfigId ?? undefined })
+      if (fp) {
+        await db.update(schema.sysTask).set({ prompt: fp, updatedAt: now() }).where(eq(schema.sysTask.id, record.id))
+        logTaskProgress(label, 'prompt-enriched', { id: record.id, sceneId: record.sceneId })
+        return fp
+      }
+    } else if (record.propId) {
+      const [prop] = await db.select().from(schema.props).where(eq(schema.props.id, record.propId))
+      if (!prop) return record.prompt || ''
+      const fp = await ensurePropFinalPrompt(prop, episodeId, false, { model: params.textModel, configId: params.textConfigId ?? undefined })
+      if (fp) {
+        await db.update(schema.sysTask).set({ prompt: fp, updatedAt: now() }).where(eq(schema.sysTask.id, record.id))
+        logTaskProgress(label, 'prompt-enriched', { id: record.id, propId: record.propId })
+        return fp
+      }
+    }
+  } catch (err: any) {
+    logTaskWarn(label, 'prompt-enrich-failed', { id: record.id, error: err?.message })
+  }
+  return record.prompt || ''
+}
+
 async function processTask(id: number, config: AIConfig) {
   try {
     const [record] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
@@ -270,8 +345,10 @@ async function processTask(id: number, config: AIConfig) {
     if (type === 'image') {
       const adapter = getImageAdapter(config.provider)
       const resolvedReferenceImages = await normalizeReferenceImages(params.referenceImages)
+      // 队列内富化：资产缺最终提示词时先跑 prompt_generator 补齐（与生图严格串行）
+      const enrichedPrompt = await enrichImagePromptIfNeeded(record, params, label)
       // FLUX 等文生图模型不识中文：中文提示词先经文本模型译成英文，否则中文段被忽略导致不同角色出图雷同
-      const effectivePrompt = await translatePromptToEnglish(record.prompt || '', label, id)
+      const effectivePrompt = await translatePromptToEnglish(enrichedPrompt, label, id)
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
         model: record.model,
@@ -286,13 +363,28 @@ async function processTask(id: number, config: AIConfig) {
       const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl)
       const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl)
       const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(params.referenceImageUrls)
+      // I2V 主体选图（必须在翻译前、用中文原 prompt 解析 @角色名/@图片N）：
+      // 未显式指定条件图时按镜头主体挑参考图作首帧，避免适配器在翻译后
+      // 盲取末张把配角钉成主体（bug：菩提替悟空占据主角机位）。仅 fusion 单条件 I2V 需要。
+      const i2vSubjectUrl = !resolvedImageUrl && !resolvedFirstFrameUrl && config.provider === 'fusion'
+        ? await resolveI2vSubjectUrl(
+          record.storyboardId,
+          record.prompt || '',
+          Array.isArray(params.referenceImageUrls) ? params.referenceImageUrls.map(String) : [],
+          label,
+          id,
+        )
+        : null
       // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
       const resolvedReferenceFileUrl = resolvePublicMediaUrl(params.referenceFileUrl, 'file')
       // fusion LTX-2.5 text encoder (Gemma) 不识中文，中文 prompt 产噪声视频；
       // 云端中国厂商模型（volcengine/minimax/aliyun）识中文不译。仅 fusion 翻译。
-      const effectiveVideoPrompt = config.provider === 'fusion'
+      // H3（MiniMax 中文模型）亦不译——翻译会加载文本模型与 H3 竞争内存
+      // （128GB 机器 H3 5s 峰值 ~56GB，加文本模型 cache 累积超 120GB ceiling）。
+      // Wan2.2 UMT5 文本编码器原生识中文，亦不译。
+      const effectiveVideoPrompt = config.provider === 'fusion' && !isMiniMaxH3(record.model || '') && !isWan22Ti2v5b(record.model || '')
         ? await translatePromptToEnglish(record.prompt || '', label, id)
         : record.prompt
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
@@ -301,7 +393,8 @@ async function processTask(id: number, config: AIConfig) {
         prompt: effectiveVideoPrompt,
         referenceMode: params.referenceMode,
         imageUrl: resolvedImageUrl,
-        firstFrameUrl: resolvedFirstFrameUrl,
+        // 主体选图优先于适配器兜底（盲取末张）；显式 firstFrame 仍最高优先
+        firstFrameUrl: resolvedFirstFrameUrl || i2vSubjectUrl,
         lastFrameUrl: resolvedLastFrameUrl,
         referenceImageUrls: resolvedReferenceImageUrls.length ? JSON.stringify(resolvedReferenceImageUrls) : null,
         referenceVideoUrls: resolvedReferenceVideoUrls.length ? JSON.stringify(resolvedReferenceVideoUrls) : null,
@@ -338,7 +431,9 @@ async function processTask(id: number, config: AIConfig) {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
-      signal: AbortSignal.timeout(1_800_000),
+      // 同步接口超时：视频高分辨率长时长（10s@1088x1920，241帧两阶段）实测超 30min，
+      // 统一放宽到 60min（图片任务远短于此，不受影响）
+      signal: AbortSignal.timeout(3_600_000),
       // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
       dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
     } as any)
@@ -354,6 +449,7 @@ async function processTask(id: number, config: AIConfig) {
       if (!isAsync && imageUrl) {
         logTaskProgress(label, 'sync-complete', { id, imageUrl })
         await handleImageComplete(record, imageUrl)
+        await unloadFusionImageModel(config, record.model)
         return
       }
 
@@ -363,6 +459,7 @@ async function processTask(id: number, config: AIConfig) {
         if (b64) {
           logTaskProgress(label, 'sync-base64-complete', { id, mimeType: b64.mimeType })
           await handleImageCompleteBase64(record, b64.data, b64.mimeType)
+          await unloadFusionImageModel(config, record.model)
           return
         }
         throw new Error('No image URL or base64 data in response')
@@ -448,6 +545,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
           if (pollResp.imageUrl) {
             logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, imageUrl: pollResp.imageUrl })
             await handleImageComplete(record, pollResp.imageUrl)
+            await unloadFusionImageModel(config, record.model)
             return
           }
           if (adapter.provider === 'gemini') {
@@ -456,6 +554,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
             if (b64) {
               logTaskSuccess(label, 'poll-base64-complete', { id: record.id, taskId, mimeType: b64.mimeType })
               await handleImageCompleteBase64(record, b64.data, b64.mimeType)
+              await unloadFusionImageModel(config, record.model)
               return
             }
           }
@@ -466,7 +565,9 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         }
       }
       if (pollResp.status === 'failed') {
-        // 上游明确失败（如内容审核拦截）属终态：立即落库，不重试不等待超时
+        // 上游明确失败（如内容审核拦截）属终态：立即落库，不重试不等待超时。
+        // 失败时模型已加载，仍须卸载避免驻留挤占后续提取 Agent
+        await unloadFusionImageModel(config, record.model)
         await failTask(record.id, pollResp.error || 'Generation failed')
         return
       }
@@ -541,7 +642,10 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   // params.prompt 不存在（prompt 存任务记录列），此前从这里读导致配音从未触发。
   try {
     const { dubVideoDialogue } = await import('../utils/video-dub.js')
-    await dubVideoDialogue(localPath, record.prompt, record.id)
+    // storyboardId 用于查分镜绑定角色名：LLM 常把动作描述夹在 @角色名 与「说」之间
+    // （@孙悟空跪在...说：「」），无已知角色名则同角色多句台词因动作描述不同映射
+    // 到不同 speaker → 不同音色，破坏同角色音色一致性。传角色名精确匹配。
+    await dubVideoDialogue(localPath, record.prompt, record.id, record.storyboardId ?? undefined)
   } catch { /* 配音失败保持原音轨 */ }
   // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
   // 否则 37MB base64 污染 DB 与 API 响应。远端 URL 原样保留（前端 http 判定直连）。
@@ -632,6 +736,72 @@ async function normalizeVideoReferenceUrls(refs: string[] | null | undefined): P
     Array.from(new Set(refs.map((item) => String(item || '').trim()).filter(Boolean))).map((item) => normalizeVideoReferenceUrl(item)),
   )
   return normalized.filter((item): item is string => !!item)
+}
+
+/**
+ * I2V 主体选图：从分镜 video_prompt 的引用标记中解析镜头主体，返回其参考图。
+ * 必须在 prompt 翻译前调用——翻译后引用标记会失真（@图片1 → @Image 1、@角色名被改写），
+ * 适配器侧只能盲取 referenceImageUrls 末张，多角色镜头会把主体钉在配角图上
+ * → 人物身份反转（实测菩提代替悟空出现在主角机位）。
+ * 支持两种标记（分镜提示词实际混用）：
+ *   @图片N  — referenceImageUrls 的 1-based 下标（前端 getShotReferenceIndexMap 生成）
+ *   @角色名 — 分镜绑定角色名（Agent 生成路径），如 @孙悟空 / @须菩提祖师
+ * 多主体时取提及次数最多者；并列时优先主角（role 含「主角」），再按首次出现位置。
+ * 返回压缩 data URL；无引用/角色无图返回 null（调用方回退适配器兜底逻辑）。
+ */
+async function resolveI2vSubjectUrl(
+  storyboardId: number | null | undefined,
+  prompt: string,
+  rawReferenceUrls: string[],
+  label: string,
+  id: number,
+): Promise<string | null> {
+  if (!prompt) return null
+
+  // 1) @图片N 显式编号引用
+  const idxCounts = new Map<number, number>()
+  for (const m of prompt.matchAll(/@图片(\d+)/g)) {
+    const n = Number(m[1])
+    if (n >= 1 && n <= rawReferenceUrls.length) idxCounts.set(n, (idxCounts.get(n) ?? 0) + 1)
+  }
+  if (idxCounts.size) {
+    let best = 0
+    let bestCount = -1
+    for (const [n, c] of idxCounts) {
+      if (c > bestCount || (c === bestCount && n > best)) { best = n; bestCount = c }
+    }
+    const url = rawReferenceUrls[best - 1]
+    if (url) {
+      logTaskProgress(label, 'i2v-subject-image', { id, index: best, mentions: bestCount })
+      return normalizeVideoReferenceUrl(url)
+    }
+  }
+
+  // 2) @角色名 引用（本分镜绑定的角色，按提及次数→主角优先→首次出现位置排序）
+  if (!storyboardId) return null
+  const rows = await db
+    .select({ id: schema.characters.id, name: schema.characters.name, role: schema.characters.role, imageUrl: schema.characters.imageUrl, deletedAt: schema.characters.deletedAt })
+    .from(schema.storyboardCharacters)
+    .innerJoin(schema.characters, eq(schema.characters.id, schema.storyboardCharacters.characterId))
+    .where(eq(schema.storyboardCharacters.storyboardId, storyboardId))
+  const candidates = rows
+    .filter((ch) => ch.name && ch.imageUrl && !ch.deletedAt)
+    .map((ch) => {
+      const firstPos = prompt.indexOf(`@${ch.name}`)
+      const mentions = firstPos < 0 ? 0 : prompt.split(`@${ch.name}`).length - 1
+      return { name: ch.name!, imageUrl: ch.imageUrl!, mentions, isProtagonist: (ch.role || '').includes('主角') ? 1 : 0, firstPos }
+    })
+    .filter((ch) => ch.mentions > 0)
+    .sort((a, b) => b.mentions - a.mentions || b.isProtagonist - a.isProtagonist || a.firstPos - b.firstPos)
+  const winner = candidates[0]
+  if (!winner) return null
+  logTaskProgress(label, 'i2v-subject-character', {
+    id,
+    character: winner.name,
+    mentions: winner.mentions,
+    ranking: candidates.map((c) => `${c.name}:${c.mentions}`).join(','),
+  })
+  return normalizeVideoReferenceUrl(winner.imageUrl)
 }
 
 /**
