@@ -97,6 +97,7 @@ The interface ships in **中文 / English / 日本語 / 한국어**, with a glob
 | **Text** | OpenAI (compatible APIs), Gemini |
 | **Image** | OpenAI, Gemini, Volcano Engine |
 | **Video** | Volcano Engine Seedance 2.0 (Standard / Fast / Mini), MiniMax H3, Alibaba Bailian Wan 3.0 (Prime / Standard) |
+| **Video (local)** | [fusion-mlx](https://github.com/dahai80/fusion-mlx) self-hosted on Apple Silicon: LTX-2.5 (primary, joint A/V), MiniMax-H3 33B (quality, Turbo LoRA 4-step), Wan2.2-TI2V-5B (Chinese-native prompts) |
 
 ---
 
