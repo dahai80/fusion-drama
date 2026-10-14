@@ -131,11 +131,11 @@ test('fusion legacy 2B respects aspect ratio', () => {
   assert.deepEqual(dims('1:1'), [768, 768])
 })
 
-// MiniMax-H3 (33B Omni-Transformer): quantize=dit8_te4, 8 steps, no audio,
-// fl2va i2va/l2va, cap 5s (8-step verified 2s-5s pass, 6s OOMs), no 8k+1 frame constraint.
+// MiniMax-H3 (33B Omni-Transformer): quantize=dit8_te4 + turbo LoRA, 4 steps, no audio,
+// fl2va i2va/l2va, cap 5s, no 8k+1 frame constraint.
 const h3Config = { ...config, model: 'models--ddalcu--MiniMax-H3-FL2VA-MLX-Serve-4bit' }
 
-test('fusion H3 sends quantize=dit8_te4 + 8 steps, no audio', () => {
+test('fusion H3 sends quantize=dit8_te4 + turbo LoRA + 4 steps, no audio', () => {
   const request = adapter.buildGenerateRequest(h3Config, {
     id: 20,
     prompt: '山间日出',
@@ -143,8 +143,10 @@ test('fusion H3 sends quantize=dit8_te4 + 8 steps, no audio', () => {
   })
   // quantize=dit8_te4 (DiT 8-bit + TE 4-bit ≈61GB, fits 128GB)
   assert.equal(request.body.quantize, 'dit8_te4')
-  // 8 steps: 10 steps caps at 1s; 8 steps verified safe to 5s (~56GB peak)
-  assert.equal(request.body.num_inference_steps, 8)
+  // turbo LoRA (#1213): runtime sidepath over quantized DiT, 4 steps
+  // measured 313.6s vs 838s @ 8 steps (2.67x, 1024x576/120f)
+  assert.equal(request.body.turbo, true)
+  assert.equal(request.body.num_inference_steps, 4)
   // H3 never sends audio (fl2va image mutex + t2va-av UNVERIFIED → TTS dub)
   assert.equal(request.body.audio, undefined)
   // no dev/distilled pipeline for H3

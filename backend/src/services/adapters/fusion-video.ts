@@ -289,13 +289,17 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
 
     // MiniMax-H3 33B：必须 quantize=dit8_te4（DiT 8-bit + TE 4-bit ≈61GB），
     // 否则 bf16 全量 144GB > 128GB 机器 → OOM crash（10/10 任务失败根因）。
-    // steps=8（默认 40；20 步实测在 step 16 处 MLX cache 累积超 120GB ceiling
-    // 被 memory guard 取消；10 步可跑 1s；8 步实测可跑 5s，峰值 ~56GB 安全）。
+    // Turbo 前历史：steps=8（8 步实测可跑 5s 峰值 ~56GB；20 步在 step 16 处
+    // cache 超 120GB 被取消；10 步限 1s）。
     // 不传 audio（fl2va image 与 joint audio 互斥 generate.py:843；
     // 台词配音走 TTS dub 独立管线）。
     if (h3) {
       body.quantize = 'dit8_te4'
-      body.num_inference_steps = 8
+      // Turbo LoRA（#1212/#1213）：模型根目录 turbo_lora.safetensors 运行时
+      // 旁路挂载（259 模块），4 步采样实测 313.6s vs 8 步 838s（2.67x，
+      // 1024×576/120f 同规格）。fusion-mlx 缺该文件会 400 显式报错（不静默降质）。
+      body.num_inference_steps = 4
+      body.turbo = true
     }
 
     // 音频（LTX-2.5 联合 A/V，distilled/dev 均支持）：generateAudio 缺省开
