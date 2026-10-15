@@ -59,6 +59,10 @@ app.put('/:id', async (c) => {
   // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
+  // E7: 定义字段变更使 finalPrompt 缓存失效——无失效触发会让用户改了设定仍生成旧人设图；
+  // 显式传 final_prompt 仍以传入值为准
+  const definesChanged = ['location', 'time', 'prompt', 'lighting'].some((k) => updates[k] !== undefined)
+  if (definesChanged && body.final_prompt === undefined && body.finalPrompt === undefined) updates.finalPrompt = null
   await db.update(schema.scenes).set(updates).where(eq(schema.scenes.id, id))
   return success(c)
 })

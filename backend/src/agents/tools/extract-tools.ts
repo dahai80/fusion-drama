@@ -14,7 +14,7 @@ import { db, getInsertId, schema } from '../../db/index.js'
 import { eq, and } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
 import { logTaskProgress, logTaskSuccess } from '../../utils/task-logger.js'
-import { getDramaId, getEpisodeId } from '../context.js'
+import { getDramaId, getEpisodeId, requireAgentIds } from '../context.js'
 
 // ─── 关联辅助 ────────────────────────────────────────────────
 async function linkCharToEpisode(episodeId: number, characterId: number) {
@@ -66,11 +66,9 @@ function normalizeLocation(loc: string): string {
 
 type ToolContext = ToolExecutionContext | undefined
 
+// H6: 守卫实现收敛至 ../context.ts requireAgentIds，此处仅做上下文取值桥接
 function requireIds(context: ToolContext): { episodeId: number; dramaId: number } | { error: string } {
-  const episodeId = getEpisodeId(context?.requestContext)
-  const dramaId = getDramaId(context?.requestContext)
-  if (!episodeId || !dramaId) return { error: 'Missing episodeId/dramaId in request context' }
-  return { episodeId, dramaId }
+  return requireAgentIds(getEpisodeId(context?.requestContext), getDramaId(context?.requestContext))
 }
 
 // 1. 读取剧本内容

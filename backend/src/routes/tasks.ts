@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, or } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateImage, generateVideo } from '../services/generation.js'
 import { getActiveConfig, getConfigById } from '../services/ai.js'
+import { deleteStoredFile } from '../utils/storage.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
@@ -177,6 +178,26 @@ app.post('/', async (c) => {
       if (validationError) return badRequest(c, validationError)
     }
 
+    // E4: 通用任务入口去重——同分镜同类型同 frameType 已有进行中任务时拒绝重复提交，
+    // 连点/批量重试不再叠加两个长任务（本地引擎并发正是 Metal crash 诱因）
+    if (body.storyboard_id) {
+      const dupRows = await db.select({ id: schema.sysTask.id, params: schema.sysTask.params })
+        .from(schema.sysTask)
+        .where(and(
+          eq(schema.sysTask.type, type),
+          eq(schema.sysTask.storyboardId, Number(body.storyboard_id)),
+          eq(schema.sysTask.status, 'processing'),
+        ))
+        .limit(5)
+      for (const t of dupRows) {
+        let prev: any = {}
+        try { prev = JSON.parse(t.params || '{}') } catch { /* 损坏 params 视为不同任务 */ }
+        if ((prev.frameType ?? null) === (body.frame_type ?? null)) {
+          return badRequest(c, '该分镜已有进行中的同类型生成任务，请等待完成或先删除任务')
+        }
+      }
+    }
+
     logTaskStart('TaskAPI', 'generate', {
       type,
       storyboardId: body.storyboard_id,
@@ -272,7 +293,26 @@ app.get('/', async (c) => {
 // DELETE /tasks/:id
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  const [row] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
   await db.delete(schema.sysTask).where(eq(schema.sysTask.id, id))
+  // R2: 删除任务联动清理产物文件，磁盘不再只进不出；
+  // 业务表（角色/场景/道具/分镜）仍引用同一路径时保留文件防悬空
+  if (row?.localPath) {
+    const p = row.localPath
+    const [charRef] = await db.select({ id: schema.characters.id }).from(schema.characters).where(eq(schema.characters.localPath, p)).limit(1)
+    const [sceneRef] = await db.select({ id: schema.scenes.id }).from(schema.scenes).where(eq(schema.scenes.localPath, p)).limit(1)
+    const [propRef] = await db.select({ id: schema.props.id }).from(schema.props).where(eq(schema.props.localPath, p)).limit(1)
+    const [sbRef] = await db.select({ id: schema.storyboards.id }).from(schema.storyboards).where(or(
+      eq(schema.storyboards.composedImage, p),
+      eq(schema.storyboards.firstFrameImage, p),
+      eq(schema.storyboards.lastFrameImage, p),
+      eq(schema.storyboards.videoUrl, p),
+    )).limit(1)
+    if (!charRef && !sceneRef && !propRef && !sbRef) {
+      deleteStoredFile(p)
+      console.log(`[tasks] deleted task ${id}, removed orphan artifact: ${p}`)
+    }
+  }
   return success(c)
 })
 

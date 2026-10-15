@@ -35,6 +35,8 @@ let quitting = false
 let backendRestarting = false
 let backendPort = 0
 let currentDataDir = ''
+// R4: 后端 crash 自动重启（指数退避），连续 3 次失败才放弃——一次未捕获异常不再带崩整个 GUI
+let backendRestartAttempts = 0
 
 // userData 显式按模式区分：打包版 / dev 版互不干扰（数据库、上传文件、单实例锁均隔离），
 // 不依赖 package.json 命名（打包后与 dev 同名会导致单实例锁误杀）
@@ -200,8 +202,28 @@ function startBackend(): void {
     backend = null
     // 迁移/重启期间的退出是预期行为，由调用方接管
     if (!quitting && !backendRestarting) {
-      dialog.showErrorBox('Fuse 短剧', `后台服务异常退出（code ${code}），应用即将关闭。请重新启动。`)
-      app.quit()
+      backendRestartAttempts += 1
+      if (backendRestartAttempts > 3) {
+        dialog.showErrorBox('Fuse 短剧', `后台服务多次异常退出（code ${code}），应用即将关闭。请重新启动。`)
+        app.quit()
+        return
+      }
+      const delay = 3_000 * 2 ** (backendRestartAttempts - 1)
+      console.log(`[main] backend exited (code ${code}), restarting in ${Math.round(delay / 1000)}s (attempt ${backendRestartAttempts}/3)`)
+      setTimeout(async () => {
+        if (quitting || backendRestarting) return
+        try {
+          startBackend()
+          await waitHealthy(backendPort, 30_000)
+          backendRestartAttempts = 0
+          console.log('[main] backend restarted healthy')
+          // 窗口还开着就重载到新端口页面（后端可能因端口抢占换了端口，D9 IPC 已同步 backendPort）
+          if (mainWindow) await mainWindow.loadURL(`http://127.0.0.1:${backendPort}`)
+        } catch (err) {
+          console.error('[main] backend restart failed:', err)
+          // 失败走 exit 事件递归计数，连续 3 次后弹窗退出
+        }
+      }, delay)
     }
   })
 }
@@ -267,6 +289,7 @@ async function bootstrap() {
 
     startBackend()
     await waitHealthy(backendPort)
+    backendRestartAttempts = 0
     console.log('[main] backend healthy, opening window')
     await createWindow()
   } catch (err) {

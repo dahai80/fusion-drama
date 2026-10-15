@@ -41,3 +41,12 @@ export function getContentLanguageFromRC(requestContext: RequestContext | undefi
   const v = requestContext?.get('language' as never)
   return typeof v === 'string' && v ? (v as ContentLanguage) : null
 }
+
+/** H6: 工具层通用上下文守卫——两份逐字复制的 requireIds 收敛于此（原文件保留 wrapper 调用点） */
+export function requireAgentIds(
+  episodeId: number | null | undefined,
+  dramaId: number | null | undefined,
+): { episodeId: number; dramaId: number } | { error: string } {
+  if (!episodeId || !dramaId) return { error: 'Missing episodeId/dramaId in request context' }
+  return { episodeId, dramaId }
+}

@@ -202,10 +202,11 @@ async function createTask(
 // 云端厂商同样受益：避免并发限流。与资产提取共用 gpu-queue（FLUX + Qwen3.5 并发
 // 会 GPU 争用致 Metal command buffer 崩溃 → fusion-mlx SIGTERM 挂死）。
 function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
-  enqueueGpuWork(`${taskLabel(type)}-${id}`, () => processTask(id, config))
+  enqueueGpuWork(`${taskLabel(type)}-${id}`, (signal) => processTask(id, config, signal))
     .catch(err => {
+      // R1: 入队失败（队列满/watchdog）也要落终态，任务行不能停在 processing
       logTaskError(taskLabel(type), 'process', { id, error: err.message })
-      console.error(`${taskLabel(type)} ${id} failed:`, err)
+      failTask(id, `任务执行中断: ${err.message}`).catch(e => logTaskError(taskLabel(type), 'failTask-error', { id, error: e?.message }))
     })
 }
 
@@ -329,7 +330,7 @@ async function enrichImagePromptIfNeeded(
   return record.prompt || ''
 }
 
-async function processTask(id: number, config: AIConfig) {
+async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
   try {
     const [record] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
     if (!record) return
@@ -441,8 +442,8 @@ async function processTask(id: number, config: AIConfig) {
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
       // 同步接口超时：视频高分辨率长时长（10s@1088x1920，241帧两阶段）实测超 30min，
-      // 统一放宽到 60min（图片任务远短于此，不受影响）
-      signal: AbortSignal.timeout(3_600_000),
+      // 统一放宽到 60min（图片任务远短于此，不受影响）；与队列 watchdog abort 联动
+      signal: signal ? AbortSignal.any([AbortSignal.timeout(3_600_000), signal]) : AbortSignal.timeout(3_600_000),
       // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
       dispatcher: laxDispatcher,
     } as any)

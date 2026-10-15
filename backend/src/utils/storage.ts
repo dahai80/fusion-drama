@@ -99,6 +99,23 @@ function mimeTypeExt(mime: string): string | null {
  * 获取本地文件的绝对路径 — 强制包含在存储根内，拒绝路径穿越
  * （path.join 会静默归一化 `..`，客户端可控的相对路径必须 resolve 后校验）
  */
+/** R2: 删除存储产物（jail 断言防越界）。业务表可能仍引用同一路径，调用方先确认无引用 */
+export function deleteStoredFile(relativePath: string): boolean {
+  try {
+    const root = path.resolve(STORAGE_ROOT)
+    const abs = path.resolve(root, relativePath)
+    if (abs !== root && !abs.startsWith(root + path.sep)) {
+      console.warn(`[storage] refuse to delete outside STORAGE_ROOT: ${relativePath}`)
+      return false
+    }
+    fs.rmSync(abs, { force: true })
+    return true
+  } catch (err: any) {
+    console.warn(`[storage] delete failed: ${relativePath}: ${err?.message}`)
+    return false
+  }
+}
+
 export function getAbsolutePath(relativePath: string): string {
   if (relativePath.startsWith('static/')) {
     return path.join(STORAGE_ROOT, '..', relativePath)
