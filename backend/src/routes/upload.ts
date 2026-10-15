@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { success, badRequest } from '../utils/response.js'
 import { saveUploadedFile, generateImageThumb } from '../utils/storage.js'
+import sharp from 'sharp'
 
 const app = new Hono()
 
@@ -37,8 +38,23 @@ async function saveImageUpload(c: any) {
   if (file.size > IMAGE_MAX) {
     return badRequest(c, `图片文件大小不能超过 ${Math.round(IMAGE_MAX / 1024 / 1024)}MB`)
   }
-  const buffer = await file.arrayBuffer()
-  const path = await saveUploadedFile(buffer, 'uploads', file.name)
+  // B5: sharp 解码校验 + 重编码——MIME/扩展名可伪造，解码不过的"图片"（polyglot/
+  // html 夹带）直接拒收；png/jpeg/webp 重编码剥掉一切元数据，gif 仅校验（保动画）
+  let raw = await file.arrayBuffer()
+  try {
+    const buf = Buffer.from(raw)
+    const meta = await sharp(buf).metadata()
+    if (!meta.format || !['jpeg', 'png', 'webp', 'gif'].includes(meta.format)) {
+      return badRequest(c, '不支持的图片格式')
+    }
+    if (meta.format !== 'gif') {
+      const re = await sharp(buf).toFormat(meta.format as any).toBuffer()
+      raw = re.buffer.slice(re.byteOffset, re.byteOffset + re.byteLength) as ArrayBuffer
+    }
+  } catch {
+    return badRequest(c, '图片文件已损坏或格式不符')
+  }
+  const path = await saveUploadedFile(raw, 'uploads', file.name)
   // 同步生成列表页缩略图，上传图与生图走同一套展示链路（失败不影响上传结果）
   await generateImageThumb(path)
   return success(c, { url: `/${path}`, path })
@@ -68,7 +84,7 @@ async function saveMediaUpload(
     return badRequest(c, `${label}文件大小不能超过 ${Math.round(maxBytes / 1024 / 1024)}MB`)
   }
   const buffer = await file.arrayBuffer()
-  const path = await saveUploadedFile(buffer, 'uploads', file.name)
+  const path = await saveUploadedFile(new Uint8Array(buffer).buffer as ArrayBuffer, 'uploads', file.name)
   return success(c, { url: `/${path}`, path })
 }
 

@@ -147,6 +147,8 @@ async function directPropsExtraction(episodeId: number, dramaId: number, request
             max_tokens: 4096,
             temperature: 0.3,
         }),
+        // T1: 直连 LLM 也要有限超时——本地引擎毒死时不再无限占住 GPU 队列
+        signal: AbortSignal.timeout(30 * 60_000),
     })
 
     if (!resp.ok) {

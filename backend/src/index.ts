@@ -98,24 +98,23 @@ console.log(`🚀 Fusion Drama TS server on http://localhost:${port}`)
 
 // 进程重启后内存中的轮询线程全部丢失,残留的 processing 任务永远不会完成,
 // 启动时统一标记为 failed,避免前端一直显示"生成中"
-db.update(schema.sysTask)
-  .set({ status: 'failed', errorMsg: '服务重启，生成任务中断，请重试', updatedAt: now() })
-  .where(eq(schema.sysTask.status, 'processing'))
-  .then(res => {
-    const affected = res?.changes ?? 0
-    if (affected > 0) console.log(`🔁 已清理 ${affected} 个中断的生成任务`)
-  })
-  .catch(err => console.error('清理中断任务失败:', err?.message))
-
-// video_merges 同样存在重启孤儿：merge 由 doMerge 异步执行，进程重启后永远停在 processing
-db.update(schema.videoMerges)
-  .set({ status: 'failed', errorMsg: '服务重启，拼接任务中断，请重试' })
-  .where(eq(schema.videoMerges.status, 'processing'))
-  .then(res => {
-    const affected = res?.changes ?? 0
-    if (affected > 0) console.log(`🔁 已清理 ${affected} 个中断的拼接任务`)
-  })
-  .catch(err => console.error('清理中断拼接任务失败:', err?.message))
+// T3: 清理 await 完成后再监听端口——不 await 时「清理标 failed」与重启前在途任务的
+// 迟到回写存在竞态（清理先落库则回写被 isStaleTarget/status 检查拦住，反过来则幽灵完成）
+try {
+  const [t, m] = await Promise.all([
+    db.update(schema.sysTask)
+      .set({ status: 'failed', errorMsg: '服务重启，生成任务中断，请重试', updatedAt: now() })
+      .where(eq(schema.sysTask.status, 'processing')),
+    db.update(schema.videoMerges)
+      .set({ status: 'failed', errorMsg: '服务重启，拼接任务中断，请重试' })
+      .where(eq(schema.videoMerges.status, 'processing')),
+  ])
+  const ta = t?.changes ?? 0
+  const ma = m?.changes ?? 0
+  if (ta > 0 || ma > 0) console.log(`🔁 已清理 ${ta} 个中断的生成任务、${ma} 个中断的拼接任务`)
+} catch (err: any) {
+  console.error('清理中断任务失败:', err?.message)
+}
 
 // 绑定地址：desktop 模式（主进程注入 FUSION_BIND_HOST）只听回环，杜绝局域网可达；
 // 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权

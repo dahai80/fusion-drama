@@ -359,14 +359,14 @@ server {
 **Option A — prebuilt image (no clone, no build):** multi-arch (`linux/amd64` + `linux/arm64`), x86 servers and ARM devices match automatically
 
 ```bash
-docker pull fusion/fusion-drama:4.0.0
+docker pull fusion/fusion-drama:1.0.0
 
 docker run -d \
   --name fusion-drama \
   -p 5679:5679 \
   -v fusion-data:/app/data \
   --restart unless-stopped \
-  fusion/fusion-drama:4.0.0
+  fusion/fusion-drama:1.0.0
 ```
 
 **Option B — docker compose (source build + Watchtower in-app updates):** the repo root provides an all-in-one `Dockerfile` (three stages: frontend generate + backend dependencies + runtime; the backend runs via tsx just like server deployment) and `docker-compose.yml` (app + Watchtower):
@@ -376,7 +376,7 @@ docker run -d \
 cp .env.example .env   # edit WATCHTOWER_TOKEN
 
 # 2. Build and start (inject a version at publish time for "About & Updates" comparison)
-FUSION_VERSION=4.0.0 docker compose up -d --build
+FUSION_VERSION=1.0.0 docker compose up -d --build
 
 # 3. Visit http://localhost:5679
 ```

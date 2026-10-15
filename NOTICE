@@ -31,8 +31,10 @@ and Docker images) or otherwise prominently relied upon.
 | --- | --- | --- |
 | ffmpeg-static | GPL-3.0-or-later | https://github.com/eugeneware/ffmpeg-static |
 | ffprobe-static | MIT | https://github.com/eugeneware/ffprobe-static |
+| ffprobe (bundled binary via ffprobe-static) | GPLv3 | https://ffmpeg.org |
 | better-sqlite3 | MIT | https://github.com/WiseLibs/better-sqlite3 |
 | sharp | Apache-2.0 | https://github.com/lovell/sharp |
+| libvips (bundled via sharp prebuilt binaries) | LGPL-2.1+ | https://libvips.github.io/libvips |
 | fluent-ffmpeg | MIT | https://github.com/fluent-ffmpeg/node-fluent-ffmpeg |
 | @mastra/core | Apache-2.0 | https://github.com/mastra-ai/mastra |
 | hono | MIT | https://github.com/honojs/hono |
@@ -64,6 +66,14 @@ ffmpeg-static ships an FFmpeg binary built with GPL components
 the GNU GPL v3 for that component, including offering the corresponding
 source. See https://www.gnu.org/licenses/gpl-3.0.html and
 https://github.com/eugeneware/ffmpeg-static#license.
+
+The ffprobe binary bundled via ffprobe-static is likewise GPL-3.0-or-later
+and carries the same redistribution obligations as ffmpeg-static.
+
+sharp's prebuilt binaries bundle libvips (LGPL-2.1-or-later). Distributing
+binaries that link libvips requires allowing users to relink or replace the
+LGPL component; shipping the unmodified official sharp prebuilds satisfies
+this in practice. See https://www.gnu.org/licenses/old-licenses/lgpl-2.1.
 
 All other bundled components are MIT / Apache-2.0 / ISC and remain subject
 to their respective licenses.
