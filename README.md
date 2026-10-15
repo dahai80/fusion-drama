@@ -34,6 +34,7 @@ Fusion Drama is an AI-powered short-drama production platform that automates the
 - **🎨 Intelligent Creation**: AI image generation for character designs and scene backgrounds
 - **📹 Video Generation**: Text-to-video and image-to-video models automatically produce storyboard clips
 - **🔄 End-to-End Workflow**: A complete pipeline from idea to finished episode
+- **🏠 Local-First Option**: with self-hosted [fusion-mlx](https://github.com/dahai80/fusion-mlx) on Apple Silicon, text/image/video generation runs fully offline (LTX-2.5 / MiniMax-H3 / Wan2.2) — no cloud API keys, nothing leaves the machine; FFmpeg stitching and export are always in-tree
 
 ### 🛠️ Architecture
 
@@ -127,6 +128,7 @@ No config files — everything is set via environment variables (all have defaul
 | `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
 | `FUSION_API_TOKEN` | — | Server-mode API token. **Required (≥32 chars)**: the server refuses to start on weaker tokens unless `FUSION_BIND_HOST` is set. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
 | `FUSION_BIND_HOST` | — | Set to mark a loopback-only deployment and bypass the token enforcement above |
+| `FUSION_SHELL_GATEWAY` | — | Union Web integration: base URL of the fusion-web-shell gateway (e.g. `http://localhost:11432`). When set, the backend registers `web/manifest.json` with the shell's manifest registry on startup (best-effort, idempotent). Loading the app with `?embedded=1` hides its own header for shell embedding |
 
 > **Note**: AI service API keys, base URLs, and model parameters are all configured in the web UI "Settings" page and stored in the database — never in config files or environment variables.
 

@@ -34,6 +34,7 @@ Fusion Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本
 - **🎨 智能创作**：AI 绘图生成角色形象和场景背景
 - **📹 视频生成**：基于文生视频和图生视频模型自动生成分镜视频
 - **🔄 工作流**：完整的短剧制作工作流，从创意到成片一站式完成
+- **🏠 本地优先**：搭配 Apple Silicon 自部署 [fusion-mlx](https://github.com/dahai80/fusion-mlx)，文/图/视频生成全离线（LTX-2.5 / MiniMax-H3 / Wan2.2）——无云端 Key、数据不出机；FFmpeg 拼接与导出始终内置
 
 ### 🛠️ 技术架构
 
@@ -125,6 +126,7 @@ data/       — 生成资源文件与 SQLite 数据库
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
 | `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
 | `FUSION_API_TOKEN` | — | 服务器模式 API 令牌。**必填（≥32 字符）**：令牌过弱时服务器拒绝启动，除非设置 `FUSION_BIND_HOST`。前端以 `Bearer` 方式携带（设置页 → 通用中配置一次，存 localStorage） |
+| `FUSION_SHELL_GATEWAY` | — | Union Web 接入：fusion-web-shell 网关地址（如 `http://localhost:11432`）。设置后启动时把 `web/manifest.json` 注册到宿主注册中心（幂等、best-effort）。带 `?embedded=1` 打开页面会隐藏自有头部导航，供 Shell 内嵌 |
 
 > **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
 
