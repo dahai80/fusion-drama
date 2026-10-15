@@ -3,6 +3,8 @@
  */
 import fs from 'fs'
 import path from 'path'
+import net from 'net'
+import dns from 'dns'
 import sharp from 'sharp'
 import { v4 as uuid } from 'uuid'
 import { STORAGE_ROOT } from './paths.js'
@@ -29,11 +31,28 @@ export async function downloadFile(url: string, subDir: string): Promise<string>
   const filename = `${uuid()}${ext}`
   const filePath = path.join(dir, filename)
 
-  const resp = await fetch(url)
+  // 带超时 + 流式落盘：无超时的 fetch 会在 GPU 串行锁内无限挂起，
+  // arrayBuffer 全量缓冲会把 37MB+ 视频整段拉进内存
+  const resp = await fetch(url, { signal: AbortSignal.timeout(5 * 60_000) })
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
+  if (!resp.body) throw new Error('Download failed: empty body')
 
-  const buffer = Buffer.from(await resp.arrayBuffer())
-  fs.writeFileSync(filePath, buffer)
+  const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
+  let received = 0
+  const reader = (resp.body as ReadableStream<Uint8Array>).getReader()
+  const fd = fs.openSync(filePath, 'w')
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      received += value.byteLength
+      if (received > MAX_DOWNLOAD_BYTES) throw new Error(`Download exceeds ${Math.round(MAX_DOWNLOAD_BYTES / 1024 / 1024)}MB cap`)
+      fs.writeSync(fd, value)
+    }
+  } finally {
+    fs.closeSync(fd)
+    reader.releaseLock()
+  }
 
   // 返回相对路径（供 API 返回给前端）
   return `static/${subDir}/${filename}`
@@ -77,13 +96,25 @@ function mimeTypeExt(mime: string): string | null {
 }
 
 /**
- * 获取本地文件的绝对路径
+ * 获取本地文件的绝对路径 — 强制包含在存储根内，拒绝路径穿越
+ * （path.join 会静默归一化 `..`，客户端可控的相对路径必须 resolve 后校验）
  */
 export function getAbsolutePath(relativePath: string): string {
   if (relativePath.startsWith('static/')) {
     return path.join(STORAGE_ROOT, '..', relativePath)
   }
   return path.join(STORAGE_ROOT, relativePath)
+}
+
+/** 同 getAbsolutePath，但 resolve 后断言结果落在数据根内，穿越即抛错 */
+export function getContainedAbsolutePath(relativePath: string): string {
+  const abs = getAbsolutePath(relativePath)
+  const resolved = path.resolve(abs)
+  const dataRoot = path.resolve(STORAGE_ROOT, '..')
+  if (!resolved.startsWith(dataRoot + path.sep)) {
+    throw new Error(`Path escapes data root: ${relativePath}`)
+  }
+  return resolved
 }
 
 /**
@@ -117,7 +148,7 @@ export function thumbPathFor(relativePath: string): string {
 export async function generateImageThumb(relativePath: string): Promise<string | null> {
   try {
     const thumbRel = thumbPathFor(relativePath)
-    await sharp(getAbsolutePath(relativePath))
+    await sharp(getContainedAbsolutePath(relativePath))
       .rotate()
       .resize({ width: 400, withoutEnlargement: true })
       .webp({ quality: 78 })
@@ -130,7 +161,7 @@ export async function generateImageThumb(relativePath: string): Promise<string |
 }
 
 export function readImageAsDataUrl(relativePath: string): string {
-  const filePath = getAbsolutePath(relativePath)
+  const filePath = getContainedAbsolutePath(relativePath)
   const buffer = fs.readFileSync(filePath)
   const ext = path.extname(filePath).toLowerCase()
   const mimeType = extToMimeType(ext)
@@ -145,11 +176,12 @@ export async function readImageAsCompressedDataUrl(
     quality?: number
   } = {},
 ): Promise<string> {
-  return compressImageAsDataUrl(getAbsolutePath(relativePath), options)
+  return compressImageAsDataUrl(getContainedAbsolutePath(relativePath), options)
 }
 
 /**
  * 下载远程图片并压缩为 data URL（远程参考图归一化，供 multipart/base64 上传类厂商使用）
+ * 内网/链路本地地址一律拒绝 — 客户端可控 URL 的服务端 fetch 是 SSRF 原语
  */
 export async function fetchImageAsCompressedDataUrl(
   url: string,
@@ -159,9 +191,50 @@ export async function fetchImageAsCompressedDataUrl(
     quality?: number
   } = {},
 ): Promise<string> {
+  assertPublicHttpUrl(url)
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
   return compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
+}
+
+/** SSRF 防护：仅允许 http(s)，且解析出的全部地址不在私网/链路本地/回环段 */
+export async function assertPublicHttpUrl(rawUrl: string): Promise<void> {
+  const u = new URL(rawUrl)
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error(`Unsupported URL scheme: ${u.protocol}`)
+  }
+  const hostname = u.hostname
+  // 字面量 IP 直接判段；域名解析后逐地址判段（防 DNS rebinding 首跳）
+  const addresses = isIpLiteral(hostname)
+    ? [hostname]
+    : await dns.promises.lookup(hostname, { all: true }).then(rs => rs.map(r => r.address))
+  if (!addresses.length) throw new Error(`Cannot resolve host: ${hostname}`)
+  for (const addr of addresses) {
+    if (isPrivateAddress(addr)) {
+      throw new Error(`Refusing to fetch private address: ${addr}`)
+    }
+  }
+}
+
+function isIpLiteral(hostname: string): boolean {
+  return net.isIPv4(hostname) || net.isIPv6(hostname)
+}
+
+function isPrivateAddress(addr: string): boolean {
+  if (net.isIPv4(addr)) {
+    const [a, b] = addr.split('.').map(Number)
+    if (a === 127 || a === 10 || a === 0) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 169 && b === 254) return true
+    return false
+  }
+  const lower = addr.toLowerCase()
+  if (lower === '::1' || lower === '::') return true
+  if (lower.startsWith('fe80:') || lower.startsWith('fc') || lower.startsWith('fd')) return true
+  // IPv4-mapped IPv6
+  if (lower.startsWith('::ffff:')) return isPrivateAddress(lower.slice(7))
+  return false
 }
 
 /** sharp 输入 → 压缩 JPEG data URL（本地路径与远程下载共享同一压缩管线） */

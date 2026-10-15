@@ -34,11 +34,20 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
   let bodyInfo = ''
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
     try {
-      const clone = c.req.raw.clone()
-      const text = await clone.text()
-      if (text) {
-        const truncated = text.length > 500 ? text.slice(0, 500) + '...' : text
-        bodyInfo = `\n  ${colors.dim}body: ${truncated}${colors.reset}`
+      const ct = (c.req.header('Content-Type') || 'application/json').toLowerCase()
+      const isJson = ct.startsWith('application/json')
+      const sensitive = path.includes('/ai-configs')
+      if (sensitive) {
+        // ai-configs body 带 api_key，明文进日志是泄漏面（task-logger 有脱敏层，这里不走 body 预览）
+        bodyInfo = `\n  ${colors.dim}body: <redacted>${colors.reset}`
+      } else if (isJson && path !== '/tasks') {
+        // 仅 JSON body 截取预览：multipart 大文件全量 clone 纯耗内存（50MB 视频 = 双份缓冲）
+        const clone = c.req.raw.clone()
+        const text = await clone.text()
+        if (text) {
+          const truncated = text.length > 500 ? text.slice(0, 500) + '...' : text
+          bodyInfo = `\n  ${colors.dim}body: ${truncated}${colors.reset}`
+        }
       }
     } catch {}
   }
@@ -63,6 +72,7 @@ export const errorHandler: MiddlewareHandler = async (c, next) => {
     const status = err.status || 500
     console.error(`${colors.red}[ERROR]${colors.reset} ${c.req.method} ${c.req.path}`)
     console.error(err.stack || err.message || err)
-    return c.json({ code: status, message: err.message || 'Internal Server Error' }, status)
+    // 内部错误文案不外传（含上游响应 body 的 message 会把内部路径/服务暴露给客户端）
+    return c.json({ code: status, message: 'Internal Server Error' }, status)
   }
 }

@@ -18,11 +18,27 @@ function normalizeTemperature(v: any): number | null {
 }
 
 /** 把 settings JSON 中的 temperature 透出为顶层字段，便于前端直接读写 */
-function withParsedFields(r: any) {
-  return {
+function withParsedFields(r: any, { mask = false } = {}) {
+  const parsed: Record<string, any> = {
     ...toSnakeCase(r),
-    model: r.model ? JSON.parse(r.model) : [],
+    model: safeParseModels(r.model),
     temperature: parseConfigTemperature(r.settings),
+  }
+  if (mask) {
+    // 明文 key 永不出后端：响应只带尾 4 位 + has_key；编辑留空 = 保留原 key
+    parsed.api_key = r.apiKey ? `••••${r.apiKey.slice(-4)}` : ''
+    parsed.has_key = !!r.apiKey
+  }
+  return parsed
+}
+
+/** model 列表解析守卫：脏数据（"null"/非数组）不得毒化 getActiveConfig */
+function safeParseModels(raw: any): any[] {
+  try {
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(v) ? v.filter((m) => typeof m === 'string') : []
+  } catch {
+    return []
   }
 }
 
@@ -121,7 +137,7 @@ app.get('/', async (c) => {
   let rows = await db.select().from(schema.aiServiceConfigs)
   if (serviceType) rows = rows.filter(r => r.serviceType === serviceType)
 
-  const parsed = rows.map(withParsedFields)
+  const parsed = rows.map((r) => withParsedFields(r, { mask: true }))
   return success(c, parsed)
 })
 
@@ -147,13 +163,18 @@ app.post('/', async (c) => {
     }
   }
 
+  const modelList = body.model ?? []
+  if (!Array.isArray(modelList) || !modelList.every((m: any) => typeof m === 'string')) {
+    return badRequest(c, 'model 须为字符串数组')
+  }
+
   const res = await db.insert(schema.aiServiceConfigs).values({
     serviceType: body.service_type,
     provider: body.provider,
     name: body.name || `${body.provider}-${body.service_type}`,
     baseUrl: body.base_url || '',
     apiKey: body.api_key || '',
-    model: JSON.stringify(body.model || []),
+    model: JSON.stringify(modelList),
     priority: body.priority || 0,
     isActive: true,
     settings: temperature !== null ? JSON.stringify({ temperature }) : null,
@@ -164,7 +185,7 @@ app.post('/', async (c) => {
   const [row] = await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.id, getInsertId(res)))
 
-  return created(c, withParsedFields(row))
+  return created(c, withParsedFields(row, { mask: true }))
 })
 
 // POST /ai-configs/test
@@ -244,7 +265,7 @@ app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [row] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, id))
   if (!row) return notFound(c)
-  return success(c, withParsedFields(row))
+  return success(c, withParsedFields(row, { mask: true }))
 })
 
 // PUT /ai-configs/:id
@@ -266,8 +287,15 @@ app.put('/:id', async (c) => {
   if ('provider' in body) updates.provider = body.provider
   if ('name' in body) updates.name = body.name
   if ('base_url' in body) updates.baseUrl = body.base_url
-  if ('api_key' in body) updates.apiKey = body.api_key
-  if ('model' in body) updates.model = JSON.stringify(body.model)
+  // 空值 = 保留原 key（明文已不出后端，编辑框留空即保留）
+  if ('api_key' in body) updates.apiKey = body.api_key ? body.api_key : existing.apiKey
+  // model 必须是字符串数组：脏数据（null 等）会毒化 getActiveConfig 打断整条生成管线
+  if ('model' in body) {
+    if (!Array.isArray(body.model) || !body.model.every((m: any) => typeof m === 'string')) {
+      return badRequest(c, 'model 须为字符串数组')
+    }
+    updates.model = JSON.stringify(body.model)
+  }
   if ('priority' in body) updates.priority = body.priority
   if ('is_active' in body) updates.isActive = body.is_active
   if ('temperature' in body) {

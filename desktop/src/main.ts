@@ -167,6 +167,8 @@ function startBackend(): void {
     ...process.env,
     PORT: String(backendPort),
     FUSION_DESKTOP: '1',
+    // 桌面版后端只听回环：端口选择 TOCTOU 窗口 + 局域网可达面一起收掉
+    FUSION_BIND_HOST: '127.0.0.1',
     // 数据目录单一来源：重启/迁移后只需改 currentDataDir
     FUSION_DATA_DIR: currentDataDir,
     SQLITE_PATH: path.join(currentDataDir, 'fusion.sqlite3'),

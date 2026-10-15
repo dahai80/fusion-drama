@@ -41,8 +41,8 @@ COPY --from=backend-build /build/backend/tsconfig.json ./backend/tsconfig.json
 # workspace 模板（skills/prompts），entrypoint copy-once 到数据卷后可在线编辑
 COPY backend/workspace ./workspace-template
 COPY --from=frontend-build /build/frontend/.output/public ./frontend-dist
-COPY docker/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh && mkdir -p /app/data
+RUN chmod +x ./entrypoint.sh && mkdir -p /app/data && chown -R node:node /app/data
+USER node
 
 # 数据卷：SQLite + 生成的静态文件 + 可编辑 workspace
 VOLUME ["/app/data"]

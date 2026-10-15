@@ -24,10 +24,11 @@ import settings from './routes/settings.js'
 import storage from './routes/storage.js'
 import serverUpdate from './routes/serverUpdate.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
+import { requireApiToken, requireSafeContentType } from './middleware/auth.js'
 import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from './utils/response.js'
-import { DATA_ROOT } from './utils/paths.js'
+import { DATA_ROOT, STORAGE_ROOT } from './utils/paths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
@@ -36,7 +37,7 @@ const app = new Hono()
 
 // Middleware
 app.use('*', cors({
-  origin: ['http://localhost:3013', 'http://localhost:5679'],
+  origin: ['http://localhost:3013', 'http://localhost:5679', 'http://127.0.0.1:3013', 'http://127.0.0.1:5679'],
   credentials: true,
 }))
 app.use('*', requestLogger)
@@ -49,8 +50,10 @@ app.get('/api/v1/health', (c) => c.json({
   timestamp: new Date().toISOString(),
 }))
 
-// API routes
+// API routes — 写方法 Content-Type 白名单 + 可选 Bearer 鉴权（FUSION_API_TOKEN）
 const api = new Hono()
+api.use('*', requireSafeContentType)
+api.use('*', requireApiToken)
 api.route('/dramas', dramas)
 api.route('/episodes', episodes)
 api.route('/storyboards', storyboards)
@@ -72,13 +75,14 @@ api.route('/server-update', serverUpdate)
 
 app.route('/api/v1', api)
 
-// Serve static files (storage)
+// Serve static files (storage) — 仅服务 STORAGE_ROOT（DATA_ROOT/static），
+// 绝不能服务 DATA_ROOT 本身：否则 /static/fusion.sqlite3 可整库下载（含明文 API key）
 // 生成的图片/视频按 uuid 命名、内容不变，标记为 immutable 让浏览器长缓存
 app.use('/static/*', async (c, next) => {
   await next()
   if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable')
 })
-app.use('/static/*', serveStatic({ root: DATA_ROOT }))
+app.use('/static/*', serveStatic({ root: STORAGE_ROOT, rewriteRequestPath: p => p.replace(/^\/static/, '') || '/' }))
 
 // Serve frontend (production build) — 桌面版由主进程注入 FRONTEND_DIST（resources/frontend）
 const distPath = process.env.FRONTEND_DIST || path.join(projectRoot, 'frontend', 'dist')
@@ -99,4 +103,7 @@ db.update(schema.sysTask)
   })
   .catch(err => console.error('清理中断任务失败:', err?.message))
 
-serve({ fetch: app.fetch, port })
+// 绑定地址：desktop 模式（主进程注入 FUSION_BIND_HOST）只听回环，杜绝局域网可达；
+// 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权
+const hostname = process.env.FUSION_BIND_HOST || undefined
+serve({ fetch: app.fetch, port, hostname })
