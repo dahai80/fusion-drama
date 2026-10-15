@@ -3,7 +3,7 @@
  * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 下载落盘 → 回写业务表
  */
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
 import { downloadFile, fetchImageAsCompressedDataUrl, generateImageThumb, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
@@ -210,6 +210,29 @@ function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
     })
 }
 
+// ===== FR-P0-5a 任务取消（PRD 4.7：取消只在步骤边界生效，不硬杀本地引擎进程）=====
+// 注册表 taskId -> 控制器；abort 后由 fetch 中断 / 轮询下一跳退出完成终态落库。
+// 注册表在终态写回时清理（failTask/cancelTask/completed 回写/孤儿轮询退出）
+const activeCancels = new Map<number, AbortController>()
+
+/** 请求取消在途任务；返回是否找到了在途执行（否则由调用方做乐观落库） */
+export function requestTaskCancel(id: number): boolean {
+    const ac = activeCancels.get(id)
+    if (!ac) return false
+    ac.abort()
+    return true
+}
+
+/** 取消终态：乐观条件（仅 processing 可落 cancelled），防覆盖已完成回写（NFR-DATA-1） */
+export async function cancelTask(id: number, reason: string): Promise<boolean> {
+    const res = await db.update(schema.sysTask)
+        .set({ status: 'cancelled', errorMsg: reason, completedAt: now(), updatedAt: now() })
+        .where(and(eq(schema.sysTask.id, id), eq(schema.sysTask.status, 'processing')))
+    const changed = (res as unknown as { changes?: number })?.changes ?? 0
+    if (changed > 0) activeCancels.delete(id)
+    return changed > 0
+}
+
 function parseTaskParams(raw: string | null | undefined): Record<string, any> {
   if (!raw) return {}
   try {
@@ -334,6 +357,13 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
   try {
     const [record] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
     if (!record) return
+    // 取消/启动清扫后的迟到执行入口在此短路：非 processing 状态不执行（NFR-DATA-1 防幽灵完成）
+    if (record.status !== 'processing') {
+      console.log(`[SysTask] task ${id} skipped: status=${record.status} before queue execution`)
+      return
+    }
+    const cancelC = new AbortController()
+    activeCancels.set(id, cancelC)
     const type = record.type as TaskType
     const label = taskLabel(type)
     const params = parseTaskParams(record.params)
@@ -443,7 +473,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
       // 同步接口超时：视频高分辨率长时长（10s@1088x1920，241帧两阶段）实测超 30min，
       // 统一放宽到 60min（图片任务远短于此，不受影响）；与队列 watchdog abort 联动
-      signal: signal ? AbortSignal.any([AbortSignal.timeout(3_600_000), signal]) : AbortSignal.timeout(3_600_000),
+      signal: AbortSignal.any([AbortSignal.timeout(3_600_000), signal, cancelC.signal].filter((x): x is AbortSignal => Boolean(x))),
       // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
       dispatcher: laxDispatcher,
     } as any)
@@ -492,9 +522,13 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
 
     await markPolling(id, taskId)
     // fire-and-forget 必须 .catch，否则未处理 rejection 在 node 上进程崩溃
-    pollTask(record, config, taskId!).catch(err => logTaskError(label, 'poll-crash', { id, taskId, error: err?.message || String(err) }))
+    pollTask(record, config, taskId!, cancelC.signal).catch(err => logTaskError(label, 'poll-crash', { id, taskId, error: err?.message || String(err) }))
   } catch (err: any) {
     await failTask(id, err.message)
+  } finally {
+    // 轮询路径（fire-and-forget）由 pollTask 终态路径清理注册表；同步完成路径在此清理。
+    // 轮询已启动时这里是幂等空操作（pollTask 终态也会删，Map.delete 无害）
+    activeCancels.delete(id)
   }
 }
 
@@ -507,14 +541,16 @@ async function markPolling(id: number, taskId: string | undefined) {
 
 async function failTask(id: number, message: string) {
   logTaskError('SysTask', 'failed', { id, error: message })
+  // 乐观条件：仅 processing 可落 failed——取消/清扫后迟到的失败不覆盖终态（NFR-DATA-1）
   await db.update(schema.sysTask)
     .set({ status: 'failed', errorMsg: message, updatedAt: now() })
-    .where(eq(schema.sysTask.id, id))
+    .where(and(eq(schema.sysTask.id, id), eq(schema.sysTask.status, 'processing')))
+  activeCancels.delete(id)
 }
 
 type SysTaskRecord = typeof schema.sysTask.$inferSelect
 
-async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string) {
+async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string, signal?: AbortSignal) {
   const type = record.type as TaskType
   const label = taskLabel(type)
   const profile = POLL_PROFILES[type]
@@ -522,6 +558,10 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
   const startedAt = Date.now()
 
   for (let i = 0; i < profile.attempts; i++) {
+    if (signal?.aborted) {
+      await cancelTask(record.id, '用户取消')
+      return
+    }
     if (profile.maxDurationMs && Date.now() - startedAt >= profile.maxDurationMs) {
       await failTask(record.id, `Timeout: polling exceeded ${Math.round(profile.maxDurationMs / 60000)} minutes`)
       return
@@ -530,8 +570,16 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
     try {
       // B8: 任务行可能已被用户删除（DELETE /tasks/:id）或重启清理标 failed——
       // 行已消失则停止孤儿轮询，避免结果写回无主任务
-      const [fresh] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask).where(eq(schema.sysTask.id, record.id))
-      if (!fresh) return
+      const [fresh] = await db.select({ id: schema.sysTask.id, status: schema.sysTask.status }).from(schema.sysTask).where(eq(schema.sysTask.id, record.id))
+      if (!fresh) {
+        activeCancels.delete(record.id)
+        return
+      }
+      // 取消/清扫后停止孤儿轮询：结果不再写回无主任务
+      if (fresh.status !== 'processing') {
+        activeCancels.delete(record.id)
+        return
+      }
       const { url, method, headers } = adapter.buildPollRequest(config, taskId)
       logTaskProgress(label, 'poll-request', {
         id: record.id,
@@ -547,7 +595,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
       const resp = await fetch(url, {
         method,
         headers,
-        signal: AbortSignal.timeout(remainingMs),
+        signal: AbortSignal.any([AbortSignal.timeout(remainingMs), signal].filter((x): x is AbortSignal => Boolean(x))),
         dispatcher: laxDispatcher,
       } as any)
       if (!resp.ok) {
@@ -639,7 +687,7 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
 
   await db.update(schema.sysTask)
     .set({ resultUrl: imageUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
-    .where(eq(schema.sysTask.id, record.id))
+    .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
 
   logTaskSuccess('ImageTask', 'downloaded', { id: record.id, provider: record.provider, localPath })
 
@@ -656,7 +704,7 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
 
   await db.update(schema.sysTask)
     .set({ localPath, status: 'completed', completedAt: now(), updatedAt: now() })
-    .where(eq(schema.sysTask.id, record.id))
+    .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
 
   logTaskSuccess('ImageTask', 'saved-base64', { id: record.id, provider: record.provider, mimeType, localPath })
 
@@ -721,7 +769,7 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   const resultUrl = videoUrl.startsWith('data:') ? localPath : videoUrl
   await db.update(schema.sysTask)
     .set({ resultUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
-    .where(eq(schema.sysTask.id, record.id))
+    .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
 
   logTaskSuccess('VideoTask', 'downloaded', { id: record.id, localPath, storyboardId: record.storyboardId, duration })
 

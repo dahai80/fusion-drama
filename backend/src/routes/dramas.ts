@@ -131,9 +131,20 @@ app.put('/:id', async (c) => {
 })
 
 // DELETE /dramas/:id - Soft delete
+// FR-P0-1/FR-BIZ-1: 删除需显式二次确认（confirm=true query 或 body），并级联软删其下剧集——
+// 软删除保留 storage 文件（备份可恢复），恢复语义与既有 deletedAt 一致
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  await db.update(schema.dramas).set({ deletedAt: now() }).where(eq(schema.dramas.id, id))
+  const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
+  if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
+    return badRequest(c, '删除剧本需要二次确认：请携带 confirm=true（query 或 body）重试')
+  }
+  const ts = now()
+  await db.update(schema.dramas).set({ deletedAt: ts }).where(eq(schema.dramas.id, id))
+  const res = await db.update(schema.episodes)
+    .set({ deletedAt: ts, updatedAt: ts })
+    .where(and(eq(schema.episodes.dramaId, id), isNull(schema.episodes.deletedAt)))
+  console.log(`[dramas] drama ${id} soft-deleted, cascaded episodes: ${(res as unknown as { changes?: number })?.changes ?? 0}`)
   return success(c)
 })
 

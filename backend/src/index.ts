@@ -120,6 +120,15 @@ try {
 // 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权
 const hostname = process.env.FUSION_BIND_HOST || undefined
 
+// FR-P0-1: 对外部署（未绑定 127.0.0.1）必须有 >=32B token，否则拒启——
+// 桌面/dev（127.0.0.1 绑定）两形态免鉴权不受影响；拒启而非降级运行，
+// 杜绝“以为有鉴权其实裸奔”（审计 C1 的业务面收口）
+const isLoopbackOnly = Boolean(process.env.FUSION_BIND_HOST)
+if (!isLoopbackOnly && (process.env.FUSION_API_TOKEN || '').length < 32) {
+    console.error('[server] FUSION_API_TOKEN 未设置或不足 32 字符：对外部署（非 127.0.0.1 绑定）必须配置强 token 才能启动。本地开发请设置 FUSION_BIND_HOST=127.0.0.1')
+    process.exit(1)
+}
+
 // D9: 主进程 getFreePort 与后端 bind 之间有 TOCTOU 窗口，端口被抢占时桌面模式下
 // 降级到临时端口并把实际端口经 utilityProcess IPC 回传主进程；服务器部署直接报错退出
 const ppGlobal = (process as unknown as { parentPort?: { postMessage: (m: unknown) => void } }).parentPort

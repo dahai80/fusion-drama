@@ -6,6 +6,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema.js'
 import { initSqliteSchema } from './sqlite-schema.js'
+import { runMigrations } from './migrations.js'
 import { maybeAutoImportMysql } from './mysql-import.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -27,6 +28,9 @@ sqlite.pragma('synchronous = NORMAL')
 /** 启动建表（DDL 幂等重放 + 种子补缺）。SQLite 无连接就绪问题，无需重试 */
 export function initDb() {
   initSqliteSchema(sqlite)
+  // NFR-OPS-3: user_version 版本化迁移（含 DDL 的迁移前自动备份库文件）
+  const applied = runMigrations(sqlite, dbPath)
+  if (applied.length > 0) console.log(`[db] schema at v${Number(sqlite.pragma('user_version', { simple: true }) ?? 0)} (${applied.join(', ')})`)
 }
 
 initDb()

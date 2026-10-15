@@ -104,8 +104,20 @@ app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
   if (!ep) return notFound(c, '剧集不存在')
+  // FR-P0-1/FR-BIZ-1: 删除需显式二次确认；级联终止该集在途生成任务（重启清扫同语义）
+  const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
+  if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
+    return badRequest(c, '删除剧集需要二次确认：请携带 confirm=true（query 或 body）重试')
+  }
   await db.update(schema.episodes).set({ deletedAt: now(), updatedAt: now() })
     .where(eq(schema.episodes.id, id))
+  const res = await db.update(schema.sysTask)
+    .set({ status: 'failed', errorMsg: '所属剧集已删除，任务中断', updatedAt: now() })
+    .where(and(
+      eq(schema.sysTask.episodeId, id),
+      eq(schema.sysTask.status, 'processing'),
+    ))
+  console.log(`[episodes] episode ${id} soft-deleted, aborted tasks: ${(res as unknown as { changes?: number })?.changes ?? 0}`)
   return success(c)
 })
 

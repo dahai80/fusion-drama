@@ -56,13 +56,14 @@ export const dramaAPI = {
   get: (id: number) => api.get(`/dramas/${id}`),
   create: (data: any) => api.post('/dramas', data),
   update: (id: number, data: any) => api.put(`/dramas/${id}`, data),
-  del: (id: number) => api.del(`/dramas/${id}`),
+  // 后端要求删除二次确认（FR-P0-1/FR-BIZ-1）：confirm=true 级联软删剧集
+  del: (id: number) => api.del(`/dramas/${id}?confirm=true`),
 }
 
 export const episodeAPI = {
   create: (data: any) => api.post('/episodes', data),
   update: (id: number, data: any) => api.put(`/episodes/${id}`, data),
-  del: (id: number) => api.del(`/episodes/${id}`),
+  del: (id: number) => api.del(`/episodes/${id}?confirm=true`),
   characters: (id: number) => api.get(`/episodes/${id}/characters`),
   scenes: (id: number) => api.get(`/episodes/${id}/scenes`),
   props: (id: number) => api.get(`/episodes/${id}/props`),

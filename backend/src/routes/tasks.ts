@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { eq, and, desc, or } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
-import { generateImage, generateVideo } from '../services/generation.js'
+import { generateImage, generateVideo, requestTaskCancel, cancelTask } from '../services/generation.js'
 import { getActiveConfig, getConfigById } from '../services/ai.js'
 import { deleteStoredFile } from '../utils/storage.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
@@ -269,6 +269,26 @@ app.get('/:id', async (c) => {
   const [row] = await db.select().from(schema.sysTask)
     .where(eq(schema.sysTask.id, id))
   return success(c, row || null)
+})
+
+// POST /tasks/:id/cancel — 取消生成任务（FR-P0-5：取消在步骤边界生效，不硬杀本地引擎）
+const TERMINAL = new Set(['completed', 'failed', 'cancelled'])
+app.post('/:id/cancel', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [row] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
+  if (!row) return badRequest(c, '任务不存在')
+  if (TERMINAL.has(row.status || '')) return badRequest(c, `任务已结束（${row.status}），无法取消`)
+  const inflight = requestTaskCancel(id)
+  const changed = await cancelTask(id, '用户取消')
+  if (changed) {
+    console.log(`[tasks] task ${id} cancelled (inflight=${inflight})`)
+  } else if (inflight) {
+    // 中断信号已发出但执行方尚未观察到（竞态窗口）——执行方观察到 abort 后自行落 cancelled
+    console.log(`[tasks] task ${id} cancel signal sent, awaiting executor`)
+  } else {
+    return badRequest(c, '任务当前状态不可取消，请刷新后重试')
+  }
+  return success(c, { cancelled: changed, inflight })
 })
 
 // GET /tasks — 按 type / storyboard_id / drama_id 过滤（SQL 级过滤 + 上限截断）

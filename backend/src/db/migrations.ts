@@ -1,0 +1,77 @@
+/**
+ * Schema 迁移器（NFR-OPS-3）— PRAGMA user_version 版本化迁移
+ *
+ * 取代散落的手工 ALTER：后续加列/加表一律在 MIGRATIONS 数组追加条目，启动时按版本号
+ * 顺序执行。每条含 DDL 的迁移执行前自动 VACUUM INTO 备份库文件到 <db目录>/backups/
+ * （保留最近 10 份），升级失败或列缺失时可直接回滚恢复。
+ */
+import fs from 'fs'
+import path from 'path'
+import type Database from 'better-sqlite3'
+
+export interface Migration {
+    version: number
+    name: string
+    /** 要执行的 SQL（多条按顺序 exec）；纯标记版本可为空数组 */
+    statements: string[]
+}
+
+export const MIGRATIONS: Migration[] = [
+    // v1 基线：历史库的建表一直走 sqlite-schema.ts 幂等重放，此处仅开始记录版本号
+    { version: 1, name: 'baseline', statements: [] },
+]
+
+const MAX_BACKUPS = 10
+
+/** 取当前 user_version */
+export function currentVersion(sqlite: Database.Database): number {
+    return Number(sqlite.pragma('user_version', { simple: true }) ?? 0)
+}
+
+function pruneBackups(dir: string) {
+    try {
+        const files = fs.readdirSync(dir)
+            .filter(f => f.startsWith('pre-migration-') && f.endsWith('.sqlite'))
+            .sort()
+        while (files.length > MAX_BACKUPS) {
+            const oldest = files.shift()
+            if (oldest) fs.rmSync(path.join(dir, oldest), { force: true })
+        }
+    } catch { /* 备份清理失败不阻断迁移 */ }
+}
+
+/** 执行所有未应用的迁移；返回本次应用的版本名列表（用于日志/健康检查展示） */
+export function runMigrations(sqlite: Database.Database, dbPath: string): string[] {
+    const applied: string[] = []
+    const current = currentVersion(sqlite)
+    const pending = MIGRATIONS.filter(m => m.version > current)
+    if (pending.length === 0) return applied
+
+    const backupDir = path.join(path.dirname(dbPath), 'backups')
+    for (const m of pending) {
+        // 含 DDL 的迁移执行前自动备份（VACUUM INTO 要求目标文件不存在）
+        if (m.statements.length > 0) {
+            fs.mkdirSync(backupDir, { recursive: true })
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+            const backupFile = path.join(backupDir, `pre-migration-v${m.version}-${stamp}.sqlite`)
+            try {
+                sqlite.prepare(`VACUUM INTO '${backupFile.replace(/'/g, "''")}'`).run()
+                console.log(`[migrate] backed up db to ${backupFile}`)
+            } catch (err) {
+                // 备份失败不阻断迁移（DDL 本身幂等/可重放），但必须大声说
+                console.error(`[migrate] backup failed before v${m.version}:`, (err as Error).message)
+            }
+            pruneBackups(backupDir)
+        }
+        try {
+            for (const stmt of m.statements) sqlite.exec(stmt)
+            sqlite.pragma(`user_version = ${m.version}`)
+            applied.push(`v${m.version} ${m.name}`)
+            console.log(`[migrate] applied v${m.version} ${m.name}`)
+        } catch (err) {
+            console.error(`[migrate] FAILED v${m.version} ${m.name}:`, (err as Error).message)
+            throw err
+        }
+    }
+    return applied
+}

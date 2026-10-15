@@ -5,7 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { v4 as uuid } from 'uuid'
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { now } from '../utils/response.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 import { extractVideoPoster } from '../utils/video-poster.js'
@@ -53,6 +53,14 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
     .filter(c => Boolean(c.url)) as { sb: typeof storyboards[number]; url: string }[]
 
   if (clips.length === 0) throw new Error('所选镜头还没有可拼接的视频')
+
+  // FR-P0-5 merge 防重入（PRD 4.8）：同一剧集并发拼接会互相覆盖成片——已在拼时拒绝新拼接
+  const running = await db.select({ id: schema.videoMerges.id }).from(schema.videoMerges)
+    .where(and(eq(schema.videoMerges.episodeId, episodeId), eq(schema.videoMerges.status, 'processing')))
+    .limit(1)
+  if (running.length > 0) {
+    throw new Error('该剧集已有进行中的拼接任务，请等待完成后再发起')
+  }
 
   // 拼接前探测 ffmpeg：二进制损坏时 fluent-ffmpeg 的同步 EFTYPE 会崩掉整个进程，
   // 这里提前拦截并给出可操作的修复指引（路由层会作为 400 返回前端）
