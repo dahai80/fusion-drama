@@ -1,8 +1,7 @@
 /**
  * 应用内更新器（无 Apple 签名方案，同 Tauri updater 思路）
  *
- * - 清单：FUSION_UPDATE_FEED；未设置时双源 —— 国内 COS 优先，GitHub Releases 兜底
- *   （两个源返回同一份清单结构，仅下载 URL 域名不同，见 desktop/scripts/publish-release.mjs）
+ * - 清单：FUSION_UPDATE_FEED 可整体覆盖（仅未打包 dev 生效，D10）；默认 GitHub Releases 单源
  * - macOS：下载 zip（.app 归档）→ sha256 校验 → 解压 → 旧包改名 .old 备胎 → 新包就位
  *   → `open` 拉起新应用 → 当前实例退出；下次启动清理 .old
  * - Windows：下载 Setup.exe → sha256 校验 → detached 静默安装（/S）→ 当前实例退出
@@ -16,8 +15,8 @@ import * as path from 'path'
 import crypto from 'crypto'
 import { spawn, execFile } from 'child_process'
 
-// 双源：COS（国内直连）优先，GitHub（海外）兜底；FUSION_UPDATE_FEED 可整体覆盖
-const FEED_URLS = process.env.FUSION_UPDATE_FEED
+// D10: FUSION_UPDATE_FEED 仅 dev 调试用——打包版跟随默认 feed，防本地 env 注入劫持更新源
+const FEED_URLS = (process.env.FUSION_UPDATE_FEED && !app.isPackaged)
   ? [process.env.FUSION_UPDATE_FEED]
   : ['https://github.com/fusion-drama/fusion-drama/releases/latest/download/latest.json']
 
@@ -132,7 +131,8 @@ async function doDownload(): Promise<UpdateState> {
   const total = asset.size || Number(res.headers.get('content-length')) || 0
   const dir = path.join(app.getPath('temp'), 'fusion-update')
   await fsp.mkdir(dir, { recursive: true })
-  const fileName = decodeURIComponent(asset.url.split('/').pop() || `update-${Date.now()}`)
+  // D11: 清单可控下载文件名——basename 钳制，防 `..%2F` 之类路径逃逸 temp 目录
+  const fileName = path.basename(decodeURIComponent(asset.url.split('/').pop() || `update-${Date.now()}`))
   const dest = path.join(dir, fileName)
 
   let received = 0
@@ -158,9 +158,13 @@ async function doDownload(): Promise<UpdateState> {
     out.on('error', reject)
   })
 
-  // 完整性校验
+  // D5: sha256 必须存在且匹配——清单缺校验和直接拒绝安装（无校验 = 任意代码执行面）
   const actual = await sha256(dest)
-  if (asset.sha256 && actual !== asset.sha256) {
+  if (!asset.sha256) {
+    await fsp.rm(dest, { force: true })
+    throw new Error('更新清单缺少 sha256 校验和，已拒绝安装')
+  }
+  if (actual !== asset.sha256) {
     await fsp.rm(dest, { force: true })
     throw new Error('更新包校验失败（sha256 不匹配），已取消安装')
   }

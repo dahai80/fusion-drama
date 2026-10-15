@@ -36,6 +36,8 @@ const projectRoot = path.resolve(__dirname, '../..')
 const app = new Hono()
 
 // Middleware
+// D18: 桌面版窗口加载 http://127.0.0.1:<动态端口>，Origin 与后端同源 → CORS 不参与，无需为桌面版加白名单；
+// 白名单仅覆盖 dev 前端(3013)/本机后端(5679)跨源开发场景。生产部署同源托管，origin 白名单不影响 API 工具直连
 app.use('*', cors({
   origin: ['http://localhost:3013', 'http://localhost:5679', 'http://127.0.0.1:3013', 'http://127.0.0.1:5679'],
   credentials: true,
@@ -116,4 +118,35 @@ db.update(schema.videoMerges)
 // 绑定地址：desktop 模式（主进程注入 FUSION_BIND_HOST）只听回环，杜绝局域网可达；
 // 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权
 const hostname = process.env.FUSION_BIND_HOST || undefined
-serve({ fetch: app.fetch, port, hostname })
+
+// D9: 主进程 getFreePort 与后端 bind 之间有 TOCTOU 窗口，端口被抢占时桌面模式下
+// 降级到临时端口并把实际端口经 utilityProcess IPC 回传主进程；服务器部署直接报错退出
+const ppGlobal = (process as unknown as { parentPort?: { postMessage: (m: unknown) => void } }).parentPort
+
+function reportPort(actual: number) {
+  // utilityProcess 子进程运行时注入 process.parentPort（Node 类型未声明）
+  const pp = (process as unknown as { parentPort?: { postMessage: (m: unknown) => void } }).parentPort
+  if (pp) {
+    pp.postMessage({ type: 'backend-port', port: actual })
+  }
+}
+
+const primaryServer = serve({ fetch: app.fetch, port, hostname })
+primaryServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EADDRINUSE' || !ppGlobal) {
+    console.error(`[server] listen failed on port ${port}:`, err)
+    process.exit(1)
+  }
+  console.warn(`[server] port ${port} occupied, falling back to ephemeral port`)
+  const fallback = serve({ fetch: app.fetch, port: 0, hostname })
+  fallback.on('error', (err2: NodeJS.ErrnoException) => {
+    console.error('[server] ephemeral listen failed:', err2)
+    process.exit(1)
+  })
+  const addr = fallback.address()
+  if (addr && typeof addr === 'object') {
+    reportPort(addr.port)
+    console.log(`🚀 Fusion Drama TS server on http://localhost:${addr.port}`)
+  }
+})
+reportPort(port)

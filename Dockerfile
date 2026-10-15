@@ -20,7 +20,7 @@ RUN node -e "const fs=require('fs');const l=JSON.parse(fs.readFileSync('package-
 COPY backend/ ./
 # 运行时与既有服务器部署一致走 tsx（源码存在 bundler 风格无扩展名 import，tsc 产物 node 直跑不可行）；
 # tsx 是 devDependency，prune 后单独补装
-RUN npm prune --omit=dev && npm i tsx@^4.21.0 --no-save --no-audit --no-fund --registry=https://registry.npmjs.org
+RUN npm prune --omit=dev && npm i tsx@4.21.0 --no-save --no-audit --no-fund --registry=https://registry.npmjs.org
 
 # ===== 运行时 =====
 FROM node:20-bookworm-slim

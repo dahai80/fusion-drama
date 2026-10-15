@@ -9,6 +9,8 @@
 
 services:
   app:
+    # D12: watchtower 更新 = 重拉同一 tag。固定具体版本 tag 时更新逻辑仍成立（tag 被 repoint 后
+    # digest 变化触发重建），但注意镜像仓库需支持 tag repoint；:latest 最省心
     image: fusion/fusion-drama:latest
     build:
       context: .

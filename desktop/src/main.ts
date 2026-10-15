@@ -187,6 +187,13 @@ function startBackend(): void {
     stdio: 'pipe',
   })
   console.log(`[main] backend forked from ${BACKEND_BUNDLE}`)
+  // D9: 后端实际绑定端口可能因端口抢占降级为临时端口，监听回传消息同步给所有使用方
+  backend.on('message', (msg: { type?: string, port?: number }) => {
+    if (msg?.type === 'backend-port' && typeof msg.port === 'number' && msg.port !== backendPort) {
+      console.log(`[main] backend reported actual port ${msg.port} (requested ${backendPort})`)
+      backendPort = msg.port
+    }
+  })
   backend.stdout?.on('data', chunk => process.stdout.write(`[backend] ${chunk}`))
   backend.stderr?.on('data', chunk => process.stderr.write(`[backend] ${chunk}`))
   backend.on('exit', code => {
