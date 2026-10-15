@@ -2,6 +2,8 @@
 
 日期：2026-10-15。PRD 逐条对照当前源码后的结论与执行批次。
 
+**状态（2026-10-16）**：3 批全部落地并 push（Batch 1 `0135976`、Batch 2+3 `15a3943`、docs `52f5c17`、轮询收敛补批见 git log）。E2E 验证：真实 DB 迁移 v1→v3 + 自动备份、/health 新字段、cancel 路由、SSE 终态 end 事件、后端 77/77、前端 49/49、nuxt generate 干净。
+
 ## 0. 现状核对（PRD ↔ 源码）
 
 前期 5 轮审计修复已覆盖 PRD 大量地基项，逐条核实如下：
@@ -33,8 +35,8 @@
 ### Batch 2 — M2 交互
 7. **FR-P1-1 任务事件流**：新表 `sys_task_events(task_id, seq, type, payload, created_at)`；generation/agent 关键节点落事件（start/progress/completed/failed/error）；`GET /api/v1/tasks/:id/events` SSE 回放（Last-Event-ID 续传）+ DB tail 跟踪至终态。前端任务卡片接入（降级：事件不落库不阻断主流程）。
 8. **FR-BIZ-3 剧本版本保留**：迁移 #2 加 episodes.script_history；script_rewriter 覆写前把旧稿压入历史（保留最近 5 版）；`POST /api/v1/episodes/:id/rollback-script` 回退上一版；前端工作台加回退按钮（4 语言文案）。
-9. **FR-P1-2 画布乐观锁**：迁移 #3 加 episodes.flow_version；新增 `PUT /api/v1/episodes/:id/storyboard-order`（CAS `WHERE flow_version=?`，冲突 409 + 返回最新版本）；前端保存分镜顺序走该接口，冲突时提示刷新。
-10. **FR-P2-4 前端轮询收敛**：`usePolling()` composable（onUnmounted 自动清理）；merge 轮询与任务轮询接入；useApi 超时统一。
+9. ~~**FR-P1-2 画布乐观锁**~~（**落地时裁撤**）：分镜排序保存实际走 storyboard update 单行写，无共享画布多入口并发场景；flow_version 列 + CAS 端点无 UI 消费方，属死代码。按「端到端完成才算完成」原则整体裁撤，待画布多端编辑特性立项时随特性一起做。
+10. **FR-P2-4 前端轮询收敛**：`usePolling()` composable（onUnmounted 自动清理）；episode.vue 任务轮询（抽屉 5s/4s 双启动点）与拼接轮询（3s+600 上限）、settings.vue 存储占用轮询（2s）全部接入，调用方删除各自 onUnmounted 清理；裸 setInterval 由结构测试禁用（frontend/tests/polling-consolidation.test.mjs）。useApi 超时统一（GET 30s / POST 120s）前期 F8 已落。
 
 ### Batch 3 — M4 打磨
 11. **NFR-OPS-2 健康自检**：/health 增加 schemaVersion、storageWritable、engineOk（fusion-mlx 探测，2s 超时，失败不 503 只置 false）。

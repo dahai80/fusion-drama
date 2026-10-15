@@ -1669,6 +1669,8 @@ const pendingVideoIds = ref([])
 // FR-P1-1: 任务过程事件（SSE）——分镜行内展示「已开始（provider · model）」等过程消息
 const taskProgress = reactive({})
 const { connect: connectTaskEvents, stop: stopTaskEvents } = useTaskEvents()
+// FR-P2-4: 组件内轮询统一托管，unmount 自动清（start 登记的 interval 无需再挂 onUnmounted）
+const { start: startPoll, stop: stopPoll } = usePolling()
 const failedVideoMessages = ref({})
 // 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
 const genTasks = ref([])
@@ -1681,7 +1683,7 @@ function openTaskDrawer() {
   loadGenTasks()
   // 抽屉打开期间持续轮询：点击生成后任务行/状态实时出现（关抽屉即停）
   stopGenTasksPolling()
-  genTasksTimer = setInterval(() => { loadGenTasks() }, 5000)
+  genTasksTimer = startPoll(() => { loadGenTasks() }, 5000)
 }
 function closeTaskDrawer() {
   taskDrawer.value = false
@@ -2009,7 +2011,7 @@ const pageAlive = ref(true)
 onBeforeUnmount(() => {
   pageAlive.value = false
   window.removeEventListener('keydown', handleImageViewerKeydown)
-  stopGenTasksPolling()
+  // genTasks 轮询不再手动停：usePolling 在 unmount 钩子统一清
 })
 
 function isPendingSceneImage(id) {
@@ -2309,7 +2311,7 @@ async function loadGenTasks() {
 }
 
 function stopGenTasksPolling() {
-  if (genTasksTimer) { clearInterval(genTasksTimer); genTasksTimer = null }
+  if (genTasksTimer) { stopPoll(genTasksTimer); genTasksTimer = null }
 }
 
 const genTaskActiveCount = computed(() =>
@@ -2419,7 +2421,7 @@ function genTaskDuration(row) {
 watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
   stopGenTasksPolling()
   if (open && active > 0) {
-    genTasksTimer = setInterval(loadGenTasks, 4000)
+    genTasksTimer = startPoll(loadGenTasks, 4000)
   }
 })
 
@@ -3485,16 +3487,16 @@ async function doMerge(ids) {
     toastError(e, { fallback: 'episode.export.mergeFailed' })
     return
   }
-  // F6: 轮询加上限 + 卸载即停（原 setInterval 无上限、页面离开后照跑）
+  // F6: 轮询加上限（原 setInterval 无上限）；卸载即停由 usePolling 托管
   let mergePolls = 0
-  const poll = setInterval(async () => {
+  const poll = startPoll(async () => {
     if (!pageAlive.value || ++mergePolls > 600) { // 600×3s = 30min 上限
-      clearInterval(poll)
+      stopPoll(poll)
       return
     }
     try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
     if (mergeData.value?.status === 'completed' || mergeData.value?.status === 'failed') {
-      clearInterval(poll)
+      stopPoll(poll)
       if (mergeData.value.status === 'completed') {
         toast.success(t('episode.export.mergeDone'))
         loadExportMerges()

@@ -1342,10 +1342,12 @@ const migrating = ref(false)
 
 const isDesktopMode = computed(() => storageInfo.value?.mode === 'desktop' && !!desktopBridge)
 
+// FR-P2-4: 轮询统一托管，unmount 自动清
+const { start: startPoll, stop: stopPoll } = usePolling()
 let usagePollTimer = null
 
 function stopUsagePoll() {
-  if (usagePollTimer) { clearInterval(usagePollTimer); usagePollTimer = null }
+  if (usagePollTimer) { stopPoll(usagePollTimer); usagePollTimer = null }
 }
 
 async function loadStorage() {
@@ -1354,7 +1356,7 @@ async function loadStorage() {
     // 占用为空或统计已过期时 2s 轮询至新鲜（后端 stale-while-revalidate）
     stopUsagePoll()
     if (storageInfo.value?.usageStale || !storageInfo.value?.usage) {
-      usagePollTimer = setInterval(async () => {
+      usagePollTimer = startPoll(async () => {
         try {
           storageInfo.value = await storageAPI.info()
           if (storageInfo.value?.usage && !storageInfo.value?.usageStale) stopUsagePoll()
@@ -1486,8 +1488,6 @@ watch(tab, (t) => {
     loadAllSkills()
   }
 })
-
-onBeforeUnmount(stopUsagePoll)
 </script>
 
 <style scoped>
