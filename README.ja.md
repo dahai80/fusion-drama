@@ -216,37 +216,17 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ホームで「新規プロジェクト」をクリックし、**アスペクト比**（16:9 横 / 9:16 縦、作成後は変更不可）と**作画スタイル**（3D / リアル系など、全生図プロンプトに注入）を選択します。
 
-<p align="center">
-  <img src="docs/screenshots/02-create-drama.png" alt="プロジェクト作成" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/01-projects.png" alt="プロジェクト一覧" width="800">
-</p>
-
 ### ステップ 2 · AI サービス設定（初回）
 
 設定ページの「Fuseクイック設定」に API キーを貼り付けると推奨 3 設定を一括書き込み。手動テンプレートでの追加も可能です。使用モデルは上部バーでいつでも切り替えられます（ステップ 5 参照）。
-
-<p align="center">
-  <img src="docs/screenshots/03-settings-quick.png" alt="AI サービス設定" width="800">
-</p>
 
 ### ステップ 3 · 脚本ステージ
 
 制作画面に**原文（小説）**を貼り付け、「AI リライト」で撮影用脚本を生成 — エピソード単位の分割とシーン・キャラクターの注記付き。モデルやトーンの切り替えも可能です。
 
-<p align="center">
-  <img src="docs/screenshots/05-script.png" alt="脚本ステージ" width="800">
-</p>
-
 ### ステップ 4 · アセット制作
 
 脚本に**抽出**を実行するとキャラクター / シーン / 小道具の一覧を自動取得。各項目の「イメージ生成」で一貫性のある参照画像を作成します（一括も可）。これらの画像は動画生成時に参照素材として注入されます。
-
-<p align="center">
-  <img src="docs/screenshots/06-assets.png" alt="アセット制作" width="800">
-</p>
 
 ### ステップ 5 · 絵コンテと動画
 
@@ -256,27 +236,11 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 - 右側で各カットのプロンプトを確認・調整（`@キャラ名` 参照は自動で参照画像にマッピング）
 - 「一括動画生成」でタスク開始。失敗タスクはワンクリックでリトライ
 
-<p align="center">
-  <img src="docs/screenshots/07-storyboard.png" alt="絵コンテ分割" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/08-videos.png" alt="動画生成" width="800">
-</p>
-
 ### ステップ 6 · 連結と書き出し
 
 カットを選択（ホバーで各クリップをプレビュー）し、「連結開始」をクリックすると FFmpeg が完全なエピソードを自動合成。オンライン再生・ダウンロード可能です。完了したら「完了にする」で進捗バーを点灯。
 
-<p align="center">
-  <img src="docs/screenshots/09-export.png" alt="連結と書き出し" width="800">
-</p>
-
 エピソード一覧では各話の制作状況を確認でき、「制作を開く」から再開できます：
-
-<p align="center">
-  <img src="docs/screenshots/04-episodes.png" alt="エピソード一覧" width="800">
-</p>
 
 ---
 
@@ -619,23 +583,9 @@ cd ../frontend && npm run build
 
 ---
 
-## ☕ 寄付のお願い
-
-このプロジェクトが役に立ったら、QR コードで作者にコーヒーを一杯おごってください ☕。あなたの支援が継続的な更新の原動力です！
-
-<div align="center">
-  <img src="donate.png" alt="Alipay 寄付 QR コード" width="240" />
-</div>
 
 ---
 
-## 💬 WeChat グループ
-
-QR コードをスキャンして WeChat グループに参加：
-
-<div align="center">
-  <img src="docs/images/wx-group.jpg" width="200" alt="WeChat グループ QR コード" />
-</div>
 
 ---
 

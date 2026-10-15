@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../../..')
 
 // 桌面版由 Electron 主进程注入 SQLITE_PATH（userData 下）；dev 默认仓库根 data/
-// 注意：勿沿用旧文件名 huobao_drama.db —— 那是早期 SQLite 时代的遗留库，表名重叠但列不同
+// 注意：勿沿用早期遗留 SQLite 库文件名（表名重叠但列不同）
 export const dbPath = process.env.SQLITE_PATH || path.join(repoRoot, 'data', 'fusion.sqlite3')
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 

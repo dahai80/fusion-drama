@@ -217,37 +217,17 @@ The complete pipeline from novel to finished episode. The left progress rail alw
 
 On the home page click "New Project", pick a **aspect ratio** (16:9 landscape / 9:16 portrait, fixed after creation) and a **visual style** (3D, realistic, … — injected into every image prompt).
 
-<p align="center">
-  <img src="docs/screenshots/02-create-drama.png" alt="Create a project" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/01-projects.png" alt="Project list" width="800">
-</p>
-
 ### Step 2 · Configure AI Services (first run)
 
 Paste an API key in Settings → "Fusion Quick Setup" to write the three recommended configs at once, or add providers manually. The current model can be switched any time from the top bar (see Step 5).
-
-<p align="center">
-  <img src="docs/screenshots/03-settings-quick.png" alt="AI service setup" width="800">
-</p>
 
 ### Step 3 · Script Stage
 
 Paste your **source novel** into the workbench, then hit "AI Rewrite" to produce a shooting script — split by episode with scenes and characters annotated. You can switch text models and tone while rewriting.
 
-<p align="center">
-  <img src="docs/screenshots/05-script.png" alt="Script stage" width="800">
-</p>
-
 ### Step 4 · Assets
 
 Run **extraction** on the script to get the character / scene / prop list, then generate a consistent reference image for each (or in batch). These images are injected as reference material when generating videos.
-
-<p align="center">
-  <img src="docs/screenshots/06-assets.png" alt="Asset production" width="800">
-</p>
 
 ### Step 5 · Storyboard & Videos
 
@@ -257,27 +237,11 @@ On the "Video Production" page, first run **storyboard breakdown** (AI splits sh
 - Review and tweak each shot's prompt on the right (`@character` references map to reference images automatically)
 - Click "Batch Generate Videos"; failed tasks can be retried in one click
 
-<p align="center">
-  <img src="docs/screenshots/07-storyboard.png" alt="Storyboard breakdown" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/08-videos.png" alt="Video generation" width="800">
-</p>
-
 ### Step 6 · Merge & Export
 
 Select shots (hover to preview each clip), click "Start Merging" and FFmpeg assembles the full episode — play online or download. Click "Mark Done" when finished to light up the progress rail.
 
-<p align="center">
-  <img src="docs/screenshots/09-export.png" alt="Merge & export" width="800">
-</p>
-
 The episode list shows the production status of every episode — click "Enter Studio" to continue:
-
-<p align="center">
-  <img src="docs/screenshots/04-episodes.png" alt="Episode list" width="800">
-</p>
 
 ---
 
@@ -619,23 +583,9 @@ cd ../frontend && npm run build
 
 ---
 
-## ☕ Donate
-
-If this project helps you, buy the author a coffee ☕ — your support keeps the updates coming!
-
-<div align="center">
-  <img src="donate.png" alt="Alipay donation QR code" width="240" />
-</div>
 
 ---
 
-## 💬 WeChat Group
-
-Scan the QR code to join the WeChat group:
-
-<div align="center">
-  <img src="docs/images/wx-group.jpg" width="200" alt="WeChat group QR code" />
-</div>
 
 ---
 
