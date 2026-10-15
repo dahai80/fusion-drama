@@ -3707,7 +3707,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   border-color: transparent;
   box-shadow: none;
 }
-/* ChatFire 签名：激活步骤左侧 3px 品牌色圆角指示条 */
+/* 激活步骤左侧 3px 品牌色圆角指示条 */
 .pipe-item.active::before {
   content: '';
   position: absolute;

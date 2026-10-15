@@ -144,7 +144,7 @@ watch(locale, checkAiConfigs)
 .brand-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .brand-name {
   font-size: 15px; font-weight: 700;
-  /* ChatFire 签名：品牌字标火焰橙渐变 */
+  /* 品牌字标：火焰橙渐变 */
   background: var(--accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
