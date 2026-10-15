@@ -198,8 +198,16 @@ app.post('/test', async (c) => {
     return badRequest(c, '不支持的 service_type/provider')
   }
 
+  // F1/B11 掩码联动：GET /ai-configs 返回掩码 key，前端测已存配置时拿回传明文 key 不可行——
+  // 传 config_id 时按 id 用库存 key 探测（body.api_key 忽略）
+  let apiKey = body.api_key
+  if (body.config_id) {
+    const [row] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, Number(body.config_id)))
+    if (!row) return badRequest(c, '配置不存在')
+    if (row.apiKey) apiKey = row.apiKey
+  }
   const model = Array.isArray(body.model) ? body.model[0] : body.model
-  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, body.api_key)
+  const probe = buildProbe(body.service_type, body.provider, body.base_url, model, apiKey)
   const probeUrl = redactUrl(probe.url)
 
   logTaskProgress('AIConfig', 'probe-start', {

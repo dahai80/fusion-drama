@@ -505,7 +505,7 @@
             <input v-model.number="cfgForm.priority" class="input" type="number" min="0" max="999" />
             <span class="field-hint">{{ t('settings.cfg.priorityHint') }}</span>
           </label>
-          <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" placeholder="sk-..." /></label>
+          <label class="field"><span class="field-label">API Key</span><input v-model="cfgForm.api_key" class="input" type="password" :placeholder="cfgEditId ? t('settings.cfg.keyKeepHint') : 'sk-...'" /></label>
           <label class="field"><span class="field-label">Base URL</span><input v-model="cfgForm.base_url" class="input" placeholder="https://..." /></label>
           <div class="field">
             <span class="field-label">{{ t('settings.cfg.models') }}</span>
@@ -668,6 +668,14 @@
       @confirm="confirmDelSkill"
       @cancel="skillToDelete = null"
     />
+    <ConfirmDialog
+      :open="!!cfgToDelete"
+      :title="t('settings.cfgDelete.title')"
+      :message="t('settings.cfgDelete.message', { name: cfgToDeleteName })"
+      :loading="deletingCfg"
+      @confirm="confirmDelCfg"
+      @cancel="cfgToDelete = null"
+    />
   </div>
 </template>
 
@@ -817,23 +825,56 @@ async function setDefaultModel(type, c, m) {
     defaultSaving.value = false
   }
 }
-async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
-async function delCfg(id) { await aiConfigAPI.del(id); toast.success(t('index.deleted')); loadCfgs() }
+// F9: 删除走确认弹窗；toggle 失败不再 unhandled rejection
+const cfgToDelete = ref(null)
+const deletingCfg = ref(false)
+const cfgToDeleteName = computed(() => {
+  const all = cfgs.value || []
+  return all.find(c => c.id === cfgToDelete.value)?.name || `#${cfgToDelete.value}`
+})
+async function confirmDelCfg() {
+  const id = cfgToDelete.value
+  if (!id || deletingCfg.value) return
+  try {
+    deletingCfg.value = true
+    await aiConfigAPI.del(id)
+    cfgToDelete.value = null
+    toast.success(t('index.deleted'))
+    loadCfgs()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    deletingCfg.value = false
+  }
+}
+async function toggleCfg(c) {
+  try {
+    await aiConfigAPI.update(c.id, { is_active: !c.is_active })
+  } catch (e) {
+    toastError(e)
+  }
+  loadCfgs()
+}
+async function delCfg(id) { cfgToDelete.value = id }
 async function applyFusionQuickConfig() {
   const apiKey = fusionApiKey.value.trim()
   if (!apiKey) { toast.warning(t('settings.ai.apiKeyRequired')); return }
   fusionSaving.value = true
+  const done = []
   try {
+    // F19: 逐条记账——中途失败时报告已完成 n/m，不再静默留半套配置
     for (const preset of fusionQuickConfigs) {
       const payload = { ...preset, api_key: apiKey }
       const existing = cfgs.value.find(c => c.name === preset.name || (c.service_type === preset.service_type && c.provider === preset.provider && c.base_url === preset.base_url))
       if (existing) await aiConfigAPI.update(existing.id, payload)
       else await aiConfigAPI.create(payload)
+      done.push(preset.name || preset.service_type)
     }
     toast.success(t('settings.ai.quickApplied'))
     fusionApiKey.value = ''
     await loadCfgs()
   } catch (e) {
+    toast.warning(t('settings.ai.quickPartial', { done: done.length, total: fusionQuickConfigs.length }))
     toastError(e)
   } finally {
     fusionSaving.value = false
@@ -853,7 +894,9 @@ function startEditCfg(c) {
   Object.assign(cfgForm, {
     name: c.name || '',
     provider: c.provider,
-    api_key: c.api_key || '',
+    // F1: GET 返回掩码 key，编辑留空 = 保留原 key（后端空值语义已支持）；
+    // 占位符展示掩码尾部提示用户已配置
+    api_key: '',
     base_url: c.base_url || '',
     models: Array.isArray(c.model) ? [...c.model] : String(c.model || '').split(',').map(s => s.trim()).filter(Boolean),
     service_type: c.service_type,
@@ -888,7 +931,8 @@ async function testExistingCfg(c) {
   await testCfgPayload({
     service_type: c.service_type,
     provider: c.provider,
-    api_key: c.api_key || '',
+    api_key: '',
+    config_id: c.id,
     base_url: c.base_url || '',
     model: Array.isArray(c.model) ? c.model : [],
   })
@@ -1020,7 +1064,6 @@ async function loadContentLanguage() {
   try {
     const lang = (await settingsAPI.contentLanguage())?.language || 'zh'
     contentLanguage.value = lang
-    editLang.value = lang  // Agent 编辑器默认跟随内容语言
   } catch { /* 保持默认 */ }
 }
 async function setContentLanguage(lang) {

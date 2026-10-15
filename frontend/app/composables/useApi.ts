@@ -1,26 +1,42 @@
 const BASE = '/api/v1'
 
-async function req<T = any>(method: string, path: string, body?: any): Promise<T> {
-  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' } }
+// dev 判定：仅开发模式打 API 日志（生产控制台不泄露请求体/路由）
+const isDev = import.meta.dev ?? false
+
+// F8: 默认 30s 超时，POST 120s（ai-configs/test 探测真实 provider 可达分钟级）；
+// 后端挂死时按钮不再永久 pending
+const DEFAULT_TIMEOUT = 30_000
+const POST_TIMEOUT = 120_000
+
+async function req<T = any>(method: string, path: string, body?: any, timeoutMs?: number): Promise<T> {
+  const opts: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(timeoutMs ?? (method === 'POST' ? POST_TIMEOUT : DEFAULT_TIMEOUT)),
+  }
   if (body) opts.body = JSON.stringify(body)
 
   const start = performance.now()
-  console.log(`%c[API] %c${method} %c${path}`, 'color:#888', 'color:#4fc3f7;font-weight:bold', 'color:#ccc', body || '')
+  if (isDev) console.log(`%c[API] %c${method} %c${path}`, 'color:#888', 'color:#4fc3f7;font-weight:bold', 'color:#ccc', body || '')
 
   try {
     const resp = await fetch(`${BASE}${path}`, opts)
-    const json = await resp.json()
+    // F8: envelope 容错——502/504 HTML 等非 JSON 响应不再抛裸 SyntaxError
+    let json: any = null
+    try { json = await resp.json() } catch { /* non-JSON body */ }
     const ms = Math.round(performance.now() - start)
 
-    if (!resp.ok || (json.code && json.code >= 400)) {
-      console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold', 'color:#888', json.message || '')
-      throw new Error(json.message || `${resp.status}`)
+    if (!resp.ok || (json?.code && json.code >= 400)) {
+      const message = json?.message || `HTTP ${resp.status}`
+      if (isDev) console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold', 'color:#888', message)
+      throw new Error(message)
     }
 
-    console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#66bb6a', 'color:#66bb6a;font-weight:bold', 'color:#888')
-    return json.data ?? json
+    if (isDev) console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#66bb6a', 'color:#66bb6a;font-weight:bold', 'color:#888')
+    return json?.data ?? json
   } catch (err: any) {
-    if (!err.message?.match(/^\d{3}$/)) {
+    if (err.name === 'TimeoutError') throw new Error('请求超时，请检查服务是否可用')
+    if (isDev && !err.message?.match(/^(HTTP )?\d{3}$/)) {
       const ms = Math.round(performance.now() - start)
       console.log(`%c[API] %c${method} ${path} %cERROR %c${ms}ms`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold', 'color:#888', err.message)
     }
@@ -108,14 +124,15 @@ export const taskAPI = {
 async function uploadReq<T = any>(path: string, file: File): Promise<T> {
   const fd = new FormData()
   fd.append('file', file)
-  console.log(`%c[API] %cPOST %c${path} %c${file.name}`, 'color:#888', 'color:#4fc3f7;font-weight:bold', 'color:#ccc', 'color:#888')
-  const resp = await fetch(`${BASE}${path}`, { method: 'POST', body: fd })
-  const json = await resp.json()
-  if (!resp.ok || (json.code && json.code >= 400)) {
-    console.log(`%c[API] %cPOST ${path} %c${resp.status}`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold')
-    throw new Error(json.message || `${resp.status}`)
+  if (isDev) console.log(`%c[API] %cPOST %c${path} %c${file.name}`, 'color:#888', 'color:#4fc3f7;font-weight:bold', 'color:#ccc', 'color:#888')
+  const resp = await fetch(`${BASE}${path}`, { method: 'POST', body: fd, signal: AbortSignal.timeout(300_000) })
+  let json: any = null
+  try { json = await resp.json() } catch { /* non-JSON body */ }
+  if (!resp.ok || (json?.code && json.code >= 400)) {
+    if (isDev) console.log(`%c[API] %cPOST ${path} %c${resp.status}`, 'color:#888', 'color:#ef5350', 'color:#ef5350;font-weight:bold')
+    throw new Error(json?.message || `HTTP ${resp.status}`)
   }
-  return json.data ?? json
+  return json?.data ?? json
 }
 
 export const uploadAPI = {

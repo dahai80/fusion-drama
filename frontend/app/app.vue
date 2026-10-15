@@ -1,6 +1,8 @@
 <template>
   <NuxtLayout>
-    <NuxtPage />
+    <!-- F14: :key 强制同路由实例间导航重建组件——episode 页 setup 冻结路由参数，
+         不重建会带着旧 dramaId/旧轮询进新集 -->
+    <NuxtPage :key="route.fullPath" />
   </NuxtLayout>
   <Toaster position="top-right" :duration="3000" :theme="resolvedTheme" />
   <MigrateOverlay />
@@ -16,6 +18,7 @@ import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
 
 const { t } = useI18n()
+const route = useRoute()
 const { resolvedTheme } = useTheme()
 
 // 响应式文档标题（nuxt.config.ts 的静态 title 仅作 SSR/兜底）

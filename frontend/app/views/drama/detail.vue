@@ -572,7 +572,11 @@ const { t, locale } = useI18n()
 
 const route = useRoute()
 const drama = ref(null)
+// F23: 非法路由参数（NaN）直接重定向回列表，不拿 NaN 打 API
 const dramaId = Number(route.params.id)
+if (!Number.isInteger(dramaId) || dramaId <= 0) {
+  throw createError({ statusCode: 404, statusMessage: 'Invalid drama id', fatal: true })
+}
 const addDialog = ref(false)
 const creatingEpisode = ref(false)
 const newEpisodeTitle = ref('')
@@ -769,11 +773,17 @@ async function generateMaterial(m) {
   }
 }
 
+// F10: 页面卸载停止标志——N 个素材 = N 个 poller，离开页后全部停
+const pageAlive = ref(true)
+onBeforeUnmount(() => { pageAlive.value = false })
+
 // 生图为异步任务：轮询重新加载 drama，直到该素材 imageUrl 出现
 async function pollMaterial(m) {
   const key = pendingKey(m)
   for (let i = 0; i < 40; i++) {
-    await sleep(2500)
+    if (!pageAlive.value) return
+    // 退避：前 10 轮 2.5s，之后 5s
+    await sleep(i < 10 ? 2500 : 5000)
     await load()
     const d = drama.value
     const list = m.kindKey === 'character' ? d?.characters : m.kindKey === 'scene' ? d?.scenes : d?.props

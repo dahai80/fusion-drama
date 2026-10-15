@@ -292,7 +292,8 @@
         "text": "Text capabilities: script rewriting, asset extraction, storyboard breaking",
         "image": "Static image generation: characters, scenes and shots",
         "video": "Direct video generation, Seedance 2.0 by default"
-      }
+      },
+      "quickPartial": "Quick setup incomplete ({done}/{total}); review and retry"
     },
     "styles": {
       "title": "Style Presets",
@@ -406,7 +407,8 @@
       "reachable": "Endpoint responded",
       "unreachable": "Endpoint failed the test",
       "providerRequired": "Select a provider",
-      "tempInvalid": "Temperature must be a number between 0 and 2"
+      "tempInvalid": "Temperature must be a number between 0 and 2",
+      "keyKeepHint": "Saved (leave blank to keep current key)"
     },
     "styleDialog": {
       "editTitle": "Edit Style Preset",
@@ -445,6 +447,10 @@
     "skillDelete": {
       "title": "Delete Skill",
       "message": "Delete skill “{id}”? The corresponding Agent will fall back to its built-in default prompt."
+    },
+    "cfgDelete": {
+      "title": "Delete AI config",
+      "message": "Delete config \"{name}\"? This cannot be undone."
     }
   },
   "episode": {

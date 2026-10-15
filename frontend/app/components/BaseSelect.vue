@@ -2,7 +2,8 @@
   <div class="base-select">
     <AppMenu v-model:open="isOpen" block match-width :min-width="132" :max-height="380">
       <template #trigger>
-        <button type="button" class="base-select-trigger" :class="{ open: isOpen }">
+        <!-- F15: 下拉触发按钮的 aria 状态 -->
+        <button type="button" class="base-select-trigger" :class="{ open: isOpen }" :aria-expanded="isOpen" aria-haspopup="listbox">
           <span :class="selectedLabel ? '' : 'placeholder'" class="base-select-label">{{ selectedLabel || effectivePlaceholder }}</span>
           <ChevronDown :size="13" class="base-select-arrow" :class="{ open: isOpen }" />
         </button>
@@ -99,9 +100,11 @@ const filteredGroups = computed(() => {
 // Flatten for keyboard nav
 const flatOptions = computed(() => filteredGroups.value.flatMap(g => g.options))
 
+// F11: 全局索引必须按过滤后的分组计算——渲染的是 filteredGroups，
+// 用 normalizedGroups 计数会在搜索态下选中未见高亮的项
 function getGlobalIdx(gi, oi) {
   let idx = 0
-  for (let i = 0; i < gi; i++) idx += normalizedGroups.value[i].options.length
+  for (let i = 0; i < gi; i++) idx += filteredGroups.value[i].options.length
   return idx + oi
 }
 

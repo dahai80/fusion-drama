@@ -29,8 +29,8 @@ function confirmDialog(lang: UiLocale): Promise<boolean> {
         open: open.value,
         title,
         message,
-        onConfirm: () => { open.value = false },
-        onCancel: () => { open.value = false },
+        onConfirm: () => { open.value = false; pending?.resolve(true); pending = null },
+        onCancel: () => { open.value = false; pending?.resolve(false); pending = null },
       }),
     })
     app.use(i18n as unknown as Parameters<typeof app.use>[0])
@@ -43,14 +43,6 @@ function confirmDialog(lang: UiLocale): Promise<boolean> {
         resolve(ok)
       },
     }
-    // open 置 false 后由 watch 关闭并 resolve —— 用简单轮询代替（弹窗体积小，不值得引 watch 复杂度）
-    const timer = setInterval(() => {
-      if (!open.value) {
-        clearInterval(timer)
-        pending?.resolve(true)
-        pending = null
-      }
-    }, 80)
   })
 }
 
@@ -58,7 +50,7 @@ let switching = false
 
 /** 入口：先弹确认框，确认后执行统一切换并刷新 */
 export async function confirmUnifiedLanguage(lang: UiLocale) {
-  if (switching) return
+  if (switching || pending) return
   const ok = await confirmDialog(lang)
   if (!ok) return
   switching = true

@@ -292,7 +292,8 @@
         "text": "脚本リライト、キャラクター・シーン抽出、分镜分解などの Agent テキスト能力",
         "image": "キャラクター図、シーン図、ショット図などの静止画生成",
         "video": "ショット動画の直接生成（デフォルト Seedance 2.0）"
-      }
+      },
+      "quickPartial": "クイック設定未完了（{done}/{total}）。確認して再試行してください"
     },
     "styles": {
       "title": "スタイルプリセット",
@@ -406,7 +407,8 @@
       "reachable": "エンドポイントが応答しました",
       "unreachable": "エンドポイントのテストに失敗しました",
       "providerRequired": "プロバイダーを選択してください",
-      "tempInvalid": "Temperature は 0〜2 の数値で入力してください"
+      "tempInvalid": "Temperature は 0〜2 の数値で入力してください",
+      "keyKeepHint": "保存済み（空欄で既存キーを維持）"
     },
     "styleDialog": {
       "editTitle": "スタイルプリセットを編集",
@@ -445,6 +447,10 @@
     "skillDelete": {
       "title": "Skill を削除",
       "message": "Skill「{id}」を削除しますか？対応する Agent は組み込みのデフォルトプロンプトに戻ります。"
+    },
+    "cfgDelete": {
+      "title": "AI設定を削除",
+      "message": "設定「{name}」を削除しますか？元に戻せません。"
     }
   },
   "episode": {

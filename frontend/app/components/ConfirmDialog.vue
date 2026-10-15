@@ -8,7 +8,8 @@
         <h2 class="confirm-title">{{ effectiveTitle }}</h2>
         <p class="confirm-message">{{ message }}</p>
         <div class="confirm-actions">
-          <button type="button" class="btn" :disabled="loading" @click="emit('cancel')">{{ t('common.cancel') }}</button>
+          <!-- F12: 初始焦点落取消按钮（危险操作默认安全侧），弹窗内 Tab 可达 -->
+          <button ref="cancelBtn" type="button" class="btn" :disabled="loading" @click="emit('cancel')">{{ t('common.cancel') }}</button>
           <button type="button" class="btn confirm-danger-btn" :disabled="loading" @click="emit('confirm')">
             <Loader2 v-if="loading" :size="13" class="animate-spin" />
             {{ loading ? effectiveLoadingText : effectiveConfirmText }}
@@ -37,18 +38,26 @@ const props = defineProps({
 
 const emit = defineEmits(['confirm', 'cancel'])
 
+const cancelBtn = ref(null)
+
 const effectiveTitle = computed(() => props.title || t('components.confirmDialog.title'))
 const effectiveConfirmText = computed(() => props.confirmText || t('common.delete'))
 const effectiveLoadingText = computed(() => props.loadingText || t('common.deleteLoading'))
 
 function onKeydown(e) {
   if (e.key === 'Escape') emit('cancel')
-  if (e.key === 'Enter') emit('confirm')
+  // F12: loading 中 Enter 不再重复确认（防双 Enter 两次 DELETE）
+  if (e.key === 'Enter' && !props.loading) emit('confirm')
 }
 
-watch(() => props.open, (v) => {
-  if (v) window.addEventListener('keydown', onKeydown)
-  else window.removeEventListener('keydown', onKeydown)
+watch(() => props.open, async (v) => {
+  if (v) {
+    window.addEventListener('keydown', onKeydown)
+    await nextTick()
+    cancelBtn.value?.focus()
+  } else {
+    window.removeEventListener('keydown', onKeydown)
+  }
 })
 
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))

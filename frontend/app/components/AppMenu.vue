@@ -1,5 +1,6 @@
 <template>
-  <span ref="anchorEl" class="app-menu-anchor" :class="{ block }" @click="toggle">
+  <!-- F15: 触发器暴露展开状态给读屏/键盘用户 -->
+  <span ref="anchorEl" class="app-menu-anchor" :class="{ block }" :aria-expanded="isOpen" aria-haspopup="menu" @click="toggle">
     <slot name="trigger" :open="isOpen" />
   </span>
   <Teleport to="body">

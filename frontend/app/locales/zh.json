@@ -292,7 +292,8 @@
         "text": "剧本改写、角色场景提取、分镜拆解等 Agent 文本能力",
         "image": "角色图、场景图与镜头图等静态图像生成",
         "video": "镜头视频直出生成，默认 Seedance 2.0"
-      }
+      },
+      "quickPartial": "快速配置未全部完成（{done}/{total}），请检查后重试"
     },
     "styles": {
       "title": "风格预设",
@@ -406,7 +407,8 @@
       "reachable": "端点已响应",
       "unreachable": "端点未通过测试",
       "providerRequired": "选择服务商",
-      "tempInvalid": "Temperature 需为 0~2 的数字"
+      "tempInvalid": "Temperature 需为 0~2 的数字",
+      "keyKeepHint": "已保存（留空保留原 Key）"
     },
     "styleDialog": {
       "editTitle": "编辑风格预设",
@@ -445,6 +447,10 @@
     "skillDelete": {
       "title": "删除 Skill",
       "message": "确定删除 Skill「{id}」？删除后对应 Agent 将回退到内置默认提示词。"
+    },
+    "cfgDelete": {
+      "title": "删除 AI 配置",
+      "message": "确定删除配置「{name}」？该操作不可恢复。"
     }
   },
   "episode": {

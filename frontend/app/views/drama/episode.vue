@@ -188,7 +188,7 @@
                 {{ t('episode.script.importFile') }}
               </button>
               <input ref="importRawInput" type="file" accept=".txt,.md,text/plain,text/markdown" class="visually-hidden" @change="onImportRawFile" />
-              <button class="btn btn-sm" @click="saveRaw(); toast.success(t('episode.script.saved'))">
+              <button class="btn btn-sm" @click="saveRaw().then(() => toast.success(t('episode.script.saved'))).catch(() => {})">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 {{ t('common.save') }}
               </button>
@@ -1615,7 +1615,11 @@ persistModel(chatModel, MODEL_STORE_KEYS.chat)
 persistModel(imageModel, MODEL_STORE_KEYS.image)
 persistModel(videoModel, MODEL_STORE_KEYS.video)
 // 视频画质档：'fast'=distilled（默认，~80s）| 'dev'=高质量单阶段（~1600s，无音频）
-const videoQualityTier = ref(localStorage.getItem('fusion:videoQualityTier') === 'dev' ? 'dev' : 'fast')
+// F16: 隐私加固环境（禁 localStorage）下裸 getItem 抛错会打断整个 setup
+const videoQualityTier = ref((() => {
+  try { return localStorage.getItem('fusion:videoQualityTier') === 'dev' ? 'dev' : 'fast' }
+  catch { return 'fast' }
+})())
 watch(videoQualityTier, v => {
   try { localStorage.setItem('fusion:videoQualityTier', v) } catch {}
 })
@@ -1973,7 +1977,11 @@ onMounted(() => {
   window.addEventListener('keydown', handleImageViewerKeydown)
 })
 
+// F5/F6: 页面卸载停止标志——所有轮询循环（视频/资产/拼接/批量提示词）检查此标志，
+// 离开页面不再继续打请求
+const pageAlive = ref(true)
 onBeforeUnmount(() => {
+  pageAlive.value = false
   window.removeEventListener('keydown', handleImageViewerKeydown)
   stopGenTasksPolling()
 })
@@ -2258,11 +2266,11 @@ async function loadGenTasks() {
     // 永不消退(videoTaskState 中 pending 优先于 failed,重试按钮还被禁用)
     const pending = new Set()
     const failed = {}
-    for (const [sbId, t] of latestBySb) {
+    for (const [sbId, task] of latestBySb) {
       // 分镜已有视频(失败后重试成功)时不再报历史错误
       if (hasVid(sbs.value.find(s => s.id === sbId))) continue
-      if (t.status === 'processing') pending.add(sbId)
-      else if (t.status === 'failed') failed[sbId] = t.error_msg || t('episode.status.failed')
+      if (task.status === 'processing') pending.add(sbId)
+      else if (task.status === 'failed') failed[sbId] = task.error_msg || t('episode.status.failed')
     }
     // 刚点击提交、任务记录尚未加载出来的本地状态保留,避免状态闪退
     for (const id of pendingVideoIds.value) if (!latestBySb.has(id)) pending.add(id)
@@ -2576,13 +2584,21 @@ const selectedVideoTaskNumber = computed(() => {
   return index >= 0 ? index + 1 : 0
 })
 
-function updateField(sb, field, value) {
+async function updateField(sb, field, value) {
   const current = sb[field] ?? sb[toCamel(field)]
   if (current === value) return
+  // F13: 快照回滚——PUT 失败恢复原值，避免本地看似已保存、绑定生成的还是旧内容
+  const snapshot = { snake: sb[field], camel: sb[toCamel(field)] }
   sb[field] = value
   const camelField = toCamel(field)
   if (camelField !== field) sb[camelField] = value
-  storyboardAPI.update(sb.id, { [field]: value }).catch(e => toastError(e))
+  try {
+    await storyboardAPI.update(sb.id, { [field]: value })
+  } catch (e) {
+    sb[field] = snapshot.snake
+    if (camelField !== field) sb[camelField] = snapshot.camel
+    toastError(e)
+  }
 }
 
 function toCamel(field) {
@@ -2656,9 +2672,14 @@ function sceneShotCount(sceneId) {
 watch(rawContent, v => { localRaw.value = v }, { immediate: true })
 watch(scriptContent, v => { localScript.value = v }, { immediate: true })
 
+// F7: refresh 代数计数——并发调用时只有最新一代允许写状态
+let refreshGen = 0
 async function refresh() {
+  // F7: single-flight——自增代数计数，旧响应不覆盖新响应
+  const gen = ++refreshGen
   try {
     drama.value = await dramaAPI.get(dramaId)
+    if (gen !== refreshGen || !pageAlive.value) return
     const ep = drama.value.episodes?.find(e => (e.episode_number || e.episodeNumber) === episodeNumber)
     if (ep) {
       episode.value = ep
@@ -2666,6 +2687,7 @@ async function refresh() {
       try { scenes.value = await episodeAPI.scenes(ep.id) } catch { scenes.value = [] }
       try { propItems.value = await episodeAPI.props(ep.id) } catch { propItems.value = [] }
       sbs.value = await episodeAPI.storyboards(ep.id)
+      if (gen !== refreshGen || !pageAlive.value) return
       selectedVideoSbIds.value = selectedVideoSbIds.value.filter(id => sbs.value.some(sb => sb.id === id))
       if (sbs.value.length) {
         const currentSelectedId = selectedSb.value?.id
@@ -2690,19 +2712,38 @@ async function refresh() {
   await Promise.all([loadGenTasks(), loadExportMerges()])
 }
 
-function saveRaw() { episodeAPI.update(epId.value, { content: localRaw.value }); episode.value.content = localRaw.value }
-function saveScr() { episodeAPI.update(epId.value, { script_content: localScript.value }); episode.value.script_content = localScript.value }
+async function saveRaw() {
+  try {
+    await episodeAPI.update(epId.value, { content: localRaw.value })
+    episode.value.content = localRaw.value
+  } catch (e) {
+    toastError(e)
+    throw e
+  }
+}
+async function saveScr() {
+  try {
+    await episodeAPI.update(epId.value, { script_content: localScript.value })
+    episode.value.script_content = localScript.value
+  } catch (e) {
+    toastError(e)
+    throw e
+  }
+}
 // 发给 Agent 的 message 是功能性提示词而非 UI 文案：产出语言由后端全局「内容语言」指令控制，
 // 这里保持中文不随界面语言变化
-function doRewrite() { saveRaw(); runAgent('script_rewriter', '请读取剧本并改写为格式化剧本，然后保存', dramaId, epId.value, refresh, chatModelOverride(), chatConfigId()) }
-function skipRewrite() {
+async function doRewrite() {
+  try { await saveRaw() } catch { return } // 保存失败不放过期内容给 Agent 改写
+  runAgent('script_rewriter', '请读取剧本并改写为格式化剧本，然后保存', dramaId, epId.value, refresh, chatModelOverride(), chatConfigId())
+}
+async function skipRewrite() {
   const raw = (localRaw.value || rawContent.value || '').trim()
   if (!raw) {
     toast.warning(t('episode.script.rawRequired'))
     return
   }
   localScript.value = raw
-  saveScr()
+  try { await saveScr() } catch { return }
   toast.success(t('episode.script.skipDone'))
   panel.value = 'production'
   prodTab.value = 'assets'
@@ -2718,9 +2759,9 @@ const extractingTargets = ref([])
 const extractingLabels = computed(() => EXTRACT_TARGETS.value.filter(x => extractingTargets.value.includes(x.key)).map(x => x.label).join(t('common.listJoin')))
 function isExtracting(target) { return extractingTargets.value.includes(target) }
 
-function doExtract(target) {
+async function doExtract(target) {
   if (isExtracting(target) || !epId.value) return
-  saveScr()
+  try { await saveScr() } catch { return } // 脚本未保存不启动提取
   extractingTargets.value.push(target)
   episodeAPI.extract(epId.value, target, chatModelOverride(), chatConfigId())
     .then(() => pollExtractStatus(target))
@@ -2902,7 +2943,10 @@ function sleep(ms) {
 function watchAsyncResult(check, attempts = 24, delay = 2500) {
   void (async () => {
     for (let i = 0; i < attempts; i++) {
-      await sleep(delay)
+      // F5: 离开页面即停止轮询
+      if (!pageAlive.value) return
+      // F6: 10 轮后翻倍退避（2.5s→5s→10s 上限），降低对后端的轮询压力
+      await sleep(Math.min(delay * 2 ** Math.floor(i / 10), 10_000))
       await refresh()
       if (check()) return
     }
@@ -3057,7 +3101,8 @@ async function loadSbVideoHistory() {
   } catch { sbVideoHistory.value = [] }
 }
 
-watch(() => [selectedSb.value?.id, getVideoUrl(selectedSb.value)], () => { loadSbVideoHistory() })
+// F21: 监听布尔（有无视频）而非 URL 字符串——URL 身份每次 refresh 都变，多打一次 /tasks
+watch(() => [selectedSb.value?.id, hasVid(selectedSb.value)], () => { loadSbVideoHistory() })
 
 function previewHistoryVideo(t) {
   previewVideoUrl.value = isCurrentVideo(t) ? '' : taskVideoPath(t)
@@ -3357,13 +3402,16 @@ async function pollVideoGeneration(generationId, storyboardId) {
     return
   }
   for (let i = 0; i < 120; i++) {
-    await sleep(4000)
+    // F5/F6: 卸载即停；30 轮后 4s→8s 退避；只查单任务行，不再每轮全量 refresh
+    if (!pageAlive.value) return
+    await sleep(i < 30 ? 4000 : 8000)
     try {
       const res = await taskAPI.get(generationId)
-      await refresh()
+      if (!pageAlive.value) return
       if (res?.status === 'completed') {
         pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
         delete failedVideoMessages.value[storyboardId]
+        await refresh() // 完成时拉一次全量让分镜视频上屏
         toast.success(t('episode.vid.genDone'))
         return
       }
@@ -3399,7 +3447,13 @@ async function doMerge(ids) {
     toastError(e, { fallback: 'episode.export.mergeFailed' })
     return
   }
+  // F6: 轮询加上限 + 卸载即停（原 setInterval 无上限、页面离开后照跑）
+  let mergePolls = 0
   const poll = setInterval(async () => {
+    if (!pageAlive.value || ++mergePolls > 600) { // 600×3s = 30min 上限
+      clearInterval(poll)
+      return
+    }
     try { mergeData.value = await mergeAPI.status(epId.value) } catch {}
     if (mergeData.value?.status === 'completed' || mergeData.value?.status === 'failed') {
       clearInterval(poll)

@@ -17,9 +17,10 @@ export const MODERATION_RE = /sensitive|moderation|真人|人脸|real[\s_-]?pers
 
 const NETWORK_RE = /failed to fetch|network ?error|load failed|network request failed|fetch failed/i
 const NONJSON_RE = /unexpected token|not valid json|failed to parse/i
-const SERVER5XX_RE = /(^|\D)5\d{2}(\D|$)|internal server error|服务器内部错误/i
-const AUTH_RE = /(^|\D)40[13](\D|$)|unauthorized|forbidden|invalid[\s_-]?api[\s_-]?key|authentication|鉴权/i
-const RATELIMIT_RE = /(^|\D)429(\D|$)|rate[\s_-]?limit|too many requests|quota|额度不足|insufficient/i
+// F20: 状态码匹配要求词边界（空白/标点包裹），"500ms" 不再误判为 5xx
+const STATUS5XX_RE = /(?:^|[\s(（"'])5\d{2}(?=$|[\s:：,，.。;)）"'])|internal server error|服务器内部错误/i
+const STATUSAUTH_RE = /(?:^|[\s(（"'])40[13](?=$|[\s:：,，.。;)）"'])|unauthorized|forbidden|invalid[\s_-]?api[\s_-]?key|authentication|鉴权/i
+const STATUS429_RE = /(?:^|[\s(（"'])429(?=$|[\s:：,，.。;)）"'])|rate[\s_-]?limit|too many requests|quota|额度不足|insufficient/i
 const TIMEOUT_RE = /timeout|timed out|polling exceeded|超时/i
 /** 技术特征：出现即判定不可直接透传给用户 */
 const TECHY_RE = /[{}\[\]<>]|https?:\/\/|\b(error|errno|exception|code|stack|undefined|null)\b|[a-z]+_[a-z]+/i
@@ -44,9 +45,9 @@ export function mapError(err: unknown, opts?: { fallback?: string }): string {
   if (err instanceof TypeError && NETWORK_RE.test(msg)) return t('errors.network')
   if (err instanceof SyntaxError || NONJSON_RE.test(msg)) return t('errors.server')
   if (MODERATION_RE.test(msg)) return t('errors.moderation')
-  if (AUTH_RE.test(msg)) return t('errors.auth')
-  if (RATELIMIT_RE.test(msg)) return t('errors.rateLimit')
-  if (SERVER5XX_RE.test(msg)) return t('errors.unavailable')
+  if (STATUSAUTH_RE.test(msg)) return t('errors.auth')
+  if (STATUS429_RE.test(msg)) return t('errors.rateLimit')
+  if (STATUS5XX_RE.test(msg)) return t('errors.unavailable')
   if (TIMEOUT_RE.test(msg)) return t('errors.timeout')
 
   // 后端友好中文（短、含中文、无技术特征）直接透传

@@ -3,7 +3,8 @@
     <span class="model-select-label">{{ label }}</span>
     <AppMenu v-model:open="isOpen" :min-width="280">
       <template #trigger>
-        <button type="button" class="model-select-trigger" :class="{ open: isOpen }">
+        <!-- F15: 下拉触发按钮的 aria 状态 -->
+        <button type="button" class="model-select-trigger" :class="{ open: isOpen }" :aria-expanded="isOpen" aria-haspopup="listbox">
           <img v-if="triggerIcon" :src="triggerIcon" class="model-select-icon" alt="" />
           <span v-else-if="currentOption?.provider" class="model-select-provider">{{ currentOption.provider }}</span>
           <span class="model-select-value">{{ currentLabel }}</span>
