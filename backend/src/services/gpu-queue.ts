@@ -20,12 +20,17 @@ export function gpuQueueDepth(): number {
   return queueDepth
 }
 
-export function enqueueGpuWork<T>(label: string, fn: (signal?: AbortSignal) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
+/**
+ * NFR-REL-4 排队反馈：入队时刻的排队位置（含自己在内，1=马上执行）。
+ * onQueued 在同步入队后立即回调（不等执行），供调用方落事件/打日志。
+ */
+export function enqueueGpuWork<T>(label: string, fn: (signal?: AbortSignal) => Promise<T>, opts: { timeoutMs?: number, onQueued?: (position: number) => void } = {}): Promise<T> {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_JOB_TIMEOUT_MS
   if (queueDepth >= MAX_QUEUE_DEPTH) {
     return Promise.reject(new Error(`生成队列已满（${queueDepth} 个任务排队），请稍后重试或清理失败任务`))
   }
   queueDepth += 1
+  opts.onQueued?.(queueDepth)
   const ac = new AbortController()
   const run = gpuChain.then(
     () => executeWithWatchdog(label, () => fn(ac.signal), timeoutMs, () => ac.abort()),

@@ -127,6 +127,9 @@ export const taskAPI = {
   },
   // 按集聚合生成任务（sys_task + video_merges）
   listByEpisode: (episodeId: number) => api.get<{ tasks: any[]; merges: any[] }>(`/episodes/${episodeId}/generation-tasks`),
+  // NFR-REL-4 队列深度（排队反馈）；PRD §10.2 重试成功率度量
+  queueDepth: () => api.get<{ depth: number }>('/tasks/queue'),
+  retryStats: () => api.get<{ retries: number; retrySucceeded: number; retrySuccessRate: number | null; failedTasksTotal: number; failedTasksRetried: number }>('/tasks/retry-stats'),
 }
 
 async function uploadReq<T = any>(path: string, file: File): Promise<T> {

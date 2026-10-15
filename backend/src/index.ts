@@ -137,6 +137,15 @@ try {
   const ta = t?.changes ?? 0
   const ma = m?.changes ?? 0
   if (ta > 0 || ma > 0) console.log(`🔁 已清理 ${ta} 个中断的生成任务、${ma} 个中断的拼接任务`)
+
+  // E6: kill -9 时 merge 的 finally 清理不会执行，stale concat 列表文件残留
+  // static/temp——启动时全清（目录本身每次 merge 重建，只放一次性列表）
+  const tempDir = path.join(STORAGE_ROOT, 'temp')
+  try {
+    const stale = fs.readdirSync(tempDir)
+    for (const f of stale) fs.rmSync(path.join(tempDir, f), { force: true })
+    if (stale.length) console.log(`🔁 已清理 ${stale.length} 个拼接中断的临时文件`)
+  } catch { /* 目录不存在=无残留 */ }
 } catch (err: any) {
   console.error('清理中断任务失败:', err?.message)
 }

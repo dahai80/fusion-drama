@@ -11,6 +11,7 @@ import { db, schema } from '../db/index.js'
 import { now } from '../utils/response.js'
 import { success, badRequest } from '../utils/response.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
+import { appendEpisodeEvent } from '../utils/task-events.js'
 
 const app = new Hono()
 
@@ -69,6 +70,10 @@ app.post('/:type/chat', async (c) => {
 
   const startTime = performance.now()
 
+  // FR-P1-1: agent_started/agent_finished 事件（episode 维度，SSE 回放；thinking 级
+  // 事件由 instrumentTools 的 tool_call/tool_result 承载）
+  void appendEpisodeEvent(episode_id, 'agent_started', { agent: agentType })
+
   try {
     // Agent 推理打文本模型（Qwen3.5 decode burst），与图片/视频生成共用 GPU 串行队列，
     // 避免与 LTX-2.5/FLUX 并发争用触发 Metal crash（见 gpu-queue.ts 注释）
@@ -76,6 +81,7 @@ app.post('/:type/chat', async (c) => {
       [{ role: 'user', content: message }],
       { maxSteps: 20, requestContext },
     ))
+    void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskSuccess('Agent', agentType, { elapsedSeconds: elapsed })
@@ -125,6 +131,7 @@ app.post('/:type/chat', async (c) => {
   } catch (err: any) {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskError('Agent', agentType, { elapsedSeconds: elapsed, error: err.message })
+    void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: false, ms: Math.round(performance.now() - startTime), error: String(err.message || '').slice(0, 300) })
     console.error(err.stack || err)
     return badRequest(c, err.message || 'Agent 执行失败')
   }

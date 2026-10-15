@@ -52,6 +52,8 @@ export const sysTaskEvents = sqliteTable('sys_task_events', {
   type: text('type').notNull(),
   payload: text('payload'),
   createdAt: text('created_at').notNull(),
+  // v4：Agent 级事件挂 episode 维度（Agent 链路无 sys_task 行，episodeId 归组回放）
+  episodeId: integer('episode_id'),
 })
 
 export const characters = sqliteTable('characters', {
@@ -232,6 +234,8 @@ export const sysTask = sqliteTable('sys_task', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   completedAt: text('completed_at'),
+  // v5 PRD §10.2 度量：重试溯源（重发失败任务时指向原任务 id）
+  retryOf: integer('retry_of'),
 })
 
 export const videoMerges = sqliteTable('video_merges', {

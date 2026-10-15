@@ -27,6 +27,35 @@ export async function appendTaskEvent(taskId: number, type: string, payload?: Re
     }
 }
 
+/**
+ * FR-P1-1 补齐：Agent 级事件（agent_started/tool_call/tool_result/agent_finished）——
+ * Agent 链路（提取/分镜/提示词/对话）没有 sys_task 行，事件以 episodeId 归组。
+ * taskId 传 0 占位（列 NOT NULL 约束保留，语义=非任务事件）。episode 维度 seq
+ * 用自增 id 保证单调，读取按 id 排序。
+ */
+export async function appendEpisodeEvent(episodeId: number, type: string, payload?: Record<string, unknown>): Promise<void> {
+    try {
+        await db.insert(schema.sysTaskEvents).values({
+            taskId: 0,
+            seq: 0,
+            type,
+            payload: payload ? JSON.stringify(payload) : null,
+            createdAt: now(),
+            episodeId,
+        })
+    } catch (err) {
+        console.warn(`[task-events] append episode event failed ep=${episodeId} type=${type}:`, (err as Error).message)
+    }
+}
+
+/** 回放某剧集最近的 Agent 事件（afterId 游标，SSE 续传） */
+export async function readEpisodeEvents(episodeId: number, afterId = 0, limit = 100) {
+    return db.select().from(schema.sysTaskEvents)
+        .where(and(eq(schema.sysTaskEvents.episodeId, episodeId), gt(schema.sysTaskEvents.id, afterId)))
+        .orderBy(asc(schema.sysTaskEvents.id))
+        .limit(limit)
+}
+
 /** 回放某任务 seq > afterSeq 的事件（SSE Last-Event-ID 续传） */
 export async function readTaskEvents(taskId: number, afterSeq = 0, limit = 100) {
     return db.select().from(schema.sysTaskEvents)
@@ -35,11 +64,11 @@ export async function readTaskEvents(taskId: number, afterSeq = 0, limit = 100) 
         .limit(limit)
 }
 
-/** SSE data 行：事件全量序列化（含 seq/createdAt，前端可直接渲染） */
-export function formatTaskEvent(e: { seq: number, type: string, payload: string | null, createdAt: string | null }): string {
+/** SSE data 行：事件全量序列化（含 seq/createdAt，前端可直接渲染；episode 事件以 id 作 seq） */
+export function formatTaskEvent(e: { id?: number, seq: number, type: string, payload: string | null, createdAt: string | null }): string {
     let payload: unknown = null
     if (e.payload) {
         try { payload = JSON.parse(e.payload) } catch { payload = e.payload }
     }
-    return JSON.stringify({ seq: e.seq, type: e.type, payload, createdAt: e.createdAt })
+    return JSON.stringify({ seq: e.seq || e.id || 0, type: e.type, payload, createdAt: e.createdAt })
 }

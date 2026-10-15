@@ -46,6 +46,8 @@ interface GenerateImageParams {
   enrichEpisodeId?: number
   textModel?: string
   textConfigId?: number
+  /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+  retryOf?: number
 }
 
 interface GenerateVideoParams {
@@ -72,6 +74,8 @@ interface GenerateVideoParams {
   /** 画质档（仅 fusion LTX-2.5）：'dev'=高质量单阶段（慢），缺省 distilled=快速 */
   videoPipeline?: string
   configId?: number
+  /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+  retryOf?: number
 }
 
 export async function generateImage(params: GenerateImageParams): Promise<number> {
@@ -89,6 +93,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     propId: params.propId,
     prompt: params.prompt,
     model: params.model || config.model,
+    retryOf: params.retryOf,
   }, {
     size: params.size || '1920x1080',
     frameType: params.frameType,
@@ -128,6 +133,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     dramaId: params.dramaId,
     prompt: params.prompt,
     model: params.model || config.model,
+    retryOf: params.retryOf,
   }, {
     referenceMode: params.referenceMode || 'reference',
     imageUrl: params.imageUrl,
@@ -177,6 +183,8 @@ async function createTask(
     propId?: number
     prompt: string
     model?: string | null
+    /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+    retryOf?: number
   },
   params: Record<string, unknown>,
 ): Promise<number> {
@@ -203,7 +211,12 @@ async function createTask(
 // 云端厂商同样受益：避免并发限流。与资产提取共用 gpu-queue（FLUX + Qwen3.5 并发
 // 会 GPU 争用致 Metal command buffer 崩溃 → fusion-mlx SIGTERM 挂死）。
 function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
-  enqueueGpuWork(`${taskLabel(type)}-${id}`, (signal) => processTask(id, config, signal))
+  enqueueGpuWork(`${taskLabel(type)}-${id}`, (signal) => processTask(id, config, signal), {
+    // NFR-REL-4: 排队反馈——位置>1 时前端展示「排队中第 N 位」（SSE/轮询可见）
+    onQueued: (position) => {
+      if (position > 1) appendTaskEvent(id, 'queued', { position })
+    },
+  })
     .catch(err => {
       // R1: 入队失败（队列满/watchdog）也要落终态，任务行不能停在 processing
       logTaskError(taskLabel(type), 'process', { id, error: err.message })

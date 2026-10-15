@@ -3,6 +3,7 @@ import { and, eq, isNull, like, desc, sql } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
+import { cascadeDeleteDrama } from '../utils/cascade.js'
 
 const app = new Hono()
 
@@ -130,22 +131,20 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
-// DELETE /dramas/:id - Soft delete
-// FR-P0-1/FR-BIZ-1: 删除需显式二次确认（confirm=true query 或 body），并级联软删其下剧集——
-// 软删除保留 storage 文件（备份可恢复），恢复语义与既有 deletedAt 一致
+// DELETE /dramas/:id - 硬删除（不可恢复）
+// FR-P0-1/FR-BIZ-1: 删除需显式二次确认（confirm=true query 或 body）；级联清理
+// 剧集/分镜/资产/任务/拼接记录（DB 行 + storage 文件），响应返回清理计数。
+// 跨剧集仍引用的产物文件保留（引用检查在 utils/cascade.ts）
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, id))
+  if (!drama || drama.deletedAt) return notFound(c, '剧本不存在')
   const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
   if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
-    return badRequest(c, '删除剧本需要二次确认：请携带 confirm=true（query 或 body）重试')
+    return badRequest(c, '删除剧本需要二次确认：请携带 confirm=true（query 或 body）重试。此操作不可恢复，将级联删除剧集、分镜、资产与生成产物')
   }
-  const ts = now()
-  await db.update(schema.dramas).set({ deletedAt: ts }).where(eq(schema.dramas.id, id))
-  const res = await db.update(schema.episodes)
-    .set({ deletedAt: ts, updatedAt: ts })
-    .where(and(eq(schema.episodes.dramaId, id), isNull(schema.episodes.deletedAt)))
-  console.log(`[dramas] drama ${id} soft-deleted, cascaded episodes: ${(res as unknown as { changes?: number })?.changes ?? 0}`)
-  return success(c)
+  const result = await cascadeDeleteDrama(id)
+  return success(c, { cascaded: result.rows, files: result.files })
 })
 
 // PUT /dramas/:id/characters - Save characters

@@ -304,6 +304,7 @@
             <div v-if="extractingTargets.length && !chars.length && !scenes.length && !propItems.length" class="step-loading">
               <Loader2 :size="24" class="animate-spin" style="color:var(--accent)" />
               <div class="loading-text">{{ t('episode.prod.extractingTypes', { types: extractingLabels }) }}</div>
+              <div v-if="agentActivity" class="agent-activity">{{ agentActivity }}</div>
             </div>
             <div v-else-if="!chars.length && !scenes.length && !propItems.length" class="step-empty asset-empty-state">
               <div class="empty-visual">
@@ -2791,6 +2792,7 @@ async function doExtract(target) {
   if (isExtracting(target) || !epId.value) return
   try { await saveScr() } catch { return } // 脚本未保存不启动提取
   extractingTargets.value.push(target)
+  watchAgentActivity()
   episodeAPI.extract(epId.value, target, chatModelOverride(), chatConfigId())
     .then(() => pollExtractStatus(target))
     .catch(e => {
@@ -2799,6 +2801,20 @@ async function doExtract(target) {
     })
 }
 function doExtractAll() { EXTRACT_TARGETS.value.forEach(x => doExtract(x.key)) }
+
+// FR-P1-1 补齐：提取期间展示 Agent 实时动作（episode 级 SSE——tool_call/tool_result）。
+// 事件是增强：连接失败/无事件时仅不显示动作行，轮询兜底仍在
+const agentActivity = ref('')
+function watchAgentActivity() {
+  if (!epId.value) return
+  connectTaskEvents(epId.value, (e) => {
+    if (e.type === 'tool_call') {
+      agentActivity.value = String(e.payload?.tool || '')
+    } else if (e.type === 'agent_finished') {
+      agentActivity.value = ''
+    }
+  }, () => { agentActivity.value = '' }, 'episode')
+}
 
 function pollExtractStatus(target, attempts = 150) {
   const label = EXTRACT_TARGETS.value.find(x => x.key === target)?.label || target
@@ -3403,6 +3419,11 @@ async function genVid(sb, opts = {}) {
     toast.error(t('episode.vid.needRefOrPrompt'))
     return
   }
+  // PRD §10.2 重试溯源：分镜此前有失败任务时，重发带 retry_of（原任务 id）
+  const prevFailed = genTasks.value
+    .filter(t => t.type === 'video' && t.storyboard_id === sb.id && t.status === 'failed')
+    .sort((a, b) => (String(b.created_at || '') > String(a.created_at || '') ? 1 : -1))[0]
+  if (prevFailed?.id) params.retry_of = prevFailed.id
   try {
     delete failedVideoMessages.value[sb.id]
     if (!isPendingVideo(sb.id)) pendingVideoIds.value.push(sb.id)
@@ -3424,7 +3445,11 @@ async function pollVideoGeneration(generationId, storyboardId) {
   // 连接失败静默降级（任务状态仍由下方轮询兜底）
   if (generationId) {
     connectTaskEvents(generationId, (e) => {
-      if (e.type === 'started') {
+      if (e.type === 'queued') {
+        // NFR-REL-4: 排队反馈——GPU 串行队列位置（>1 才发事件）
+        const pos = e.payload?.position
+        taskProgress[String(storyboardId)] = t('episode.vid.queuePosition', { n: pos ?? '?' })
+      } else if (e.type === 'started') {
         const p = e.payload || {}
         taskProgress[String(storyboardId)] = [p.provider, p.model].filter(Boolean).join(' · ') || t('episode.vid.genStarted')
       } else if (e.type === 'failed' || e.type === 'cancelled') {
@@ -4110,6 +4135,7 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
   flex: 1; gap: 12px;
 }
 .loading-text { font-size: 13px; color: var(--text-2); }
+.agent-activity { font-size: 11px; color: var(--text-3); font-family: var(--font-mono, monospace); }
 
 .storyboard-ref-list {
   min-height: 0;

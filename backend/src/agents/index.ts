@@ -14,6 +14,7 @@ import { Agent as UndiciAgent } from 'undici'
 const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
 import { logTaskProgress } from '../utils/task-logger.js'
+import { appendEpisodeEvent } from '../utils/task-events.js'
 import { scriptTools } from './tools/script-tools.js'
 import { extractTools } from './tools/extract-tools.js'
 import { storyboardTools } from './tools/storyboard-tools.js'
@@ -357,6 +358,47 @@ const AGENT_TOOLS: Record<string, Record<string, any>> = {
     readStoryboardContext: storyboardTools.readStoryboardContext,
     updateStoryboard: storyboardTools.updateStoryboard,
   },
+}
+
+/**
+ * FR-P1-1 补齐：Agent 级事件埋点——execute 外包一层，tool_call/tool_result
+ * 事件落 sys_task_events（episode 维度，供 SSE 回放）。单点埋全部 4 个 agent 的
+ * 全部工具；episodeId 从工具执行上下文的 RequestContext 取，取不到则跳过
+ * （事件是增强不是关键路径，埋点失败静默不影响工具结果）。
+ */
+function instrumentTools(agentType: string, tools: Record<string, any>): Record<string, any> {
+  const wrapped: Record<string, any> = {}
+  for (const [name, tool] of Object.entries(tools)) {
+    if (!tool || typeof tool.execute !== 'function') { wrapped[name] = tool; continue }
+    const original = tool.execute.bind(tool)
+    wrapped[name] = {
+      ...tool,
+      execute: async (input: any, context: any) => {
+        const episodeId = context?.requestContext?.get?.('episodeId' as never)
+        if (typeof episodeId !== 'number') return original(input, context)
+        const agent = context?.agentName || agentType
+        void appendEpisodeEvent(episodeId, 'tool_call', { agent, tool: name })
+        const startedAt = Date.now()
+        try {
+          const result = await original(input, context)
+          void appendEpisodeEvent(episodeId, 'tool_result', {
+            agent, tool: name, ok: true, ms: Date.now() - startedAt,
+          })
+          return result
+        } catch (err) {
+          void appendEpisodeEvent(episodeId, 'tool_result', {
+            agent, tool: name, ok: false, ms: Date.now() - startedAt,
+            error: String((err as Error)?.message || err).slice(0, 300),
+          })
+          throw err
+        }
+      },
+    }
+  }
+  return wrapped
+}
+for (const [type, tools] of Object.entries(AGENT_TOOLS)) {
+  AGENT_TOOLS[type] = instrumentTools(type, tools)
 }
 
 /** instructions 按请求解析：prompt 文件（或默认）+ 技能全文拼接 + 目标语言指令块

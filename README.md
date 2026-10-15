@@ -186,7 +186,7 @@ Visit: `http://localhost:5679`
 
 Bundled SQLite (`better-sqlite3` + WAL mode). Tables are created automatically on first launch (idempotent DDL replay + seed data). Schema upgrades run through versioned migrations (`PRAGMA user_version`), each taking an automatic `VACUUM INTO` backup under `data/backups/` first (last 10 kept). Default file: `data/fusion.sqlite3`, overridable via `SQLITE_PATH`. The desktop app stores data in the user-data directory (`~/Library/Application Support/FusionDrama/data/`).
 
-Server/Docker deployments can trigger a manual snapshot from the web UI (Settings → Storage → Backup; kept under `data/backups/`, last 10).
+Server/Docker deployments can trigger a manual full backup from the web UI (Settings → Storage → Backup): a `bundle-<stamp>.tar.gz` containing both the SQLite snapshot and the `static/` media directory, kept under `data/backups/` (last 10). Extract into a fresh data directory to restore on another machine.
 
 Migrating data from a legacy MySQL deployment:
 

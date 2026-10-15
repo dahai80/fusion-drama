@@ -1,10 +1,13 @@
 import { Hono } from 'hono'
 import { and, eq, isNull } from 'drizzle-orm'
+import { streamSSE } from 'hono/streaming'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
 import { logTaskWarn } from '../utils/task-logger.js'
+import { readEpisodeEvents, formatTaskEvent } from '../utils/task-events.js'
+import { cascadeDeleteEpisode } from '../utils/cascade.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 import { startStoryboardBreakdown } from '../services/storyboard-breakdown.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
@@ -110,26 +113,20 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
-// DELETE /episodes/:id - Soft delete episode（其分镜/生成记录保留但不可达）
+// DELETE /episodes/:id - 硬删除（不可恢复）
+// FR-P0-1/FR-BIZ-1: 删除需显式二次确认；级联清理该集分镜/任务/拼接记录（DB 行
+// + storage 文件）；drama 级资产（characters/scenes/props）归剧集所有不动。
+// 在途生成任务随行删除（任务与产物同亡，无孤儿 processing）
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
-  if (!ep) return notFound(c, '剧集不存在')
-  // FR-P0-1/FR-BIZ-1: 删除需显式二次确认；级联终止该集在途生成任务（重启清扫同语义）
+  if (!ep || ep.deletedAt) return notFound(c, '剧集不存在')
   const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
   if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
-    return badRequest(c, '删除剧集需要二次确认：请携带 confirm=true（query 或 body）重试')
+    return badRequest(c, '删除剧集需要二次确认：请携带 confirm=true（query 或 body）重试。此操作不可恢复，将级联删除该集分镜与生成产物')
   }
-  await db.update(schema.episodes).set({ deletedAt: now(), updatedAt: now() })
-    .where(eq(schema.episodes.id, id))
-  const res = await db.update(schema.sysTask)
-    .set({ status: 'failed', errorMsg: '所属剧集已删除，任务中断', updatedAt: now() })
-    .where(and(
-      eq(schema.sysTask.episodeId, id),
-      eq(schema.sysTask.status, 'processing'),
-    ))
-  console.log(`[episodes] episode ${id} soft-deleted, aborted tasks: ${(res as unknown as { changes?: number })?.changes ?? 0}`)
-  return success(c)
+  const result = await cascadeDeleteEpisode(id)
+  return success(c, { cascaded: result.rows, files: result.files })
 })
 
 // POST /episodes/:id/rollback-script — 回退上一版剧本（FR-BIZ-3）
@@ -357,6 +354,54 @@ app.get('/:id/pipeline-status', async (c) => {
       generate_videos: { status: stepStatus(sbsWithVideo.length === sbs.length && sbs.length > 0, sbsWithVideo.length > 0), completed: sbsWithVideo.length, total: sbs.length },
       merge_episode: { status: latestMerge?.status === 'completed' ? 'done' : (latestMerge ? latestMerge.status : 'pending'), merged_url: latestMerge?.mergedUrl },
     },
+  })
+})
+
+// GET /episodes/:id/events — Agent 级事件流 SSE（FR-P1-1 补齐）
+// 回放历史 + tail 跟踪；tail 期间收到 agent_finished(ok) 后短暂静默即 end（Agent
+// 链路无 sys_task 终态行，以最后一条 agent_finished 作为流结束信号）
+app.get('/:id/events', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [ep] = await db.select({ id: schema.episodes.id }).from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return badRequest(c, '剧集不存在')
+
+  const lastId = Number(c.req.header('Last-Event-ID') || c.req.query('lastEventId') || 0)
+  return streamSSE(c, async (stream) => {
+    let cursor = Number.isFinite(lastId) ? lastId : 0
+    let open = true
+    stream.onAbort(() => { open = false })
+
+    // 阶段 1：回放历史事件（Last-Event-ID 续传 / 重连补发）
+    for (;;) {
+      const events = await readEpisodeEvents(id, cursor)
+      for (const e of events) {
+        await stream.writeSSE({ id: String(e.id), event: e.type, data: formatTaskEvent(e) })
+        cursor = e.id
+      }
+      if (events.length < 100) break
+    }
+
+    // 阶段 2：tail 跟踪。agent_finished(ok=true) 后再等 3s 静默（补发收尾事件）即 end；
+    // 无 finished 信号则长尾跟踪（客户端断开即止）
+    let finished = false
+    let quietSince: number | null = null
+    for (;;) {
+      if (!open) return
+      const tail = await readEpisodeEvents(id, cursor, 20)
+      if (tail.length) {
+        for (const e of tail) {
+          await stream.writeSSE({ id: String(e.id), event: e.type, data: formatTaskEvent(e) })
+          cursor = e.id
+          if (e.type === 'agent_finished') { finished = true; quietSince = Date.now() }
+        }
+        continue
+      }
+      if (finished && quietSince && Date.now() - quietSince > 3000) {
+        await stream.writeSSE({ id: 'end', event: 'end', data: JSON.stringify({ done: true }) })
+        return
+      }
+      await stream.sleep(1000)
+    }
   })
 })
 

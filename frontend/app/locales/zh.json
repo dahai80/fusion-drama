@@ -198,7 +198,7 @@
       "added": "已添加新集"
     },
     "epDelete": {
-      "message": "确定删除「{title}」？删除后不可在列表中查看，其分镜与生成记录将不再可访问。"
+      "message": "确定删除「{title}」？此操作不可恢复：该集分镜、生成任务与产物文件（含视频）将被级联删除，请先备份。"
     },
     "assets": {
       "emptyTitle": "还没有任何素材",
@@ -790,7 +790,8 @@
       "confirmStart": "开始生成 ({n})",
       "selectMissing": "选未生成",
       "aspectRatio": "画面比例",
-      "genStarted": "已开始生成"
+      "genStarted": "已开始生成",
+      "queuePosition": "排队中 · 第 {n} 位"
     },
     "inspector": {
       "videoPromptPlaceholder": "用 {'@'}角色名 / {'@'}场景名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…",

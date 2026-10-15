@@ -37,6 +37,19 @@ export const MIGRATIONS: Migration[] = [
         )`,
         'CREATE INDEX IF NOT EXISTS idx_sys_task_events_task_id ON sys_task_events (task_id, seq)',
     ] },
+
+    // v4 FR-P1-1 补齐：Agent 级事件（thinking/tool_call/tool_result）挂在 episode 维度——
+    // Agent 链路（提取/分镜/提示词）没有 sys_task 行，事件以 episodeId 归组回放
+    { version: 4, name: 'task-events-episode-dim', statements: [
+        'ALTER TABLE sys_task_events ADD COLUMN episode_id INTEGER',
+        'CREATE INDEX IF NOT EXISTS idx_sys_task_events_episode_id ON sys_task_events (episode_id, id)',
+    ] },
+
+    // v5 PRD §10.2 度量：重试溯源——重发失败任务时带 retry_of（原任务 id），
+    // 聚合接口统计「失败后重试成功率」（成功=retry_of 链上出现 completed）
+    { version: 5, name: 'task-retry-of', statements: [
+        'ALTER TABLE sys_task ADD COLUMN retry_of INTEGER',
+    ] },
 ]
 
 const MAX_BACKUPS = 10

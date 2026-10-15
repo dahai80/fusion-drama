@@ -50,10 +50,16 @@ test('FR-P0-5b: merge reentry guard', () => {
 test('FR-P0-1b/BIZ-1: destructive deletes require confirm + cascade', () => {
     const dramas = read('routes/dramas.ts')
     assert.match(dramas, /confirm=true（query 或 body）/)
-    assert.match(dramas, /eq\(schema\.episodes\.dramaId, id\)/)
+    assert.match(dramas, /cascadeDeleteDrama\(id\)/)
     const episodes = read('routes/episodes.ts')
     assert.match(episodes, /confirm=true（query 或 body）/)
-    assert.match(episodes, /所属剧集已删除，任务中断/)
+    assert.match(episodes, /cascadeDeleteEpisode\(id\)/)
+    // 级联清理落在 utils/cascade.ts：DB 行删除 + 产物文件删除（jail 断言）
+    const cascade = read('utils/cascade.ts')
+    assert.match(cascade, /export async function cascadeDeleteDrama/)
+    assert.match(cascade, /export async function cascadeDeleteEpisode/)
+    assert.match(cascade, /deleteStoredFile\(p\)/)
+    assert.match(cascade, /sysTask/)
 })
 
 test('NFR-OPS-3: versioned migrations with auto backup', () => {
@@ -113,4 +119,53 @@ test('NFR-OPS-2: health self-check fields', () => {
     assert.match(s, /schemaVersion/)
     assert.match(s, /storageWritable/)
     assert.match(s, /engineOk/)
+})
+
+test('FR-P1-1 gap: agent-level events (episode dim) — tool instrumentation + SSE', () => {
+    const mig = read('db/migrations.ts')
+    assert.match(mig, /version: 4, name: 'task-events-episode-dim'/)
+    assert.match(mig, /episode_id INTEGER/)
+    const util = read('utils/task-events.ts')
+    assert.match(util, /export async function appendEpisodeEvent/)
+    assert.match(util, /export async function readEpisodeEvents/)
+    const agents = read('agents/index.ts')
+    assert.match(agents, /function instrumentTools/)
+    assert.match(agents, /appendEpisodeEvent\(episodeId, 'tool_call'/)
+    assert.match(agents, /appendEpisodeEvent\(episodeId, 'tool_result'/)
+    const ep = read('routes/episodes.ts')
+    assert.match(ep, /app\.get\('\/:id\/events'/)
+    assert.match(ep, /readEpisodeEvents/)
+    const chat = read('routes/agent.ts')
+    assert.match(chat, /appendEpisodeEvent\(episode_id, 'agent_started'/)
+    assert.match(chat, /appendEpisodeEvent\(episode_id, 'agent_finished'/)
+})
+
+test('FR-BIZ-6 gap: backup bundles DB + storage (tar.gz)', () => {
+    const s = read('routes/storage.ts')
+    assert.match(s, /bundle-\$\{stamp\}\.tar\.gz/)
+    assert.match(s, /STORAGE_ROOT/)
+    assert.match(s, /includes: \['database', 'static'\]/)
+    // tar 不可用时退化为仅 DB 快照（不 hard fail）
+    assert.match(s, /DB-only backup kept/)
+})
+
+test('NFR-REL-4 gap: queue position feedback + queue depth endpoint', () => {
+    const q = read('services/gpu-queue.ts')
+    assert.match(q, /onQueued\?: \(position: number\) => void/)
+    assert.match(q, /opts\.onQueued\?\.\(queueDepth\)/)
+    const gen = read('services/generation.ts')
+    assert.match(gen, /appendTaskEvent\(id, 'queued', \{ position \}\)/)
+    const routes = read('routes/tasks.ts')
+    assert.match(routes, /app\.get\('\/queue'/)
+    assert.match(routes, /gpuQueueDepth\(\)/)
+})
+
+test('PRD §10.2 gap: retry provenance + retry-stats endpoint', () => {
+    const mig = read('db/migrations.ts')
+    assert.match(mig, /version: 5, name: 'task-retry-of'/)
+    assert.match(mig, /ADD COLUMN retry_of INTEGER/)
+    const routes = read('routes/tasks.ts')
+    assert.match(routes, /app\.get\('\/retry-stats'/)
+    assert.match(routes, /retrySuccessRate/)
+    assert.match(routes, /retryOf: body\.retry_of/)
 })

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { eq, and, desc, or, gt, asc } from 'drizzle-orm'
+import { eq, and, desc, or, gt, asc, sql } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { readTaskEvents, formatTaskEvent } from '../utils/task-events.js'
@@ -9,6 +9,7 @@ import { getActiveConfig, getConfigById } from '../services/ai.js'
 import { deleteStoredFile } from '../utils/storage.js'
 import { getDramaStylePrompt } from '../services/style-preset.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
+import { gpuQueueDepth } from '../services/gpu-queue.js'
 
 const app = new Hono()
 
@@ -229,6 +230,7 @@ app.post('/', async (c) => {
         referenceImages: body.reference_images,
         frameType: body.frame_type,
         configId,
+        retryOf: body.retry_of ? Number(body.retry_of) : undefined,
       })
       : await generateVideo({
         storyboardId: body.storyboard_id,
@@ -253,6 +255,7 @@ app.post('/', async (c) => {
         watermark: videoBody!.watermark,
         videoPipeline: videoBody!.video_pipeline,
         configId,
+        retryOf: body.retry_of ? Number(body.retry_of) : undefined,
       })
 
     const [record] = await db.select().from(schema.sysTask)
@@ -263,6 +266,39 @@ app.post('/', async (c) => {
     logTaskError('TaskAPI', 'generate', { type, error: err.message })
     return badRequest(c, err.message)
   }
+})
+
+// GET /tasks/queue — GPU 串行队列深度（NFR-REL-4 排队反馈：前端展示排队中）
+app.get('/queue', (c) => {
+  return success(c, { depth: gpuQueueDepth() })
+})
+
+// GET /tasks/retry-stats — 重试成功率度量（PRD §10.2：失败后重试成功率 ≥90%）
+// 口径：retry_of 非空的任务为「重试任务」；其 status=completed 计成功。
+// 基线=全部失败任务（distinct 原任务），展示有重试动作的覆盖率
+app.get('/retry-stats', async (c) => {
+  const retried = await db
+    .select({ retryOf: schema.sysTask.retryOf, status: schema.sysTask.status })
+    .from(schema.sysTask)
+    .where(sql`${schema.sysTask.retryOf} IS NOT NULL`)
+  const succeeded = retried.filter(r => r.status === 'completed').length
+  const failedTasks = await db
+    .select({ count: sql<number>`COUNT(DISTINCT ${schema.sysTask.retryOf})` })
+    .from(schema.sysTask)
+    .where(sql`${schema.sysTask.retryOf} IS NOT NULL`)
+  const retriedOrigins = Number(failedTasks[0]?.count || 0)
+  const allFailed = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(schema.sysTask)
+    .where(eq(schema.sysTask.status, 'failed'))
+  const totalFailed = Number(allFailed[0]?.count || 0)
+  return success(c, {
+    retries: retried.length,
+    retrySucceeded: succeeded,
+    retrySuccessRate: retried.length ? Math.round((succeeded / retried.length) * 100) : null,
+    failedTasksTotal: totalFailed,
+    failedTasksRetried: retriedOrigins,
+  })
 })
 
 // GET /tasks/:id — 轮询任务状态

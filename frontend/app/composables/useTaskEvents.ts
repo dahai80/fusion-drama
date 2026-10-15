@@ -15,20 +15,26 @@ export interface TaskEvent {
 export function useTaskEvents() {
     let controller: AbortController | null = null
 
-    async function connect(taskId: number | string, onEvent: (e: TaskEvent) => void, onEnd?: () => void) {
+    /**
+     * 连接事件流。kind='task'（默认）走 /tasks/:id/events——任务级生命周期；
+     * kind='episode' 走 /episodes/:id/events——Agent 级事件（tool_call/tool_result/
+     * agent_started/agent_finished，FR-P1-1）。两者 SSE 帧格式一致。
+     */
+    async function connect(targetId: number | string, onEvent: (e: TaskEvent) => void, onEnd?: () => void, kind: 'task' | 'episode' = 'task') {
         stop()
         controller = new AbortController()
         const token = localStorage.getItem('FUSION_API_TOKEN') || ''
         const headers: Record<string, string> = { Accept: 'text/event-stream' }
         if (token) headers.Authorization = `Bearer ${token}`
         let cursor = ''
+        const base = kind === 'episode' ? `/api/v1/episodes/${targetId}/events` : `/api/v1/tasks/${targetId}/events`
 
         const run = async () => {
             while (controller && !controller.signal.aborted) {
                 try {
                     const url = cursor
-                        ? `/api/v1/tasks/${taskId}/events?lastEventId=${encodeURIComponent(cursor)}`
-                        : `/api/v1/tasks/${taskId}/events`
+                        ? `${base}?lastEventId=${encodeURIComponent(cursor)}`
+                        : base
                     const resp = await fetch(url, { headers, signal: controller.signal })
                     if (!resp.ok || !resp.body) throw new Error(`SSE HTTP ${resp.status}`)
                     const reader = resp.body.getReader()

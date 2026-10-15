@@ -198,7 +198,7 @@
       "added": "Episode added"
     },
     "epDelete": {
-      "message": "Delete “{title}”? It will be hidden from the list and its storyboards and generation records will no longer be accessible."
+      "message": "Delete \"{title}\"? This cannot be undone: this episode's storyboards, generation tasks and artifact files (including videos) will be removed. Back up first."
     },
     "assets": {
       "emptyTitle": "No assets yet",
@@ -790,7 +790,8 @@
       "confirmStart": "Start ({n})",
       "selectMissing": "Select without video",
       "aspectRatio": "Aspect Ratio",
-      "genStarted": "Generation started"
+      "genStarted": "Generation started",
+      "queuePosition": "Queued · position {n}"
     },
     "inspector": {
       "videoPromptPlaceholder": "Reference assets with {'@'}character / {'@'}scene — auto-mapped to reference images on generation; then describe motion and camera per time segment…",
