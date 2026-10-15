@@ -62,5 +62,17 @@ test('episodes route exposes async extract endpoints', () => {
   assert.match(route, /startExtraction\(ep\.id, ep\.dramaId, target, \{ model: body\.model/)
   // 顶栏文本模型覆盖透传到提取 Agent
   assert.match(read('src/services/extraction.ts'), /modelOverride: opts\.model/)
-  assert.match(route, /getExtractionStatus\(id\)/)
+  // issue #3：状态查询为 async（await），无内存态时回退读 sys_task——重启后前端可见终态
+  assert.match(route, /await getExtractionStatus\(id\)/)
+})
+
+test('extraction status falls back to sys_task when memory is gone (issue #3)', () => {
+  const svc = read('src/services/extraction.ts')
+
+  // 落库 type=extract（运行态双轨：内存 Map + sys_task 行）
+  assert.match(svc, /type: 'extract'/)
+  // getExtractionStatus 变 async，内存缺失的类型回退查 DB 最近行
+  assert.match(svc, /export async function getExtractionStatus/)
+  assert.match(svc, /eq\(schema\.sysTask\.type, 'extract'\)/)
+  assert.match(svc, /hit\.status === 'completed' \? 'done' : hit\.status === 'failed' \? 'error'/)
 })

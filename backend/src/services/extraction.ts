@@ -3,7 +3,8 @@
  * 角色 / 场景 / 道具 可分别单独提取，三类共享 GPU 串行队列（与媒体生成同锁）：
  * 并发 3 个 Agent 打 Qwen3.5 + FLUX 常驻 → GPU 争用 → Metal command buffer 崩溃 →
  * fusion-mlx SIGTERM 挂死。串行化后任意时刻仅一个 GPU 密集任务运行。
- * 任务状态为进程内内存态：后端重启后运行中的任务状态丢失（Agent 调用本身已被中断）
+ * 任务状态双轨：运行态在进程内 Map（去重+实时），同时落 sys_task（type=extract）——
+ * 重启后启动清扫统一标 failed，状态查询回退读 DB，前端不再「查无此任务」
  */
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
@@ -12,7 +13,7 @@ import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWar
 import { enqueueGpuWork } from './gpu-queue.js'
 import { getActiveConfig, getTextProviderBaseUrl } from './ai.js'
 import { db, getInsertId, schema } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 
 export type ExtractTarget = 'characters' | 'scenes' | 'props'
 export const EXTRACT_TARGETS: ExtractTarget[] = ['characters', 'scenes', 'props']
@@ -371,9 +372,33 @@ export async function startExtraction(episodeId: number, dramaId: number, target
   return true
 }
 
-/** 查询某集三类资产的提取任务状态（未启动过的类型为 null） */
-export function getExtractionStatus(episodeId: number): Record<ExtractTarget, ExtractTask | null> {
+/** 查询某集三类资产的提取任务状态：内存优先（运行中实时），无内存态回退读 sys_task
+ *  最近一行（重启后启动清扫已把 processing 标 failed，此处返回终态让前端看到
+ *  「已中断，请重试」而非「未启动」——任务本身早已落 sys_task，见 startExtraction） */
+export async function getExtractionStatus(episodeId: number): Promise<Record<ExtractTarget, ExtractTask | null>> {
   const result = {} as Record<ExtractTarget, ExtractTask | null>
-  for (const target of EXTRACT_TARGETS) result[target] = tasks.get(keyOf(episodeId, target)) || null
+  const missing = EXTRACT_TARGETS.filter(t => !tasks.get(keyOf(episodeId, t)))
+  for (const target of EXTRACT_TARGETS) {
+    const mem = tasks.get(keyOf(episodeId, target))
+    if (mem) result[target] = mem
+  }
+  if (!missing.length) return result
+
+  const rows = await db.select().from(schema.sysTask)
+    .where(and(eq(schema.sysTask.type, 'extract'), eq(schema.sysTask.episodeId, episodeId)))
+    .orderBy(desc(schema.sysTask.id))
+    .limit(30)
+  for (const target of missing) {
+    const hit = rows.find(r => {
+      try { return JSON.parse(r.params || '{}').target === target } catch { return false }
+    })
+    if (!hit) { result[target] = null; continue }
+    result[target] = {
+      status: hit.status === 'completed' ? 'done' : hit.status === 'failed' ? 'error' : 'running',
+      started_at: hit.createdAt,
+      finished_at: hit.updatedAt || undefined,
+      error: hit.errorMsg || undefined,
+    }
+  }
   return result
 }

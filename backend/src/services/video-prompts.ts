@@ -1,9 +1,10 @@
 /**
  * 批量视频提示词任务 — 异步为缺少 video_prompt 的分镜逐个运行 prompt_generator Agent
- * 进程内内存态：按集跟踪一份任务，运行中不重复启动；重启后状态丢失
+ * 运行态在内存 Map（去重 + 进度计数），同时落 sys_task（type=video_prompt）持久化：
+ * 重启后启动清扫统一标 failed，状态查询回退读 DB——前端不再「永远查无此任务」
  */
-import { eq } from 'drizzle-orm'
-import { db, schema } from '../db/index.js'
+import { and, desc, eq } from 'drizzle-orm'
+import { db, getInsertId, schema } from '../db/index.js'
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { enqueueGpuWork } from './gpu-queue.js'
@@ -21,6 +22,36 @@ export interface VideoPromptBatchStatus {
 }
 
 const tasks = new Map<number, VideoPromptBatchStatus>()
+
+/** sys_task 行 → 状态对象（重启后 DB 回读用） */
+function statusFromRow(row: typeof schema.sysTask.$inferSelect): VideoPromptBatchStatus {
+    let params: any = {}
+    try { params = JSON.parse(row.params || '{}') } catch { /* 损坏 params 按空处理 */ }
+    return {
+        status: row.status === 'completed' ? 'done' : row.status === 'failed' ? 'error' : 'running',
+        total: Number(params.total || 0),
+        completed: Number(params.completed || 0),
+        failed: Number(params.failed || 0),
+        started_at: row.createdAt,
+        finished_at: row.updatedAt || undefined,
+        error: row.errorMsg || undefined,
+    }
+}
+
+/** 批次进度回写 sys_task（params 内含 total/completed/failed 计数） */
+async function writeBatchProgress(dbTaskId: number | undefined, task: VideoPromptBatchStatus, terminal?: { status: 'completed' | 'failed'; errorMsg?: string }) {
+    if (!dbTaskId) return
+    try {
+        await db.update(schema.sysTask).set({
+            params: JSON.stringify({ total: task.total, completed: task.completed, failed: task.failed }),
+            ...(terminal
+                ? { status: terminal.status, errorMsg: terminal.errorMsg ?? null, resultUrl: `完成 ${task.completed}/${task.total}，失败 ${task.failed}`, updatedAt: new Date().toISOString() }
+                : { updatedAt: new Date().toISOString() }),
+        }).where(eq(schema.sysTask.id, dbTaskId))
+    } catch (e: any) {
+        logTaskError('VideoPrompt', 'batch-progress-write', { dbTaskId, error: e?.message })
+    }
+}
 
 /** 启动批量生成（立即返回）；运行中返回 started:false,total:-1；无待生成分镜返回 started:false,total:0；
  *  传入 storyboardIds 时只处理所选分镜（即使已有提示词也重新生成），否则处理全部缺失提示词的分镜 */
@@ -61,7 +92,31 @@ export async function startVideoPromptBatch(
   }
 
   const task: VideoPromptBatchStatus = tasks.get(episodeId)!
-  logTaskStart('VideoPrompt', 'batch', { episodeId, dramaId, total: pending.length, model: opts.model || undefined })
+
+  // 落 sys_task：type=video_prompt（不进媒体生成队列，批次自管生命周期），
+  // episode_id 供任务面板 /episodes/:id/generation-tasks 聚合过滤；
+  // params 持久化 total/completed/failed 计数供重启后状态回读
+  let dbTaskId: number | undefined
+  try {
+    const ts = new Date().toISOString()
+    task.total = pending.length
+    const insertRes = await db.insert(schema.sysTask).values({
+      type: 'video_prompt',
+      dramaId,
+      episodeId,
+      prompt: `视频提示词批量 ×${pending.length}`,
+      model: opts.model || null,
+      params: JSON.stringify({ total: pending.length, completed: 0, failed: 0 }),
+      status: 'processing',
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    dbTaskId = getInsertId(insertRes)
+  } catch (err: any) {
+    logTaskError('VideoPrompt', 'batch-db-insert', { episodeId, error: err?.message })
+  }
+
+  logTaskStart('VideoPrompt', 'batch', { episodeId, dramaId, total: pending.length, model: opts.model || undefined, dbTaskId })
   // 批量提示词生成与图片/视频任务共用 GPU 串行队列——prompt_generator 的
   // agent.generate 打文本模型（Qwen3.5 decode burst），与 LTX-2.5/FLUX 并发会
   // GPU 争用触发 Metal crash（见 gpu-queue.ts 注释），整个批次占锁一次，内部逐分镜串行
@@ -94,6 +149,7 @@ export async function startVideoPromptBatch(
         task.failed++
         logTaskError('VideoPrompt', 'batch-shot', { storyboardId: sb.id, error: err?.message })
       }
+      await writeBatchProgress(dbTaskId, task)
     }
   })
     .then(() => {
@@ -101,16 +157,29 @@ export async function startVideoPromptBatch(
       task.finished_at = new Date().toISOString()
       task.current_storyboard_id = undefined
       logTaskSuccess('VideoPrompt', 'batch', { episodeId, total: task.total, completed: task.completed, failed: task.failed })
+      // 全部失败才标 failed（errorMsg 带汇总），部分成功标 completed（resultUrl 带汇总）
+      void writeBatchProgress(dbTaskId, task, task.completed === 0
+        ? { status: 'failed', errorMsg: `批量生成失败：${task.failed}/${task.total} 个分镜未生成提示词` }
+        : { status: 'completed' })
     })
     .catch((err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
       task.error = err?.message || '批量生成失败'
       logTaskError('VideoPrompt', 'batch', { episodeId, error: err?.message })
+      void writeBatchProgress(dbTaskId, task, { status: 'failed', errorMsg: err?.message || '批量生成失败' })
     })
   return { started: true, total: pending.length }
 }
 
-export function getVideoPromptBatchStatus(episodeId: number): VideoPromptBatchStatus | null {
-  return tasks.get(episodeId) || null
+/** 查询批量任务状态：内存优先（运行中实时计数），无内存态时回退读 sys_task 最近一行
+ *  （重启后启动清扫已把 processing 标 failed，此处返回终态让前端看到「已中断」而非「未启动」） */
+export async function getVideoPromptBatchStatus(episodeId: number): Promise<VideoPromptBatchStatus | null> {
+  const mem = tasks.get(episodeId)
+  if (mem) return mem
+  const [row] = await db.select().from(schema.sysTask)
+    .where(and(eq(schema.sysTask.type, 'video_prompt'), eq(schema.sysTask.episodeId, episodeId)))
+    .orderBy(desc(schema.sysTask.id))
+    .limit(1)
+  return row ? statusFromRow(row) : null
 }

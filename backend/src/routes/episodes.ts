@@ -197,7 +197,7 @@ app.post('/:id/extract', async (c) => {
 // GET /episodes/:id/extract-status — 查询三类资产提取任务状态
 app.get('/:id/extract-status', async (c) => {
   const id = Number(c.req.param('id'))
-  return success(c, getExtractionStatus(id))
+  return success(c, await getExtractionStatus(id))
 })
 
 // POST /episodes/:id/storyboard-breakdown — 异步分镜拆解（直接 LLM，绕过 Mastra Agent），立即返回
@@ -227,7 +227,7 @@ app.post('/:id/generate-video-prompts', async (c) => {
 // GET /episodes/:id/video-prompts-status — 查询批量视频提示词任务状态
 app.get('/:id/video-prompts-status', async (c) => {
   const id = Number(c.req.param('id'))
-  return success(c, getVideoPromptBatchStatus(id))
+  return success(c, await getVideoPromptBatchStatus(id))
 })
 
 // GET /episodes/:episode_id/storyboards
