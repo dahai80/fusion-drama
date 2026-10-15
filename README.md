@@ -125,6 +125,8 @@ No config files — everything is set via environment variables (all have defaul
 | `FRONTEND_DIST` | `frontend/dist` | Frontend static build directory |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | bundled npm binaries | Custom ffmpeg/ffprobe executable paths |
 | `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
+| `FUSION_API_TOKEN` | — | Server-mode API token. **Required (≥32 chars)**: the server refuses to start on weaker tokens unless `FUSION_BIND_HOST` is set. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
+| `FUSION_BIND_HOST` | — | Set to mark a loopback-only deployment and bypass the token enforcement above |
 
 > **Note**: AI service API keys, base URLs, and model parameters are all configured in the web UI "Settings" page and stored in the database — never in config files or environment variables.
 
@@ -182,7 +184,9 @@ Visit: `http://localhost:5679`
 
 ### 🗄️ Database
 
-Bundled SQLite (`better-sqlite3` + WAL mode). Tables are created automatically on first launch (idempotent DDL replay + seed data). Default file: `data/fusion.sqlite3`, overridable via `SQLITE_PATH`. The desktop app stores data in the user-data directory (`~/Library/Application Support/FusionDrama/data/`).
+Bundled SQLite (`better-sqlite3` + WAL mode). Tables are created automatically on first launch (idempotent DDL replay + seed data). Schema upgrades run through versioned migrations (`PRAGMA user_version`), each taking an automatic `VACUUM INTO` backup under `data/backups/` first (last 10 kept). Default file: `data/fusion.sqlite3`, overridable via `SQLITE_PATH`. The desktop app stores data in the user-data directory (`~/Library/Application Support/FusionDrama/data/`).
+
+Server/Docker deployments can trigger a manual snapshot from the web UI (Settings → Storage → Backup; kept under `data/backups/`, last 10).
 
 Migrating data from a legacy MySQL deployment:
 

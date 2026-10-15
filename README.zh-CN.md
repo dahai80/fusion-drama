@@ -124,6 +124,7 @@ data/       — 生成资源文件与 SQLite 数据库
 | `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
 | `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
+| `FUSION_API_TOKEN` | — | 服务器模式 API 令牌。**必填（≥32 字符）**：令牌过弱时服务器拒绝启动，除非设置 `FUSION_BIND_HOST`。前端以 `Bearer` 方式携带（设置页 → 通用中配置一次，存 localStorage） |
 
 > **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
 
@@ -181,6 +182,8 @@ cd ../backend && npm start
 ### 🗄️ 数据库
 
 内置 SQLite（`better-sqlite3` + WAL 模式），数据库表在首次启动时自动创建（幂等重放 DDL 与种子数据），默认文件位于 `data/fusion.sqlite3`，可通过 `SQLITE_PATH` 重定向。桌面版数据存放在用户数据目录（`~/Library/Application Support/FusionDrama/data/`）。
+
+数据库结构升级通过版本化迁移（`PRAGMA user_version`）执行，每次 DDL 前自动 `VACUUM INTO` 快照备份到 `data/backups/`（保留最近 10 份）。服务器/Docker 部署可在网页端手动备份（设置 → 存储 → 立即备份）。
 
 从旧版 MySQL 迁移数据：
 
