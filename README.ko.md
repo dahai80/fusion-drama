@@ -477,6 +477,7 @@ A: 백엔드는 최초 시작 시 모든 테이블을 자동으로 생성합니�
 
 라이선스 전문은 [LICENSE](LICENSE)를 참조하세요.
 
+- 📦 서드파티 컴포넌트 및 라이선스(ffmpeg-static 으로 번들되는 GPL FFmpeg 포함): [NOTICE](NOTICE) 참조
 ---
 
 ## 🤝 기여 가이드

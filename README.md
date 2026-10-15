@@ -476,6 +476,7 @@ This project is licensed under the **[Apache License 2.0](LICENSE)**.
 
 Full license text: see [LICENSE](LICENSE).
 
+- 📦 Third-party components and their licenses (including the GPL-licensed FFmpeg bundled via ffmpeg-static): see [NOTICE](NOTICE)
 ---
 
 ## 🤝 Contributing

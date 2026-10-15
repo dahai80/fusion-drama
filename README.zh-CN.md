@@ -476,6 +476,7 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 
 许可证全文见 [LICENSE](LICENSE)。
 
+- 📦 第三方组件及其许可证（含通过 ffmpeg-static 打包的 GPL FFmpeg）：见 [NOTICE](NOTICE)
 ---
 
 ## 🤝 贡献指南
