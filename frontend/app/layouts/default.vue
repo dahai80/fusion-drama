@@ -29,7 +29,7 @@
       <div class="header-right">
         <a
           class="github-link"
-          href="https://github.com/chatfire-AI/fusion-drama"
+          href="https://github.com/fusion-drama/fusion-drama"
           target="_blank"
           rel="noopener"
           aria-label="GitHub"

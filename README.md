@@ -6,21 +6,19 @@
 
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![Download](https://img.shields.io/github/v/release/chatfire-AI/fusion-drama?style=flat&logo=github&label=Download)](https://github.com/chatfire-AI/fusion-drama/releases/latest)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/fusion-drama/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/fusion-drama/fusion-drama/releases)
 
 **English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Desktop App](#-desktop-app-recommended) • [Deployment](#-deployment)
 
-<h2>🔑 <a href="https://api.firemux.com">Get a Fusion API Key 👉 Get started</a></h2>
+<h2>🔑 <a href="https://bench.dpdns.org">Get a Fusion API Key 👉 Get started</a></h2>
 
 **Text, image, and video AI capabilities — one key unlocks everything**
 
 After deploying, paste the key in "Settings → Fusion Quick Setup" to write three recommended configs in one click
 
-<h3>📥 <a href="https://github.com/chatfire-AI/fusion-drama/releases/latest">Download Desktop App (macOS / Windows)</a></h3>
-<h3>🌐 <a href="https://www.chatfire.site">Official Website</a></h3>
 
 </div>
 
@@ -134,7 +132,7 @@ No config files — everything is set via environment variables (all have defaul
 
 ```bash
 # Clone the repository
-git clone https://github.com/chatfire-AI/fusion-drama.git
+git clone https://github.com/fusion-drama/fusion-drama.git
 cd fusion-drama
 
 # Install backend dependencies
@@ -202,7 +200,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 All AI features (text/image/video) require model services to be configured first — a banner at the top of the page guides you until then:
 
 1. Open the "Settings" page
-2. Paste your Fusion API key in "Fusion Quick Setup" ([get one at api.firemux.com](https://api.firemux.com)) to write three recommended configs (text, image, video) in one click
+2. Paste your Fusion API key in "Fusion Quick Setup" ([get one at bench.dpdns.org](https://bench.dpdns.org)) to write three recommended configs (text, image, video) in one click
 3. Or add providers one by one via "Manual Templates", with connectivity testing
 
 Once configured, the banner disappears and you can start producing episodes.
@@ -249,28 +247,7 @@ The episode list shows the production status of every episode — click "Enter S
 
 ### 🖥️ Desktop App (recommended)
 
-**⬇️ Prebuilt installers: [GitHub Releases](https://github.com/chatfire-AI/fusion-drama/releases/latest) · [Mirror for China (Tencent COS)](https://installer.chatfire.site/fusion-drama/v4.0.4/)**
-
-| Platform | File to download |
-|---|---|
-| macOS (Apple Silicon, M-series) | `FusionDrama-4.0.4-arm64.dmg` |
-| macOS (Intel) | `FusionDrama-4.0.4.dmg` |
-| Windows | `FusionDrama.Setup.4.0.4.exe` |
-
-> China users: use the COS mirror above (GitHub is slow/unreachable in mainland China). The in-app updater also checks the COS mirror first, then falls back to GitHub.
-
-**Command-line install (recommended, no Gatekeeper fix needed)**: downloading via curl never sets macOS's quarantine attribute, so the app opens cleanly with no "damaged" prompt (use the `-arm64.dmg` for Apple Silicon, the plain dmg for Intel):
-
-```bash
-curl -L -o /tmp/FusionDrama.dmg https://installer.chatfire.site/fusion-drama/v4.0.4/FusionDrama-4.0.4-arm64.dmg \
-  && hdiutil attach -nobrowse /tmp/FusionDrama.dmg \
-  && cp -R /Volumes/FusionDrama*/FusionDrama.app /Applications/ \
-  && hdiutil detach /Volumes/FusionDrama*
-```
-
-No build required — download the dmg/exe and install. Installed clients auto-update via the built-in updater. (To package from source instead, see the commands below.)
-
-Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
+No prebuilt installers are published yet — build from source:
 
 ```bash
 # One-command packaging (frontend generate → backend esbuild → electron-builder)
@@ -283,18 +260,16 @@ npm run dist:win    # Windows NSIS installer (win-x64, cross-buildable on macOS)
 # desktop/release/FusionDrama Setup <version>.exe     (Windows)
 ```
 
+Double-click to install, works out of the box (macOS + Windows): the SQLite database, generated media, and Agent skills all live in the user-data directory — uninstalling the app does not affect your data.
+
 Installation notes:
 
-- The macOS build is unsigned — on first launch you may see "App is damaged and can't be opened" (common on Apple Silicon). This is Gatekeeper's quarantine attribute, not actual file damage. Two ways to fix it:
-  1. **The dmg bundles a fix script**: after dragging the app into Applications, double-click the "如提示已损坏请双击我.command" script at the bottom of the dmg window — it removes the quarantine attribute automatically;
-  2. Or run `sudo xattr -cr /Applications/FusionDrama.app` in Terminal.
-
-  The fix is one-time only — the app then launches normally, and in-app auto-updates are not affected.
+- The macOS build is unsigned — on first launch you may see "App is damaged and can't be opened" (Gatekeeper quarantine, not actual file damage). Fix: `sudo xattr -cr /Applications/FusionDrama.app` (one-time; launches normally afterwards)
 - The Windows build is unsigned — SmartScreen will prompt "More info → Run anyway"
 - User-data directory: `~/Library/Application Support/FusionDrama/` (database, generated media, writable copies of online-edited skills)
 - FFmpeg/FFprobe binaries are bundled — no system install needed
 - Electron is pinned to 37.x: better-sqlite3's win32 prebuilds max out at that ABI (the key to compilation-free cross-packaging)
-- External links open in the system browser (e.g. "Get a key at api.firemux.com")
+- External links open in the system browser (e.g. "Get a key at bench.dpdns.org")
 
 #### 🔄 In-App Updates (no Apple signing required)
 
@@ -474,99 +449,20 @@ A: The backend creates all tables automatically on first launch — check the lo
 
 ## 📋 Changelog
 
-### v4.1.0 (2026-10)
+### v1.0.0 (2026-10)
 
-#### 🎬 Local Video Generation Pipeline
+First public release. The project started in October 2026 — no earlier versions were published.
 
-- Local video generation via self-hosted [fusion-mlx](https://github.com/dahai80/fusion-mlx): model-aware adapter routing — LTX-2.5 (primary, joint A/V), MiniMax-H3 33B (quality, `dit8_te4` quantization), Wan2.2-TI2V-5B (Chinese-native prompts)
-- MiniMax-H3 Turbo LoRA few-step sampling enabled by default (4 steps, ~2.7x faster than the 8-step baseline)
-- Serial GPU execution queue: image generation, video generation, extraction agents, and agent chat share one lock — concurrent multi-model decode on Apple Silicon causes Metal command buffer failures; the FLUX image model is unloaded after image tasks to free memory
-- TTS dialogue dubbing: storyboard dialogue extracted and voiced via Kokoro TTS, mixed over the original audio track (environmental sound kept, speech in front)
+- Full production pipeline: novel → script rewrite → asset extraction → storyboard breakdown → video generation → FFmpeg merge/export
+- Multi-provider AI: text/image via OpenAI & Gemini; video via Seedance 2.0, Wan 3.0, MiniMax (cloud) plus the **fusion** provider for self-hosted [fusion-mlx](https://github.com/dahai80/fusion-mlx) on Apple Silicon
+- Local video model routing: LTX-2.5 (primary, joint A/V), MiniMax-H3 33B (quality, Turbo LoRA 4-step), Wan2.2-TI2V-5B (Chinese-native prompts)
+- Serial GPU execution queue for all GPU-heavy tasks; FLUX unloaded after image tasks (prevents Metal crashes from concurrent multi-model decode)
+- TTS dialogue dubbing via Kokoro TTS mixed over the generated video
 - Storyboard image auto-injected as the I2V first frame when no reference image is set
-- Wan2.2-TI2V-5B adapter routing (4k+1 frame constraint, short edge 544, UMT5 skips prompt translation)
-- Storyboard duration is now the source of truth for video tasks (fixes dialogue dropped as too long); direct LLM storyboard breakdown with dialogue budget rule
-- Removed the LTX-Video legacy 2B routing (2s cap, no A/V, no practical value)
-- Brand refresh: new Fusion logos and app icons, removed donation/WeChat group materials
-
-### v4.0.0 (2026-08)
-
-#### 🖥️ Desktop App + Database Migration
-
-- Electron desktop app (macOS dmg, arm64/x64 dual architecture)
-  - Double-click install, works out of the box: automatic port selection, single-instance lock, crash-isolated backend subprocess
-  - User-data isolation: SQLite database / generated media / skill copies all live in the userData directory
-  - FFmpeg/FFprobe bundled; workspace skill templates copied on first launch, upgrades only fill gaps without overwriting
-- Database fully migrated from MySQL to SQLite (better-sqlite3 + WAL)
-  - Zero business-code changes (the Drizzle query layer is naturally portable); idempotent DDL replay
-  - New one-shot import script `import-mysql-to-sqlite.ts` (per-table row-count validation + automatic backup)
-- Backend bundled to a single file with esbuild (externals: sharp/better-sqlite3/ffmpeg binary packages)
-- Removed Docker/MySQL deployment (recoverable from git history)
-
-### v3.1.0 (2026-09)
-
-- Added Alibaba Bailian Wan 3.0 video models (Prime / Standard, official `input.media`/`parameters` payloads)
-- Resolution selector in the workbench top bar with native tiers per provider (Seedance 480p/720p, MiniMax 768P/2K, Wan 480P/720P/1080P)
-- Default video model changed to Seedance 2.0 Mini
-- Fixed generation errors caused by provider/model mismatch when switching video models
-- Batch video: selection mode + pre-generation confirmation (shot count / total duration / model / resolution), one-click retry for failed tasks
-- Storyboard duration now editable directly in the video-generation params area, applied to single and batch generation
-- Content-moderation failures (real-person / sensitive content) now prompt to switch models and retry
-
-### v3.0.0 (2026-08)
-
-#### 🚀 Deployment & Experience Improvements
-
-- Docker deployment readiness
-  - MySQL / app health checks; the app waits for the database before starting
-  - Database initialization retries — zero manual intervention on first containerized deploy
-  - Removed the system FFmpeg dependency; bundled binaries everywhere
-  - Agent skills directory volume persistence (online edits in Settings survive)
-  - New `docker/init.sql` and export scripts (DBA review / pre-created tables)
-- First-use guidance
-  - Site-wide banner guiding to Settings when no AI service is configured
-  - New "Fusion Quick Setup" in Settings: one key writes three recommended configs (text/image/video)
-  - Unconfigured-model errors localized with pointers to Settings
-- Default video model changed to Seedance 2.0 Fast
-- Provider consolidation: OpenAI / Gemini / Volcano Engine only
-- Workbench: task-list drawer, pipeline stage status, selective stitching (validates video files exist before merging)
-- Asset library redesign, @mention improvements, episode list rework
-
-### v2.0.0 (2026-04)
-
-#### 🚀 Major Update
-
-- Full migration to a TypeScript stack
-  - Backend: Hono + Drizzle ORM + mysql2
-  - Frontend: Nuxt 3 + Vue 3
-  - AI Agents: Mastra framework
-- Episode workbench UI and production flow rebuilt
-  - More compact console layout
-  - Storyboard editing area rebuilt
-  - Shot image, video, compositing, and export screens rebuilt
-- Docker deployment support — frontend and backend merged into a single image
-- Runtime Skill loading mechanism
-- Expanded multi-provider media adapters
-  - Image: OpenAI, Gemini, Volcano Engine, Alibaba
-  - Video: Volcano Engine/Seedance, Vidu, Alibaba
-- Improved local file handling and on-demand reference-image transcoding
-
-### v1.0.4 (2026-01-27)
-
-- Local storage strategy to avoid dead external asset links
-- Base64 reference-image embedded transport
-- Fixed shot-switch state reset
-- Scene migration to chapters
-
-### v1.0.3 (2026-01-16)
-
-- Database concurrency performance improvements
-- Docker cross-platform support for host.docker.internal
-
-### v1.0.2 (2026-01-14)
-
-- Fixed video-generation API response parsing
-- OpenAI Sora video endpoint configuration
-- Improved error handling and logging
+- Storyboard duration as source of truth for video tasks; direct LLM storyboard breakdown with a dialogue time budget
+- Desktop app (Electron): macOS/Windows packaging, in-app updater, user-data isolation (no prebuilt installers published yet — build from source)
+- Docker server deployment with in-app one-click update (watchtower)
+- Four-language UI (中文 / English / 日本語 / 한국어)
 
 ---
 

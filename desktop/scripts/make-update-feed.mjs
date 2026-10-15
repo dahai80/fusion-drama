@@ -29,7 +29,7 @@ function argOf(flag) {
 
 const pkg = JSON.parse(fs.readFileSync(path.join(DESKTOP, 'package.json'), 'utf8'))
 const version = pkg.version
-const repo = process.env.GITHUB_REPO || 'chatfire-AI/fusion-drama'
+const repo = process.env.GITHUB_REPO || 'fusion-drama/fusion-drama'
 const baseUrl = argOf('--base-url')
   || process.env.UPDATE_BASE_URL
   || `https://github.com/${repo}/releases/download/v${version}`

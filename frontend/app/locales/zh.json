@@ -274,7 +274,7 @@
       "quickTitle": "Fuse快捷配置",
       "recommended": "推荐",
       "quickDesc": "输入 Fusion API Key，一次写入文本、图片、视频三条推荐配置。",
-      "getKey": "前往 api.firemux.com 获取 Key",
+      "getKey": "前往 bench.dpdns.org 获取 Key",
       "applyQuick": "写入Fuse配置",
       "manualTitle": "手动模板",
       "manualDesc": "选择服务类型后，直接用模板填充推荐的 `provider / base URL / model`。",

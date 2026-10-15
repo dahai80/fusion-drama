@@ -85,7 +85,7 @@
             </div>
             <p class="setup-desc">
               {{ t('settings.ai.quickDesc') }}
-              <a class="fusion-site-link" href="https://api.firemux.com" target="_blank" rel="noopener noreferrer">
+              <a class="fusion-site-link" href="https://bench.dpdns.org" target="_blank" rel="noopener noreferrer">
                 {{ t('settings.ai.getKey') }}
                 <ExternalLink :size="12" :stroke-width="1.8" />
               </a>
@@ -757,13 +757,13 @@ const providerPresets = {
   },
 }
 const fusionQuickConfigs = [
-  { service_type: 'text', provider: 'gemini', name: 'Fuse文本服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'], priority: 101 },
-  { service_type: 'text', provider: 'openai', name: 'Fuse文本服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 100 },
-  { service_type: 'image', provider: 'openai', name: 'Fuse图片服务 · OpenAI', base_url: 'https://api.firemux.com', model: ['gpt-image-2'], priority: 99 },
-  { service_type: 'image', provider: 'gemini', name: 'Fuse图片服务 · Gemini', base_url: 'https://api.firemux.com', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
-  { service_type: 'video', provider: 'aliyun', name: 'Fuse视频服务 · Wan 3.0', base_url: 'https://api.firemux.com/qwen', model: ['wan3.0-video', 'wan3.0-video-prime'], priority: 98 },
-  { service_type: 'video', provider: 'volcengine', name: 'Fuse视频服务 · Seedance', base_url: 'https://api.firemux.com/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 97 },
-  { service_type: 'video', provider: 'minimax', name: 'Fuse视频服务 · MiniMax', base_url: 'https://api.firemux.com/minimax', model: ['MiniMax-H3'], priority: 96 },
+  { service_type: 'text', provider: 'gemini', name: 'Fuse文本服务 · Gemini', base_url: 'https://bench.dpdns.org', model: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3-flash-preview'], priority: 101 },
+  { service_type: 'text', provider: 'openai', name: 'Fuse文本服务 · OpenAI', base_url: 'https://bench.dpdns.org', model: ['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6-terra'], priority: 100 },
+  { service_type: 'image', provider: 'openai', name: 'Fuse图片服务 · OpenAI', base_url: 'https://bench.dpdns.org', model: ['gpt-image-2'], priority: 99 },
+  { service_type: 'image', provider: 'gemini', name: 'Fuse图片服务 · Gemini', base_url: 'https://bench.dpdns.org', model: ['gemini-3-pro-image', 'gemini-3.1-flash-image'], priority: 97 },
+  { service_type: 'video', provider: 'aliyun', name: 'Fuse视频服务 · Wan 3.0', base_url: 'https://bench.dpdns.org/qwen', model: ['wan3.0-video', 'wan3.0-video-prime'], priority: 98 },
+  { service_type: 'video', provider: 'volcengine', name: 'Fuse视频服务 · Seedance', base_url: 'https://bench.dpdns.org/volcengine', model: ['doubao-seedance-2-0-mini-260615', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128'], priority: 97 },
+  { service_type: 'video', provider: 'minimax', name: 'Fuse视频服务 · MiniMax', base_url: 'https://bench.dpdns.org/minimax', model: ['MiniMax-H3'], priority: 96 },
 ]
 
 function byType(t) { return cfgs.value.filter(c => c.service_type === t) }

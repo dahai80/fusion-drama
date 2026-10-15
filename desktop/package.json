@@ -1,7 +1,7 @@
 {
   "name": "fusion-drama-desktop",
   "productName": "FusionDrama",
-  "version": "4.0.4",
+  "version": "1.0.0",
   "private": true,
   "description": "Fuse 短剧桌面版（Electron 壳）",
   "author": "Fusion",

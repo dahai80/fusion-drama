@@ -6,21 +6,19 @@
 
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![다운로드](https://img.shields.io/github/v/release/chatfire-AI/fusion-drama?style=flat&logo=github&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C)](https://github.com/chatfire-AI/fusion-drama/releases/latest)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/fusion-drama/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/fusion-drama/fusion-drama/releases)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | **한국어**
 
 [기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [데스크톱 앱](#-데스크톱-앱-권장) • [배포](#-배포)
 
-<h2>🔑 <a href="https://api.firemux.com">Fusion API Key 받기 👉 바로 보기</a></h2>
+<h2>🔑 <a href="https://bench.dpdns.org">Fusion API Key 받기 👉 바로 보기</a></h2>
 
 **텍스트 · 이미지 · 영상 모든 AI 기능, Key 하나로 활성화**
 
 배포 후 「설정 → Fuse快捷 설정」에 Key 를 붙여넣으면 추천 설정 3개가 한 번에 입력됩니다
 
-<h3>📥 <a href="https://github.com/chatfire-AI/fusion-drama/releases/latest">데스크톱 앱 다운로드 (macOS / Windows)</a></h3>
-<h3>🌐 <a href="https://www.chatfire.site">공식 웹사이트</a></h3>
 
 </div>
 
@@ -133,7 +131,7 @@ data/       — 생성된 에셋과 SQLite 데이터베이스
 
 ```bash
 # 저장소 클론
-git clone https://github.com/chatfire-AI/fusion-drama.git
+git clone https://github.com/fusion-drama/fusion-drama.git
 cd fusion-drama
 
 # 백엔드 의존성 설치
@@ -201,7 +199,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 시작 후 모든 AI 기능(텍스트/이미지/영상)을 사용하려면 먼저 모델 서비스를 설정해야 합니다. 미설정 시 페이지 상단에 배너로 안내합니다:
 
 1. 「설정」 페이지 열기
-2. 「Fuse快捷 설정」에 Fusion API Key 붙여넣기([api.firemux.com에서 발급](https://api.firemux.com)). 텍스트, 이미지, 영상 추천 설정 3개가 한 번에 입력됩니다
+2. 「Fuse快捷 설정」에 Fusion API Key 붙여넣기([bench.dpdns.org에서 발급](https://bench.dpdns.org)). 텍스트, 이미지, 영상 추천 설정 3개가 한 번에 입력됩니다
 3. 또는 「수동 템플릿」으로 프로바이더별 추가. 연결 테스트 지원
 
 설정이 완료되면 배너가 자동으로 사라지고 에피소드 제작을 시작할 수 있습니다.
@@ -248,33 +246,14 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 데스크톱 앱(권장)
 
-**⬇️ 빌드된 설치 파일: [GitHub Releases](https://github.com/chatfire-AI/fusion-drama/releases/latest) · [중국용 미러(Tencent COS)](https://installer.chatfire.site/fusion-drama/v4.0.4/)**
+### 🖥️ 데스크톱 앱(권장)
 
-| 플랫폼 | 다운로드 파일 |
-|---|---|
-| macOS(Apple Silicon, M 시리즈) | `FusionDrama-4.0.4-arm64.dmg` |
-| macOS(Intel) | `FusionDrama-4.0.4.dmg` |
-| Windows | `FusionDrama.Setup.4.0.4.exe` |
-
-> 중국 본토에서는 GitHub이 불안정하므로 Tencent COS 미러를 이용하세요. 앱 내 업데이터도 COS를 우선하고 GitHub으로 폴백합니다.
-
-**커맨드라인 설치(권장, 복구 불필요)**: curl로 다운로드하면 macOS 격리 속성이 붙지 않아 "손상됨" 경고 없이 바로 실행됩니다(Apple Silicon은 `-arm64.dmg`, Intel은 일반 dmg 사용):
-
-```bash
-curl -L -o /tmp/FusionDrama.dmg https://installer.chatfire.site/fusion-drama/v4.0.4/FusionDrama-4.0.4-arm64.dmg \
-  && hdiutil attach -nobrowse /tmp/FusionDrama.dmg \
-  && cp -R /Volumes/FusionDrama*/FusionDrama.app /Applications/ \
-  && hdiutil detach /Volumes/FusionDrama*
-```
-
-빌드 불필요 — dmg/exe를 다운로드해 바로 설치하면 됩니다. 설치된 클라이언트는 내장 업데이터로 자동 업데이트됩니다. (소스에서 직접 패키징하려면 아래 명령을 참조하세요.)
-
-더블클릭 설치로 바로 사용할 수 있는 데스크톱 버전(macOS + Windows). 데이터베이스(SQLite), 생성된 미디어 파일, Agent 스킬은 모두 사용자 데이터 디렉터리에 저장되며 앱을 삭제필필도 데이터에 영향이 없습니다.
+빌드된 설치 파일은 아직 공개되지 않았습니다 — 소스에서 빌드하세요:
 
 ```bash
 # 원커맨드 패키징(프런트엔드 generate → 백엔드 esbuild → electron-builder)
 npm run dist        # macOS dmg(arm64 + Intel)
-npm run dist:win    # Windows NSIS 설치 프로그램(win-x64, macOS에서 크로스 빌드 가능)
+npm run dist:win    # Windows NSIS 인스톨러(win-x64, macOS에서 크로스 빌드 가능)
 
 # 산출물
 # desktop/release/FusionDrama-<버전>-arm64.dmg        (Apple Silicon)
@@ -282,18 +261,16 @@ npm run dist:win    # Windows NSIS 설치 프로그램(win-x64, macOS에서 크�
 # desktop/release/FusionDrama Setup <버전>.exe        (Windows)
 ```
 
+더블클릭으로 설치, 바로 사용 가능합니다(macOS + Windows): SQLite 데이터베이스·생성된 미디어·Agent 스킬은 모두 사용자 데이터 디렉터리에 저장되며, 앱을 제거해도 데이터는 남습니다.
+
 설치 안내:
 
-- macOS 미서명 패키지는 첫 실행 시 "App이 손상되어 열 수 없습니다"라는 메시지가 뜰 수 있습니다(Apple Silicon에서 흔함). 이는 Gatekeeper 격리 속성 때문이며 파일이 실제로 손상된 것은 아닙니다. 복구 방법은 두 가지입니다:
-  1. **dmg에 복구 스크립트 포함**: 앱을 "응용 프로그램"으로 드래그한 후 dmg 창 하단의 "如提示已损坏请双击我.command"를 더블클릭하면 자동으로 복구됩니다;
-  2. 또는 터미널에서 `sudo xattr -cr /Applications/FusionDrama.app` 실행.
-
-  복구는 처음 한 번만 필요하며, 이후에는 정상 실행되고 앱 내 자동 업데이트에도 영향이 없습니다.
+- macOS 미서명 패키지는 첫 실행 시 "App이 손상되어 열 수 없습니다" 메시지가 뜰 수 있습니다(Gatekeeper 격리 속성, 실제 손상 아님). 복구: 터미널에서 `sudo xattr -cr /Applications/FusionDrama.app` 실행(한 번만, 이후 정상 실행)
 - Windows 미서명 패키지는 SmartScreen에서 「추가 정보 → 실행」 선택
 - 사용자 데이터 디렉터리: `~/Library/Application Support/FusionDrama/`(데이터베이스, 생성된 미디어, 온라인 편집한 스킬 복사본)
 - FFmpeg/FFprobe 바이너리 내장, 시스템 설치 불필요
 - Electron은 37.x로 고정: better-sqlite3의 win32 프리빌드가 해당 ABI까지만 지원(크로스 패키징 시 컴파일 불필요의 핵심)
-- 앱 내 외부 링크(「api.firemux.com에서 Key 받기」 등)는 시스템 브라우저로 바로 열립니다
+- 앱 내 외부 링크(「bench.dpdns.org에서 Key 받기」 등)는 시스템 브라우저로 바로 열립니다
 
 #### 🔄 앱 내 업데이트(Apple 서명 불필요)
 
@@ -473,100 +450,20 @@ A: 백엔드는 최초 시작 시 모든 테이블을 자동으로 생성합니�
 
 ## 📋 업데이트 로그
 
-### v4.1.0 (2026-10)
+### v1.0.0 (2026-10)
 
-#### 🎬 로컬 영상 생성 파이프라인
+첫 공개 버전. 프로젝트는 2026년 10월 시작 — 이전에 발표된 버전은 없습니다.
 
-- 셀프호스팅 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 기반 로컬 영상 생성: 모델 인식 어댑터 라우팅 — LTX-2.5(주력, Joint A/V), MiniMax-H3 33B(고화질, `dit8_te4` 양자화), Wan2.2-TI2V-5B(중국어 프롬프트 네이티브)
-- MiniMax-H3에 Turbo LoRA 소수 스텝 샘플링 기본 적용(4 스텝, 8 스텝 대비 약 2.7배 고속)
-- GPU 직렬 실행 큐: 이미지 생성·영상 생성·추출 에이전트·에이전트 대화가 하나의 락 공유 — Apple Silicon에서 멀티모델 병렬 decode는 Metal command buffer 크래시 유발. 이미지 작업 완료 후 FLUX를 언로드해 메모리 해제
-- TTS 대사 더빙: 스토리보드에서 대사를 추출해 Kokoro TTS로 합성, 원본 영상에 믹스(환경음 유지, 대사 전면 배치)
+- 전체 제작 파이프라인: 소설 → 대본 리라이트 → 에셋 추출 → 스토리보드 분해 → 영상 생성 → FFmpeg 병합/내보내기
+- 멀티 프로바이더 AI: 텍스트/이미지는 OpenAI·Gemini, 영상은 Seedance 2.0·Wan 3.0·MiniMax(클라우드) + **fusion** 로컬(셀프호스팅 [fusion-mlx](https://github.com/dahai80/fusion-mlx), Apple Silicon)
+- 로컬 영상 모델 라우팅: LTX-2.5(주력, Joint A/V), MiniMax-H3 33B(고화질, Turbo LoRA 4 스텝), Wan2.2-TI2V-5B(중국어 네이티브)
+- GPU 직렬 실행 큐로 GPU 집약 작업 통합 스케줄. 이미지 작업 후 FLUX 언로드(멀티모델 병렬 decode Metal 크래시 방지)
+- Kokoro TTS 대사 더빙을 생성 영상에 믹스
 - 참조 이미지 미설정 시 스토리보드 이미지를 I2V 첫 프레임으로 자동 주입
-- Wan2.2-TI2V-5B 어댑터 라우팅(4k+1 프레임 제약, 단변 544, UMT5 번역 생략)
-- 영상 작업은 스토리보드 길이를 기준(대사가 길어서 버려지는 문제 수정); 스토리보드 분해를 LLM 직접 연결로 전환하고 대사 시간 예산 규칙 추가
-- LTX-Video legacy 2B 라우팅 제거(2초 상한, A/V 없음, 실용 가치 없음)
-- 브랜드 리뉴얼: 새로운 Fusion 아이콘과 로고, 기부/WeChat 그룹 소재 제거
-
-### v4.0.0 (2026-08)
-
-#### 🖥️ 데스크톱 앱 + 데이터베이스 마이그레이션
-
-- Electron 데스크톱 버전(macOS dmg, arm64/x64 듀얼 아키텍처)
-  - 더블클릭 설치, 즉시 사용: 자동 포트 선택, 단일 인스턴스 잠금, 충돌 분리된 백엔드 서브프로세스
-  - 사용자 데이터 분리: SQLite DB / 생성된 미디어 / 스킬 복사본 모두 userData 디렉터리에 저장
-  - FFmpeg/FFprobe 포함 배포. workspace 스킬 템플릿은 첫 시작 시 복사, 업그레이드 시 누락분만 보충하고 덮어쓰지 않음
-- 데이터베이스를 MySQL에서 SQLite로 완전 마이그레이션(better-sqlite3 + WAL)
-  - 비즈니스 코드 변경 제로(Drizzle 쿼리 계층은 본질적으로 이식 가능), 멱등 DDL 재생
-  - 1회용 가져오기 스크립트 `import-mysql-to-sqlite.ts` 추가(테이블별 행 수 검증 + 자동 백업)
-- 백엔드 esbuild 단일 파일 번들(externals: sharp/better-sqlite3/ffmpeg 바이너리 패키지)
-- Docker/MySQL 배포 방식 제거(git 히스토리에서 복구 가능)
-
-### v3.1.0 (2026-09)
-
-- Alibaba Bailian Wan 3.0 동영상 모델 추가(Prime / 표준, 공식 input.media/parameters 파라미터 지원)
-- 작업대 상단 바에 해상도 선택기 추가, 제공사별 네이티브 단계 표시(Seedance 480p/720p, MiniMax 768P/2K, Wan 480P/720P/1080P)
-- 기본 동영상 모델을 Seedance 2.0 Mini로 변경
-- 동영상 모델 전환 시 제공사/모델 불일치로 인한 생성 오류 수정
-- 배치 동영상: 선택 모드 + 생성 전 확인(숏 수/총 길이/모델/해상도), 실패 작업 원클릭 재시도
-- 스토리보드 길이를 동영상 생성 파라미터 영역에서 직접 편집·저장, 단건/배치 생성에 통일 적용
-- 실사/민감 콘텐츠 심사 실패 시 모델 전환 후 재시도 안내
-
-### v3.0.0 (2026-08)
-
-
-#### 🚀 배포 및 경험 최적화
-
-- Docker 배포 준비 개선
-  - MySQL / 앱 헬스 체크, 데이터베이스 준비 후 앱 시작
-  - 데이터베이스 초기화에 재시도 추가, 컨테이너 오케스트레이션에서 첫 배포 무인 완료
-  - 시스템 FFmpeg 의존 제거, 내장 바이너리로 전면 전환
-  - Agent skills 디렉터리 볼륨 영속화(설정 페이지 온라인 편집 유실 방지)
-  - `docker/init.sql` 및 납출 스크립트 추가(DBA 검토 / 사전 테이블 생성)
-- 첫 사용 가이드
-  - AI 서비스 미설정 시 사이트 상단 배너로 설정 페이지 안내
-  - 설정 페이지에 「Fuse快捷 설정」 추가: Key 하나로 텍스트/이미지/영상 추천 설정 3개 입력
-  - 모델 미설정 오류의 중국어화 및 설정 페이지 안내
-- 영상 모델 기본값을 Seedance 2.0 Fast로 조정
-- 프로바이더 통합: OpenAI / Gemini / Volcano Engine만 유지
-- 워크벤치: 작업 목록 드로어, 파이프라인 대섹션 상태, 선택적 병합(병합 전 영상 파일 존재 검증)
-- 소재 라이브러리 개편, @멘션 최적화, 에피소드 목록 재구성
-
-### v2.0.0 (2026-04)
-
-#### 🚀 대규모 업데이트
-
-- 프로젝트를 TypeScript 기술 스택으로 전면 마이그레이션
-  - 백엔드: Hono + Drizzle ORM + mysql2
-  - 프런트엔드: Nuxt 3 + Vue 3
-  - AI Agent: Mastra 프레임워크
-- 에피소드 워크벤치 UI와 제작 플로우 재구축
-  - 더 컴팩트한 콘솔 레이아웃
-  - 스토리보드 편집 영역 재구축
-  - 샷 이미지, 영상, 합성, 납출 화면 재구축
-- Docker 배포 지원 추가, 프런트엔드와 백엔드를 단일 이미지로 통합
-- 런타임 Skill 로딩 메커니즘 추가
-- 멀티 프로바이더 미디어 어댑터 확장
-  - 이미지: OpenAI, Gemini, Volcano Engine, Alibaba
-  - 영상: Volcano Engine/Seedance, Vidu, Alibaba
-- 로컬 파일 처리 및 참조 이미지 온디맨드 트랜스코딩 최적화
-
-### v1.0.4 (2026-01-27)
-
-- 로컬 스토리지 전략 도입으로 외부 리소스 링크 실효 회피
-- Base64 참조 이미지 임베디드 전송
-- 샷 전환 상태 리셋 문제 수정
-- 장면의 챕터 마이그레이션 추가
-
-### v1.0.3 (2026-01-16)
-
-- 데이터베이스 동시 접근 성능 최적화
-- Docker 크로스 플랫폼 host.docker.internal 지원
-
-### v1.0.2 (2026-01-14)
-
-- 영상 생성 API 응답 파싱 문제 수정
-- OpenAI Sora 영상 엔드포인트 설정 추가
-- 오류 처리 및 로그 출력 최적화
+- 영상 작업은 스토리보드 길이 기준. 스토리보드 분해는 LLM 직접 연결 + 대사 시간 예산
+- 데스크톱 앱(Electron): macOS/Windows 패키징, 앱 내 업데이터, 사용자 데이터 분리(빌드된 설치 파일은 미공개, 소스에서 빌드 가능)
+- Docker 서버 배포, 앱 내 원클릭 업데이트(watchtower)
+- 4개 언어 UI(中文 / English / 日本語 / 한국어)
 
 ---
 

@@ -274,7 +274,7 @@
       "quickTitle": "Fusion Quick Config",
       "recommended": "Recommended",
       "quickDesc": "Enter a Fusion API Key to write three recommended configs (text, image, video) at once.",
-      "getKey": "Get a key at api.firemux.com",
+      "getKey": "Get a key at bench.dpdns.org",
       "applyQuick": "Apply Fusion Config",
       "manualTitle": "Manual Templates",
       "manualDesc": "Pick a service type, then fill the recommended `provider / base URL / model` from a template.",

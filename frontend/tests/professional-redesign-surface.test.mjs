@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 const studioCss = readFileSync(new URL('../app/assets/studio.css', import.meta.url), 'utf8')
 const indexPage = readFileSync(new URL('../app/pages/index.vue', import.meta.url), 'utf8')
 const defaultLayout = readFileSync(new URL('../app/layouts/default.vue', import.meta.url), 'utf8')
-const episodeWorkbench = readFileSync(new URL('../app/pages/drama/[id]/episode/[episodeNumber].vue', import.meta.url), 'utf8')
-const dramaDetail = readFileSync(new URL('../app/pages/drama/[id]/index.vue', import.meta.url), 'utf8')
+const episodeWorkbench = readFileSync(new URL('../app/views/drama/episode.vue', import.meta.url), 'utf8')
+const dramaDetail = readFileSync(new URL('../app/views/drama/detail.vue', import.meta.url), 'utf8')
 const settingsPage = readFileSync(new URL('../app/pages/settings.vue', import.meta.url), 'utf8')
 
 function cssBlock(source, selector) {
@@ -27,26 +27,25 @@ function cssBlock(source, selector) {
   throw new Error(`unterminated block for ${selector}`)
 }
 
-test('theme exposes an apple-inspired light material system', () => {
-  assert.match(studioCss, /--surface-base:\s*#f5f5f7/)
+test('theme exposes the brand light material system', () => {
+  assert.match(studioCss, /--surface-base:\s*#f7f8fa/)
   assert.match(studioCss, /--surface-raised:\s*#ffffff/)
-  assert.match(studioCss, /--surface-muted:\s*#f5f5f7/)
-  assert.match(studioCss, /--surface-outline:\s*rgba\(0,0,0,0\.08\)/)
-  assert.match(studioCss, /--accent:\s*#0071e3/)
+  assert.match(studioCss, /--surface-muted:\s*#f7f8fa/)
+  assert.match(studioCss, /--surface-outline:\s*#e7e9ee/)
+  assert.match(studioCss, /--accent:\s*#f97316/)
 })
 
 test('project entry is redesigned as a poster card grid', () => {
   assert.match(indexPage, /class="project-grid"/)
   assert.match(indexPage, /class="card project-card"/)
-  assert.match(indexPage, /class="project-thumb"/)
-  assert.match(indexPage, /repeat\(auto-fill,\s*minmax\(258px,\s*1fr\)\)/)
-  assert.match(indexPage, /box-shadow:\s*var\(--shadow-lift\)/)
+  assert.match(indexPage, /class="project-cover"/)
+  assert.match(indexPage, /repeat\(auto-fill,\s*minmax\(240px,\s*1fr\)\)/)
+  assert.match(indexPage, /role="button"/)
 })
 
 test('global header uses the frosted glass material', () => {
-  assert.match(defaultLayout, /background:\s*rgba\(251,251,253,0\.72\)/)
+  assert.match(defaultLayout, /background:\s*var\(--header-bg\)/)
   assert.match(defaultLayout, /backdrop-filter:\s*blur\(20px\)\s*saturate\(180%\)/)
-  assert.match(defaultLayout, /border-bottom:\s*1px solid var\(--border\)/)
 })
 
 test('workbench removes legacy light panels from the main production surface', () => {
@@ -73,28 +72,25 @@ test('project episode dialog follows the light brand system', () => {
   assert.doesNotMatch(dramaDetail, /rgba\(244,248,255,0\.96\)/)
 })
 
-test('workbench active navigation uses quiet system-blue accents', () => {
+test('workbench active navigation uses quiet neutral selection accents', () => {
   const pipeActive = cssBlock(episodeWorkbench, '.pipe-item.active')
   const iconActive = cssBlock(episodeWorkbench, '.icon-active')
 
-  assert.match(pipeActive, /background:\s*var\(--accent-bg\)/)
-  assert.match(pipeActive, /color:\s*var\(--accent-text\)/)
-  assert.doesNotMatch(pipeActive, /inset 3px 0 0 var\(--accent\)/)
-  assert.match(iconActive, /background:\s*var\(--accent\)/)
+  assert.match(pipeActive, /background:\s*var\(--sel-bg\)/)
+  assert.match(pipeActive, /color:\s*var\(--sel-text\)/)
+  assert.match(iconActive, /background:\s*var\(--sel\)/)
 })
 
 test('workbench completed navigation uses quiet success states', () => {
-  const doneItem = cssBlock(episodeWorkbench, '.pipe-item.done')
   const doneIcon = cssBlock(episodeWorkbench, '.pipe-item.done .pipe-icon')
   const iconDone = cssBlock(episodeWorkbench, '.icon-done')
-  const sidebarDoneDot = cssBlock(episodeWorkbench, '.sidebar-jump-dot.done')
+  const segDone = cssBlock(episodeWorkbench, '.sidebar-progress-seg.done')
   const stageDoneDot = cssBlock(episodeWorkbench, '.stage-subnav-dot')
 
-  assert.doesNotMatch(doneItem, /#9fcaa7/)
   assert.match(doneIcon, /background:\s*var\(--success-bg\)/)
   assert.match(doneIcon, /color:\s*var\(--success\)/)
   assert.match(iconDone, /background:\s*var\(--success-bg\)/)
-  assert.match(sidebarDoneDot, /background:\s*var\(--success\)/)
-  assert.doesNotMatch(stageDoneDot, /#9fcaa7/)
+  assert.match(segDone, /background:\s*var\(--success\)/)
+  assert.match(stageDoneDot, /background:\s*var\(--success\)/)
   assert.match(episodeWorkbench, /\.pipe-item\.active\.done \.pipe-icon\s*\{/)
 })

@@ -6,21 +6,19 @@
 
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
-[![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![下载](https://img.shields.io/github/v/release/chatfire-AI/fusion-drama?style=flat&logo=github&label=%E4%B8%8B%E8%BD%BD)](https://github.com/chatfire-AI/fusion-drama/releases/latest)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/fusion-drama/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/fusion-drama/fusion-drama/releases)
 
 [English](README.md) | **简体中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [桌面版](#-桌面应用推荐) • [部署指南](#-部署指南)
 
-<h2>🔑 <a href="https://api.firemux.com">获取 Fusion API Key 👉 立即查看</a></h2>
+<h2>🔑 <a href="https://bench.dpdns.org">获取 Fusion API Key 👉 立即查看</a></h2>
 
 **文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
 
 部署完成后在「设置 → Fuse快捷配置」粘贴 Key，一键写入三条推荐配置，开箱即用
 
-<h3>📥 <a href="https://github.com/chatfire-AI/fusion-drama/releases/latest">下载桌面版（macOS / Windows）</a></h3>
-<h3>🌐 <a href="https://www.chatfire.site">官方网站</a></h3>
 
 </div>
 
@@ -133,7 +131,7 @@ data/       — 生成资源文件与 SQLite 数据库
 
 ```bash
 # 克隆项目
-git clone https://github.com/chatfire-AI/fusion-drama.git
+git clone https://github.com/fusion-drama/fusion-drama.git
 cd fusion-drama
 
 # 安装后端依赖
@@ -200,7 +198,7 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 启动后所有 AI 功能（文本/生图/视频）都需要先配置模型服务，未配置时页面顶部会有横幅引导：
 
 1. 打开「设置」页
-2. 在「Fuse快捷配置」中粘贴 Fusion API Key（[前往 api.firemux.com 获取](https://api.firemux.com)），一键写入文本、图片、视频三条推荐配置
+2. 在「Fuse快捷配置」中粘贴 Fusion API Key（[前往 bench.dpdns.org 获取](https://bench.dpdns.org)），一键写入文本、图片、视频三条推荐配置
 3. 或使用「手动模板」按厂商逐个添加，支持连通性测试
 
 配置完成横幅自动消失，即可开始创建剧集生产。
@@ -249,28 +247,9 @@ cd backend && npx tsx scripts/import-mysql-to-sqlite.ts
 
 ### 🖥️ 桌面应用（推荐）
 
-**⬇️ 预编译安装包下载：[国内镜像（腾讯云，推荐）](https://installer.chatfire.site/fusion-drama/v4.0.4/) · [GitHub Releases（海外）](https://github.com/chatfire-AI/fusion-drama/releases/latest)**
+### 🖥️ 桌面应用（推荐）
 
-| 平台 | 下载文件 |
-|---|---|
-| macOS（Apple Silicon，M 系列） | `FusionDrama-4.0.4-arm64.dmg` |
-| macOS（Intel） | `FusionDrama-4.0.4.dmg` |
-| Windows | `FusionDrama.Setup.4.0.4.exe` |
-
-> 国内用户请用腾讯云镜像直链下载（GitHub 在国内访问不稳定）。应用内更新器同样国内源优先、GitHub 兜底。
-
-**命令行安装（推荐，免修复）**：用 curl 下载不会触发 macOS 隔离属性，安装后双击即开，不会遇到「已损坏」提示（Apple Silicon 把 `arm64` 文件名换成对应版本，Intel 用无后缀 dmg）：
-
-```bash
-curl -L -o /tmp/FusionDrama.dmg https://installer.chatfire.site/fusion-drama/v4.0.4/FusionDrama-4.0.4-arm64.dmg \
-  && hdiutil attach -nobrowse /tmp/FusionDrama.dmg \
-  && cp -R /Volumes/FusionDrama*/FusionDrama.app /Applications/ \
-  && hdiutil detach /Volumes/FusionDrama*
-```
-
-无需构建 —— 下载 dmg/exe 直接安装即可，已安装客户端会通过内置更新器自动升级。（如需从源码自行打包，见下方命令。）
-
-双击安装、开箱即用的桌面版（macOS + Windows）：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
+尚未发布预编译安装包，请从源码构建：
 
 ```bash
 # 一键打包（前端 generate → 后端 esbuild → electron-builder）
@@ -283,18 +262,16 @@ npm run dist:win    # Windows NSIS 安装器（win-x64，可在 macOS 上交叉�
 # desktop/release/FusionDrama Setup <版本>.exe        (Windows)
 ```
 
+双击安装、开箱即用的桌面版（macOS + Windows）：数据库（SQLite）、生成的媒体文件、Agent 技能全部存放在用户数据目录，卸载应用不影响数据。
+
 安装说明：
 
-- macOS 未签名包首次打开可能提示「App 已损坏，无法打开」（Apple Silicon 常见），这是 Gatekeeper 隔离属性导致，并非文件损坏。两种修复方式任选：
-  1. **dmg 内自带修复脚本**：把 app 拖入「应用程序」后，双击 dmg 窗口底部的「如提示已损坏请双击我.command」，自动完成修复；
-  2. 或终端执行 `sudo xattr -cr /Applications/FusionDrama.app`。
-
-  修复只需一次，之后双击图标即可启动，应用内自动更新也不受影响。
+- macOS 未签名包首次打开可能提示「App 已损坏，无法打开」（Gatekeeper 隔离属性，并非文件损坏）。修复：终端执行 `sudo xattr -cr /Applications/FusionDrama.app`（一次即可，之后正常启动）
 - Windows 未签名包 SmartScreen 会提示「更多信息 → 仍要运行」
 - 用户数据目录：`~/Library/Application Support/FusionDrama/`（数据库、生成的媒体、技能在线编辑的副本）
 - 内置 FFmpeg/FFprobe 二进制，无需系统安装
 - Electron 锁定 37.x：better-sqlite3 的 win32 预编译最高覆盖到该版本的 ABI（交叉打包免编译的关键）
-- 应用内点击外部链接（如「前往 api.firemux.com 获取 Key」）直接用系统浏览器打开
+- 应用内点击外部链接（如「前往 bench.dpdns.org 获取 Key」）直接用系统浏览器打开
 
 #### 🔄 应用内更新（无需 Apple 签名）
 
@@ -472,99 +449,20 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 
 ## 📋 更新日志
 
-### v4.1.0 (2026-10)
+### v1.0.0 (2026-10)
 
-#### 🎬 本地视频生成管线
+首个公开版本。项目于 2026 年 10 月启动——此前没有已发布的版本。
 
-- 接入自托管 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 本地视频生成：模型感知适配路由——LTX-2.5（主力，联合 A/V）、MiniMax-H3 33B（画质首选，`dit8_te4` 量化）、Wan2.2-TI2V-5B（中文原生 prompt）
-- MiniMax-H3 默认开启 Turbo LoRA 少步采样（4 步，较 8 步基线约 2.7 倍提速）
-- GPU 串行执行队列：图片生成、视频生成、资产提取 Agent、Agent 对话共用一把锁——Apple Silicon 上多模型并发 decode 会触发 Metal command buffer 崩溃；图片任务完成后主动卸载 FLUX 释放内存
-- TTS 对白配音：从分镜提取台词，经 Kokoro TTS 合成后混入原视频（保留环境声，对白置前）
+- 完整制作管线：小说 → 剧本改写 → 资产提取 → 分镜拆解 → 视频生成 → FFmpeg 拼接导出
+- 多厂商 AI：文本/图片走 OpenAI 与 Gemini；视频支持 Seedance 2.0、Wan 3.0、MiniMax（云）以及 **fusion** 本地服务（自托管 [fusion-mlx](https://github.com/dahai80/fusion-mlx)，Apple Silicon）
+- 本地视频模型路由：LTX-2.5（主力，联合 A/V）、MiniMax-H3 33B（画质首选，Turbo LoRA 4 步）、Wan2.2-TI2V-5B（中文原生 prompt）
+- GPU 串行执行队列统一调度 GPU 密集任务；图片任务后主动卸载 FLUX（避免多模型并发 decode 触发 Metal 崩溃）
+- Kokoro TTS 对白配音混入生成视频
 - 未设置参考图时自动以分镜图作为 I2V 首帧
-- Wan2.2-TI2V-5B 适配路由（4k+1 帧约束、短边 544、UMT5 免翻译）
-- 视频任务以分镜时长为准（修复对白超长被丢弃的问题）；分镜拆解直连 LLM 并加对白时长预算规则
-- 移除 LTX-Video legacy 2B 路由（2s 上限、无 A/V、无实用价值）
-- 品牌焕新：全新 Fusion 图标与 logo，移除捐赠/微信群相关素材
-
-### v4.0.0 (2026-08)
-
-#### 🖥️ 桌面应用 + 数据库迁移
-
-- Electron 桌面版（macOS dmg，arm64/x64 双架构）
-  - 双击安装、开箱即用：自动选择端口、单实例锁、崩溃隔离的后端子进程
-  - 用户数据隔离：SQLite 库 / 生成媒体 / 技能副本均存放于 userData 目录
-  - 内置 FFmpeg/FFprobe 随包分发；workspace 技能模板首启动拷贝、升级只补缺不覆盖
-- 数据库从 MySQL 完全迁移到 SQLite（better-sqlite3 + WAL）
-  - 业务代码零改动（Drizzle 查询层天然可移植），DDL 幂等重放
-  - 新增一次性导入脚本 `import-mysql-to-sqlite.ts`（逐表行数校验 + 自动备份）
-- 后端 esbuild 单文件打包（externals：sharp/better-sqlite3/ffmpeg 二进制包）
-- 移除 Docker/MySQL 部署方式（git 历史可找回）
-
-### v3.1.0 (2026-09)
-
-- 新增阿里云百炼 Wan 3.0 视频模型（Prime / 标准，支持官方 input.media/parameters 入参）
-- 工作台顶栏新增分辨率选择器，按厂商显示原生档位（Seedance 480p/720p、MiniMax 768P/2K、Wan 480P/720P/1080P）
-- 默认视频模型调整为 Seedance 2.0 Mini
-- 修复切换视频模型时厂商/模型错配导致的生成报错
-- 批量视频：选择模式 + 生成前确认（镜头数/总时长/模型/分辨率），失败任务一键重试
-- 分镜时长在视频生成参数区直接编辑保存，单次/批量生成统一生效
-- 真人/敏感内容审核失败时提示切换模型重试
-
-### v3.0.0 (2026-08)
-
-#### 🚀 部署与体验优化
-
-- Docker 部署就绪改造
-  - MySQL / 应用健康检查，应用等待数据库就绪后启动
-  - 数据库初始化增加重试，容器编排下首次部署零人工干预
-  - 移除系统 FFmpeg 依赖，全面使用内置二进制
-  - Agent skills 目录 volume 持久化（设置页在线编辑不丢失）
-  - 新增 `docker/init.sql` 及导出脚本（DBA 审核 / 预建表）
-- 首次使用引导
-  - 未配置 AI 服务时全站顶部横幅提示并引导至设置页
-  - 设置页新增「Fuse快捷配置」：一个 Key 写入文本/图片/视频三条推荐配置
-  - 未配置模型的报错中文化并指引设置页
-- 视频模型默认调整为 Seedance 2.0 Fast
-- 厂商收敛：仅保留 OpenAI / Gemini / 火山引擎
-- 工作台：任务列表抽屉、流水线大环节状态、选择性拼接（拼接前校验视频文件存在）
-- 素材库改版、@提及优化、剧集列表重构
-
-### v2.0.0 (2026-04)
-
-#### 🚀 重大更新
-
-- 项目全面迁移至 TypeScript 技术栈
-  - 后端：Hono + Drizzle ORM + mysql2
-  - 前端：Nuxt 3 + Vue 3
-  - AI Agent：Mastra 框架
-- 重做单集工作台 UI 和生产流程
-  - 更紧凑的控制台布局
-  - 重做分镜编辑区
-  - 重做镜头图、视频、合成、导出界面
-- 新增 Docker 部署支持，前后端合并为单镜像
-- 增加运行时 Skill 加载机制
-- 扩展多厂商媒体 Adapter
-  - 图片：OpenAI、Gemini、火山引擎、阿里
-  - 视频：火山引擎/Seedance、Vidu、阿里
-- 优化本地文件处理与参考图按需转码
-
-### v1.0.4 (2026-01-27)
-
-- 引入本地存储策略，规避外部资源链接失效
-- Base64 参考图嵌入式传输
-- 修复镜头切换状态重置问题
-- 添加场景迁移至章节
-
-### v1.0.3 (2026-01-16)
-
-- 优化数据库并发访问性能
-- Docker 跨平台支持 host.docker.internal
-
-### v1.0.2 (2026-01-14)
-
-- 修复视频生成 API 响应解析问题
-- 添加 OpenAI Sora 视频端点配置
-- 优化错误处理和日志输出
+- 视频任务以分镜时长为准；分镜拆解直连 LLM 并加对白时长预算
+- 桌面应用（Electron）：macOS/Windows 打包、应用内更新器、用户数据隔离（尚未发布预编译安装包，可从源码构建）
+- Docker 服务器部署，支持应用内一键更新（watchtower）
+- 四语言界面（中文 / English / 日本語 / 한국어）
 
 ---
 

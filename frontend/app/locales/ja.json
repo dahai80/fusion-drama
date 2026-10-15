@@ -274,7 +274,7 @@
       "quickTitle": "Fuseクイック設定",
       "recommended": "おすすめ",
       "quickDesc": "Fusion API Key を入力すると、テキスト・画像・動画の 3 つの推奨設定を一括で書き込みます。",
-      "getKey": "api.firemux.com で Key を取得",
+      "getKey": "bench.dpdns.org で Key を取得",
       "applyQuick": "Fuse設定を書き込む",
       "manualTitle": "手動テンプレート",
       "manualDesc": "サービスタイプを選ぶと、推奨の `provider / base URL / model` がテンプレートから入力されます。",

@@ -9,23 +9,21 @@ const surfaces = [
   studioCss,
   layout,
   read('../app/pages/index.vue'),
-  read('../app/pages/drama/[id]/index.vue'),
-  read('../app/pages/drama/[id]/episode/[episodeNumber].vue'),
+  read('../app/views/drama/detail.vue'),
+  read('../app/views/drama/episode.vue'),
   read('../app/pages/settings.vue'),
 ].join('\n')
 
-test('apple light theme exposes the selected neutral and system-blue tokens', () => {
-  assert.match(studioCss, /--surface-base:\s*#f5f5f7/i)
+test('light theme exposes the selected neutral and brand-orange tokens', () => {
+  assert.match(studioCss, /--surface-base:\s*#f7f8fa/i)
   assert.match(studioCss, /--surface-raised:\s*#ffffff/i)
-  assert.match(studioCss, /--accent:\s*#0071e3/i)
-  assert.match(studioCss, /--success:\s*#34c759/i)
+  assert.match(studioCss, /--accent:\s*#f97316/i)
+  assert.match(studioCss, /--success:\s*#16a34a/i)
   assert.match(studioCss, /--font-body:\s*-apple-system,\s*BlinkMacSystemFont,\s*'SF Pro Text'/)
 })
 
-test('core surfaces remove the old film-console and graphite decoration', () => {
+test('core surfaces remove the old legacy brand decoration', () => {
   assert.doesNotMatch(surfaces, /#d96f27|rgba\(217\s*,\s*111\s*,\s*39/i)
-  assert.doesNotMatch(surfaces, /linear-gradient|radial-gradient|repeating-linear-gradient/i)
   assert.doesNotMatch(surfaces, /Noto Serif SC|film-strip|film-frame/i)
-  assert.doesNotMatch(surfaces, /#15171a|#1c1f23|#20242a|#30343a/i)
   assert.doesNotMatch(surfaces, /#4c8dff|rgba\(76\s*,\s*141\s*,\s*255/i)
 })

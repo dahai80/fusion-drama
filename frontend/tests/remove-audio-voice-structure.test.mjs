@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 const appRoot = new URL('../app/', import.meta.url)
 const readApp = (path) => readFileSync(new URL(path, appRoot), 'utf8')
 
-const episodePage = readApp('pages/drama/[id]/episode/[episodeNumber].vue')
-const dramaPage = readApp('pages/drama/[id]/index.vue')
+const episodePage = readApp('views/drama/episode.vue')
+const dramaPage = readApp('views/drama/detail.vue')
 const settingsPage = readApp('pages/settings.vue')
 const useApi = readApp('composables/useApi.ts')
 

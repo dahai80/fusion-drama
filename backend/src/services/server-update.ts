@@ -14,10 +14,7 @@ import { fileURLToPath } from 'url'
 // 双源：COS（国内直连）优先，GitHub（海外）兜底；FUSION_UPDATE_FEED 可整体覆盖
 const FEED_URLS = process.env.FUSION_UPDATE_FEED
   ? [process.env.FUSION_UPDATE_FEED]
-  : [
-    'https://installer.chatfire.site/fusion-drama/latest.json',
-    'https://github.com/chatfire-AI/fusion-drama/releases/latest/download/latest.json',
-  ]
+  : ['https://github.com/fusion-drama/fusion-drama/releases/latest/download/latest.json']
 
 const WATCHTOWER_URL = process.env.FUSION_WATCHTOWER_URL?.replace(/\/+$/, '')
 const WATCHTOWER_TOKEN = process.env.FUSION_WATCHTOWER_TOKEN || ''

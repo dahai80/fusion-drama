@@ -213,7 +213,7 @@ function createWindow() {
   // 页面标题自带产品名，避免文件路径兜底标题
   mainWindow.on('page-title-updated', e => e.preventDefault())
   mainWindow.on('closed', () => { mainWindow = null })
-  // 外链一律交给系统浏览器：应用内不弹新窗（如设置页「前往 api.firemux.com 获取 Key」）
+  // 外链一律交给系统浏览器：应用内不弹新窗（如设置页「前往 bench.dpdns.org 获取 Key」）
   const isAppUrl = (url: string) => url.startsWith(`http://127.0.0.1:${backendPort}`)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url) && !isAppUrl(url)) void shell.openExternal(url)
