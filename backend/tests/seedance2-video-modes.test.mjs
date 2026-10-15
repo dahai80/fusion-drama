@@ -131,7 +131,8 @@ test('image/video generation tasks are unified into a single sys_task table', ()
   const tasksRoute = read('src/routes/tasks.ts')
   const service = read('src/services/generation.ts')
   assert.match(tasksRoute, /schema\.sysTask/)
-  assert.match(tasksRoute, /r\.type === type/)
+  // B15: type 过滤下推 SQL（eq(schema.sysTask.type, ...)），不再全表拉内存过滤
+  assert.match(tasksRoute, /eq\(schema\.sysTask\.type, type\)/)
   assert.match(service, /db\.insert\(schema\.sysTask\)/)
 
   assert.match(envExample, /PUBLIC_BASE_URL/)

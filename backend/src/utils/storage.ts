@@ -183,6 +183,11 @@ export async function readImageAsCompressedDataUrl(
  * 下载远程图片并压缩为 data URL（远程参考图归一化，供 multipart/base64 上传类厂商使用）
  * 内网/链路本地地址一律拒绝 — 客户端可控 URL 的服务端 fetch 是 SSRF 原语
  */
+// B21: 参考图压缩结果 LRU 缓存——同一批参考图跨任务反复下载+sharp 压缩纯浪费
+// （uuid 命名的 /static 内容不可变，缓存键 = url+压缩参数）。仅缓存成功结果，失败不缓存。
+const REF_IMAGE_CACHE_MAX = 32
+const refImageCache = new Map<string, string>()
+
 export async function fetchImageAsCompressedDataUrl(
   url: string,
   options: {
@@ -191,10 +196,23 @@ export async function fetchImageAsCompressedDataUrl(
     quality?: number
   } = {},
 ): Promise<string> {
+  const cacheKey = `${url}|${options.maxWidth ?? 768}|${options.maxHeight ?? 768}|${options.quality ?? 68}`
+  const cached = refImageCache.get(cacheKey)
+  if (cached) {
+    // Map 插入序即 LRU：命中后重插尾部刷新
+    refImageCache.delete(cacheKey)
+    refImageCache.set(cacheKey, cached)
+    return cached
+  }
   assertPublicHttpUrl(url)
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
-  return compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
+  const dataUrl = await compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
+  refImageCache.set(cacheKey, dataUrl)
+  while (refImageCache.size > REF_IMAGE_CACHE_MAX) {
+    refImageCache.delete(refImageCache.keys().next().value as string)
+  }
+  return dataUrl
 }
 
 /** SSRF 防护：仅允许 http(s)，且解析出的全部地址不在私网/链路本地/回环段 */

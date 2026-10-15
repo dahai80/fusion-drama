@@ -192,6 +192,8 @@ export async function dubVideoDialogue(
   taskId?: number,
   storyboardId?: number,
 ): Promise<string | null> {
+  // B26: TTS 临时目录统一收集，finally 清理（异常路径不泄漏 /tmp/fd-tts-*）
+  const ttsDirs: string[] = []
   try {
     // 分镜绑定角色名用于精确解析 @角色名（LLM 常把动作描述夹在名字与「说」之间，
     // 无已知角色名则 extractDialogue 回退为紧邻「说」的词，同角色多句台词会因
@@ -229,7 +231,10 @@ export async function dubVideoDialogue(
     for (let i = 0; i < lines.length; i++) {
       const voice = TTS_VOICE || speakerVoices.get(lines[i].speaker) || ''
       const wav = await synthesizeLine(lines[i].text, i, voice)
-      if (wav) wavs.push(wav)
+      if (wav) {
+        wavs.push(wav)
+        ttsDirs.push(path.dirname(wav))
+      }
     }
     if (!wavs.length) return null
 
@@ -324,11 +329,38 @@ export async function dubVideoDialogue(
       try { cmd.run() } catch (e) { reject(e) }
     })
 
-    fs.renameSync(outAbs, srcAbs)
+    // B17: 先验证产物有效（存在/非空/可探测），再原子交换并回滚备份——
+    // 坏产物（ffmpeg 半途产出空文件）不得覆盖原视频
+    const outStat = fs.existsSync(outAbs) ? fs.statSync(outAbs) : null
+    if (!outStat || outStat.size === 0) {
+      logTaskWarn('VideoTask', 'tts-dub-output-invalid', { taskId, storyboardId, reason: 'missing-or-empty' })
+      try { fs.rmSync(outAbs, { force: true }) } catch { /* ignore */ }
+      return null
+    }
+    const outDur = await probeDuration(outAbs)
+    if (!(outDur > 0)) {
+      logTaskWarn('VideoTask', 'tts-dub-output-invalid', { taskId, storyboardId, reason: 'probe-zero-duration' })
+      try { fs.rmSync(outAbs, { force: true }) } catch { /* ignore */ }
+      return null
+    }
+    const bakAbs = `${srcAbs}.bak`
+    fs.renameSync(srcAbs, bakAbs)
+    try {
+      fs.renameSync(outAbs, srcAbs)
+    } catch (err) {
+      fs.renameSync(bakAbs, srcAbs)
+      throw err
+    }
+    fs.rmSync(bakAbs, { force: true })
     logTaskProgress('VideoTask', 'tts-dub-done', { taskId, storyboardId, lines: effectiveWavs.length, videoDuration, totalSpeech, tempo })
     return relativePath
   } catch (err) {
     logTaskWarn('VideoTask', 'tts-dub-failed', { taskId, storyboardId, error: (err as Error).message })
     return null
+  } finally {
+    // B26: 清理 TTS 临时目录（含异常路径）
+    for (const d of ttsDirs) {
+      try { fs.rmSync(d, { recursive: true, force: true }) } catch { /* ignore */ }
+    }
   }
 }

@@ -137,8 +137,9 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
   }
 
   parseGenerateResponse(result: any): ImageGenResponse {
-    // OpenAI DALL-E 3 目前是同步返回，但规范上也有异步 task 模式
-    if (result.task_id || result.id) {
+    // OpenAI 同步响应自带 id（resp-xxx），仅当无 data 数组时才视为异步 task 模式：
+    // 有 data = 同步图片结果，拿 result.id 去轮询会 404 空转到超时
+    if ((result.task_id || result.id) && !result.data) {
       return { isAsync: true, taskId: result.task_id || result.id }
     }
     const imageUrl = result.data?.[0]?.url || result.url

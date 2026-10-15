@@ -31,32 +31,36 @@ export async function startVideoPromptBatch(
   storyboardIds?: number[],
 ): Promise<{ started: boolean; total: number }> {
   if (tasks.get(episodeId)?.status === 'running') return { started: false, total: -1 }
-
-  const sbs = await db.select().from(schema.storyboards)
-    .where(eq(schema.storyboards.episodeId, episodeId))
-    .orderBy(schema.storyboards.storyboardNumber)
-  const pending = storyboardIds?.length
-    ? sbs.filter(sb => storyboardIds.includes(sb.id))
-    : sbs.filter(sb => !(sb.videoPrompt || '').trim())
-  if (!pending.length) return { started: false, total: 0 }
-
-  // 视频模型标签：跟随该集锁定的视频配置，供 Agent 按模型特性生成
-  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  // B13 TOCTOU：先同步占坑再查库——并发第二次请求「运行中」检查直接拒绝；
+  // 查询失败/空批次/异常路径都必须释放占坑，否则该集永远显示「运行中」
+  tasks.set(episodeId, { status: 'running', total: 0, completed: 0, failed: 0, started_at: new Date().toISOString() })
+  const pending: (typeof schema.storyboards.$inferSelect)[] = []
   let videoLabel = '默认'
-  if (ep?.videoConfigId) {
-    const [cfg] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, ep.videoConfigId))
-    if (cfg) videoLabel = `${cfg.name} (${cfg.provider})`
+  try {
+    const sbs = await db.select().from(schema.storyboards)
+      .where(eq(schema.storyboards.episodeId, episodeId))
+      .orderBy(schema.storyboards.storyboardNumber)
+    const found = storyboardIds?.length
+      ? sbs.filter(sb => storyboardIds.includes(sb.id))
+      : sbs.filter(sb => !(sb.videoPrompt || '').trim())
+    pending.push(...found)
+    if (!pending.length) {
+      tasks.delete(episodeId)
+      return { started: false, total: 0 }
+    }
+
+    // 视频模型标签：跟随该集锁定的视频配置，供 Agent 按模型特性生成
+    const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+    if (ep?.videoConfigId) {
+      const [cfg] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, ep.videoConfigId))
+      if (cfg) videoLabel = `${cfg.name} (${cfg.provider})`
+    }
+  } catch (err) {
+    tasks.delete(episodeId)
+    throw err
   }
 
-  const task: VideoPromptBatchStatus = {
-    status: 'running',
-    total: pending.length,
-    completed: 0,
-    failed: 0,
-    started_at: new Date().toISOString(),
-  }
-  tasks.set(episodeId, task)
-
+  const task: VideoPromptBatchStatus = tasks.get(episodeId)!
   logTaskStart('VideoPrompt', 'batch', { episodeId, dramaId, total: pending.length, model: opts.model || undefined })
   // 批量提示词生成与图片/视频任务共用 GPU 串行队列——prompt_generator 的
   // agent.generate 打文本模型（Qwen3.5 decode burst），与 LTX-2.5/FLUX 并发会

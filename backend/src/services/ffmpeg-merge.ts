@@ -18,6 +18,20 @@ function toAbsPath(relativePath: string): string {
   return path.join(STORAGE_ROOT, relativePath)
 }
 
+/** concat 列表条目：单引号转义防路径注入（文件名含 ' 会破坏 concat 语法注入额外指令） */
+function concatEscape(p: string): string {
+  return p.replace(/'/g, `'\\''`)
+}
+
+/** 校验拼接输入路径必须落在数据目录内：DB 字段被污染时避免读任意文件路径 */
+function assertContainedUnderDataRoot(p: string): string {
+  const abs = path.resolve(toAbsPath(p))
+  if (!abs.startsWith(path.resolve(DATA_ROOT) + path.sep)) {
+    throw new Error(`Clip path escapes data root, refusing to merge: ${p}`)
+  }
+  return abs
+}
+
 /**
  * 拼接一集的镜头视频。
  * 优先使用视频生成产物，兼容历史的 composedVideoUrl 数据。
@@ -49,7 +63,7 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
 
   // 校验视频文件真实存在:DB 里的 video_url 可能指向已被清理的文件,
   // 直接拼会得到 ffmpeg 的 "No such file or directory" 晦涩报错
-  const missing = clips.filter(c => !fs.existsSync(toAbsPath(c.url)))
+  const missing = clips.filter(c => !fs.existsSync(assertContainedUnderDataRoot(c.url)))
   if (missing.length > 0) {
     const nums = missing.map(c => `S${c.sb.storyboardNumber}`).join('、')
     throw new Error(`镜头 ${nums} 的视频文件已丢失（本地文件不存在），请重新生成这些镜头的视频，或在拼接时取消勾选`)
@@ -86,46 +100,53 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number, sto
 }
 
 async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
-  // 生成 concat 列表文件
+  // concat 列表文件：try/finally 保证清理（进程失败不泄漏 temp 文件）
   const listDir = path.join(STORAGE_ROOT, 'temp')
   fs.mkdirSync(listDir, { recursive: true })
   const listPath = path.join(listDir, `${uuid()}.txt`)
 
+  // 拼接输入路径必须落数据目录内（DB 字段被污染时拒读任意文件）+ concat 单引号转义
   const listContent = videos
-    .map(v => `file '${toAbsPath(v)}'`)
+    .map(v => `file '${concatEscape(assertContainedUnderDataRoot(v))}'`)
     .join('\n')
-  fs.writeFileSync(listPath, listContent, 'utf-8')
 
   // 输出文件
+  fs.writeFileSync(listPath, listContent, 'utf-8')
   const outputDir = path.join(STORAGE_ROOT, 'merged')
   fs.mkdirSync(outputDir, { recursive: true })
   const outputFilename = `${uuid()}.mp4`
   const outputPath = path.join(outputDir, outputFilename)
 
-  await new Promise<void>((resolve, reject) => {
-    ffmpeg()
-      .input(listPath)
-      .inputOptions(['-f', 'concat', '-safe', '0'])
-      .outputOptions([
-        '-fflags', '+genpts',
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-crf', '23',
-        '-c:a', 'aac',
-        '-ar', '48000',
-        '-b:a', '192k',
-        '-movflags', '+faststart',
-      ])
-      .output(outputPath)
-      .on('end', () => resolve())
-      .on('error', (err) => reject(err))
-      .run()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      // fluent-ffmpeg typings 未收录 .timeout（运行时支持，秒，超时杀进程）
+      const cmd = ffmpeg() as any
+      cmd
+        .input(listPath)
+        .inputOptions(['-f', 'concat', '-safe', '0'])
+        .outputOptions([
+          '-fflags', '+genpts',
+          '-c:v', 'libx264',
+          '-preset', 'medium',
+          '-crf', '23',
+          '-c:a', 'aac',
+          '-ar', '48000',
+          '-b:a', '192k',
+          '-movflags', '+faststart',
+        ])
+        .output(outputPath)
+        // fluent-ffmpeg wall-clock 上限（秒）：ffmpeg 挂死时杀进程，merge 记录落 failed
+        .timeout(3600)
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .run()
+    })
+  } finally {
+    // temp 清理失败不阻断主流程
+    try { fs.unlinkSync(listPath) } catch { /* ignore */ }
+  }
 
-  })
-
-  // 清理临时文件
-  fs.unlinkSync(listPath)
-
+  // 获取时长
   // 获取时长
   const duration = await getVideoDuration(outputPath)
 

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateImage, generateVideo } from '../services/generation.js'
@@ -117,6 +117,20 @@ app.post('/', async (c) => {
   }
 
   const videoBody = type === 'video' ? normalizeVideoRequest(body) : null
+
+  if (videoBody) {
+    // B20 参数硬校验：duration/seed 非整数（字符串/NaN）会传到适配器算出 NaN 帧数
+    if (videoBody.duration != null) {
+      videoBody.duration = Number(videoBody.duration)
+      if (!Number.isInteger(videoBody.duration) || videoBody.duration <= 0 || videoBody.duration > 20) {
+        return badRequest(c, 'duration 必须为 1-20 的整数（秒）')
+      }
+    }
+    if (videoBody.seed != null) {
+      videoBody.seed = Number(videoBody.seed)
+      if (!Number.isInteger(videoBody.seed)) return badRequest(c, 'seed 必须为整数')
+    }
+  }
 
   try {
     // 请求显式指定 config_id（工作台模型下拉跨厂商切换）时优先；
@@ -236,17 +250,21 @@ app.get('/:id', async (c) => {
   return success(c, row || null)
 })
 
-// GET /tasks — 按 type / storyboard_id / drama_id 过滤
+// GET /tasks — 按 type / storyboard_id / drama_id 过滤（SQL 级过滤 + 上限截断）
 app.get('/', async (c) => {
   const type = c.req.query('type')
   const storyboardId = c.req.query('storyboard_id')
   const dramaId = c.req.query('drama_id')
 
-  let rows = await db.select().from(schema.sysTask)
-
-  if (type) rows = rows.filter(r => r.type === type)
-  if (storyboardId) rows = rows.filter(r => r.storyboardId === Number(storyboardId))
-  if (dramaId) rows = rows.filter(r => r.dramaId === Number(dramaId))
+  // B15: 表无界增长后全表扫描 + 内存过滤会拖垮列表接口；SQL 级过滤 + LIMIT 截断
+  const conditions = []
+  if (type) conditions.push(eq(schema.sysTask.type, type))
+  if (storyboardId) conditions.push(eq(schema.sysTask.storyboardId, Number(storyboardId)))
+  if (dramaId) conditions.push(eq(schema.sysTask.dramaId, Number(dramaId)))
+  const rows = await db.select().from(schema.sysTask)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(schema.sysTask.id))
+    .limit(500)
 
   return success(c, rows)
 })

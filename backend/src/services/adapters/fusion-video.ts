@@ -147,7 +147,7 @@ function pickReferenceUrl(prompt: string, raw?: string | null): string | null {
       bestCount = n
     }
   }
-  console.log(`[fusion-video] I2V 选图: @图片计数=${JSON.stringify([...counts.entries()])} → 选中图片${best} = ${arr[best - 1]}`)
+  console.log(`[fusion-video] I2V pick: refs=${arr.length} chosen-index=${best}`)
   return arr[best - 1] || null
 }
 

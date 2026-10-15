@@ -21,10 +21,10 @@ type TaskType = 'image' | 'video'
 
 const taskLabel = (type: TaskType) => (type === 'image' ? 'ImageTask' : 'VideoTask')
 
-// 轮询节奏：图片 5s×120（上限 10 分钟）；视频 10s×300
+// 轮询节奏：图片 5s×120（上限 10 分钟）；视频 10s×300（上限 60 分钟 wall-clock）
 const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; maxDurationMs: number | null }> = {
   image: { attempts: 120, intervalMs: 5000, maxDurationMs: 600_000 },
-  video: { attempts: 300, intervalMs: 10_000, maxDurationMs: null },
+  video: { attempts: 300, intervalMs: 10_000, maxDurationMs: 3_600_000 },
 }
 
 interface GenerateImageParams {
@@ -214,9 +214,9 @@ function parseTaskParams(raw: string | null | undefined): Record<string, any> {
   }
 }
 
-/** 检测文本是否含中文（FLUX 等文生图模型不识中文，中文段会被忽略导致出图雷同） */
+/** 检测文本是否含中文/日文假名（FLUX 等文生图模型不识中文，中文段会被忽略导致出图雷同） */
 function containsChinese(text: string): boolean {
-  return /[\u4e00-\u9fff]/.test(text)
+  return /[\u4e00-\u9fff\u3040-\u30ff]/.test(text)
 }
 
 /** fusion-mlx \u56fe\u7247\u6a21\u578b\uff08FLUX.1-dev\uff09\u65e0 ttl_seconds \u4e0d\u4f1a\u81ea\u52a8\u9a71\u9010\uff0c
@@ -466,7 +466,8 @@ async function processTask(id: number, config: AIConfig) {
       }
 
       await markPolling(id, taskId)
-      pollTask(record, config, taskId!)
+      // pollTask 为 fire-and-forget：不加 .catch 会让未处理 rejection 在 node 上进程崩溃
+      pollTask(record, config, taskId!).catch(err => logTaskError(taskLabel(type), 'poll-crash', { id, taskId, error: err?.message || String(err) }))
       return
     }
 
@@ -480,7 +481,8 @@ async function processTask(id: number, config: AIConfig) {
     }
 
     await markPolling(id, taskId)
-    pollTask(record, config, taskId!)
+    // fire-and-forget 必须 .catch，否则未处理 rejection 在 node 上进程崩溃
+    pollTask(record, config, taskId!).catch(err => logTaskError(label, 'poll-crash', { id, taskId, error: err?.message || String(err) }))
   } catch (err: any) {
     await failTask(id, err.message)
   }
@@ -511,11 +513,15 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
 
   for (let i = 0; i < profile.attempts; i++) {
     if (profile.maxDurationMs && Date.now() - startedAt >= profile.maxDurationMs) {
-      await failTask(record.id, 'Timeout: Polling exceeded 10 minutes')
+      await failTask(record.id, `Timeout: polling exceeded ${Math.round(profile.maxDurationMs / 60000)} minutes`)
       return
     }
     await new Promise(r => setTimeout(r, profile.intervalMs))
     try {
+      // B8: 任务行可能已被用户删除（DELETE /tasks/:id）或重启清理标 failed——
+      // 行已消失则停止孤儿轮询，避免结果写回无主任务
+      const [fresh] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask).where(eq(schema.sysTask.id, record.id))
+      if (!fresh) return
       const { url, method, headers } = adapter.buildPollRequest(config, taskId)
       logTaskProgress(label, 'poll-request', {
         id: record.id,
@@ -534,7 +540,16 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         signal: AbortSignal.timeout(remainingMs),
         dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
       } as any)
-      if (!resp.ok) continue
+      if (!resp.ok) {
+        // 4xx（除 408/429）= 上游终态拒绝（鉴权失败/参数非法/内容审核），重试无意义，
+        // 立即落库失败并携带响应体摘要；5xx/408/429 保持重试
+        if (resp.status >= 400 && resp.status < 500 && resp.status !== 408 && resp.status !== 429) {
+          const body = await resp.text().catch(() => '')
+          await failTask(record.id, `Generation rejected (HTTP ${resp.status}): ${body.slice(0, 200)}`)
+          return
+        }
+        continue
+      }
       const result = await resp.json() as any
 
       // 图片/视频 PollResponse 结构不同，这里统一按 any 取值后按 type 分支
@@ -563,6 +578,12 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
           await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration)
           return
         }
+        // 上游报告完成但没有产物 URL：终态失败，不让轮询空转到超时
+        if (pollResp.status === 'completed') {
+          await unloadFusionImageModel(config, record.model)
+          await failTask(record.id, 'Generation completed but no output URL in poll response')
+          return
+        }
       }
       if (pollResp.status === 'failed') {
         // 上游明确失败（如内容审核拦截）属终态：立即落库，不重试不等待超时。
@@ -581,7 +602,12 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
       logTaskWarn(label, 'poll-retry', { id: record.id, taskId, attempt: i + 1, error: err.message })
     }
   }
-  await failTask(record.id, 'Timeout: polling attempts exhausted')
+  // 兜底落库自身也可能抛（DB 忙/锁），不让异常逃出 fire-and-forget 调用
+  try {
+    await failTask(record.id, 'Timeout: polling attempts exhausted')
+  } catch (err: any) {
+    logTaskError(taskLabel(type), 'failTask-error', { id: record.id, error: err?.message || String(err) })
+  }
 }
 
 async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
@@ -612,22 +638,29 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
 }
 
 // 图片完成后回写业务表：分镜(按 frameType)、角色、场景、道具
+/** B25: 写回守卫——目标行在任务创建后又被更新过（如用户手动改图/重传），跳过覆盖防丢失 */
+async function isStaleTarget(table: any, id: number, taskCreatedAt: string | null): Promise<boolean> {
+  if (!id || !taskCreatedAt) return false
+  const [row] = await db.select({ updatedAt: table.updatedAt }).from(table).where(eq(table.id, id))
+  return Boolean(row?.updatedAt && row.updatedAt > taskCreatedAt)
+}
+
 async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   const params = parseTaskParams(record.params)
-  if (record.storyboardId) {
+  if (record.storyboardId && !(await isStaleTarget(schema.storyboards, record.storyboardId, record.createdAt))) {
     const sbUpdate: Record<string, any> = { updatedAt: now() }
     if (params.frameType === 'first_frame') sbUpdate.firstFrameImage = localPath
     else if (params.frameType === 'last_frame') sbUpdate.lastFrameImage = localPath
     else sbUpdate.composedImage = localPath
     await db.update(schema.storyboards).set(sbUpdate).where(eq(schema.storyboards.id, record.storyboardId))
   }
-  if (record.characterId) {
+  if (record.characterId && !(await isStaleTarget(schema.characters, record.characterId, record.createdAt))) {
     await db.update(schema.characters).set({ imageUrl: localPath, updatedAt: now() }).where(eq(schema.characters.id, record.characterId))
   }
-  if (record.sceneId) {
+  if (record.sceneId && !(await isStaleTarget(schema.scenes, record.sceneId, record.createdAt))) {
     await db.update(schema.scenes).set({ imageUrl: localPath, status: 'completed', updatedAt: now() }).where(eq(schema.scenes.id, record.sceneId))
   }
-  if (record.propId) {
+  if (record.propId && !(await isStaleTarget(schema.props, record.propId, record.createdAt))) {
     await db.update(schema.props).set({ imageUrl: localPath, updatedAt: now() }).where(eq(schema.props.id, record.propId))
   }
 }

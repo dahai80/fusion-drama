@@ -38,9 +38,9 @@ app.get('/episodes/:id/merge', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const merges = await db.select().from(schema.videoMerges)
     .where(eq(schema.videoMerges.episodeId, episodeId))
-
-
-  const latest = merges[merges.length - 1]
+  // 按创建时间取最新（B30）：rowid 顺序不保证最新记录在末尾
+  merges.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+  const latest = merges[0]
   if (!latest) return success(c, null)
 
   return success(c, toSnakeCase(latest))

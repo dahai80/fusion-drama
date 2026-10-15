@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { and, eq, isNull, like, desc } from 'drizzle-orm'
+import { and, eq, isNull, like, desc, sql } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
@@ -8,21 +8,24 @@ const app = new Hono()
 
 // GET /dramas - List dramas
 app.get('/', async (c) => {
-  const page = Number(c.req.query('page') || 1)
-  const pageSize = Number(c.req.query('page_size') || 20)
+  const page = Math.max(1, Number(c.req.query('page') || 1))
+  const pageSize = Math.min(100, Math.max(1, Number(c.req.query('page_size') || 20)))
   const status = c.req.query('status')
   const keyword = c.req.query('keyword')
 
-  const allRows = await db.select().from(schema.dramas)
-    .where(isNull(schema.dramas.deletedAt))
+  // B15: 过滤/分页/计数下推 SQL——全表拉内存再 slice 在表增长后拖垮列表接口
+  const conditions = [isNull(schema.dramas.deletedAt)]
+  if (status) conditions.push(eq(schema.dramas.status, status))
+  if (keyword) conditions.push(like(schema.dramas.title, `%${keyword}%`))
+  const where = and(...conditions)
+
+  const [countRow] = await db.select({ count: sql`count(*)` }).from(schema.dramas).where(where)
+  const total = Number(countRow?.count || 0)
+  const items = await db.select().from(schema.dramas)
+    .where(where)
     .orderBy(desc(schema.dramas.updatedAt))
-  let filtered = allRows
-
-  if (status) filtered = filtered.filter(d => d.status === status)
-  if (keyword) filtered = filtered.filter(d => d.title.includes(keyword))
-
-  const total = filtered.length
-  const items = filtered.slice((page - 1) * pageSize, page * pageSize)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
 
   // Attach episode/character/scene counts
   const enriched = await Promise.all(items.map(async (drama) => {

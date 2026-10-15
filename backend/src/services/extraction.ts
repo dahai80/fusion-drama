@@ -11,7 +11,6 @@ import { extractTools } from '../agents/tools/extract-tools.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 import { enqueueGpuWork } from './gpu-queue.js'
 import { getActiveConfig, getTextProviderBaseUrl } from './ai.js'
-import { writeFileSync } from 'fs'
 import { db, getInsertId, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
 
@@ -162,8 +161,7 @@ async function directPropsExtraction(episodeId: number, dramaId: number, request
 
     const props = extractJson(text)
     if (!props || !Array.isArray(props) || props.length === 0) {
-        try { writeFileSync('/tmp/fd-extract-props-direct.txt', text) } catch {}
-        logTaskWarn('Extract', 'props-direct-empty', { episodeId, textLen: text.length })
+                logTaskWarn('Extract', 'props-direct-empty', { episodeId, textLen: text.length })
         return { directCall: true, propsCount: 0, text }
     }
 
@@ -204,8 +202,7 @@ function parseTextToolCall(text: string, target: ExtractTarget): Record<string, 
     if (!parsed) parsed = extractJson(rawValue)
     if (parsed) return { [paramName]: parsed }
     // DEBUG: dump raw value for inspection
-    try { writeFileSync('/tmp/fd-extract-raw.txt', rawValue) } catch {}
-    logTaskWarn('Extract', `text-toolcall-parse-fail`, { target, format: 'xml', paramName, rawLen: rawValue.length })
+        logTaskWarn('Extract', `text-toolcall-parse-fail`, { target, format: 'xml', paramName, rawLen: rawValue.length })
   }
 
   // Format 2: {"name": "saveDedupCharacters", "arguments": {"characters": [...]}}
@@ -236,25 +233,32 @@ function parseTextToolCall(text: string, target: ExtractTarget): Record<string, 
 export async function startExtraction(episodeId: number, dramaId: number, target: ExtractTarget, opts: { model?: string; configId?: number } = {}): Promise<boolean> {
   const key = keyOf(episodeId, target)
   if (tasks.get(key)?.status === 'running') return false
-
-  // 落库 sys_task：type=extract（不进媒体生成队列，extraction 自管生命周期），
-  // episode_id 供任务面板 /episodes/:id/generation-tasks 聚合过滤
-  const ts = new Date().toISOString()
-  const insertRes = await db.insert(schema.sysTask).values({
-    type: 'extract',
-    dramaId,
-    episodeId,
-    prompt: `提取${target}`,
-    model: opts.model || null,
-    params: JSON.stringify({ target }),
-    status: 'processing',
-    createdAt: ts,
-    updatedAt: ts,
-  })
-  const dbTaskId = getInsertId(insertRes)
-
+  // B13 TOCTOU：先同步占坑再落库——并发第二次请求在 await 期间进来时，running 检查直接拒绝；
+  // 落库失败须释放占坑
   const task: ExtractTask = { status: 'running', started_at: new Date().toISOString() }
   tasks.set(key, task)
+
+  let dbTaskId: number
+  try {
+    // 落库 sys_task：type=extract（不进媒体生成队列，extraction 自管生命周期），
+    // episode_id 供任务面板 /episodes/:id/generation-tasks 聚合过滤
+    const ts = new Date().toISOString()
+    const insertRes = await db.insert(schema.sysTask).values({
+      type: 'extract',
+      dramaId,
+      episodeId,
+      prompt: `提取${target}`,
+      model: opts.model || null,
+      params: JSON.stringify({ target }),
+      status: 'processing',
+      createdAt: ts,
+      updatedAt: ts,
+    })
+    dbTaskId = getInsertId(insertRes)
+  } catch (err) {
+    tasks.delete(key)
+    throw err
+  }
 
   logTaskStart('Extract', target, { episodeId, dramaId, model: opts.model || undefined, configId: opts.configId || undefined })
 
@@ -321,8 +325,7 @@ export async function startExtraction(episodeId: number, dramaId: number, target
             logTaskError('Extract', `${target}-text-fallback`, { episodeId, error: e?.message })
           }
         } else {
-          try { writeFileSync(`/tmp/fd-extract-${target}-text.txt`, result?.text || '') } catch {}
-          logTaskWarn('Extract', `${target}-no-save`, {
+                    logTaskWarn('Extract', `${target}-no-save`, {
             episodeId,
             textLen: (result?.text || '').length,
             textPreview: (result?.text || '').slice(0, 300),

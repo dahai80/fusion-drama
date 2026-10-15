@@ -4,6 +4,7 @@ import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, badRequest, now } from '../utils/response.js'
 import { toSnakeCaseArray, toSnakeCase } from '../utils/transform.js'
 import { getActiveConfigId } from '../services/ai.js'
+import { logTaskWarn } from '../utils/task-logger.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 import { startStoryboardBreakdown } from '../services/storyboard-breakdown.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
@@ -28,17 +29,35 @@ app.post('/', async (c) => {
     .orderBy(schema.episodes.episodeNumber)
   const nextNum = existing.length ? Math.max(...existing.map(e => e.episodeNumber)) + 1 : 1
 
-  const res = await db.insert(schema.episodes).values({
-    dramaId: body.drama_id,
-    episodeNumber: nextNum,
-    title: body.title || `第${nextNum}集`,
-    imageConfigId,
-    videoConfigId,
-    // 视频分辨率在创建集时固定（480p/720p/1080p），后续可通过 PUT 修改；各视频适配器再映射为厂商档位
-    resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
-    createdAt: ts,
-    updatedAt: ts,
-  })
+  // B22: 唯一索引兜底 + 冲突重试——并发双击同 drama 同时算出同 nextNum 时，
+  // 后到者撞 uq_episodes_drama_number，重试 nextNum+1 而非 500
+  let res
+  try {
+    res = await db.insert(schema.episodes).values({
+      dramaId: body.drama_id,
+      episodeNumber: nextNum,
+      title: body.title || `第${nextNum}集`,
+      imageConfigId,
+      videoConfigId,
+      // 视频分辨率在创建集时固定（480p/720p/1080p），后续可通过 PUT 修改；各视频适配器再映射为厂商档位
+      resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  } catch (err: any) {
+    if (!/UNIQUE constraint failed: episodes.drama_id, episodes.episode_number/.test(err?.message || '')) throw err
+    logTaskWarn('Episode', 'create-conflict-retry', { dramaId: body.drama_id, nextNum })
+    res = await db.insert(schema.episodes).values({
+      dramaId: body.drama_id,
+      episodeNumber: nextNum + 1,
+      title: body.title || `第${nextNum + 1}集`,
+      imageConfigId,
+      videoConfigId,
+      resolution: ['480p', '720p', ' placeholders 480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
+      createdAt: ts,
+      updatedAt: ts,
+    })
+  }
 
   const [ep] = await db.select().from(schema.episodes)
     .where(eq(schema.episodes.id, getInsertId(res)))

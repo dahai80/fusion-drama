@@ -13,6 +13,14 @@ const normalizeLang = (v?: string) => (v && LANGS.includes(v) ? v : 'zh')
 /** 技能文件路径；lang 非 zh 时为语言变体 SKILL.<lang>.md */
 const skillFile = (id: string, lang?: string) => `skills/${id}/SKILL${lang && lang !== 'zh' ? `.${lang}` : ''}.md`
 const SKILL_ID_SEGMENT = /^[a-z0-9-]+$/
+/** GET/PUT/DELETE 路径参数同样校验：拒绝 `..`/反斜杠/空段等穿越形态，杜绝逃出 workspace jail */
+const assertValidSkillId = (id: string) => {
+  const segments = id.split('/')
+  if (!segments.length || !segments.every((seg: string) => SKILL_ID_SEGMENT.test(seg))) {
+    throw new Error('Skill id 每段只能包含小写字母、数字和连字符')
+  }
+  return segments
+}
 
 // GET /skills?lang= — List all skills (经 workspace.skills 原生发现)
 // lang 非 zh 且变体存在时，名称/描述取自语言变体 frontmatter（缺失则回退基础版）
@@ -41,6 +49,7 @@ app.get('/', async (c) => {
 // lang 非 zh 时读语言变体；变体缺失回退基础版内容并标记 is_default=true（前端提示「跟随中文」）
 app.get('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
+  try { assertValidSkillId(id) } catch (e: any) { return badRequest(c, e.message) }
   const lang = normalizeLang(c.req.query('lang'))
   if (!await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
   const variantExists = lang !== 'zh' && await fsm().exists(skillFile(id, lang))
@@ -51,6 +60,7 @@ app.get('/*', async (c) => {
 // PUT /skills/:id?lang= — Update skill content（lang 非 zh 写语言变体；基础版变更需刷新技能缓存）
 app.put('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
+  try { assertValidSkillId(id) } catch (e: any) { return badRequest(c, e.message) }
   const body = await c.req.json()
   const lang = normalizeLang(c.req.query('lang') ?? body.lang)
   if (lang !== 'zh' && !await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
@@ -90,6 +100,7 @@ Write your skill content here.
 // DELETE /skills/:id — Delete skill directory
 app.delete('/*', async (c) => {
   const id = c.req.path.slice('/api/v1/skills/'.length)
+  try { assertValidSkillId(id) } catch (e: any) { return badRequest(c, e.message) }
   if (!await fsm().exists(`skills/${id}`)) return badRequest(c, '技能不存在')
   await fsm().rmdir(`skills/${id}`, { recursive: true })
   await refreshSkillWorkspaces()

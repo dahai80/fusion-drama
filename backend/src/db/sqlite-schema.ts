@@ -381,9 +381,27 @@ export function initSqliteSchema(sqlite: Database.Database) {
   }
   // 增量迁移：sys_task.episode_id（提取/资产类任务按集归属，聚合面板可见）
   const taskCols = sqlite.prepare(`PRAGMA table_info(sys_task)`).all() as { name: string }[]
-  if (taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
+  if (taskCols.length && !taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
     sqlite.exec(`ALTER TABLE sys_task ADD COLUMN episode_id INTEGER`)
     console.log('🧩 sys_task 已补 episode_id 列')
+  }
+  // B28/B29: 高频过滤列补索引（幂等）。episodes 唯一索引防重复集号：
+  // 前端"新建剧集"双击会插两行同号 episode（B22），唯一索引是最后防线。
+  // 已有重复数据的旧库创建会失败——捕获后跳过，不阻断启动。
+  for (const stmt of [
+    `CREATE INDEX IF NOT EXISTS idx_sys_task_episode_id ON sys_task (episode_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_sys_task_status ON sys_task (status)`,
+    `CREATE INDEX IF NOT EXISTS idx_episodes_drama_id ON episodes (drama_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_storyboards_episode_id ON storyboards (episode_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_characters_drama_id ON characters (drama_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_scenes_drama_id ON scenes (drama_id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_episodes_drama_number ON episodes (drama_id, episode_number)`,
+  ]) {
+    try {
+      sqlite.exec(stmt)
+    } catch (err: any) {
+      console.warn(`⚠️ 索引创建跳过: ${err?.message}`)
+    }
   }
   const insertSeed = sqlite.prepare(SEED_SQL)
   const upgradeSeed = sqlite.prepare(UPGRADE_SQL)

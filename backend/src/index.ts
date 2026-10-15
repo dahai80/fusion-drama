@@ -103,6 +103,16 @@ db.update(schema.sysTask)
   })
   .catch(err => console.error('清理中断任务失败:', err?.message))
 
+// video_merges 同样存在重启孤儿：merge 由 doMerge 异步执行，进程重启后永远停在 processing
+db.update(schema.videoMerges)
+  .set({ status: 'failed', errorMsg: '服务重启，拼接任务中断，请重试' })
+  .where(eq(schema.videoMerges.status, 'processing'))
+  .then(res => {
+    const affected = res?.changes ?? 0
+    if (affected > 0) console.log(`🔁 已清理 ${affected} 个中断的拼接任务`)
+  })
+  .catch(err => console.error('清理中断拼接任务失败:', err?.message))
+
 // 绑定地址：desktop 模式（主进程注入 FUSION_BIND_HOST）只听回环，杜绝局域网可达；
 // 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权
 const hostname = process.env.FUSION_BIND_HOST || undefined
