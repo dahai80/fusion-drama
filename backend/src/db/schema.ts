@@ -38,9 +38,20 @@ export const episodes = sqliteTable('episodes', {
   imageConfigId: integer('image_config_id'),
   videoConfigId: integer('video_config_id'),
   resolution: text('resolution').default('720p'),
+  scriptHistory: text('script_history'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),
+})
+
+// FR-P1-1: 任务事件流（SSE 回放源）；seq 单调递增供 Last-Event-ID 续传
+export const sysTaskEvents = sqliteTable('sys_task_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  taskId: integer('task_id').notNull(),
+  seq: integer('seq').notNull(),
+  type: text('type').notNull(),
+  payload: text('payload'),
+  createdAt: text('created_at').notNull(),
 })
 
 export const characters = sqliteTable('characters', {

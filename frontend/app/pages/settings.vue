@@ -70,6 +70,30 @@
               </div>
             </div>
           </section>
+
+          <!-- FR-P0-1: 服务器 token 模式下的前端鉴权（桌面/本地模式无需配置） -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.general.apiToken') }}</span>
+                <div class="svc-group-sub">{{ t('settings.general.apiTokenSub') }}</div>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge" style="background:var(--accent-bg);color:var(--accent)"><KeyRound :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line"><span class="config-name">{{ t('settings.general.apiTokenLabel') }}</span></div>
+                <div class="config-sub">{{ t('settings.general.apiTokenHint') }}</div>
+              </div>
+              <input
+                v-model="apiTokenInput"
+                type="password"
+                class="token-input"
+                :placeholder="t('settings.general.apiTokenPlaceholder')"
+                @blur="saveApiToken"
+              />
+            </div>
+          </section>
         </div>
 
         <!-- ===== AI 服务配置 ===== -->
@@ -259,6 +283,29 @@
             </div>
             <p class="config-empty">{{ t('settings.storage.note') }}</p>
             <p v-if="!isDesktopMode" class="config-empty">{{ t('settings.storage.serverNote') }}</p>
+          </section>
+
+          <!-- FR-BIZ-6: 服务器版 DB 备份（桌面版走主进程迁移桥，不展示此卡片） -->
+          <section v-if="!isDesktopMode" class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.storage.backupTitle') }}</span>
+                <div class="svc-group-sub">{{ t('settings.storage.backupSub') }}</div>
+              </div>
+              <button class="btn btn-primary btn-sm ml-auto" :disabled="backingUp" @click="doBackup">
+                <Download :size="13" /> {{ t('settings.storage.backupNow') }}
+              </button>
+            </div>
+            <div v-if="backups.length" class="backup-list">
+              <div v-for="b in backups" :key="b.file" class="config-row">
+                <div class="provider-badge style-badge"><Database :size="15" /></div>
+                <div class="config-main">
+                  <div class="config-line mono truncate">{{ b.file }}</div>
+                  <div class="config-sub">{{ formatBytes(b.size) }}</div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="config-empty">{{ t('settings.storage.backupEmpty') }}</p>
           </section>
         </div>
 
@@ -680,7 +727,7 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
@@ -1054,6 +1101,15 @@ const contentLangLabel = computed(() =>
 // 内容语言切换后整页刷新（setUnifiedLanguage），无需局部 watch 同步
 // ===== 通用：外观主题（localStorage 持久化，即时生效） =====
 const { themeMode, setThemeMode } = useTheme()
+// FR-P0-1: 服务器 token 模式前端鉴权配置（localStorage 持久化，请求层统一注入）
+const apiTokenInput = ref(localStorage.getItem('FUSION_API_TOKEN') || '')
+function saveApiToken() {
+  const v = apiTokenInput.value.trim()
+  if (v) localStorage.setItem('FUSION_API_TOKEN', v)
+  else localStorage.removeItem('FUSION_API_TOKEN')
+  toast.success(t('settings.general.apiTokenSaved'))
+}
+
 const themeOptions = computed(() => [
   { value: 'light', label: t('settings.general.appearanceLight') },
   { value: 'dark', label: t('settings.general.appearanceDark') },
@@ -1263,6 +1319,21 @@ const desktopBridge = useDesktopBridge()
 const { begin: beginMigrate, update: updateMigrate, end: endMigrate } = useMigrateState()
 
 const storageInfo = ref(null)
+// FR-BIZ-6: 备份状态
+const backups = ref([])
+const backingUp = ref(false)
+async function loadBackups() {
+  try { backups.value = await storageAPI.listBackups() || [] } catch { backups.value = [] }
+}
+async function doBackup() {
+  backingUp.value = true
+  try {
+    await storageAPI.createBackup()
+    toast.success(t('settings.storage.backupDone'))
+    await loadBackups()
+  } catch (e) { toastError(e, { fallback: 'settings.storage.backupFailed' }) }
+  finally { backingUp.value = false }
+}
 const migrateDialog = ref(false)
 const migrateTarget = ref('')
 const migrateTargetFree = ref(null)
@@ -1294,7 +1365,7 @@ async function loadStorage() {
 }
 
 watch(tab, (active) => {
-  if (active === 'storage') loadStorage()
+  if (active === 'storage') { loadStorage(); loadBackups() }
   else stopUsagePoll()
 })
 
@@ -1622,6 +1693,18 @@ onBeforeUnmount(stopUsagePoll)
 
 /* 按服务类型分组的配置卡 */
 .sections { display: flex; flex-direction: column; gap: 16px; }
+.token-input {
+  width: 260px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-1);
+  font: 12px var(--font-body);
+}
+.token-input:focus { outline: none; border-color: var(--border-focus); }
+.backup-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .svc-group { overflow: hidden; }
 .svc-group-head {
   display: flex; align-items: center; gap: 10px;

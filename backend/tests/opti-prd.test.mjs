@@ -64,3 +64,53 @@ test('NFR-OPS-3: versioned migrations with auto backup', () => {
     const idx = read('db/index.ts')
     assert.match(idx, /runMigrations\(sqlite, dbPath\)/)
 })
+
+test('FR-P1-1: task events table + SSE endpoint + instrumentation', () => {
+    const mig = read('db/migrations.ts')
+    assert.match(mig, /sys_task_events/)
+    assert.match(mig, /idx_sys_task_events_task_id/)
+    const util = read('utils/task-events.ts')
+    assert.match(util, /appendTaskEvent/)
+    assert.match(util, /Last-Event-ID|afterSeq/)
+    const routes = read('routes/tasks.ts')
+    assert.match(routes, /app\.get\('\/:id\/events'/)
+    assert.match(routes, /Last-Event-ID/)
+    const gen = read('services/generation.ts')
+    assert.match(gen, /appendTaskEvent\(id, 'started'/)
+    assert.match(gen, /appendTaskEvent\(id, 'failed'/)
+    const completedCount = (gen.match(/appendTaskEvent\(record\.id, 'completed'/g) || []).length
+    assert.ok(completedCount >= 3, `completed events: ${completedCount}`)
+})
+
+test('FR-BIZ-3: script history keep-5 + rollback endpoint', () => {
+    const tool = read('agents/tools/script-tools.ts')
+    assert.match(tool, /scriptHistory/)
+    assert.match(tool, /while \(history\.length > 5\) history\.shift\(\)/)
+    const ep = read('routes/episodes.ts')
+    assert.match(ep, /rollback-script/)
+    assert.match(ep, /手动覆写剧本同样保留历史稿/)
+})
+
+test('FR-BIZ-2a: first-frame selection owned by host only', () => {
+    const adapter = read('services/adapters/fusion-video.ts')
+    assert.ok(!/pickReferenceUrl|firstReferenceUrl/.test(adapter), 'adapter must not keep its own selection impl')
+    assert.match(adapter, /record\.firstFrameUrl \|\| record\.imageUrl/)
+    const gen = read('services/generation.ts')
+    assert.match(gen, /resolveI2vSubjectUrl/)
+    assert.match(gen, /i2v-subject-fallback-last/)
+})
+
+test('FR-BIZ-6: manual DB backup API', () => {
+    const s = read('routes/storage.ts')
+    assert.match(s, /app\.post\('\/backup'/)
+    assert.match(s, /app\.get\('\/backups'/)
+    assert.match(s, /VACUUM INTO/)
+    assert.match(s, /MAX_BACKUPS = 10/)
+})
+
+test('NFR-OPS-2: health self-check fields', () => {
+    const s = read('index.ts')
+    assert.match(s, /schemaVersion/)
+    assert.match(s, /storageWritable/)
+    assert.match(s, /engineOk/)
+})

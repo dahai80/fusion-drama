@@ -216,6 +216,10 @@
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M13 18l6-6-6-6"/></svg>
                 {{ t('episode.script.skipRewrite') }}
               </button>
+              <button v-if="scriptHasHistory" class="btn btn-sm" :disabled="rn" @click="doRollbackScript" :title="t('episode.script.rollbackHint')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                {{ t('episode.script.rollback') }}
+              </button>
               <button v-if="scriptContent" class="btn btn-sm" @click="doRewrite" :disabled="rn">
                 <Loader2 v-if="rn && rt === 'script_rewriter'" :size="11" class="animate-spin" />
                 <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -604,6 +608,7 @@
                         <span class="video-task-loc truncate">{{ task.meta }}</span>
                       </template>
                     </div>
+                    <div v-if="videoTaskState(task.storyboard) === 'pending' && taskProgress[task.id]" class="video-task-progress">{{ taskProgress[task.id] }}</div>
                     <div v-if="task.error" class="video-task-error" :title="task.error">
                       {{ mapError(task.error) }}
                       <div v-if="videoModerationHint(task.error)" class="video-task-error-hint">{{ videoModerationHint(task.error) }}</div>
@@ -1502,6 +1507,24 @@ const onImportRawFile = (e) => {
   readFile('utf-8')
 }
 const rawContent = computed(() => episode.value?.content || '')
+// FR-BIZ-3: 剧本历史版本（后端覆写时自动保留，最近 5 版可一键回退）；
+// 历史列表随剧集详情（GET /dramas/:id 的 episodes 数组）返回
+const scriptHasHistory = computed(() => {
+  const raw = episode.value?.script_history || episode.value?.scriptHistory
+  if (!raw) return false
+  try { return (JSON.parse(raw) || []).length > 0 } catch { return false }
+})
+async function doRollbackScript() {
+  try {
+    const res = await api.post(`/episodes/${epId.value}/rollback-script`)
+    const detail = await api.get(`/dramas/${dramaId}`)
+    const eps = detail?.episodes || []
+    const cur = eps.find((e) => Number(e.id) === Number(epId.value))
+    if (cur) episode.value = { ...episode.value, ...cur }
+    localScript.value = episode.value?.script_content || ''
+    toast.success(t('episode.script.rollbackDone', { time: res?.savedAt ? new Date(res.savedAt).toLocaleString() : '' }))
+  } catch (e) { toastError(e, { fallback: 'episode.script.rollbackFailed' }) }
+}
 const scriptContent = computed(() => episode.value?.script_content || episode.value?.scriptContent || '')
 const epId = computed(() => episode.value?.id || 0)
 const rawLen = computed(() => localRaw.value.replace(/\s/g, '').length || 0)
@@ -1643,6 +1666,9 @@ const pendingCharImageIds = ref([])
 const pendingSceneImageIds = ref([])
 const pendingPropImageIds = ref([])
 const pendingVideoIds = ref([])
+// FR-P1-1: 任务过程事件（SSE）——分镜行内展示「已开始（provider · model）」等过程消息
+const taskProgress = reactive({})
+const { connect: connectTaskEvents, stop: stopTaskEvents } = useTaskEvents()
 const failedVideoMessages = ref({})
 // 任务列表面板：顶栏按钮触发的右侧抽屉,按集聚合 sys_task + video_merges
 const genTasks = ref([])
@@ -3392,6 +3418,18 @@ async function genVid(sb, opts = {}) {
   }
 }
 async function pollVideoGeneration(generationId, storyboardId) {
+  // FR-P1-1: 订阅任务事件流（started/failed/cancelled），行内过程消息随 SSE 更新；
+  // 连接失败静默降级（任务状态仍由下方轮询兜底）
+  if (generationId) {
+    connectTaskEvents(generationId, (e) => {
+      if (e.type === 'started') {
+        const p = e.payload || {}
+        taskProgress[String(storyboardId)] = [p.provider, p.model].filter(Boolean).join(' · ') || t('episode.vid.genStarted')
+      } else if (e.type === 'failed' || e.type === 'cancelled') {
+        delete taskProgress[String(storyboardId)]
+      }
+    }, () => { delete taskProgress[String(storyboardId)] })
+  }
   if (!generationId) {
     watchAsyncResult(() => {
       const target = sbs.value.find(s => s.id === storyboardId)
@@ -5158,6 +5196,11 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   color: var(--text-2);
 }
 .video-task-sep { color: var(--text-3); opacity: 0.5; }
+.video-task-progress {
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--text-3);
+}
 .video-task-error {
   margin-top: 5px;
   font-size: 11px;

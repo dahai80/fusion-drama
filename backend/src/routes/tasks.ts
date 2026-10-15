@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
-import { eq, and, desc, or } from 'drizzle-orm'
+import { streamSSE } from 'hono/streaming'
+import { eq, and, desc, or, gt, asc } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
+import { readTaskEvents, formatTaskEvent } from '../utils/task-events.js'
 import { generateImage, generateVideo, requestTaskCancel, cancelTask } from '../services/generation.js'
 import { getActiveConfig, getConfigById } from '../services/ai.js'
 import { deleteStoredFile } from '../utils/storage.js'
@@ -269,6 +271,50 @@ app.get('/:id', async (c) => {
   const [row] = await db.select().from(schema.sysTask)
     .where(eq(schema.sysTask.id, id))
   return success(c, row || null)
+})
+
+// GET /tasks/:id/events — SSE 事件流（FR-P1-1：过程可见 + Last-Event-ID 续传）
+// 事件源 = sys_task_events 表回放 + 终态前 DB tail 跟踪（单进程部署免广播 infra）
+app.get('/:id/events', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [row] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
+  if (!row) return badRequest(c, '任务不存在')
+
+  const lastSeq = Number(c.req.header('Last-Event-ID') || c.req.query('lastEventId') || 0)
+  const TASK_TERMINAL = new Set(['completed', 'failed', 'cancelled'])
+
+  return streamSSE(c, async (stream) => {
+    let cursor = Number.isFinite(lastSeq) ? lastSeq : 0
+    let open = true
+    stream.onAbort(() => { open = false })
+
+    // 阶段 1：回放历史事件（Last-Event-ID 续传 / 重连补发）
+    for (;;) {
+      const events = await readTaskEvents(id, cursor)
+      for (const e of events) {
+        await stream.writeSSE({ id: String(e.seq), event: e.type, data: formatTaskEvent(e) })
+        cursor = e.seq
+      }
+      if (events.length < 100) break
+    }
+
+    // 阶段 2：任务未终态时 DB tail 跟踪（1s 轮询游标，直到终态或客户端断开）
+    for (;;) {
+      if (!open) return
+      const [fresh] = await db.select({ status: schema.sysTask.status }).from(schema.sysTask).where(eq(schema.sysTask.id, id))
+      const [tail] = await readTaskEvents(id, cursor, 10)
+      if (tail) {
+        await stream.writeSSE({ id: String(tail.seq), event: tail.type, data: formatTaskEvent(tail) })
+        cursor = tail.seq
+        continue
+      }
+      if (fresh && TASK_TERMINAL.has(fresh.status || '') && !tail) {
+        await stream.writeSSE({ id: 'end', event: 'end', data: JSON.stringify({ status: fresh.status }) })
+        return
+      }
+      await stream.sleep(1000)
+    }
+  })
 })
 
 // POST /tasks/:id/cancel — 取消生成任务（FR-P0-5：取消在步骤边界生效，不硬杀本地引擎）

@@ -11,6 +11,7 @@ import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import { isMiniMaxH3, isWan22Ti2v5b } from './adapters/fusion-video'
 import { enqueueGpuWork } from './gpu-queue'
+import { appendTaskEvent } from '../utils/task-events'
 // P2: 零超时 dispatcher 模块级单例——每个 fetch new Agent 会各建一个连接池，从不 close
 const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
@@ -229,7 +230,10 @@ export async function cancelTask(id: number, reason: string): Promise<boolean> {
         .set({ status: 'cancelled', errorMsg: reason, completedAt: now(), updatedAt: now() })
         .where(and(eq(schema.sysTask.id, id), eq(schema.sysTask.status, 'processing')))
     const changed = (res as unknown as { changes?: number })?.changes ?? 0
-    if (changed > 0) activeCancels.delete(id)
+    if (changed > 0) {
+      activeCancels.delete(id)
+      appendTaskEvent(id, 'cancelled', { reason: reason.slice(0, 200) })
+    }
     return changed > 0
 }
 
@@ -364,6 +368,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     }
     const cancelC = new AbortController()
     activeCancels.set(id, cancelC)
+    appendTaskEvent(id, 'started', { type: record.type, provider: config.provider, model: record.model })
     const type = record.type as TaskType
     const label = taskLabel(type)
     const params = parseTaskParams(record.params)
@@ -541,6 +546,7 @@ async function markPolling(id: number, taskId: string | undefined) {
 
 async function failTask(id: number, message: string) {
   logTaskError('SysTask', 'failed', { id, error: message })
+  appendTaskEvent(id, 'failed', { error: message.slice(0, 500) })
   // 乐观条件：仅 processing 可落 failed——取消/清扫后迟到的失败不覆盖终态（NFR-DATA-1）
   await db.update(schema.sysTask)
     .set({ status: 'failed', errorMsg: message, updatedAt: now() })
@@ -685,6 +691,7 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
     logTaskWarn('ImageTask', 'thumb-failed', { id: record.id, error: err?.message })
   }
 
+  appendTaskEvent(record.id, 'completed', { localPath })
   await db.update(schema.sysTask)
     .set({ resultUrl: imageUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
@@ -702,6 +709,7 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
     logTaskWarn('ImageTask', 'thumb-failed', { id: record.id, error: err?.message })
   }
 
+  appendTaskEvent(record.id, 'completed', { localPath })
   await db.update(schema.sysTask)
     .set({ localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
@@ -767,6 +775,7 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
   // 否则 37MB base64 污染 DB 与 API 响应。远端 URL 原样保留（前端 http 判定直连）。
   const resultUrl = videoUrl.startsWith('data:') ? localPath : videoUrl
+  appendTaskEvent(record.id, 'completed', { localPath })
   await db.update(schema.sysTask)
     .set({ resultUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
@@ -911,7 +920,17 @@ async function resolveI2vSubjectUrl(
     .filter((ch) => ch.mentions > 0)
     .sort((a, b) => b.mentions - a.mentions || b.isProtagonist - a.isProtagonist || a.firstPos - b.firstPos)
   const winner = candidates[0]
-  if (!winner) return null
+  if (!winner) {
+    // 老数据兼容：无 @图片N / @角色名 引用时回退参考列表末张（场景图在前、角色图在后约定）
+    for (let i = rawReferenceUrls.length - 1; i >= 0; i--) {
+      const u = String(rawReferenceUrls[i] || '').trim()
+      if (u) {
+        logTaskProgress(label, 'i2v-subject-fallback-last', { id })
+        return normalizeVideoReferenceUrl(u)
+      }
+    }
+    return null
+  }
   logTaskProgress(label, 'i2v-subject-character', {
     id,
     character: winner.name,

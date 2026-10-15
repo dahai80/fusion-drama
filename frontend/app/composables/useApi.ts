@@ -8,10 +8,17 @@ const isDev = import.meta.dev ?? false
 const DEFAULT_TIMEOUT = 30_000
 const POST_TIMEOUT = 120_000
 
+// FR-P0-1: 服务器 token 模式（FUSION_API_TOKEN）下前端鉴权——token 存 localStorage
+// （XSS 面与 cookie 方案同级但免 CSRF），设置页可配置；未配置时不带头（本地/桌面模式）
+function authHeaders(): Record<string, string> {
+  const token = (typeof localStorage !== 'undefined' && localStorage.getItem('FUSION_API_TOKEN')) || ''
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function req<T = any>(method: string, path: string, body?: any, timeoutMs?: number): Promise<T> {
   const opts: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     signal: AbortSignal.timeout(timeoutMs ?? (method === 'POST' ? POST_TIMEOUT : DEFAULT_TIMEOUT)),
   }
   if (body) opts.body = JSON.stringify(body)
@@ -181,6 +188,9 @@ export const stylePresetAPI = {
 
 export const storageAPI = {
   info: () => api.get('/storage'),
+  // FR-BIZ-6: 服务器版 DB 手动备份（保留最近 10 份）
+  createBackup: () => api.post('/storage/backup', {}, 300_000),
+  listBackups: () => api.get('/storage/backups'),
 }
 
 export const settingsAPI = {

@@ -9,7 +9,7 @@ test('episode card exposes a delete action', () => {
   const page = read('app/views/drama/detail.vue')
   const useApi = read('app/composables/useApi.ts')
 
-  assert.match(useApi, /episodeAPI = \{[\s\S]*?del: \(id: number\) => api\.del\(`\/episodes\/\$\{id\}`\)/)
+  assert.match(useApi, /episodeAPI = \{[\s\S]*?del: \(id: number\) => api\.del\(`\/episodes\/\$\{id\}\?confirm=true`\)/)
   assert.match(page, /class="btn btn-icon btn-sm ep-delete"/)
   assert.match(page, /@click="episodeToDelete = ep"/)
   assert.match(page, /<ConfirmDialog/)

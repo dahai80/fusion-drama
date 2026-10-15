@@ -67,6 +67,18 @@ const saveScript = createTool({
   execute: async ({ content }, context) => {
     const episodeId = getEpisodeId(context?.requestContext)
     if (!episodeId) return { error: 'Missing episodeId in request context' }
+    const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+    if (!ep) return { error: 'Episode not found' }
+    // FR-BIZ-3: 覆写前把旧稿压入历史（保留最近 5 版），防“越改越差无法回退”
+    if (ep.scriptContent?.trim()) {
+      let history: { content: string, savedAt: string }[] = []
+      try { history = JSON.parse(ep.scriptHistory || '[]') || [] } catch { history = [] }
+      history.push({ content: ep.scriptContent, savedAt: ep.updatedAt || now() })
+      while (history.length > 5) history.shift()
+      await db.update(schema.episodes)
+        .set({ scriptHistory: JSON.stringify(history), updatedAt: now() })
+        .where(eq(schema.episodes.id, episodeId))
+    }
     await db.update(schema.episodes)
       .set({ scriptContent: content, updatedAt: now() })
       .where(eq(schema.episodes.id, episodeId))

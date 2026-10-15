@@ -94,63 +94,6 @@ function numFramesForDurationWan(duration?: number | null, maxSeconds = 10): num
   return Math.max(9, Math.round((target - 1) / 4) * 4 + 1)
 }
 
-/** referenceImageUrls 是 JSON 数组字符串（见 types.ts）；取首张有效 URL。 */
-function firstReferenceUrl(raw?: string | null): string | null {
-  if (!raw) return null
-  try {
-    const arr = JSON.parse(raw)
-    if (Array.isArray(arr)) {
-      for (const u of arr) {
-        const s = String(u || '').trim()
-        if (s) return s
-      }
-    }
-  } catch { /* 非法 JSON 视为无参考图 */ }
-  return null
-}
-
-/** 从 prompt 的 @图片N 引用中选出 I2V 条件图。
- *  prompt 里 @图片1/@图片2… 的编号与 referenceImageUrls 数组下标一一对应
- *  （1-based；前端 getShotReferenceIndexMap 保证此映射）。多角色镜头取
- *  「提及次数最多」的角色图作 I2V 条件——单参考图 I2V 下应跟随镜头主体
- *  （bug：盲取末张把镜头 1 钉在菩提四视图上，主角悟空缺席）。
- *  无任何 @图片N 引用时回退末张（老数据兼容）。 */
-function pickReferenceUrl(prompt: string, raw?: string | null): string | null {
-  if (!raw) return null
-  let arr: string[] = []
-  try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) arr = parsed.map(u => String(u || '').trim())
-  } catch { /* 非法 JSON 视为无参考图 */ }
-  if (!arr.length) return null
-
-  const counts = new Map<number, number>()
-  for (const m of prompt.matchAll(/@图片(\d+)/g)) {
-    const idx = Number(m[1])
-    if (idx >= 1 && idx <= arr.length) {
-      counts.set(idx, (counts.get(idx) ?? 0) + 1)
-    }
-  }
-  if (!counts.size) {
-    // 无引用标注：回退末张（旧约定场景图在前、角色图在后）
-    for (let i = arr.length - 1; i >= 0; i--) {
-      if (arr[i]) return arr[i]
-    }
-    return null
-  }
-  // 提及次数最多者优先；并列时取编号靠后（角色图通常排在场景图之后）
-  let best = 0
-  let bestCount = -1
-  for (const [idx, n] of counts) {
-    if (n > bestCount || (n === bestCount && idx > best)) {
-      best = idx
-      bestCount = n
-    }
-  }
-  console.log(`[fusion-video] I2V pick: refs=${arr.length} chosen-index=${best}`)
-  return arr[best - 1] || null
-}
-
 /** 剥离 prompt 中的台词引语（「…」/『…』/ "…"）。
  *  台词由 TTS 配音（video-dub）单独合成进音轨；留在视频 prompt 里会被
  *  LTX 当作字幕渲染成画面内嵌乱码文字（实测 "Diciple speek only truth..."）。
@@ -174,16 +117,10 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     if (!prompt) throw new Error('视频生成需要 prompt')
 
     // 参考图：本地模型仅支持单张首帧（ltx 后端不支持 i2v 时由服务端 422 提示）。
-    // #968 缺陷3：referenceImageUrls（参考图模式）此前被忽略——取首张作 I2V 条件。
-    // bug3 修复：referenceImageUrls 的拼装顺序是场景图在前、角色图在后，
-    // 取首张会把 I2V 条件钉在场景图上，角色形象完全缺席 → 模型幻觉出无关人物。
-    // 这里改为在列表中优先挑选角色图（按 storyboard_characters 绑定名匹配不了，
-    // 由调用方保证顺序——适配器侧做保底：取 reference 列表的最后一张（角色图约定排后），
-    // 显式 firstFrameUrl/imageUrl 仍最高优先。
-    const firstFrame = record.firstFrameUrl
-      || record.imageUrl
-      || pickReferenceUrl(prompt, record.referenceImageUrls)
-      || firstReferenceUrl(record.referenceImageUrls)
+    // FR-BIZ-2a 首帧选图唯一化：条件图由宿主（generation.ts resolveI2vSubjectUrl）
+    // 统一解析后经 firstFrameUrl 传入——@图片N/@角色名 主体挑选、末张兜底都在宿主，
+    // 适配器不再持有第二份选图实现；显式 firstFrameUrl/imageUrl 仍最高优先。
+    const firstFrame = record.firstFrameUrl || record.imageUrl
 
     const h3 = isMiniMaxH3(model)
     const wan5b = isWan22Ti2v5b(model)

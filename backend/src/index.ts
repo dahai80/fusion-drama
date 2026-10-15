@@ -29,6 +29,10 @@ import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from './utils/response.js'
 import { DATA_ROOT, STORAGE_ROOT } from './utils/paths.js'
+import fs from 'fs'
+import { sqlite } from './db/index.js'
+import { currentVersion } from './db/migrations.js'
+import { getActiveConfig } from './services/ai.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
@@ -46,11 +50,32 @@ app.use('*', requestLogger)
 app.use('*', errorHandler)
 
 // Health check（version 供部署巡检/更新检查核对当前运行版本）
-app.get('/api/v1/health', (c) => c.json({
-  status: 'ok',
-  version: process.env.FUSION_VERSION || undefined,
-  timestamp: new Date().toISOString(),
-}))
+// NFR-OPS-2: 扩展自检 — schema 版本 / 存储可写 / 本地引擎连通性（engineOk 仅在配置了 fusion 本地引擎时探测，best-effort 不 503）
+app.get('/api/v1/health', async (c) => {
+  let storageWritable = true
+  try {
+    const probe = path.join(DATA_ROOT, `.health-probe-${Date.now()}`)
+    fs.writeFileSync(probe, 'ok')
+    fs.rmSync(probe, { force: true })
+  } catch { storageWritable = false }
+
+  let engineOk: boolean | null = null
+  try {
+    const cfg = await getActiveConfig('video')
+    if (cfg && cfg.provider === 'fusion' && cfg.baseUrl) {
+      const res = await fetch(`${cfg.baseUrl.replace(/\/$/, '')}/v1/models`, { signal: AbortSignal.timeout(2000) })
+      engineOk = res.ok
+    }
+  } catch { engineOk = false }
+
+  return c.json({
+    status: 'ok',
+    version: process.env.FUSION_VERSION || undefined,
+    schemaVersion: currentVersion(sqlite),
+    storageWritable,
+    engineOk,
+  })
+})
 
 // API routes — 写方法 Content-Type 白名单 + 可选 Bearer 鉴权（FUSION_API_TOKEN）
 const api = new Hono()

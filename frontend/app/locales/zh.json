@@ -266,7 +266,13 @@
       "langNameEn": "English",
       "langNameJa": "日本語",
       "langNameKo": "한국어",
-      "unifiedSwitchWarning": "已切换为 {lang}，界面与 AI 内容语言将同步更新，即将刷新…"
+      "unifiedSwitchWarning": "已切换为 {lang}，界面与 AI 内容语言将同步更新，即将刷新…",
+      "apiToken": "服务器访问令牌",
+      "apiTokenSub": "服务器/Docker 部署启用了 FUSION_API_TOKEN 鉴权时必填；桌面/本地模式留空",
+      "apiTokenLabel": "访问令牌",
+      "apiTokenHint": "仅保存在本机浏览器存储，随每个请求以 Bearer 头发送",
+      "apiTokenPlaceholder": "粘贴服务器配置的 FUSION_API_TOKEN",
+      "apiTokenSaved": "访问令牌已保存"
     },
     "ai": {
       "title": "AI 服务配置",
@@ -325,7 +331,13 @@
       "diskFree": "磁盘剩余 {size}",
       "note": "数据目录包含 SQLite 数据库与全部生成媒体；Agent 技能（workspace）不在此列，不随迁移。",
       "serverNote": "服务器部署请通过 STORAGE_PATH / SQLITE_PATH 环境变量配置存储位置，改后重启服务生效。",
-      "loadFailed": "加载存储信息失败"
+      "loadFailed": "加载存储信息失败",
+      "backupTitle": "数据库备份",
+      "backupSub": "VACUUM 快照备份到数据目录 backups/，保留最近 10 份（桌面版使用迁移桥，无需此操作）",
+      "backupNow": "立即备份",
+      "backupEmpty": "暂无备份",
+      "backupDone": "备份完成",
+      "backupFailed": "备份失败"
     },
     "about": {
       "title": "关于更新",
@@ -513,7 +525,11 @@
       "rewriting": "正在改写剧本...",
       "scriptPlaceholder": "格式化剧本内容...",
       "rawRequired": "请先填写原始内容",
-      "skipDone": "已跳过 AI 改写，当前将直接使用原始内容"
+      "skipDone": "已跳过 AI 改写，当前将直接使用原始内容",
+      "rollback": "回退上一版",
+      "rollbackHint": "恢复覆写前自动保留的上一版剧本",
+      "rollbackDone": "已回退到 {time} 的版本",
+      "rollbackFailed": "回退失败"
     },
     "prod": {
       "assets": "资产制作",
@@ -773,7 +789,8 @@
       "confirmNote": "将按以上配置逐镜头发起生成；失败的任务之后可点「重试失败」一键重跑。",
       "confirmStart": "开始生成 ({n})",
       "selectMissing": "选未生成",
-      "aspectRatio": "画面比例"
+      "aspectRatio": "画面比例",
+      "genStarted": "已开始生成"
     },
     "inspector": {
       "videoPromptPlaceholder": "用 {'@'}角色名 / {'@'}场景名 引用参考素材，生成时自动映射为参考图片；再按时间段描述画面运动与镜头…",

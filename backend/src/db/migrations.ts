@@ -19,6 +19,24 @@ export interface Migration {
 export const MIGRATIONS: Migration[] = [
     // v1 基线：历史库的建表一直走 sqlite-schema.ts 幂等重放，此处仅开始记录版本号
     { version: 1, name: 'baseline', statements: [] },
+
+    // v2 FR-BIZ-3 剧本版本保留：覆写前保留历史稿（JSON 数组，最近 5 版）
+    { version: 2, name: 'script-history', statements: [
+        'ALTER TABLE episodes ADD COLUMN script_history TEXT',
+    ] },
+
+    // v3 FR-P1-1 任务事件流（画布乐观锁随画布 UI 立项再做，见 docs/opti-plan-1015.md 决策记录）
+    { version: 3, name: 'task-events', statements: [
+        `CREATE TABLE IF NOT EXISTS sys_task_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            seq INTEGER NOT NULL,
+            type TEXT NOT NULL,
+            payload TEXT,
+            created_at TEXT NOT NULL
+        )`,
+        'CREATE INDEX IF NOT EXISTS idx_sys_task_events_task_id ON sys_task_events (task_id, seq)',
+    ] },
 ]
 
 const MAX_BACKUPS = 10

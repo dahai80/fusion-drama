@@ -266,7 +266,13 @@
       "langNameEn": "English",
       "langNameJa": "Japanese",
       "langNameKo": "Korean",
-      "unifiedSwitchWarning": "Switched to {lang} — UI and AI content language update together. Refreshing…"
+      "unifiedSwitchWarning": "Switched to {lang} — UI and AI content language update together. Refreshing…",
+      "apiToken": "Server access token",
+      "apiTokenSub": "Required when the server enables FUSION_API_TOKEN auth; leave empty for desktop/local mode",
+      "apiTokenLabel": "Access token",
+      "apiTokenHint": "Stored in this browser only, sent as a Bearer header with every request",
+      "apiTokenPlaceholder": "Paste the server FUSION_API_TOKEN",
+      "apiTokenSaved": "Access token saved"
     },
     "ai": {
       "title": "AI Service Configs",
@@ -325,7 +331,13 @@
       "diskFree": "Disk free {size}",
       "note": "The data directory holds the SQLite database and all generated media; Agent skills (workspace) are not included and do not migrate.",
       "serverNote": "For server deployments, configure storage via STORAGE_PATH / SQLITE_PATH environment variables; restart to apply.",
-      "loadFailed": "Failed to load storage info"
+      "loadFailed": "Failed to load storage info",
+      "backupTitle": "Database backup",
+      "backupSub": "Snapshot the DB into the data dir backups/ folder, keeping the last 10 (desktop uses the migration bridge instead)",
+      "backupNow": "Back up now",
+      "backupEmpty": "No backups yet",
+      "backupDone": "Backup created",
+      "backupFailed": "Backup failed"
     },
     "about": {
       "title": "About & Updates",
@@ -513,7 +525,11 @@
       "rewriting": "Rewriting the script...",
       "scriptPlaceholder": "Formatted script content...",
       "rawRequired": "Please fill in the raw content first",
-      "skipDone": "AI rewrite skipped; the raw content will be used directly"
+      "skipDone": "AI rewrite skipped; the raw content will be used directly",
+      "rollback": "Roll back",
+      "rollbackHint": "Restore the previous version kept before the last rewrite",
+      "rollbackDone": "Rolled back to the version from {time}",
+      "rollbackFailed": "Rollback failed"
     },
     "prod": {
       "assets": "Asset Production",
@@ -773,7 +789,8 @@
       "confirmNote": "Generation will start shot by shot with the above config; failed tasks can be retried later via \"Retry failed\".",
       "confirmStart": "Start ({n})",
       "selectMissing": "Select without video",
-      "aspectRatio": "Aspect Ratio"
+      "aspectRatio": "Aspect Ratio",
+      "genStarted": "Generation started"
     },
     "inspector": {
       "videoPromptPlaceholder": "Reference assets with {'@'}character / {'@'}scene — auto-mapped to reference images on generation; then describe motion and camera per time segment…",

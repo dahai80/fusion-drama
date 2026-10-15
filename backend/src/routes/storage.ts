@@ -6,10 +6,12 @@
  * 过期时立即返回旧值并后台单飞重算（computing 防并发）；首次无值才同步等待。
  */
 import { Hono } from 'hono'
+import fs from 'fs'
+import path from 'path'
 import { DATA_ROOT, STORAGE_ROOT } from '../utils/paths.js'
-import { dbPath } from '../db/index.js'
+import { dbPath, sqlite } from '../db/index.js'
 import { dirUsage, volumeFreeBytes } from '../utils/dirsize.js'
-import { success } from '../utils/response.js'
+import { success, badRequest } from '../utils/response.js'
 
 const app = new Hono()
 
@@ -64,5 +66,54 @@ app.get('/', async (c) => {
     freeBytes: await volumeFreeBytes(DATA_ROOT),
   })
 })
+
+// ===== FR-BIZ-6 服务器版 DB 备份（桌面版恢复/迁移走主进程 migration 桥）=====
+
+const MAX_BACKUPS = 10
+
+function backupDir(): string {
+  return path.join(path.dirname(dbPath), 'backups')
+}
+
+/** 立即备份：VACUUM INTO 快照（WAL 一致性由 SQLite 保证），保留最近 10 份 */
+app.post('/backup', async (c) => {
+  const dir = backupDir()
+  fs.mkdirSync(dir, { recursive: true })
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const target = path.join(dir, `manual-${stamp}.sqlite`)
+  try {
+    sqlite.prepare(`VACUUM INTO '${target.replace(/'/g, "''")}'`).run()
+  } catch (err: any) {
+    console.error('[storage] backup failed:', err?.message)
+    return badRequest(c, `备份失败：${err?.message || '数据库快照写入异常'}`)
+  }
+  pruneOldBackups(dir)
+  console.log(`[storage] manual backup created: ${target}`)
+  return success(c, { file: path.basename(target) })
+})
+
+app.get('/backups', (c) => {
+  const dir = backupDir()
+  let files: string[] = []
+  try {
+    files = fs.readdirSync(dir).filter(f => f.endsWith('.sqlite')).sort().reverse()
+  } catch { /* 目录不存在 = 无备份 */ }
+  const items = files.map(f => {
+    let size = 0
+    try { size = fs.statSync(path.join(dir, f)).size } catch { /* 文件被清理 */ }
+    return { file: f, size }
+  })
+  return success(c, items)
+})
+
+function pruneOldBackups(dir: string) {
+  try {
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.sqlite')).sort()
+    while (files.length > MAX_BACKUPS) {
+      const oldest = files.shift()
+      if (oldest) fs.rmSync(path.join(dir, oldest), { force: true })
+    }
+  } catch { /* 清理失败不阻断 */ }
+}
 
 export default app

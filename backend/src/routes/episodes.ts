@@ -89,7 +89,18 @@ app.put('/:id', async (c) => {
   // Map snake_case to camelCase for drizzle
   const drizzleUpdates: Record<string, any> = { updatedAt: now() }
   if ('content' in updates) drizzleUpdates.content = updates.content
-  if ('script_content' in updates) drizzleUpdates.scriptContent = updates.script_content
+  if ('script_content' in updates) {
+    // FR-BIZ-3: 手动覆写剧本同样保留历史稿（与 Agent 覆写同语义）
+    const [cur] = await db.select({ scriptContent: schema.episodes.scriptContent }).from(schema.episodes).where(eq(schema.episodes.id, id))
+    if (cur?.scriptContent?.trim() && cur.scriptContent !== updates.script_content) {
+      let history: { content: string, savedAt: string }[] = []
+      try { history = JSON.parse((await db.select().from(schema.episodes).where(eq(schema.episodes.id, id)))[0]?.scriptHistory || '[]') || [] } catch { history = [] }
+      history.push({ content: cur.scriptContent, savedAt: now() })
+      while (history.length > 5) history.shift()
+      drizzleUpdates.scriptHistory = JSON.stringify(history)
+    }
+    drizzleUpdates.scriptContent = updates.script_content
+  }
   if ('title' in updates) drizzleUpdates.title = updates.title
   if ('description' in updates) drizzleUpdates.description = updates.description
   if ('status' in updates) drizzleUpdates.status = updates.status
@@ -119,6 +130,23 @@ app.delete('/:id', async (c) => {
     ))
   console.log(`[episodes] episode ${id} soft-deleted, aborted tasks: ${(res as unknown as { changes?: number })?.changes ?? 0}`)
   return success(c)
+})
+
+// POST /episodes/:id/rollback-script — 回退上一版剧本（FR-BIZ-3）
+app.post('/:id/rollback-script', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  if (!ep) return notFound(c, '剧集不存在')
+  let history: { content: string, savedAt: string }[] = []
+  try { history = JSON.parse(ep.scriptHistory || '[]') || [] } catch { history = [] }
+  const last = history[history.length - 1]
+  if (!last) return badRequest(c, '没有可回退的历史版本')
+  history.pop()
+  await db.update(schema.episodes)
+    .set({ scriptContent: last.content, scriptHistory: history.length ? JSON.stringify(history) : null, updatedAt: now() })
+    .where(eq(schema.episodes.id, id))
+  console.log(`[episodes] episode ${id} script rolled back to ${last.savedAt}`)
+  return success(c, { savedAt: last.savedAt })
 })
 
 // GET /episodes/:id/characters — characters linked to this episode

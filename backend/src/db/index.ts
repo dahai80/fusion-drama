@@ -18,7 +18,7 @@ const repoRoot = path.resolve(__dirname, '../../..')
 export const dbPath = process.env.SQLITE_PATH || path.join(repoRoot, 'data', 'fusion.sqlite3')
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
-const sqlite = new Database(dbPath)
+export const sqlite: Database.Database = new Database(dbPath)
 
 // WAL：生成任务轮询与页面读并发时不互相阻塞；busy_timeout 兜底写锁竞争
 sqlite.pragma('journal_mode = WAL')
@@ -48,5 +48,6 @@ export function getInsertId(result: unknown) {
 }
 
 export const db = drizzle(sqlite, { schema })
+
 export { schema }
 export type DB = typeof db

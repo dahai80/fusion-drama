@@ -266,7 +266,13 @@
       "langNameEn": "英語",
       "langNameJa": "日本語",
       "langNameKo": "韓国語",
-      "unifiedSwitchWarning": "{lang} に切替しました。UI と AI コンテンツ言語が同期され、まもなく再読み込みします…"
+      "unifiedSwitchWarning": "{lang} に切替しました。UI と AI コンテンツ言語が同期され、まもなく再読み込みします…",
+      "apiToken": "サーバーアクセストークン",
+      "apiTokenSub": "FUSION_API_TOKEN 認証が有効なサーバー/Docker デプロイでは必須。デスクトップ/ローカルモードは空のまま",
+      "apiTokenLabel": "アクセストークン",
+      "apiTokenHint": "このブラウザにのみ保存され、毎リクエストの Bearer ヘッダーで送信されます",
+      "apiTokenPlaceholder": "サーバーの FUSION_API_TOKEN を貼り付け",
+      "apiTokenSaved": "アクセストークンを保存しました"
     },
     "ai": {
       "title": "AI サービス設定",
@@ -325,7 +331,13 @@
       "diskFree": "ディスク空き {size}",
       "note": "データディレクトリには SQLite データベースとすべての生成メディアが含まれます。Agent スキル（workspace）は含まれず、移行されません。",
       "serverNote": "サーバーデプロイでは STORAGE_PATH / SQLITE_PATH 環境変数で保存場所を設定し、再起動後に反映されます。",
-      "loadFailed": "保存情報の読み込みに失敗しました"
+      "loadFailed": "保存情報の読み込みに失敗しました",
+      "backupTitle": "データベースバックアップ",
+      "backupSub": "DB をデータディレクトリの backups/ にスナップショット（最新 10 件保持）。デスクトップ版は移行ブリッジを使用",
+      "backupNow": "今すぐバックアップ",
+      "backupEmpty": "バックアップはまだありません",
+      "backupDone": "バックアップが完了しました",
+      "backupFailed": "バックアップに失敗しました"
     },
     "about": {
       "title": "更新について",
@@ -513,7 +525,11 @@
       "rewriting": "脚本をリライト中...",
       "scriptPlaceholder": "書式付き脚本の内容...",
       "rawRequired": "先に原文を入力してください",
-      "skipDone": "AI リライトをスキップしました。原文をそのまま使用します"
+      "skipDone": "AI リライトをスキップしました。原文をそのまま使用します",
+      "rollback": "前の版に戻す",
+      "rollbackHint": "前回の書き換え前に保存された版を復元",
+      "rollbackDone": "{time} の版に戻しました",
+      "rollbackFailed": "ロールバックに失敗しました"
     },
     "prod": {
       "assets": "アセット制作",
@@ -773,7 +789,8 @@
       "confirmNote": "上記の設定でショットごとに生成を開始します。失敗したタスクは後で「失敗を再試行」からまとめて再実行できます。",
       "confirmStart": "生成開始 ({n})",
       "selectMissing": "未生成を選択",
-      "aspectRatio": "アスペクト比"
+      "aspectRatio": "アスペクト比",
+      "genStarted": "生成を開始しました"
     },
     "inspector": {
       "videoPromptPlaceholder": "{'@'}キャラクター名 / {'@'}シーン名 で参照素材を指定（生成時に参照画像へ自動マッピング）。時間帯ごとに画面の動きとカメラを記述…",
