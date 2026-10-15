@@ -207,7 +207,13 @@ export async function fetchImageAsCompressedDataUrl(
   assertPublicHttpUrl(url)
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
-  const dataUrl = await compressImageAsDataUrl(Buffer.from(await resp.arrayBuffer()), options)
+  // P5: 响应体 20MB 上限——Content-Length 预检 + 实际读取后复检，防超大响应解码炸内存
+  const REF_FETCH_MAX = 20 * 1024 * 1024
+  const declared = Number(resp.headers.get('content-length') || 0)
+  if (declared > REF_FETCH_MAX) throw new Error(`参考图过大: ${Math.round(declared / 1024 / 1024)}MB`)
+  const buf = Buffer.from(await resp.arrayBuffer())
+  if (buf.length > REF_FETCH_MAX) throw new Error(`参考图过大: ${Math.round(buf.length / 1024 / 1024)}MB`)
+  const dataUrl = await compressImageAsDataUrl(buf, options)
   refImageCache.set(cacheKey, dataUrl)
   while (refImageCache.size > REF_IMAGE_CACHE_MAX) {
     refImageCache.delete(refImageCache.keys().next().value as string)

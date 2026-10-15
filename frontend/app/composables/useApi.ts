@@ -46,7 +46,7 @@ async function req<T = any>(method: string, path: string, body?: any, timeoutMs?
 
 export const api = {
   get: <T = any>(p: string) => req<T>('GET', p),
-  post: <T = any>(p: string, b?: any) => req<T>('POST', p, b),
+  post: <T = any>(p: string, b?: any, timeoutMs?: number) => req<T>('POST', p, b, timeoutMs),
   put: <T = any>(p: string, b?: any) => req<T>('PUT', p, b),
   del: <T = any>(p: string) => req<T>('DELETE', p),
 }

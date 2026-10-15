@@ -120,7 +120,8 @@ function escapeRegExp(s) {
 
 const highlightRegex = computed(() => {
   if (!mentionNames.value.length) return null
-  const alt = mentionNames.value.map(([name]) => escapeRegExp(name)).join('|')
+  // M9: 文本先 escapeHtml 再匹配——正则也须对转义后的名字做匹配，否则含 &<> 的名字永远失配
+  const alt = mentionNames.value.map(([name]) => escapeRegExp(escapeHtml(name))).join('|')
   return new RegExp(`@(${alt})`, 'g')
 })
 
@@ -131,7 +132,7 @@ const highlightedHtml = computed(() => {
   if (re) {
     const groupOf = Object.fromEntries(mentionNames.value)
     html = html.replace(re, (m, name) =>
-      `<span class="mention-token mention-token-${groupOf[name]}">@${escapeHtml(name)}</span>`)
+      `<span class="mention-token mention-token-${escapeHtml(groupOf[name] ?? '')}">@${escapeHtml(name)}</span>`)
   }
   if (html.endsWith('\n')) html += '\u200b'
   return html

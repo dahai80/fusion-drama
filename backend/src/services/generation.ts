@@ -11,6 +11,8 @@ import { extractVideoPoster } from '../utils/video-poster.js'
 import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import { isMiniMaxH3, isWan22Ti2v5b } from './adapters/fusion-video'
 import { enqueueGpuWork } from './gpu-queue'
+// P2: 零超时 dispatcher 模块级单例——每个 fetch new Agent 会各建一个连接池，从不 close
+const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
 import type { AIConfig } from './adapters/types'
 import { getModel } from '../agents/index.js'
@@ -93,6 +95,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     enrichEpisodeId: params.enrichEpisodeId,
     textModel: params.textModel,
     textConfigId: params.textConfigId,
+    configId: params.configId,
   })
 
   logTaskStart('ImageTask', 'enqueue', {
@@ -143,6 +146,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     promptExtend: params.promptExtend,
     watermark: params.watermark,
     videoPipeline: params.videoPipeline,
+    configId: params.configId,
   })
 
   logTaskStart('VideoTask', 'enqueue', {
@@ -251,7 +255,7 @@ async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: 
     const { getTextConfig, getTextProviderBaseUrl } = await import('./ai.js')
     const textConfig = await getTextConfig()
     const baseUrl = getTextProviderBaseUrl(textConfig)
-    const dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
+    const dispatcher = laxDispatcher
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -332,6 +336,11 @@ async function processTask(id: number, config: AIConfig) {
     const type = record.type as TaskType
     const label = taskLabel(type)
     const params = parseTaskParams(record.params)
+    // L7: 配置在执行时重解析——createTask 到实际执行间可能隔几十分钟排队，
+    // 用户中途改 baseUrl/apiKey/切换启用配置后在途批次应打新端点；失效则沿用建任务时快照
+    config = params.configId
+      ? (await getConfigById(Number(params.configId))) ?? config
+      : (await getActiveConfig(type === 'image' ? 'image' : 'video')) ?? config
     logTaskProgress(label, 'build-request', {
       id,
       provider: config.provider,
@@ -435,7 +444,7 @@ async function processTask(id: number, config: AIConfig) {
       // 统一放宽到 60min（图片任务远短于此，不受影响）
       signal: AbortSignal.timeout(3_600_000),
       // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
-      dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
+      dispatcher: laxDispatcher,
     } as any)
 
     if (!resp.ok) throw new Error(`API error ${resp.status}: ${await resp.text()}`)
@@ -538,7 +547,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         method,
         headers,
         signal: AbortSignal.timeout(remainingMs),
-        dispatcher: new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 }),
+        dispatcher: laxDispatcher,
       } as any)
       if (!resp.ok) {
         // 4xx（除 408/429）= 上游终态拒绝（鉴权失败/参数非法/内容审核），重试无意义，
@@ -559,7 +568,9 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
         if (type === 'image') {
           if (pollResp.imageUrl) {
             logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, imageUrl: pollResp.imageUrl })
-            await handleImageComplete(record, pollResp.imageUrl)
+            // A2: 落盘/缩略图/写回在 GPU 队列内串行执行（锁外的并发转码/写库正是
+            // gpu-queue 要避免的资源争用，只是换了资源类型）
+            await enqueueGpuWork(`image-complete-${record.id}`, () => handleImageComplete(record, pollResp.imageUrl))
             await unloadFusionImageModel(config, record.model)
             return
           }
@@ -568,14 +579,15 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
             const b64 = (adapter as ReturnType<typeof getImageAdapter>).extractImageBase64(result)
             if (b64) {
               logTaskSuccess(label, 'poll-base64-complete', { id: record.id, taskId, mimeType: b64.mimeType })
-              await handleImageCompleteBase64(record, b64.data, b64.mimeType)
+              await enqueueGpuWork(`image-complete-${record.id}`, () => handleImageCompleteBase64(record, b64.data, b64.mimeType))
               await unloadFusionImageModel(config, record.model)
               return
             }
           }
         } else if (pollResp.videoUrl) {
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl: pollResp.videoUrl })
-          await handleVideoComplete(record, pollResp.videoUrl, pollResp.duration)
+          // A2: 下载/海报帧/TTS 配音/ffmpeg 混流同样入 GPU 串行队列
+          await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, pollResp.videoUrl, pollResp.duration))
           return
         }
         // 上游报告完成但没有产物 URL：终态失败，不让轮询空转到超时
@@ -611,9 +623,18 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string)
 }
 
 async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
+  // L6: 先落 resultUrl——上游签名 URL 短期有效，下载失败时 URL 已在库中可查/可重取，
+  // 否则整个 GPU 生成白跑且无法恢复
+  await db.update(schema.sysTask)
+    .set({ resultUrl: imageUrl, updatedAt: now() })
+    .where(eq(schema.sysTask.id, record.id))
   const localPath = await downloadFile(imageUrl, 'images')
-  // 列表页缩略图（前端按命名约定推导地址，失败不影响主流程）
-  await generateImageThumb(localPath)
+  // 列表页缩略图（前端按命名约定推导地址）——失败只降级，不判死主图
+  try {
+    await generateImageThumb(localPath)
+  } catch (err: any) {
+    logTaskWarn('ImageTask', 'thumb-failed', { id: record.id, error: err?.message })
+  }
 
   await db.update(schema.sysTask)
     .set({ resultUrl: imageUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
@@ -626,7 +647,11 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
 
 async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: string, mimeType: string) {
   const localPath = await saveBase64Image(base64Data, mimeType, 'images')
-  await generateImageThumb(localPath)
+  try {
+    await generateImageThumb(localPath)
+  } catch (err: any) {
+    logTaskWarn('ImageTask', 'thumb-failed', { id: record.id, error: err?.message })
+  }
 
   await db.update(schema.sysTask)
     .set({ localPath, status: 'completed', completedAt: now(), updatedAt: now() })
@@ -666,9 +691,19 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
 }
 
 async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
+  // L6: data URI 外的远端 URL 先落库（签名 URL 短期有效，下载失败可查可重取）
+  if (!videoUrl.startsWith('data:')) {
+    await db.update(schema.sysTask)
+      .set({ resultUrl: videoUrl, updatedAt: now() })
+      .where(eq(schema.sysTask.id, record.id))
+  }
   const localPath = await downloadFile(videoUrl, 'videos')
-  // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频
-  await extractVideoPoster(localPath)
+  // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频——失败只降级
+  try {
+    await extractVideoPoster(localPath)
+  } catch (err: any) {
+    logTaskWarn('VideoTask', 'poster-failed', { id: record.id, error: err?.message })
+  }
   // issue: LTX-2.5 联合 A/V 仅产出环境底噪，对白缺失——
   // 分镜提示词含对白时用 TTS 合成配音并混入音轨（失败不阻断主流程）。
   // 注意：对白必须取中文原 prompt（record.prompt），翻译后的英文无法用于中文 TTS；

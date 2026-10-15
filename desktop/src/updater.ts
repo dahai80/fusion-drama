@@ -190,7 +190,7 @@ function describeApplyError(err: unknown): string {
 
 async function doApply(): Promise<void> {
   if (state.status !== 'downloaded' || !state.downloadedFile) {
-    // 兜底：直接查询 temp 里的最新产物
+    // 不做「从 temp 找旧产物」的兜底：跳过状态机执行未校验的残留文件是安全捷径
     throw new Error('请先下载更新')
   }
   const downloaded = state.downloadedFile

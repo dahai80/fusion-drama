@@ -9,6 +9,9 @@ import type { RequestContext } from '@mastra/core/request-context'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { Agent as UndiciAgent } from 'undici'
+
+// P2: dispatcher 模块级单例，避免每次请求各建连接池
+const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { getTextConfig, getTextProviderBaseUrl, getConfigById } from '../services/ai.js'
 import { logTaskProgress } from '../utils/task-logger.js'
 import { scriptTools } from './tools/script-tools.js'
@@ -323,7 +326,7 @@ export async function getModel(fileModel: string | undefined, modelOverride?: st
   // 本地大模型（如 fusion-mlx 27B）长上下文首 token 延迟可超 300s，
   // 会被 Node 全局 fetch 的 Headers Timeout 掐断（"Cannot connect to API: Headers Timeout Error"）
   if (!isOfficialTextHost(resolvedBaseURL)) {
-    const dispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
+    const dispatcher = laxDispatcher
     const inner = fetchImpl
     fetchImpl = ((input: any, init?: any) => inner(input, { ...init, dispatcher } as any)) as typeof fetch
   }

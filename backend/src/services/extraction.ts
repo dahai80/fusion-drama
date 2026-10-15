@@ -315,17 +315,20 @@ export async function startExtraction(episodeId: number, dramaId: number, target
 
       // 兜底：小模型常把 save_dedup_* 输出为文本而非标准 function call。
       // 检测到未调 save 工具时，从 result.text 解析 <function=saveDedup*> 格式并直接执行工具。
-      if (!calledSave) {
+      // L11: 是否真正落库决定任务终态——未保存仍标 completed 会显示成功但数据为空
+      let saved = calledSave
+      if (!saved) {
         const parsedArgs = parseTextToolCall(result?.text || '', target)
         if (parsedArgs) {
           try {
             const toolResult = await saveInfo.tool.execute(parsedArgs as any, { requestContext } as any)
             logTaskSuccess('Extract', `${target}-text-fallback`, { episodeId, toolResult })
+            saved = true
           } catch (e: any) {
             logTaskError('Extract', `${target}-text-fallback`, { episodeId, error: e?.message })
           }
         } else {
-                    logTaskWarn('Extract', `${target}-no-save`, {
+          logTaskWarn('Extract', `${target}-no-save`, {
             episodeId,
             textLen: (result?.text || '').length,
             textPreview: (result?.text || '').slice(0, 300),
@@ -342,7 +345,8 @@ export async function startExtraction(episodeId: number, dramaId: number, target
       return (async () => {
         if (dbTaskId) {
           await db.update(schema.sysTask).set({
-            status: 'completed',
+            status: saved ? 'completed' : 'failed',
+            errorMsg: saved ? null : '提取完成但未保存任何资产（模型未调用保存工具），请重试',
             resultUrl: (result?.text || '').slice(0, 500) || null,
             updatedAt: new Date().toISOString(),
           }).where(eq(schema.sysTask.id, dbTaskId))

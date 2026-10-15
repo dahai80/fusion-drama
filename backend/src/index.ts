@@ -83,6 +83,8 @@ app.route('/api/v1', api)
 app.use('/static/*', async (c, next) => {
   await next()
   if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable')
+  // C3: MIME 按扩展名返回，禁嗅探防止把上传物嗅探成 text/html 执行
+  c.header('X-Content-Type-Options', 'nosniff')
 })
 app.use('/static/*', serveStatic({ root: STORAGE_ROOT, rewriteRequestPath: p => p.replace(/^\/static/, '') || '/' }))
 

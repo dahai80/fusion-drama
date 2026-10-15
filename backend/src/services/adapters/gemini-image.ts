@@ -82,8 +82,8 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       },
     }
 
+    // key 仅走 header（x-goog-api-key）：query 传 key 会在代理/网关访问日志留痕
     const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/${model}:generateContent`))
-    url.searchParams.set('key', config.apiKey)
 
     return {
       url: url.toString(),
@@ -113,8 +113,10 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       return { isAsync: false, imageUrl: undefined }
     }
 
-    if (result.task_id || result.id) {
-      return { isAsync: true, taskId: result.task_id || result.id }
+    // 仅显式 task_id 视为异步任务：中转站常回普通 result.id（非 poll 端点 id），
+    // 误判会 GET /{id} 空转整个轮询窗口后假超时
+    if (result.task_id) {
+      return { isAsync: true, taskId: result.task_id }
     }
 
     if (result.error) {
@@ -131,7 +133,6 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
     // Gemini 不需要轮询，但实现接口以保持一致
     const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/${taskId}`))
-    url.searchParams.set('key', config.apiKey)
     return {
       url: url.toString(),
       method: 'GET',
