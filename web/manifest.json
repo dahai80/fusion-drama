@@ -1,0 +1,13 @@
+{
+  "id": "fusion-drama",
+  "title": "Fuse 短剧",
+  "title_en": "Fusion Shorts",
+  "version": "1.0.0",
+  "path": "/drama",
+  "icon": "Film",
+  "entry": "/shell/fusion-drama/",
+  "health": "http://localhost:5679/api/v1/health",
+  "backend": "http://localhost:5679/api/v1",
+  "devices": ["desktop", "mobile-readonly"],
+  "category": "domain"
+}

@@ -190,7 +190,35 @@ primaryServer.on('error', (err: NodeJS.ErrnoException) => {
   const addr = fallback.address()
   if (addr && typeof addr === 'object') {
     reportPort(addr.port)
+    void registerShellManifest(addr.port)
     console.log(`🚀 Fusion Drama TS server on http://localhost:${addr.port}`)
   }
 })
 reportPort(port)
+
+// Union Web 接入（PRD R-8①/§5.2）：FUSION_SHELL_GATEWAY 配置时把 web/manifest.json
+// 注册到宿主 Shell 注册中心（幂等 upsert，按 id 覆盖）。best-effort——
+// 网关未起/不可达只告警一次，不影响独立运行形态（桌面/dev/服务器单机）
+async function registerShellManifest(actualPort: number) {
+  const gateway = process.env.FUSION_SHELL_GATEWAY
+  if (!gateway) return
+  try {
+    const manifestPath = path.join(projectRoot, 'web', 'manifest.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    // health/backend 用实际端口覆写（桌面模式端口动态分配，静态文件里的默认值不可靠）
+    manifest.health = `http://localhost:${actualPort}/api/v1/health`
+    manifest.backend = `http://localhost:${actualPort}/api/v1`
+    manifest.version = process.env.FUSION_VERSION || manifest.version
+    const res = await fetch(`${gateway.replace(/\/$/, '')}/api/v1/shell/manifests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(manifest),
+      signal: AbortSignal.timeout(3000),
+    })
+    if (res.ok) console.log(`🔗 已注册到 Union Web Shell（${gateway}）`)
+    else console.warn(`[shell] 注册失败: HTTP ${res.status}`, await res.text().catch(() => ''))
+  } catch (err: any) {
+    console.warn(`[shell] 注册到 Union Web Shell 失败（不影响独立运行）: ${err?.message}`)
+  }
+}
+void registerShellManifest(port)

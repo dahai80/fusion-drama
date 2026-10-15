@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { Toaster, toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import MigrateOverlay from '~/components/MigrateOverlay.vue'
@@ -20,6 +20,13 @@ import { useTheme } from '~/composables/useTheme'
 const { t } = useI18n()
 const route = useRoute()
 const { resolvedTheme } = useTheme()
+
+// Union Web 内嵌模式（PRD R-8③）：?embedded=1 进入即隐藏自有导航，宿主 Shell 提供外壳。
+// 置入 useState 后跨路由保持——内部导航丢 query 不会把头部导航带回来
+const embedded = useState('fusion-embedded', () => false)
+watch(() => route.query.embedded, (v) => {
+  if (v === '1' || v === 1) embedded.value = true
+}, { immediate: true })
 
 // 响应式文档标题（nuxt.config.ts 的静态 title 仅作 SSR/兜底）
 useHead(() => ({ title: t('app.title') }))

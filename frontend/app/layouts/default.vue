@@ -1,7 +1,7 @@
 <template>
   <div class="shell">
-    <!-- Header -->
-    <header class="header">
+    <!-- Header（Union Web 内嵌模式隐藏，宿主 Shell 提供外壳） -->
+    <header v-if="!embedded" class="header">
       <div class="header-left">
         <button class="brand" @click="navigateTo('/')">
           <div class="brand-mark">
@@ -42,8 +42,8 @@
       </div>
     </header>
 
-    <!-- AI 服务未配置引导横幅(缺任一类型即提示) -->
-    <div v-if="missingConfigLabels.length" class="config-banner">
+    <!-- AI 服务未配置引导横幅(缺任一类型即提示；内嵌模式隐藏，配置提示由宿主统一) -->
+    <div v-if="!embedded && missingConfigLabels.length" class="config-banner">
       <TriangleAlert :size="14" :stroke-width="1.8" />
       <span>{{ t('layout.banner.missing', { types: missingConfigLabels.join(t('common.listJoin')) }) }}</span>
       <NuxtLink to="/settings" class="config-banner-link">{{ t('layout.banner.goSettings') }}</NuxtLink>
@@ -64,6 +64,8 @@ import brandLogo from '~/assets/fusion-logo.png'
 const { t, locale } = useI18n()
 const route = useRoute()
 const showBrandImage = ref(true)
+// Union Web 内嵌模式（app.vue 里 ?embedded=1 置位）
+const embedded = useState('fusion-embedded', () => false)
 
 // 渲染时求值，语言切换即时生效（不能模块级常量固化）
 const SERVICE_TYPE_LABELS = computed(() => ({
