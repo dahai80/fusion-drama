@@ -40,14 +40,17 @@ app.post('/', async (c) => {
 })
 
 function characterImagePrompt(char: typeof schema.characters.$inferSelect, stylePrompt = '') {
+  // 无缓存 finalPrompt 时的兜底模板：与 SKILL 四视图设定图口径一致（Agent 富化后会覆盖）
   return [
     stylePrompt || '',
     char.name,
     char.appearance || char.description || '人物立绘',
     char.styling || '',
-    '16:9 横版角色定妆照',
-    '半身角色海报构图',
-    '正面',
+    '角色设定参考图',
+    '左侧正脸特写',
+    '右侧正面、45 度侧面、90 度侧面、背面四张等高全身视图',
+    '所有视图同一角色、脸发型服装完全一致',
+    '中性 A 字站姿',
     '高质量',
     '白色背景',
   ].filter(Boolean).join(', ')
@@ -111,7 +114,7 @@ app.post('/:id/generate-image', async (c) => {
   }
 })
 
-// POST /characters/:id/generate-prompt — 独立生成/重新生成三视图最终提示词（不生图）
+// POST /characters/:id/generate-prompt — 独立生成/重新生成四视图最终提示词（不生图）
 app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()

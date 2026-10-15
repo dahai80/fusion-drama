@@ -38,17 +38,17 @@ test('prompt agent instructions reference per-asset skills; skill files define t
   // settings.vue 不再内嵌默认提示词副本：Agent 提示词由 /prompts API
   // 从 workspace 文件 + 后端 DEFAULT_PROMPTS 提供（agents/index.ts）
   // 三类图片规范入口（具体创作规则在各自 SKILL.md 中）
-  assert.match(agents, /角色三视图/)
+  assert.match(agents, /角色四视图/)
   assert.match(agents, /场景固定视角/)
   assert.match(agents, /道具白底单品/)
   // 保存工具约定
   assert.match(agents, /save_character_final_prompt/)
   assert.match(agents, /save_scene_final_prompt/)
-  // 角色三视图 / 场景固定视角的必备要素由技能文件承载
+  // 角色四视图 / 场景固定视角的必备要素由技能文件承载
   // （输出语言跟随会话语言指令，支持多语言而非固定中文）
   assert.match(charSkill, /正脸特写/)
-  assert.match(charSkill, /正面、90 度侧面、背面/)
-  assert.match(charSkill, /三个视图的脸、发型和服装完全一致/)
+  assert.match(charSkill, /正面、45 度侧面、90 度侧面、背面/)
+  assert.match(charSkill, /四个视图的脸、发型和服装完全一致/)
   assert.match(charSkill, /语言跟随会话语言指令/)
   assert.match(sceneSkill, /固定机位广角镜头/)
   assert.match(sceneSkill, /前景（\[前景元素\]）、中景（\[中景主体空间\]）、后景（\[后景纵深\]）/)

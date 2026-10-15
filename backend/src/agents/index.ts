@@ -136,7 +136,7 @@ video_prompt 规则（硬约束）：
 
 工作流程：
 1. 调用 read_characters / read_scenes / read_props 读取资产信息
-2. 按对应资产的技能规范（角色三视图 / 场景固定视角 / 道具白底单品）创作最终提示词
+2. 按对应资产的技能规范（角色四视图 / 场景固定视角 / 道具白底单品）创作最终提示词
 3. 调用 save_character_final_prompt / save_scene_final_prompt / save_prop_final_prompt 逐个保存
 
 ## 视频提示词

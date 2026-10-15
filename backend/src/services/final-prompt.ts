@@ -1,7 +1,7 @@
 /**
  * 最终提示词服务
  * 生图前确保角色/场景/道具已有「最终提示词」：
- * - 角色 → 三视图（character turnaround：正面/侧面/背面）
+ * - 角色 → 四视图（character turnaround：正面/45 度侧面/90 度侧面/背面）
  * - 场景 → 固定视角 + 前景/中景/后景
  * - 道具 → 白底单品静物（single product shot on pure white background）
  * 缺失时运行 prompt_generator Agent 创作并保存；失败返回 ''，由调用方回退到本地拼接提示词
@@ -31,13 +31,13 @@ async function runPromptAgent(episodeId: number, dramaId: number, message: strin
   await agent.generate([{ role: 'user', content: message }], { maxSteps: 12, requestContext })
 }
 
-/** 确保角色拥有三视图最终提示词，返回最终提示词（失败返回 ''）；force 时忽略已有提示词强制重新生成 */
+/** 确保角色拥有四视图最终提示词，返回最终提示词（失败返回 ''）；force 时忽略已有提示词强制重新生成 */
 export async function ensureCharacterFinalPrompt(char: CharacterRow, episodeId: number, force = false, opts?: PromptAgentOptions): Promise<string> {
   if (char.finalPrompt && !force) return char.finalPrompt
   try {
     logTaskProgress('FinalPrompt', 'character-generate', { characterId: char.id, episodeId })
     await runPromptAgent(episodeId, char.dramaId,
-      `为角色「${char.name}」(character_id=${char.id}) 生成三视图最终提示词，并调用 save_character_final_prompt 保存。`, opts)
+      `为角色「${char.name}」(character_id=${char.id}) 生成四视图最终提示词，并调用 save_character_final_prompt 保存。`, opts)
     const [fresh] = await db.select().from(schema.characters).where(eq(schema.characters.id, char.id))
     return fresh?.finalPrompt || ''
   } catch (err: any) {

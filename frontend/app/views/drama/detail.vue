@@ -208,7 +208,7 @@
               <span class="group-count">{{ g.items.length }}</span>
             </div>
 
-            <!-- 角色：横向布局卡片（头像 + 样貌/妆造 + 三视图提示词） -->
+            <!-- 角色：横向布局卡片（头像 + 样貌/妆造 + 四视图提示词） -->
             <div v-if="g.kindKey === 'character'" class="character-asset-grid">
               <article
                 v-for="m in g.items"

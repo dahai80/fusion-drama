@@ -3,7 +3,7 @@
  * 模块级单例 — dramaId 通过 RequestContext 按请求注入
  *
  * Agent 负责创作最终提示词：
- * 1. 角色 → 三视图（character turnaround：正面/侧面/背面）
+ * 1. 角色 → 四视图（character turnaround：正面/45 度侧面/90 度侧面/背面）
  * 2. 场景 → 固定视角 + 前景/中景/后景分层构图
  * 3. 道具 → 白底单品静物（single product shot on pure white background）
  * 工具负责读取资产信息与保存 Agent 产出的最终提示词（保存时注入项目视觉风格）
@@ -20,7 +20,7 @@ import { getDramaId } from '../context.js'
 
 const readCharacters = createTool({
   id: 'read_characters',
-  description: '读取当前剧集中的所有角色信息，用于生成角色三视图最终提示词。',
+  description: '读取当前剧集中的所有角色信息，用于生成角色四视图最终提示词。',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -44,10 +44,10 @@ const readCharacters = createTool({
 
 const saveCharacterFinalPrompt = createTool({
   id: 'save_character_final_prompt',
-  description: '保存为角色创作的三视图最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
+  description: '保存为角色创作的四视图最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     character_id: z.number(),
-    prompt: z.string().describe('角色三视图最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('角色四视图最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
   }),
   execute: async ({ character_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
