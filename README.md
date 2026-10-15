@@ -442,6 +442,10 @@ FUSION_VERSION=4.0.0 docker compose up -d --build
 
 ## 📝 FAQ
 
+### Q: Can I generate videos fully locally without any cloud API?
+
+A: Yes. Select the **fusion** video provider and point it at a self-hosted [fusion-mlx](https://github.com/dahai80/fusion-mlx) instance (OpenAI-compatible API on `localhost:11434`). On Apple Silicon it runs LTX-2.5 (primary), MiniMax-H3 (quality, Turbo LoRA 4-step), and Wan2.2-TI2V-5B (Chinese-native prompts) locally — text and image models can also be served by the same instance.
+
 ### Q: Where does the desktop app store data?
 
 A: `~/Library/Application Support/FusionDrama/data/` (SQLite database + generated images/videos); writable copies of online-edited skills live in the sibling `workspace/` directory. In development mode the repo's `data/` directory is used instead.
@@ -469,6 +473,20 @@ A: The backend creates all tables automatically on first launch — check the lo
 ---
 
 ## 📋 Changelog
+
+### v4.1.0 (2026-10)
+
+#### 🎬 Local Video Generation Pipeline
+
+- Local video generation via self-hosted [fusion-mlx](https://github.com/dahai80/fusion-mlx): model-aware adapter routing — LTX-2.5 (primary, joint A/V), MiniMax-H3 33B (quality, `dit8_te4` quantization), Wan2.2-TI2V-5B (Chinese-native prompts)
+- MiniMax-H3 Turbo LoRA few-step sampling enabled by default (4 steps, ~2.7x faster than the 8-step baseline)
+- Serial GPU execution queue: image generation, video generation, extraction agents, and agent chat share one lock — concurrent multi-model decode on Apple Silicon causes Metal command buffer failures; the FLUX image model is unloaded after image tasks to free memory
+- TTS dialogue dubbing: storyboard dialogue extracted and voiced via Kokoro TTS, mixed over the original audio track (environmental sound kept, speech in front)
+- Storyboard image auto-injected as the I2V first frame when no reference image is set
+- Wan2.2-TI2V-5B adapter routing (4k+1 frame constraint, short edge 544, UMT5 skips prompt translation)
+- Storyboard duration is now the source of truth for video tasks (fixes dialogue dropped as too long); direct LLM storyboard breakdown with dialogue budget rule
+- Removed the LTX-Video legacy 2B routing (2s cap, no A/V, no practical value)
+- Brand refresh: new Fusion logos and app icons, removed donation/WeChat group materials
 
 ### v4.0.0 (2026-08)
 
@@ -554,11 +572,11 @@ A: The backend creates all tables automatically on first launch — check the lo
 
 ## 📄 License
 
-This project is licensed under **[CC BY-NC-SA 4.0](LICENSE)** (Attribution-NonCommercial-ShareAlike 4.0 International).
+This project is licensed under the **[Apache License 2.0](LICENSE)**.
 
-- ✅ Personal use, learning, and non-commercial projects are welcome
-- ✅ Modifications and redistribution allowed under the same license with attribution
-- ❌ **Commercial use is prohibited** — you may not use this project, in whole or in part, for any commercial purpose (including paid services, commercial deployments, or resale) without prior written permission from the author
+- ✅ Personal and commercial use, modification, and distribution are allowed
+- ✅ Patent grant included
+- ℹ️ Third-party model weights (LTX-2.5, MiniMax-H3, Wan2.2, FLUX.1, etc.) have their own licenses — review each before commercial deployment
 
 Full license text: see [LICENSE](LICENSE).
 
@@ -583,18 +601,21 @@ cd ../frontend && npm run build
 
 ---
 
-
----
-
-
----
-
 > _"Let AI do the creating with us"_
 
 ## 🔗 Links
 
-This project has been recognized with a link from the [LINUX DO](https://linux.do/) community.
+- [Fusion Drama](https://github.com/dahai80/fusion-drama) — AI short-drama production suite (this project)
+- [fusion-mlx](https://github.com/dahai80/fusion-mlx) — self-hosted Apple Silicon inference engine powering the local fusion video provider
 
+---
+
+## 🙏 Acknowledgements
+
+This project references and builds on great open-source work — thanks to:
+
+- [Mastra](https://github.com/mastra-ai/mastra) — AI agent framework, [Hono](https://github.com/honojs/hono) — web framework, [Nuxt 3](https://github.com/nuxt/nuxt) — frontend framework
+- [LTX-Video](https://github.com/Lightricks/LTX-Video) (Lightricks), [MiniMax-H3](https://github.com/MiniMaxAI/MiniMax-H3) (MiniMax), [Wan2.2](https://github.com/Wan-Video/Wan2.2) (Alibaba), [FLUX.1](https://github.com/black-forest-labs/flux) (Black Forest Labs) — the open video/image model ecosystem
 - [LINUX DO](https://linux.do/) — a genuine open-source spirit, a community built on sharing
 
 ---

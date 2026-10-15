@@ -441,6 +441,10 @@ FUSION_VERSION=4.0.0 docker compose up -d --build
 
 ## 📝 자주 묻는 질문
 
+### Q: 클라우드 API 없이 완전 로컬로 영상을 생성할 수 있나요?
+
+A: 네. 영상 프로바이더에서 **fusion**(로컬)을 선택하고 셀프호스팅 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 인스턴스(OpenAI 호환 API, `localhost:11434`)를 지정하세요. Apple Silicon에서 LTX-2.5(주력), MiniMax-H3(고화질, Turbo LoRA 4 스텝), Wan2.2-TI2V-5B(중국어 프롬프트 네이티브)를 로컬 실행합니다. 텍스트·이미지 모델도 같은 인스턴스로 제공할 수 있습니다.
+
 ### Q: 데스크톱 버전의 데이터는 어디에 저장되나요?
 
 A: `~/Library/Application Support/FusionDrama/data/`(SQLite 데이터베이스 + 생성된 이미지/영상)에 저장되며, 온라인 편집한 스킬의 복사본은 같은 수준의 `workspace/` 디렉터리에 있습니다. 개발 모드에서는 저장소의 `data/` 디렉터리를 사용합니다.
@@ -468,6 +472,20 @@ A: 백엔드는 최초 시작 시 모든 테이블을 자동으로 생성합니�
 ---
 
 ## 📋 업데이트 로그
+
+### v4.1.0 (2026-10)
+
+#### 🎬 로컬 영상 생성 파이프라인
+
+- 셀프호스팅 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 기반 로컬 영상 생성: 모델 인식 어댑터 라우팅 — LTX-2.5(주력, Joint A/V), MiniMax-H3 33B(고화질, `dit8_te4` 양자화), Wan2.2-TI2V-5B(중국어 프롬프트 네이티브)
+- MiniMax-H3에 Turbo LoRA 소수 스텝 샘플링 기본 적용(4 스텝, 8 스텝 대비 약 2.7배 고속)
+- GPU 직렬 실행 큐: 이미지 생성·영상 생성·추출 에이전트·에이전트 대화가 하나의 락 공유 — Apple Silicon에서 멀티모델 병렬 decode는 Metal command buffer 크래시 유발. 이미지 작업 완료 후 FLUX를 언로드해 메모리 해제
+- TTS 대사 더빙: 스토리보드에서 대사를 추출해 Kokoro TTS로 합성, 원본 영상에 믹스(환경음 유지, 대사 전면 배치)
+- 참조 이미지 미설정 시 스토리보드 이미지를 I2V 첫 프레임으로 자동 주입
+- Wan2.2-TI2V-5B 어댑터 라우팅(4k+1 프레임 제약, 단변 544, UMT5 번역 생략)
+- 영상 작업은 스토리보드 길이를 기준(대사가 길어서 버려지는 문제 수정); 스토리보드 분해를 LLM 직접 연결로 전환하고 대사 시간 예산 규칙 추가
+- LTX-Video legacy 2B 라우팅 제거(2초 상한, A/V 없음, 실용 가치 없음)
+- 브랜드 리뉴얼: 새로운 Fusion 아이콘과 로고, 기부/WeChat 그룹 소재 제거
 
 ### v4.0.0 (2026-08)
 
@@ -554,11 +572,11 @@ A: 백엔드는 최초 시작 시 모든 테이블을 자동으로 생성합니�
 
 ## 📄 라이선스
 
-이 프로젝트는 **[CC BY-NC-SA 4.0](LICENSE)**(저작자표시-비영리-동일조걳경변경허락 4.0 국제) 라이선스를 채택하고 있습니다.
+이 프로젝트는 **[Apache License 2.0](LICENSE)** 라이선스를 채택하고 있습니다.
 
-- ✅ 개인 사용, 학습·연구, 비영리 프로젝트는 자유롭게 사용 가능
-- ✅ 수정 및 재배포 가능, 단 저작자 표시와 동일 라이선스로 공유 필요
-- ❌ **상업적 사용 금지** — 저작자의 서면 허가 없이 이 프로젝트의 전부 또는 일부를 어떠한 상업적 목적(유료 서비스, 상업 배포, 재판매 등)으로도 사용할 수 없습니다
+- ✅ 개인·상업 이용, 수정, 배포 허용
+- ✅ 특허 라이선스 포함
+- ℹ️ 서드파티 모델 가중치(LTX-2.5, MiniMax-H3, Wan2.2, FLUX.1 등)는 각자 라이선스가 있으므로 — 상업 배포 전 반드시 확인하세요
 
 라이선스 전문은 [LICENSE](LICENSE)를 참조하세요.
 
@@ -583,18 +601,21 @@ cd ../frontend && npm run build
 
 ---
 
-
----
-
-
----
-
 > _"AI가 더 창의적인 일을 돕게 하자"_
 
 ## 🔗 관련 링크
 
-이 프로젝트는 [LINUX DO](https://linux.do/) 커뮤니티의 링크 승인을 받았습니다.
+- [Fusion Drama](https://github.com/dahai80/fusion-drama) — AI 숏드라마 통합 제작 도구(본 프로젝트)
+- [fusion-mlx](https://github.com/dahai80/fusion-mlx) — 셀프호스팅 Apple Silicon 추론 엔진, 로컬 fusion 영상 프로바이더의 기반
 
+---
+
+## 🙏 감사의 말
+
+이 프로젝트는 많은 오픈소스를 참고했습니다. 감사합니다:
+
+- [Mastra](https://github.com/mastra-ai/mastra)(AI 에이전트 프레임워크), [Hono](https://github.com/honojs/hono)(웹 프레임워크), [Nuxt 3](https://github.com/nuxt/nuxt)(프론트엔드 프레임워크)
+- [LTX-Video](https://github.com/Lightricks/LTX-Video)(Lightricks), [MiniMax-H3](https://github.com/MiniMaxAI/MiniMax-H3)(MiniMax), [Wan2.2](https://github.com/Wan-Video/Wan2.2)(Alibaba), [FLUX.1](https://github.com/black-forest-labs/flux)(Black Forest Labs) — 오픈 영상/이미지 모델 생태계
 - [LINUX DO](https://linux.do/) — 진정한 오픈소스 정신, 함께 만들고 공유하는 기술 커뮤니티
 
 ---

@@ -441,6 +441,10 @@ FUSION_VERSION=4.0.0 docker compose up -d --build
 
 ## 📝 よくある質問
 
+### Q: クラウド API なしで完全ローカルに動画生成できますか？
+
+A: はい。動画プロバイダーで **fusion**（ローカル）を選び、セルフホストの [fusion-mlx](https://github.com/dahai80/fusion-mlx) インスタンス（OpenAI 互換 API、`localhost:11434`）を指定してください。Apple Silicon 上で LTX-2.5（主力）、MiniMax-H3（高画質、Turbo LoRA 4 ステップ）、Wan2.2-TI2V-5B（中国語プロンプトネイティブ）をローカル実行できます。テキスト・画像モデルも同じインスタンスで提供可能です。
+
 ### Q: デスクトップ版のデータはどこに保存されますか？
 
 A: `~/Library/Application Support/FusionDrama/data/`（SQLite データベース + 生成画像/動画）。オンライン編集したスキルのコピーは同階層の `workspace/` ディレクトリにあります。開発モードではリポジトリの `data/` ディレクトリを使用します。
@@ -468,6 +472,20 @@ A: バックエンドは初回起動時に全テーブルを自動作成しま�
 ---
 
 ## 📋 更新履歴
+
+### v4.1.0 (2026-10)
+
+#### 🎬 ローカル動画生成パイプライン
+
+- セルフホスト [fusion-mlx](https://github.com/dahai80/fusion-mlx) によるローカル動画生成：モデル認識アダプタールーティング — LTX-2.5（主力、Joint A/V）、MiniMax-H3 33B（高画質、`dit8_te4` 量子化）、Wan2.2-TI2V-5B（中国語プロンプトネイティブ）
+- MiniMax-H3 に Turbo LoRA 少ステップサンプリングをデフォルト有効化（4 ステップ、8 ステップ比約 2.7 倍高速）
+- GPU 直列実行キュー：画像生成・動画生成・抽出エージェント・エージェント対話が同一ロックを共有——Apple Silicon でのマルチモデル並列 decode は Metal command buffer クラッシュを引き起こすため。画像タスク完了後は FLUX をアンロードしメモリを解放
+- TTS セリフアフレコ：ストーリーボードからセリフを抽出し Kokoro TTS で合成、元動画にミックス（環境音は残し、セリフを前面に）
+- 参照画像未設定時、ストーリーボード画像を自動的に I2V の初帧として注入
+- Wan2.2-TI2V-5B アダプタールーティング（4k+1 帧制約、短辺 544、UMT5 で翻訳スキップ）
+- 動画タスクはストーリーボードの長さを優先（セリフが長すぎて破棄される問題を修正）；ストーリーボード分解を LLM 直結化しセリフ時間予算ルールを追加
+- LTX-Video legacy 2B ルーティングを削除（2 秒上限・A/V なし・実用価値なし）
+- ブランドリニューアル：新しい Fusion アイコンとロゴ、寄付/WeChat グループ素材を削除
 
 ### v4.0.0 (2026-08)
 
@@ -554,11 +572,11 @@ A: バックエンドは初回起動時に全テーブルを自動作成しま�
 
 ## 📄 ライセンス
 
-本プロジェクトは **[CC BY-NC-SA 4.0](LICENSE)**（表示-非営利-継承 4.0 国際）ライセンスを採用しています。
+本プロジェクトは **[Apache License 2.0](LICENSE)** を採用しています。
 
-- ✅ 個人利用、学習・研究、非営利プロジェクトでの使用は自由です
-- ✅ 改変と再配布は可能ですが、クレジット表示と同一ライセンスでの共有が必要です
-- ❌ **商用利用は禁止**——作者の書面による許可なく、本プロジェクトの全部または一部をいかなる商業目的（有料サービス、商用デプロイ、転売など）にも使用することはできません
+- ✅ 個人・商用利用、改変、配布を許可
+- ✅ 特許許諾を含む
+- ℹ️ サードパーティのモデル重み（LTX-2.5、MiniMax-H3、Wan2.2、FLUX.1 など）には各種ライセンスがあります——商用デプロイ前に必ずご確認ください
 
 ライセンス全文は [LICENSE](LICENSE) を参照してください。
 
@@ -583,18 +601,21 @@ cd ../frontend && npm run build
 
 ---
 
-
----
-
-
----
-
 > _"AI にもっと創造的なことを手伝ってもらおう"_
 
 ## 🔗 関連リンク
 
-本プロジェクトは [LINUX DO](https://linux.do/) コミュニティからリンクの承認を得ています。
+- [Fusion Drama](https://github.com/dahai80/fusion-drama) — AI ショートドラマ統合制作ツール（本プロジェクト）
+- [fusion-mlx](https://github.com/dahai80/fusion-mlx) — セルフホスト Apple Silicon 推論エンジン、ローカル fusion 動画プロバイダーの基盤
 
+---
+
+## 🙏 謝辞
+
+本プロジェクトは多くのオープンソースを参考にしています。感謝を込めて：
+
+- [Mastra](https://github.com/mastra-ai/mastra)（AI エージェントフレームワーク）、[Hono](https://github.com/honojs/hono)（Web フレームワーク）、[Nuxt 3](https://github.com/nuxt/nuxt)（フロントエンドフレームワーク）
+- [LTX-Video](https://github.com/Lightricks/LTX-Video)（Lightricks）、[MiniMax-H3](https://github.com/MiniMaxAI/MiniMax-H3)（MiniMax）、[Wan2.2](https://github.com/Wan-Video/Wan2.2)（Alibaba）、[FLUX.1](https://github.com/black-forest-labs/flux)（Black Forest Labs）—— オープンな動画/画像モデルエコシステム
 - [LINUX DO](https://linux.do/) — 真のオープンソース精神、共に作り共有する技術コミュニティ
 
 ---

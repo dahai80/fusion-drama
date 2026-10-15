@@ -440,6 +440,10 @@ FUSION_VERSION=4.0.0 docker compose up -d --build
 
 ## 📝 常见问题
 
+### Q: 可以完全本地生成视频、不接任何云 API 吗？
+
+A: 可以。视频服务选 **fusion**（本地）并指向自托管的 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 实例（OpenAI 兼容 API，`localhost:11434`）。Apple Silicon 上本地运行 LTX-2.5（主力）、MiniMax-H3（画质首选，Turbo LoRA 4 步）与 Wan2.2-TI2V-5B（中文原生 prompt）；文本、图片模型也可由同一实例提供。
+
 ### Q: 桌面版数据存在哪里？
 
 A: `~/Library/Application Support/FusionDrama/data/`（SQLite 数据库 + 生成的图片/视频），技能在线编辑的副本在同级 `workspace/` 目录。开发模式下则使用仓库 `data/` 目录。
@@ -467,6 +471,20 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 ---
 
 ## 📋 更新日志
+
+### v4.1.0 (2026-10)
+
+#### 🎬 本地视频生成管线
+
+- 接入自托管 [fusion-mlx](https://github.com/dahai80/fusion-mlx) 本地视频生成：模型感知适配路由——LTX-2.5（主力，联合 A/V）、MiniMax-H3 33B（画质首选，`dit8_te4` 量化）、Wan2.2-TI2V-5B（中文原生 prompt）
+- MiniMax-H3 默认开启 Turbo LoRA 少步采样（4 步，较 8 步基线约 2.7 倍提速）
+- GPU 串行执行队列：图片生成、视频生成、资产提取 Agent、Agent 对话共用一把锁——Apple Silicon 上多模型并发 decode 会触发 Metal command buffer 崩溃；图片任务完成后主动卸载 FLUX 释放内存
+- TTS 对白配音：从分镜提取台词，经 Kokoro TTS 合成后混入原视频（保留环境声，对白置前）
+- 未设置参考图时自动以分镜图作为 I2V 首帧
+- Wan2.2-TI2V-5B 适配路由（4k+1 帧约束、短边 544、UMT5 免翻译）
+- 视频任务以分镜时长为准（修复对白超长被丢弃的问题）；分镜拆解直连 LLM 并加对白时长预算规则
+- 移除 LTX-Video legacy 2B 路由（2s 上限、无 A/V、无实用价值）
+- 品牌焕新：全新 Fusion 图标与 logo，移除捐赠/微信群相关素材
 
 ### v4.0.0 (2026-08)
 
@@ -552,11 +570,11 @@ A: 后端会在首次启动时自动创建所有表，检查日志确认初始�
 
 ## 📄 许可证
 
-本项目采用 **[CC BY-NC-SA 4.0](LICENSE)**（署名-非商业性使用-相同方式共享 4.0 国际）许可证。
+本项目采用 **[Apache License 2.0](LICENSE)** 许可证。
 
-- ✅ 个人使用、学习研究、非商业项目均可自由使用
-- ✅ 允许修改与再分发，但须署名并以相同许可证共享
-- ❌ **禁止商用**——未经作者书面许可，不得将本项目整体或部分用于任何商业目的（包括付费服务、商业部署、转售等）
+- ✅ 允许个人及商业使用、修改与分发
+- ✅ 附带专利授权
+- ℹ️ 第三方模型权重（LTX-2.5、MiniMax-H3、Wan2.2、FLUX.1 等）各有独立许可证——商用部署前请逐项确认
 
 许可证全文见 [LICENSE](LICENSE)。
 
@@ -581,18 +599,21 @@ cd ../frontend && npm run build
 
 ---
 
-
----
-
-
----
-
 > _"让 AI 帮我们做更有创造力的事"_
 
-## 🔗 友情链接
+## 🔗 相关链接
 
-本项目已获得 [LINUX DO](https://linux.do/) 社区链接认可。
+- [Fuse 短剧（Fusion Drama）](https://github.com/dahai80/fusion-drama) — AI 短剧一站式制作工具（本项目）
+- [fusion-mlx](https://github.com/dahai80/fusion-mlx) — 自托管 Apple Silicon 推理引擎，为本地 fusion 视频服务提供算力
 
+---
+
+## 🙏 致谢
+
+本项目参考并受益于众多开源项目，在此致谢：
+
+- [Mastra](https://github.com/mastra-ai/mastra)（AI Agent 框架）、[Hono](https://github.com/honojs/hono)（Web 框架）、[Nuxt 3](https://github.com/nuxt/nuxt)（前端框架）
+- [LTX-Video](https://github.com/Lightricks/LTX-Video)（Lightricks）、[MiniMax-H3](https://github.com/MiniMaxAI/MiniMax-H3)（MiniMax）、[Wan2.2](https://github.com/Wan-Video/Wan2.2)（阿里）、[FLUX.1](https://github.com/black-forest-labs/flux)（Black Forest Labs）—— 开放视频/图像模型生态
 - [LINUX DO](https://linux.do/) — 真正的开源精神，共建共享的技术社区
 
 ---
