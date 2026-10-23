@@ -717,7 +717,16 @@
       "batchDone": "视频提示词批量生成完成",
       "batchDoneFailed": "视频提示词批量生成完成，{n} 个失败",
       "batchFailed": "视频提示词批量生成失败",
-      "promptGenerated": "分镜 #{n} 视频提示词已生成"
+      "promptGenerated": "分镜 #{n} 视频提示词已生成",
+      "batchImages": "批量生成分镜图",
+      "genImage": "生成分镜图",
+      "regenImage": "重新生成分镜图",
+      "frameImage": "分镜图",
+      "needImagePrompt": "该分镜缺少画面描述，无法生成分镜图",
+      "imageGenerating": "分镜图生成中",
+      "imageGenFailed": "分镜图生成失败",
+      "imageBatchStarted": "已提交 {n} 个分镜图生成任务",
+      "noImageTargets": "没有需要生成分镜图的分镜"
     },
     "ref": {
       "title": "参考素材",

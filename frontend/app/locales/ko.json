@@ -717,7 +717,16 @@
       "batchDone": "영상 프롬프트 일괄 생성이 완료되었습니다",
       "batchDoneFailed": "영상 프롬프트 일괄 생성이 완료되었습니다({n}개 실패)",
       "batchFailed": "영상 프롬프트 일괄 생성에 실패했습니다",
-      "promptGenerated": "스토리보드 #{n}의 영상 프롬프트가 생성되었습니다"
+      "promptGenerated": "스토리보드 #{n}의 영상 프롬프트가 생성되었습니다",
+      "batchImages": "일괄 콘티 이미지 생성",
+      "genImage": "콘티 이미지 생성",
+      "regenImage": "콘티 이미지 다시 생성",
+      "frameImage": "콘티 이미지",
+      "needImagePrompt": "이 컷에는 화면 묘사가 없어 콘티 이미지를 생성할 수 없습니다",
+      "imageGenerating": "콘티 이미지 생성 중",
+      "imageGenFailed": "콘티 이미지 생성 실패",
+      "imageBatchStarted": "{n}개의 콘티 이미지 생성 작업을 제출했습니다",
+      "noImageTargets": "콘티 이미지 생성이 필요한 컷이 없습니다"
     },
     "ref": {
       "title": "참조 소재",

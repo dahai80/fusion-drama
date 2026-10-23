@@ -63,7 +63,9 @@ app.get('/api/v1/health', async (c) => {
   try {
     const cfg = await getActiveConfig('video')
     if (cfg && cfg.provider === 'fusion' && cfg.baseUrl) {
-      const res = await fetch(`${cfg.baseUrl.replace(/\/$/, '')}/v1/models`, { signal: AbortSignal.timeout(2000) })
+      // fusion-mlx 开了鉴权，无 Authorization 头必 401 → engineOk 恒 false
+      const headers = cfg.apiKey ? { authorization: `Bearer ${cfg.apiKey}` } : undefined
+      const res = await fetch(`${cfg.baseUrl.replace(/\/$/, '')}/v1/models`, { headers, signal: AbortSignal.timeout(2000) })
       engineOk = res.ok
     }
   } catch { engineOk = false }

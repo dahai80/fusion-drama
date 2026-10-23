@@ -528,6 +528,10 @@
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                   {{ videoSelectMode && selectedVideoSbIds.length ? t('episode.vid.batchSelected', { n: selectedVideoSbIds.length }) : t('episode.vid.batchVideos') }}
                 </button>
+                <button class="btn btn-sm" :disabled="!sbs.length" @click="batchSbImages">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  {{ t('episode.sb.batchImages') }}
+                </button>
               </div>
             </div>
             <div v-if="!sbs.length" class="step-empty video-task-empty-state">
@@ -588,6 +592,13 @@
                       playsinline
                       muted
                       tabindex="-1"
+                    />
+                    <img
+                      v-else-if="getSbImage(task.storyboard)"
+                      class="video-task-frame"
+                      :src="thumbOf('/' + getSbImage(task.storyboard))"
+                      loading="lazy"
+                      @error="thumbFallback($event, '/' + getSbImage(task.storyboard))"
                     />
                     <div v-else class="video-task-empty">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
@@ -749,18 +760,35 @@
                   class="video-player-video"
                 />
                 <div v-else class="video-player-empty">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                  <img
+                    v-if="getSbImage(selectedSb)"
+                    class="video-player-frame"
+                    :src="thumbOf('/' + getSbImage(selectedSb))"
+                    :alt="t('episode.sb.frameImage')"
+                    @error="thumbFallback($event, '/' + getSbImage(selectedSb))"
+                    @click="openImageViewer('/' + getSbImage(selectedSb))"
+                  />
+                  <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                   <div class="video-player-empty-copy">
                     <div class="video-player-empty-title">{{ videoTaskState(selectedSb) === 'pending' ? t('episode.vid.emptyGenerating') : t('episode.vid.emptyNoVideo') }}</div>
                     <div class="video-player-empty-desc">{{ videoTaskState(selectedSb) === 'pending' ? t('episode.vid.emptyGeneratingDesc') : t('episode.vid.emptyNoVideoDesc') }}</div>
                   </div>
-                  <button
-                    v-if="videoTaskState(selectedSb) !== 'pending'"
-                    class="btn btn-primary btn-sm video-player-empty-action"
-                    @click="genVid(selectedSb)"
-                  >
-                    {{ t('episode.vid.generateVideo') }}
-                  </button>
+                  <div v-if="videoTaskState(selectedSb) !== 'pending'" class="video-player-empty-actions">
+                    <button
+                      class="btn btn-primary btn-sm video-player-empty-action"
+                      @click="genVid(selectedSb)"
+                    >
+                      {{ t('episode.vid.generateVideo') }}
+                    </button>
+                    <button
+                      class="btn btn-sm video-player-empty-action"
+                      :disabled="isPendingSbImage(selectedSb?.id)"
+                      @click="genSbImage(selectedSb)"
+                    >
+                      <Loader2 v-if="isPendingSbImage(selectedSb?.id)" :size="11" class="animate-spin" />
+                      {{ getSbImage(selectedSb) ? t('episode.sb.regenImage') : t('episode.sb.genImage') }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </aside>
@@ -3331,18 +3359,19 @@ function getShotReferenceIndexMap(sb) {
 }
 
 // 将视频提示词里的 @名字 替换为 @图片N名字（N 为参考图序号，1 起），生成时使用
+// 无图资产的 @名字 去掉 @ 前缀保留原词——翻译后残留 @token 会被视频模型当噪声
 function resolveVideoPromptRefs(sb) {
   const prompt = sb.video_prompt || sb.videoPrompt || ''
   const map = getShotReferenceIndexMap(sb)
   const names = Object.keys(map).sort((a, b) => b.length - a.length)
-  if (!names.length) return prompt
+  if (!names.length) return prompt.replace(/@([^\s@]+)/g, '$1')
   return prompt.replace(/@([^\s@]+)/g, (m, raw) => {
     for (const name of names) {
       if (raw.startsWith(name)) {
         return `@图片${map[name]}${name}${raw.slice(name.length)}`
       }
     }
-    return m
+    return raw
   })
 }
 
@@ -3499,6 +3528,60 @@ async function pollVideoGeneration(generationId, storyboardId) {
   }
   toast.error(t('episode.vid.genTimeout'))
 }
+// ===== 分镜图（composed image）：生成分镜画面基准图，视频生成时自动作为首帧 =====
+function getSbImage(sb) { return sb?.composed_image || sb?.composedImage || null }
+const pendingSbImageIds = ref([])
+function isPendingSbImage(id) { return pendingSbImageIds.value.includes(id) }
+
+function sbImagePrompt(sb) {
+  return (sb.image_prompt || sb.imagePrompt || sb.description || '').trim()
+}
+
+async function genSbImage(sb, opts = {}) {
+  if (!sb?.id) return
+  if (isPendingSbImage(sb.id)) return
+  const prompt = sbImagePrompt(sb)
+  if (!prompt) {
+    if (!opts.silent) toast.error(t('episode.sb.needImagePrompt'))
+    return
+  }
+  try {
+    pendingSbImageIds.value = [...new Set([...pendingSbImageIds.value, sb.id])]
+    await taskAPI.generate({
+      type: 'image',
+      storyboard_id: sb.id,
+      frame_type: 'composed',
+      drama_id: dramaId,
+      prompt,
+    })
+    if (!opts.silent) toast.success(t('episode.sb.imageGenerating'))
+    watchAsyncResult(() => {
+      const target = sbs.value.find(s => s.id === sb.id)
+      const done = !!getSbImage(target)
+      if (done) pendingSbImageIds.value = pendingSbImageIds.value.filter(i => i !== sb.id)
+      return done
+    }, 90, 5000)
+  } catch (e) {
+    pendingSbImageIds.value = pendingSbImageIds.value.filter(i => i !== sb.id)
+    toastError(e, { fallback: 'episode.sb.imageGenFailed' })
+  }
+}
+
+// 批量生成分镜图：选片模式下只处理选中分镜，否则补齐全部缺图分镜；
+// 服务端 GPU 串行队列逐个执行，前端一次性全部入队
+function batchSbImages() {
+  const pool = videoSelectMode && selectedVideoSbIds.value.length
+    ? sbs.value.filter(s => selectedVideoSbIds.value.includes(s.id))
+    : sbs.value
+  const targets = pool.filter(s => !getSbImage(s) && sbImagePrompt(s))
+  if (!targets.length) {
+    toast.error(t('episode.sb.noImageTargets'))
+    return
+  }
+  targets.forEach(s => genSbImage(s, { silent: true }))
+  toast.success(t('episode.sb.imageBatchStarted', { n: targets.length }))
+}
+
 async function doMerge(ids) {
   const storyboardIds = Array.isArray(ids) ? ids : undefined
   if (storyboardIds && !storyboardIds.length) {
@@ -4984,6 +5067,21 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .video-player-empty-title { color: var(--text-1); font-size: 12.5px; font-weight: 700; }
 .video-player-empty-desc { margin-top: 2px; font-size: 11px; line-height: 1.5; }
 .video-player-empty-action { flex-shrink: 0; margin-top: 4px; }
+.video-player-empty-actions { display: flex; gap: 6px; align-items: center; }
+.video-player-frame {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: zoom-in;
+  display: block;
+}
+.video-task-frame {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .video-task-list {
   min-height: 0;
   overflow: hidden;

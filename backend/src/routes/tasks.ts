@@ -151,16 +151,12 @@ app.post('/', async (c) => {
         if (locked != null && configId == null) configId = locked
         if (type === 'video' && ep?.resolution) episodeResolution = ep.resolution
         storyboardDramaId = ep?.dramaId ?? undefined
-        // issue #1: 视频任务未显式传任何参考素材时，自动把该分镜最新完成的成图（composedImage 优先，其次 firstFrameImage）
-        // 作为首帧注入，避免纯 T2V 生成与分镜画面无关的内容
+        // issue #1: 分镜成图（composedImage 优先，其次 firstFrameImage）自动作为视频首帧。
+        // 分镜图 = 该镜头的画面基准，优先级高于资产参考图（资产图仍随 reference_image_urls
+        // 传给云端多参考模型）；显式 first_frame_url/image_url 仍最高优先
         if (type === 'video' && videoBody) {
-          const hasExplicitRef = Boolean(
-            videoBody.first_frame_url || videoBody.image_url || videoBody.last_frame_url
-            || (videoBody.reference_image_urls?.length)
-            || (videoBody.reference_video_urls?.length)
-            || videoBody.file_url || videoBody.link_url,
-          )
-          if (!hasExplicitRef) {
+          const hasExplicitFrame = Boolean(videoBody.first_frame_url || videoBody.image_url)
+          if (!hasExplicitFrame) {
             const sbImage = sb.composedImage || sb.firstFrameImage
             if (sbImage) autoFirstFrameUrl = sbImage
           }
@@ -389,7 +385,12 @@ app.get('/', async (c) => {
     .orderBy(desc(schema.sysTask.id))
     .limit(500)
 
-  return success(c, rows)
+  // 历史脏数据防御：result_url 存过多 MB data URI（旧版图片任务），原样返回会
+  // 撑爆 JSON.stringify（RangeError: Invalid string length → 500），统一降级为 localPath
+  const sanitized = rows.map((r: any) => (
+    r.resultUrl && r.resultUrl.startsWith('data:') ? { ...r, resultUrl: r.localPath || null } : r
+  ))
+  return success(c, sanitized)
 })
 
 // DELETE /tasks/:id

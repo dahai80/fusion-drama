@@ -717,7 +717,16 @@
       "batchDone": "Batch video prompt generation complete",
       "batchDoneFailed": "Batch video prompt generation complete, {n} failed",
       "batchFailed": "Batch video prompt generation failed",
-      "promptGenerated": "Video prompt for shot #{n} generated"
+      "promptGenerated": "Video prompt for shot #{n} generated",
+      "batchImages": "Batch Frame Images",
+      "genImage": "Generate Frame Image",
+      "regenImage": "Regenerate Frame Image",
+      "frameImage": "Frame image",
+      "needImagePrompt": "This shot has no description, cannot generate frame image",
+      "imageGenerating": "Frame image generating",
+      "imageGenFailed": "Frame image generation failed",
+      "imageBatchStarted": "Submitted {n} frame image tasks",
+      "noImageTargets": "No shots need frame image generation"
     },
     "ref": {
       "title": "Reference Assets",

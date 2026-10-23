@@ -56,7 +56,7 @@ app.post('/', async (c) => {
       title: body.title || `第${nextNum + 1}集`,
       imageConfigId,
       videoConfigId,
-      resolution: ['480p', '720p', ' placeholders 480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
+      resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
       createdAt: ts,
       updatedAt: ts,
     })

@@ -286,6 +286,30 @@ async function unloadFusionImageModel(config: AIConfig, model: string | null): P
   }
 }
 
+/** fusion-mlx 文本模型（Qwen3.5）在视频翻译后被加载常驻，与随后准入的
+ *  LTX-2.5（~60GB）内存竞争 → memory guard 直接取消视频任务（503）。
+ *  视频翻译完成后显式卸载文本模型，为视频生成腾出内存。
+ *  仅对 baseUrl 指向 fusion-mlx（localhost:11434）的文本配置生效。 */
+async function unloadFusionTextModel(): Promise<void> {
+  try {
+    const config = await getActiveConfig('text')
+    if (!config) return
+    const baseUrl = config.baseUrl || ''
+    if (!/127\.0\.0\.1:11434|localhost:11434/.test(baseUrl)) return
+    const m = config.model || ''
+    if (!m) return
+    const url = `${baseUrl.replace(/\/+$/, '')}/v1/models/${m}/unload`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${config.apiKey || ''}` },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (res.ok) logTaskProgress('VideoTask', 'text-model-unloaded', { model: m })
+  } catch (err: any) {
+    logTaskWarn('VideoTask', 'text-model-unload-failed', { error: err?.message })
+  }
+}
+
 /**
  * 生图前把含中文的提示词翻译成英文（走当前文本模型，一次直出）。
  * 失败时返回原文并记警告——翻译只是增强，不阻断生成。
@@ -445,6 +469,9 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       const effectiveVideoPrompt = config.provider === 'fusion' && !isMiniMaxH3(record.model || '') && !isWan22Ti2v5b(record.model || '')
         ? await translatePromptToEnglish(record.prompt || '', label, id)
         : record.prompt
+      // 翻译把文本模型（Qwen3.5）载入常驻，与 LTX-2.5 准入竞争内存
+      // → memory guard 取消视频任务（503）。翻译完立即卸载文本模型。
+      if (config.provider === 'fusion') await unloadFusionTextModel()
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
         model: record.model,
@@ -705,8 +732,11 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
   }
 
   appendTaskEvent(record.id, 'completed', { localPath })
+  // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
+  // 列表接口 JSON.stringify 多 MB base64 会撑爆响应（与视频路径同口径）
+  const resultUrl = imageUrl.startsWith('data:') ? localPath : imageUrl
   await db.update(schema.sysTask)
-    .set({ resultUrl: imageUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
+    .set({ resultUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
     .where(and(eq(schema.sysTask.id, record.id), eq(schema.sysTask.status, 'processing')))
 
   logTaskSuccess('ImageTask', 'downloaded', { id: record.id, provider: record.provider, localPath })
