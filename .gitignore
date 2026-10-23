@@ -60,3 +60,8 @@ desktop/release/
 desktop/resources/
 frontend/dist
 data/backups/
+
+# Local model caches & agent artifacts (never publish)
+data/models/
+.atomcode/
+.d3-assets.py

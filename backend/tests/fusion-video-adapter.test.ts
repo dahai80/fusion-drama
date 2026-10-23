@@ -6,7 +6,7 @@ const adapter = new FusionVideoAdapter()
 const config = {
   provider: 'fusion',
   baseUrl: 'http://127.0.0.1:11434',
-  apiKey: 'REDACTED-LOCAL-KEY',
+  apiKey: 'test-key-123',
   model: 'dgrauet--ltx-2.5-mlx-q8',
 }
 
@@ -19,7 +19,7 @@ test('fusion request hits sync endpoint with 16:9 768 short edge', () => {
 
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/videos/generate')
   assert.equal(request.method, 'POST')
-  assert.equal(request.headers.Authorization, 'Bearer REDACTED-LOCAL-KEY')
+  assert.equal(request.headers.Authorization, 'Bearer test-key-123')
   // fusion-mlx #978: temporal upsampler 已移除，输出帧数 = num_frames。
   // 5s → 目标 120 帧 → 最近 8k+1 = 121
   assert.equal(request.body.num_frames, 121)

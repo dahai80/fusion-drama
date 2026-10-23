@@ -149,7 +149,7 @@ async function probeDuration(absPath: string): Promise<number> {
 async function synthesizeLine(text: string, idx: number, voice: string): Promise<string | null> {
   const ep = await getTtsEndpoint()
   const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
-  const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || 'REDACTED-LOCAL-KEY'
+  const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
   const attempt = async (): Promise<string | null> => {
     // Kokoro 首次加载需下载/初始化，且与常驻 LLM 共存时可能被内存管理延迟，超时给足
     const res = await fetch(`${baseUrl}/v1/audio/speech`, {
