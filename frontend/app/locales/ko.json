@@ -933,6 +933,18 @@
       "smooth": "표준",
       "hd": "고화질",
       "uhd": "초고화질"
+    },
+    "canvas": {
+      "canvasView": "캔버스",
+      "listView": "목록",
+      "hint": "노드를 드래그해 자유 배치(자동 저장) · 빈 공간 드래그로 이동 · 휠로 확대/축소 · 선은 병합 순서",
+      "tidy": "레이아웃 정리",
+      "fit": "화면 맞춤",
+      "resetView": "보기 초기화",
+      "genVideo": "영상 생성",
+      "regenVideo": "재생성",
+      "untitled": "샷 {n}",
+      "tidyDone": "캔버스 레이아웃을 정리했습니다"
     }
   },
   "errors": {

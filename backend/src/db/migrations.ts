@@ -77,6 +77,12 @@ export const MIGRATIONS: Migration[] = [
         )`,
         'CREATE INDEX IF NOT EXISTS idx_rag_chunks_drama_id ON rag_chunks (drama_id)',
     ] },
+
+    // v8 无限画布：分镜节点在画布上的坐标（NULL = 未摆放，前端按分镜序号自动布局）
+    { version: 8, name: 'storyboard-canvas', statements: [
+        'ALTER TABLE storyboards ADD COLUMN canvas_x REAL',
+        'ALTER TABLE storyboards ADD COLUMN canvas_y REAL',
+    ] },
 ]
 
 const MAX_BACKUPS = 10

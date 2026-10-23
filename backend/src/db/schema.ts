@@ -3,7 +3,7 @@
  * 自 MySQL 迁移：varchar(x)→text（SQLite 不校验长度）、int→integer、
  * boolean→integer boolean mode、时间戳仍为 text 存 ISO 字符串，表/列名不变。
  */
-import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core'
 
 export const dramas = sqliteTable('dramas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -145,6 +145,8 @@ export const storyboards = sqliteTable('storyboards', {
   subtitleUrl: text('subtitle_url'),
   composedVideoUrl: text('composed_video_url'),
   status: text('status').default('pending'),
+  canvasX: real('canvas_x'),
+  canvasY: real('canvas_y'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),

@@ -933,6 +933,18 @@
       "smooth": "Smooth",
       "hd": "HD",
       "uhd": "UHD"
+    },
+    "canvas": {
+      "canvasView": "Canvas",
+      "listView": "List",
+      "hint": "Drag nodes to arrange (auto-saved) · drag empty space to pan · scroll to zoom · lines show merge order",
+      "tidy": "Tidy layout",
+      "fit": "Fit view",
+      "resetView": "Reset view",
+      "genVideo": "Video",
+      "regenVideo": "Regenerate",
+      "untitled": "Shot {n}",
+      "tidyDone": "Canvas layout tidied"
     }
   },
   "errors": {

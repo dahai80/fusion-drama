@@ -117,6 +117,15 @@ Agents answer with full awareness of your project — entirely offline:
 - Indexing is hands-off: it starts automatically on first chat, and refreshes whenever a script is saved. A manual **Rebuild Index** button is available in Settings.
 - Retrieval fails open — if model files are missing or indexing fails, Agents work exactly as before.
 
+#### 🗺️ Infinite Canvas
+
+The video production stage offers a free-form canvas alongside the list view:
+
+- Every storyboard shot is a draggable node — pan the canvas by dragging empty space, zoom with the mouse wheel (25%–200%), double up with *Fit view* / *Reset view* / *Tidy layout*.
+- Node positions (`canvas_x` / `canvas_y`) persist to the database on drop, so your arrangement survives reloads and is shared across devices.
+- Dashed connection lines show the shot order used when stitching the final episode — rearrange nodes freely, the merge order stays explicit.
+- Each node carries a live image/video preview, status badge and one-click **Generate image** / **Generate video** buttons wired into the same task pipeline as the list view.
+
 ---
 
 ## 🚀 Quick Start

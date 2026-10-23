@@ -532,6 +532,11 @@
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   {{ t('episode.sb.batchImages') }}
                 </button>
+                <button class="btn btn-sm" :class="{ 'is-on': videoViewMode === 'canvas' }" :disabled="!sbs.length" @click="toggleCanvasView">
+                  <LayoutGrid v-if="videoViewMode !== 'canvas'" :size="11" />
+                  <List v-else :size="11" />
+                  {{ videoViewMode === 'canvas' ? t('episode.canvas.listView') : t('episode.canvas.canvasView') }}
+                </button>
               </div>
             </div>
             <div v-if="!sbs.length" class="step-empty video-task-empty-state">
@@ -546,6 +551,96 @@
                 <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 {{ t('episode.sb.startBreak') }}
               </button>
+            </div>
+            <!-- 无限画布：分镜节点自由摆放，拖拽即保存；连线表示拼接顺序 -->
+            <div v-else-if="videoViewMode === 'canvas'" class="sb-canvas-wrap">
+              <div class="sb-canvas-toolbar">
+                <span class="dim">{{ t('episode.canvas.hint') }}</span>
+                <div class="ml-auto flex gap-1">
+                  <button class="btn btn-sm" @click="tidyCanvasLayout">
+                    <Grid :size="11" />
+                    {{ t('episode.canvas.tidy') }}
+                  </button>
+                  <button class="btn btn-sm" @click="fitCanvasView">
+                    <Maximize2 :size="11" />
+                    {{ t('episode.canvas.fit') }}
+                  </button>
+                  <button class="btn btn-sm" @click="resetCanvasView">{{ t('episode.canvas.resetView') }}</button>
+                  <span class="tag mono sb-canvas-zoom">{{ canvasZoomLabel }}</span>
+                </div>
+              </div>
+              <div
+                ref="canvasStageEl"
+                class="sb-canvas-stage"
+                @pointerdown.self="startCanvasPan"
+                @wheel.prevent="onCanvasWheel"
+              >
+                <div class="sb-canvas-world" :style="canvasWorldStyle">
+                  <svg class="sb-canvas-edges">
+                    <path v-for="edge in canvasEdges" :key="edge.key" :d="edge.d" />
+                  </svg>
+                  <div
+                    v-for="node in canvasNodes"
+                    :key="node.sb.id"
+                    :class="['sb-canvas-node', {
+                      selected: selectedSb?.id === node.sb.id,
+                      'is-done': videoTaskState(node.sb) === 'done',
+                      'is-pending': videoTaskState(node.sb) === 'pending',
+                      'is-failed': videoTaskState(node.sb) === 'failed',
+                    }]"
+                    :style="{ left: node.x + 'px', top: node.y + 'px', width: CANVAS_CARD_W + 'px' }"
+                    @pointerdown.stop="startNodeDrag(node, $event)"
+                    @click="selectCanvasNode(node)"
+                  >
+                    <div class="sb-canvas-node-head">
+                      <span class="sb-canvas-node-idx">#{{ String(node.index + 1).padStart(2, '0') }}</span>
+                      <span class="sb-canvas-node-title">{{ node.sb.title || t('episode.canvas.untitled', { n: node.index + 1 }) }}</span>
+                      <span class="sb-canvas-node-dur">{{ node.sb.duration || 5 }}s</span>
+                    </div>
+                    <div class="sb-canvas-node-media">
+                      <video
+                        v-if="hasVid(node.sb)"
+                        :src="'/' + getVideoUrl(node.sb)"
+                        :poster="posterOf('/' + getVideoUrl(node.sb)) || undefined"
+                        preload="none"
+                        muted
+                        playsinline
+                      />
+                      <img
+                        v-else-if="getSbImage(node.sb)"
+                        :src="thumbOf('/' + getSbImage(node.sb))"
+                        loading="lazy"
+                        @error="thumbFallback($event, '/' + getSbImage(node.sb))"
+                      />
+                      <div v-else class="sb-canvas-node-empty">
+                        <Clapperboard :size="18" />
+                      </div>
+                      <span :class="['sb-canvas-node-badge', 'is-' + videoTaskState(node.sb)]">{{ videoTaskStatusLabel(node.sb) }}</span>
+                    </div>
+                    <div class="sb-canvas-node-meta">
+                      <span class="truncate">{{ node.sb.location || node.sb.shot_type || node.sb.shotType || '—' }}</span>
+                    </div>
+                    <div class="sb-canvas-node-actions" @pointerdown.stop @click.stop>
+                      <button
+                        class="btn btn-sm"
+                        :disabled="isPendingSbImage(node.sb.id)"
+                        @click="genSbImage(node.sb)"
+                      >
+                        <Loader2 v-if="isPendingSbImage(node.sb.id)" :size="10" class="animate-spin" />
+                        {{ getSbImage(node.sb) ? t('episode.sb.regenImage') : t('episode.sb.genImage') }}
+                      </button>
+                      <button
+                        class="btn btn-sm"
+                        :disabled="isPendingVideo(node.sb.id)"
+                        @click="genVid(node.sb)"
+                      >
+                        <Loader2 v-if="isPendingVideo(node.sb.id)" :size="10" class="animate-spin" />
+                        {{ hasVid(node.sb) ? t('episode.canvas.regenVideo') : t('episode.canvas.genVideo') }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div v-else class="video-task-workbench has-player" :style="{ '--vleft': videoLeftW + 'px', '--vright': videoRightW + 'px' }">
               <section class="video-task-list">
@@ -1480,7 +1575,7 @@ import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import {
   Users, FileText, FolderKanban, Clapperboard, Download, Loader2,
-  Plus, X, ListTodo, CircleHelp,
+  Plus, X, ListTodo, CircleHelp, LayoutGrid, List, Maximize2, Grid,
 } from 'lucide-vue-next'
 import { api, dramaAPI, episodeAPI, storyboardAPI, characterAPI, sceneAPI, propAPI, taskAPI, mergeAPI, aiConfigAPI, uploadAPI } from '~/composables/useApi'
 import { startTour, autoTour } from '~/composables/useTour'
@@ -2636,6 +2731,218 @@ const currentSubStageLabel = computed(() => currentStageLabel.value)
 
 const totalDuration = computed(() => sbs.value.reduce((s, sb) => s + (sb.duration || 10), 0))
 const selectedSb = ref(null)
+
+// ===== 无限画布：分镜节点自由摆放 + 拖拽持久化（canvas_x/canvas_y） =====
+const VIDEO_VIEW_STORE_KEY = 'fusion:workbench:video-view'
+const videoViewMode = ref(localStorage.getItem(VIDEO_VIEW_STORE_KEY) === 'canvas' ? 'canvas' : 'list')
+watch(videoViewMode, v => {
+  try { localStorage.setItem(VIDEO_VIEW_STORE_KEY, v) } catch { /* 静默 */ }
+  if (v === 'canvas') nextTick(() => fitCanvasView())
+})
+
+const CANVAS_CARD_W = 236
+const CANVAS_CARD_H = 252
+const CANVAS_STEP_X = 296
+const CANVAS_STEP_Y = 300
+const CANVAS_COLS = 4
+const CANVAS_MARGIN = 48
+const CANVAS_MIN_K = 0.25
+const CANVAS_MAX_K = 2
+const canvasView = ref({ x: 24, y: 24, k: 1 })
+const canvasStageEl = ref(null)
+// 拖拽中的临时坐标（松手才写库，避免拖拽过程刷接口）
+const canvasDrag = ref(null)
+
+function canvasShotNumber(sb) {
+  return Number(sb?.storyboard_number ?? sb?.storyboardNumber ?? 0) || 0
+}
+
+const canvasNodes = computed(() => {
+  const ordered = [...sbs.value].sort((a, b) => canvasShotNumber(a) - canvasShotNumber(b))
+  const drag = canvasDrag.value
+  return ordered.map((sb, i) => {
+    const autoX = CANVAS_MARGIN + (i % CANVAS_COLS) * CANVAS_STEP_X
+    const autoY = CANVAS_MARGIN + Math.floor(i / CANVAS_COLS) * CANVAS_STEP_Y
+    const rawX = sb.canvas_x ?? sb.canvasX
+    const rawY = sb.canvas_y ?? sb.canvasY
+    let x = rawX === null || rawX === undefined || rawX === '' ? autoX : Number(rawX)
+    let y = rawY === null || rawY === undefined || rawY === '' ? autoY : Number(rawY)
+    if (!Number.isFinite(x)) x = autoX
+    if (!Number.isFinite(y)) y = autoY
+    if (drag && drag.id === sb.id) { x = drag.x; y = drag.y }
+    return { sb, index: i, x, y }
+  })
+})
+
+const canvasEdges = computed(() => {
+  const nodes = canvasNodes.value
+  const paths = []
+  for (let i = 0; i < nodes.length - 1; i += 1) {
+    const a = nodes[i]
+    const b = nodes[i + 1]
+    const x1 = a.x + CANVAS_CARD_W
+    const y1 = a.y + 96
+    const x2 = b.x
+    const y2 = b.y + 96
+    const dx = Math.max(40, Math.abs(x2 - x1) * 0.45)
+    paths.push({ key: `${a.sb.id}-${b.sb.id}`, d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}` })
+  }
+  return paths
+})
+
+const canvasWorldStyle = computed(() => ({
+  transform: `translate(${canvasView.value.x}px, ${canvasView.value.y}px) scale(${canvasView.value.k})`,
+  transformOrigin: '0 0',
+}))
+
+const canvasZoomLabel = computed(() => `${Math.round(canvasView.value.k * 100)}%`)
+
+function toggleCanvasView() {
+  videoViewMode.value = videoViewMode.value === 'canvas' ? 'list' : 'canvas'
+}
+
+function selectCanvasNode(node) {
+  selectedSb.value = node.sb
+}
+
+function onCanvasWheel(e) {
+  const rect = canvasStageEl.value?.getBoundingClientRect()
+  if (!rect) return
+  const mx = e.clientX - rect.left
+  const my = e.clientY - rect.top
+  const k0 = canvasView.value.k
+  const k = Math.min(CANVAS_MAX_K, Math.max(CANVAS_MIN_K, k0 * Math.exp(-e.deltaY * 0.0015)))
+  if (k === k0) return
+  canvasView.value = {
+    x: mx - (mx - canvasView.value.x) * (k / k0),
+    y: my - (my - canvasView.value.y) * (k / k0),
+    k,
+  }
+}
+
+function zoomCanvas(factor) {
+  const el = canvasStageEl.value
+  const w = el?.clientWidth || 800
+  const h = el?.clientHeight || 600
+  const k0 = canvasView.value.k
+  const k = Math.min(CANVAS_MAX_K, Math.max(CANVAS_MIN_K, k0 * factor))
+  canvasView.value = {
+    x: w / 2 - (w / 2 - canvasView.value.x) * (k / k0),
+    y: h / 2 - (h / 2 - canvasView.value.y) * (k / k0),
+    k,
+  }
+}
+
+function startCanvasPan(e) {
+  if (e.button !== 0) return
+  const startX = e.clientX
+  const startY = e.clientY
+  const origin = { x: canvasView.value.x, y: canvasView.value.y }
+  const onMove = (ev) => {
+    canvasView.value = { ...canvasView.value, x: origin.x + (ev.clientX - startX), y: origin.y + (ev.clientY - startY) }
+  }
+  const onUp = () => {
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+    document.removeEventListener('pointercancel', onUp)
+    document.body.classList.remove('is-canvas-panning')
+  }
+  document.body.classList.add('is-canvas-panning')
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', onUp)
+  document.addEventListener('pointercancel', onUp)
+}
+
+function startNodeDrag(node, e) {
+  if (e.button !== 0) return
+  e.preventDefault()
+  selectCanvasNode(node)
+  const startX = e.clientX
+  const startY = e.clientY
+  const origin = { x: node.x, y: node.y }
+  let moved = false
+  const onMove = (ev) => {
+    const k = canvasView.value.k || 1
+    const dx = (ev.clientX - startX) / k
+    const dy = (ev.clientY - startY) / k
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true
+    canvasDrag.value = { id: node.sb.id, x: Math.round(origin.x + dx), y: Math.round(origin.y + dy) }
+  }
+  const onUp = async () => {
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', onUp)
+    document.removeEventListener('pointercancel', onUp)
+    document.body.classList.remove('is-canvas-dragging')
+    const drag = canvasDrag.value
+    canvasDrag.value = null
+    if (!moved || !drag) return
+    const sb = sbs.value.find(s => s.id === drag.id)
+    if (!sb) return
+    sb.canvas_x = drag.x
+    sb.canvas_y = drag.y
+    sb.canvasX = drag.x
+    sb.canvasY = drag.y
+    try {
+      await storyboardAPI.layout([{ id: drag.id, canvas_x: drag.x, canvas_y: drag.y }])
+    } catch (err) {
+      console.error('[canvas] persist layout failed:', err?.message)
+      toastError(err)
+    }
+  }
+  document.body.classList.add('is-canvas-dragging')
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', onUp)
+  document.addEventListener('pointercancel', onUp)
+}
+
+async function tidyCanvasLayout() {
+  const items = canvasNodes.value.map((node, i) => ({
+    id: node.sb.id,
+    canvas_x: CANVAS_MARGIN + (i % CANVAS_COLS) * CANVAS_STEP_X,
+    canvas_y: CANVAS_MARGIN + Math.floor(i / CANVAS_COLS) * CANVAS_STEP_Y,
+  }))
+  if (!items.length) return
+  try {
+    await storyboardAPI.layout(items)
+    const byId = new Map(items.map(item => [item.id, item]))
+    for (const sb of sbs.value) {
+      const item = byId.get(sb.id)
+      if (!item) continue
+      sb.canvas_x = item.canvas_x
+      sb.canvas_y = item.canvas_y
+      sb.canvasX = item.canvas_x
+      sb.canvasY = item.canvas_y
+    }
+    toast.success(t('episode.canvas.tidyDone'))
+    nextTick(() => fitCanvasView())
+  } catch (err) {
+    console.error('[canvas] tidy failed:', err?.message)
+    toastError(err)
+  }
+}
+
+function fitCanvasView() {
+  const nodes = canvasNodes.value
+  const el = canvasStageEl.value
+  if (!nodes.length || !el) return
+  const w = el.clientWidth || 800
+  const h = el.clientHeight || 600
+  const minX = Math.min(...nodes.map(n => n.x))
+  const minY = Math.min(...nodes.map(n => n.y))
+  const maxX = Math.max(...nodes.map(n => n.x + CANVAS_CARD_W))
+  const maxY = Math.max(...nodes.map(n => n.y + CANVAS_CARD_H))
+  const pad = 32
+  const k = Math.min(1, Math.min((w - pad * 2) / Math.max(1, maxX - minX), (h - pad * 2) / Math.max(1, maxY - minY)))
+  canvasView.value = {
+    x: (w - (maxX - minX) * k) / 2 - minX * k,
+    y: (h - (maxY - minY) * k) / 2 - minY * k,
+    k,
+  }
+}
+
+function resetCanvasView() {
+  canvasView.value = { x: 24, y: 24, k: 1 }
+}
 const selectedVideoTaskNumber = computed(() => {
   const index = videoTaskRows.value.findIndex(task => String(task.id) === String(selectedSb.value?.id))
   return index >= 0 ? index + 1 : 0
@@ -4837,6 +5144,124 @@ onMounted(() => setTimeout(() => autoTour('episode', EPISODE_TOUR, t), 900))
 .dot.pending {
   background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Infinite canvas */
+.sb-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--surface-outline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+.sb-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.sb-canvas-zoom { min-width: 48px; text-align: center; }
+.sb-canvas-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-color: var(--surface-muted);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+:global(body.is-canvas-panning),
+:global(body.is-canvas-dragging) { cursor: grabbing; user-select: none; }
+.sb-canvas-world { position: absolute; top: 0; left: 0; }
+.sb-canvas-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+}
+.sb-canvas-edges path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.45;
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+.sb-canvas-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+  user-select: none;
+}
+.sb-canvas-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.sb-canvas-node.is-pending { border-style: dashed; }
+.sb-canvas-node.is-failed { border-color: var(--error); }
+.sb-canvas-node-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.sb-canvas-node-idx { font-family: var(--font-mono); color: var(--accent); }
+.sb-canvas-node-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.sb-canvas-node-dur { color: var(--text-3); font-size: 11px; }
+.sb-canvas-node-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-canvas-node-media img,
+.sb-canvas-node-media video { width: 100%; height: 100%; object-fit: cover; }
+.sb-canvas-node-empty { color: var(--text-3); }
+.sb-canvas-node-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--scrim);
+  color: var(--on-media);
+}
+.sb-canvas-node-badge.is-failed { color: var(--error); }
+.sb-canvas-node-meta { font-size: 11px; color: var(--text-3); }
+.sb-canvas-node-actions { display: flex; gap: 4px; }
+.sb-canvas-node-actions .btn {
+  flex: 1;
+  justify-content: center;
+  font-size: 11px;
+  padding: 3px 4px;
 }
 
 /* Video tasks */

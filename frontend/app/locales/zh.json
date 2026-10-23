@@ -933,6 +933,18 @@
       "smooth": "流畅",
       "hd": "高清",
       "uhd": "超清"
+    },
+    "canvas": {
+      "canvasView": "画布视图",
+      "listView": "列表视图",
+      "hint": "拖拽节点自由摆放（自动保存）· 空白处拖动平移 · 滚轮缩放 · 连线为拼接顺序",
+      "tidy": "整理布局",
+      "fit": "适应画布",
+      "resetView": "重置视图",
+      "genVideo": "生视频",
+      "regenVideo": "重生成",
+      "untitled": "镜头 {n}",
+      "tidyDone": "画布布局已整理"
     }
   },
   "errors": {

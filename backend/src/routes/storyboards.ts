@@ -114,6 +114,29 @@ app.post('/', async (c) => {
   })
 })
 
+// PUT /storyboards/layout — 画布批量保存节点坐标（拖拽结束一次提交，避免 N 次串行 PUT）
+// 必须注册在 /:id 之前，否则 'layout' 会被当作 id 解析
+app.put('/layout', async (c) => {
+  const body = await c.req.json()
+  const items: Array<{ id: number; canvas_x: number; canvas_y: number }> = Array.isArray(body?.items) ? body.items : []
+  if (!items.length) return badRequest(c, 'items 不能为空')
+  const ts = now()
+  let updated = 0
+  for (const item of items) {
+    const id = Number(item?.id)
+    if (!Number.isFinite(id)) continue
+    const x = Number(item.canvas_x)
+    const y = Number(item.canvas_y)
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+    await db.update(schema.storyboards)
+      .set({ canvasX: x, canvasY: y, updatedAt: ts })
+      .where(eq(schema.storyboards.id, id))
+    updated += 1
+  }
+  logTaskSuccess('StoryboardAPI', 'layout', { requested: items.length, updated })
+  return success(c, { updated })
+})
+
 // PUT /storyboards/:id
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
@@ -135,6 +158,7 @@ app.put('/:id', async (c) => {
     time: 'time', atmosphere: 'atmosphere', result: 'result',
     bgm_prompt: 'bgmPrompt', sound_effect: 'soundEffect',
     video_url: 'videoUrl',
+    canvas_x: 'canvasX', canvas_y: 'canvasY',
   }
 
   const updates: Record<string, any> = { updatedAt: now() }

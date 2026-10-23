@@ -85,6 +85,7 @@ export const episodeAPI = {
 export const storyboardAPI = {
   create: (data: any) => api.post('/storyboards', data),
   update: (id: number, data: any) => api.put(`/storyboards/${id}`, data),
+  layout: (items: Array<{ id: number; canvas_x: number; canvas_y: number }>) => api.put('/storyboards/layout', { items }),
   del: (id: number) => api.del(`/storyboards/${id}`),
 }
 
