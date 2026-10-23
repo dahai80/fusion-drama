@@ -184,6 +184,17 @@ export const ragAPI = {
   search: (dramaId: number, q: string) => api.get(`/rag/search?drama_id=${dramaId}&q=${encodeURIComponent(q)}`),
 }
 
+export const memoryAPI = {
+  status: () => api.get<any>('/memory/status'),
+  setEnabled: (enabled: boolean) => api.put('/memory/enabled', { enabled }),
+  recall: (q: string) => api.get<any>(`/memory/recall?q=${encodeURIComponent(q)}`),
+}
+
+export const supervisorAPI = {
+  status: () => api.get<any>('/supervisor/status'),
+  setEnabled: (enabled: boolean) => api.put('/supervisor/enabled', { enabled }),
+}
+
 // lang 缺省/为 zh 时读写基础版（不带 query，保持原请求形态）
 const langQ = (lang?: string) => (lang && lang !== 'zh' ? `?lang=${lang}` : '')
 

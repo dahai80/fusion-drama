@@ -90,7 +90,8 @@
   "composables": {
     "agent": {
       "busy": "操作执行中",
-      "done": "完成"
+      "done": "完成",
+      "reviewFailed": "监督层复审未通过：{summary}"
     }
   },
   "index": {
@@ -498,6 +499,24 @@
       "rebuild": "重建索引",
       "rebuilt": "已重建 {dramas} 部剧 / {chunks} 个索引块（失败 {failed}）",
       "note": "首次对话自动建立索引；剧本保存后自动更新。模型文件缺失时自动跳过，不影响 Agent 正常使用。"
+    },
+    "memory": {
+      "title": "跨会话记忆（fusion-memory）",
+      "desc": "Agent 对话自动召回历史偏好与决定，对话后异步写入记忆库",
+      "label": "记忆召回与写入",
+      "test": "测试召回",
+      "testQuery": "主角叫什么名字，有什么偏好",
+      "connected": "已连接",
+      "offline": "未连接",
+      "offlineNote": "fm-server 未运行（127.0.0.1:11435），Agent 将跳过记忆",
+      "stats": "记忆库共 {n} 条",
+      "recallEmpty": "暂无相关记忆"
+    },
+    "supervisor": {
+      "title": "Agent 监督层",
+      "desc": "supervisor 提示词复审每次 Agent 产出，返回质量判定与问题清单",
+      "label": "产出质量复审",
+      "note": "审阅失败自动放行，不阻断 Agent 主流程"
     }
   },
   "episode": {

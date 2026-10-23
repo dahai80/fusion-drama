@@ -6,8 +6,10 @@ import { eq } from 'drizzle-orm'
 import { validAgentTypes } from '../agents/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { enqueueGpuWork } from '../services/gpu-queue.js'
-import { isRagEnabled } from '../services/app-settings.js'
+import { isRagEnabled, isMemoryEnabled, isSupervisorEnabled } from '../services/app-settings.js'
 import { buildRagContextBlock } from '../services/rag.js'
+import { retrieveMemoryContext, commitAgentMemory } from '../services/agent-memory.js'
+import { reviewAgentOutput } from '../services/supervisor.js'
 import { mastra } from '../mastra/index.js'
 import { db, schema } from '../db/index.js'
 import { now } from '../utils/response.js'
@@ -87,7 +89,19 @@ app.post('/:type/chat', async (c) => {
         logTaskWarn('Agent', 'rag-context-failed', { dramaId: drama_id, error: e?.message })
       }
     }
-    const userContent = ragBlock ? `${ragBlock}\n\n${message}` : message
+    // 跨会话记忆（fusion-memory）：检索此前会话的偏好/决定注入为记忆块，置于 RAG 块之前。
+    // fm-server 未启/超时返回 null，不阻断
+    let memoryBlock: string | null = null
+    if (isMemoryEnabled()) {
+      try {
+        memoryBlock = await retrieveMemoryContext(message)
+        if (memoryBlock) logTaskProgress('Agent', 'memory-context-injected', { agentType, dramaId: drama_id, len: memoryBlock.length })
+      } catch (e: any) {
+        logTaskWarn('Agent', 'memory-context-failed', { dramaId: drama_id, error: e?.message })
+      }
+    }
+    const contextPrefix = [memoryBlock, ragBlock].filter(Boolean).join('\n\n')
+    const userContent = contextPrefix ? `${contextPrefix}\n\n${message}` : message
 
     // Agent 推理打文本模型（Qwen3.5 decode burst），与图片/视频生成共用 GPU 串行队列，
     // 避免与 LTX-2.5/FLUX 并发争用触发 Metal crash（见 gpu-queue.ts 注释）
@@ -96,6 +110,29 @@ app.post('/:type/chat', async (c) => {
       { maxSteps: 20, requestContext },
     ))
     void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })
+
+    // 监督层：supervisor prompt 复审 Agent 产出（同一 GPU 串行队列内跑文本模型）。
+    // 审阅失败/关闭时 verdict.degraded=true 原样放行
+    let review = null
+    if (isSupervisorEnabled()) {
+      const verdict = await enqueueGpuWork(`Supervisor-${agentType}`, () =>
+        reviewAgentOutput(agentType, message, result.text || ''))
+      review = verdict
+      void appendEpisodeEvent(episode_id, 'agent_reviewed', {
+        agent: agentType, pass: verdict.pass, degraded: verdict.degraded,
+        issues: verdict.issues, summary: verdict.summary,
+      })
+    }
+
+    // 跨会话记忆写入：异步落 fusion-memory，失败仅告警不影响响应
+    if (isMemoryEnabled() && (result.text || '').trim()) {
+      void commitAgentMemory({
+        agentType, dramaId: drama_id, episodeId: episode_id,
+        userMessage: message, assistantMessage: result.text || '',
+      }).then(ok => {
+        if (!ok) logTaskWarn('Agent', 'memory-commit-skipped', { agentType, dramaId: drama_id })
+      })
+    }
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskSuccess('Agent', agentType, { elapsedSeconds: elapsed })
@@ -141,6 +178,7 @@ app.post('/:type/chat', async (c) => {
       text: result.text || '',
       toolCalls: normalizedToolCalls,
       toolResults: normalizedToolResults,
+      review,
     })
   } catch (err: any) {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)

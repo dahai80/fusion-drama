@@ -38,7 +38,9 @@ test('agent chat injects rag context into user message behind enabled toggle', (
     const agent = read('src/routes/agent.ts')
     assert.match(agent, /isRagEnabled\(\)/)
     assert.match(agent, /buildRagContextBlock\(drama_id, message\)/)
-    assert.match(agent, /ragBlock \? `\$\{ragBlock\}\\n\\n\$\{message\}` : message/)
+    // 跨会话记忆块 + RAG 块拼接为统一前缀（记忆在前），再拼用户消息
+    assert.match(agent, /\[memoryBlock, ragBlock\]\.filter\(Boolean\)\.join\('\\n\\n'\)/)
+    assert.match(agent, /contextPrefix \? `\$\{contextPrefix\}\\n\\n\$\{message\}` : message/)
     // 注入失败仅告警不阻断
     assert.match(agent, /rag-context-failed/)
 

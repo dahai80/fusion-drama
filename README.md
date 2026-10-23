@@ -117,6 +117,24 @@ Agents answer with full awareness of your project — entirely offline:
 - Indexing is hands-off: it starts automatically on first chat, and refreshes whenever a script is saved. A manual **Rebuild Index** button is available in Settings.
 - Retrieval fails open — if model files are missing or indexing fails, Agents work exactly as before.
 
+#### 🧠 Cross-Session Memory
+
+Agents remember your creative decisions across sessions and dramas, powered by [fusion-memory](../fusion-memory) (local memory hub, HTTP `:11435`):
+
+- Every Agent chat is committed to the `project` / `fusion-drama` namespace after the reply — preferences and decisions persist across restarts.
+- Before each chat, the top-5 most relevant past memories are retrieved and injected as a memory block ahead of the RAG block (user instructions always win on conflict).
+- The Settings page shows connection status, total memory count and a **Test recall** button.
+- Fully fail-open: if fm-server is not running or times out, Agents work exactly as before. Toggle it off anytime in Settings.
+
+#### 🛡️ Agent Supervisor
+
+Every Agent reply is double-checked by a supervisor pass before it reaches you:
+
+- A dedicated supervisor prompt (shipped in 4 languages, editable in Settings like other prompts) re-reads the user request and the Agent output, then returns a structured verdict: `pass` / `issues` / `summary`.
+- Only substantive defects are flagged (missing required output, wrong format, contradicting the request) — style nits pass.
+- A failed verdict surfaces as a warning toast with the issue list; the verdict is also recorded in the episode event stream (`agent_reviewed`).
+- Reviews run on the same GPU serial queue as Agents (no Metal contention) and degrade open — any supervisor failure lets the original reply through untouched.
+
 #### 🗺️ Infinite Canvas
 
 The video production stage offers a free-form canvas alongside the list view:
@@ -157,6 +175,8 @@ No config files — everything is set via environment variables (all have defaul
 | `FUSION_API_TOKEN` | — | Server-mode API token. **Required (≥32 chars)**: the server refuses to start on weaker tokens unless `FUSION_BIND_HOST` is set. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
 | `FUSION_BIND_HOST` | — | Set to mark a loopback-only deployment and bypass the token enforcement above |
 | `FUSION_SHELL_GATEWAY` | — | Union Web integration: base URL of the fusion-web-shell gateway (e.g. `http://localhost:11432`). When set, the backend registers `web/manifest.json` with the shell's manifest registry on startup (best-effort, idempotent). Loading the app with `?embedded=1` hides its own header for shell embedding |
+| `FUSION_MEMORY_URL` | `http://127.0.0.1:11435` | fusion-memory (fm-server) base URL for cross-session Agent memory |
+| `FUSION_MEMORY_API_KEY` | `~/.fusion-memory/api_key` file | Bearer key for fm-server RPC calls (falls back to reading the shared key file) |
 
 > **Note**: AI service API keys, base URLs, and model parameters are all configured in the web UI "Settings" page and stored in the database — never in config files or environment variables.
 

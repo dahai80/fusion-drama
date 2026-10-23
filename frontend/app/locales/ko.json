@@ -90,7 +90,8 @@
   "composables": {
     "agent": {
       "busy": "작업 실행 중",
-      "done": "완료"
+      "done": "완료",
+      "reviewFailed": "감독 검토 미통과: {summary}"
     }
   },
   "index": {
@@ -498,6 +499,24 @@
       "rebuild": "인덱스 재구축",
       "rebuilt": "{dramas}편 / {chunks}청크 재구축 (실패 {failed})",
       "note": "첫 대화 시 자동으로 인덱스를 구축하고 대본 저장 후 자동 갱신합니다. 모델 파일이 없으면 검색을 건너뛰며 Agent 동작에는 영향 없습니다."
+    },
+    "memory": {
+      "title": "세션 간 기억(fusion-memory)",
+      "desc": "Agent 대화가 과거 선호/결정을 자동 회상하고, 대화 후 비동기로 기억 저장소에 기록",
+      "label": "기억 회상 및 기록",
+      "test": "회상 테스트",
+      "testQuery": "주인공 이름과 선호는?",
+      "connected": "연결됨",
+      "offline": "미연결",
+      "offlineNote": "fm-server 미실행(127.0.0.1:11435), Agent는 기억 건너뜀",
+      "stats": "기억 {n}건",
+      "recallEmpty": "관련 기억 없음"
+    },
+    "supervisor": {
+      "title": "Agent 감독 계층",
+      "desc": "supervisor 프롬프트가 Agent 산출물을 매번 검토해 품질 판정과 문제 목록 반환",
+      "label": "산출물 품질 검토",
+      "note": "검토 실패 시 통과시키며 Agent 주 흐름을 막지 않음"
     }
   },
   "episode": {

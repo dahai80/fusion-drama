@@ -90,7 +90,8 @@
   "composables": {
     "agent": {
       "busy": "処理を実行中です",
-      "done": "完了"
+      "done": "完了",
+      "reviewFailed": "監督層の審査不合格：{summary}"
     }
   },
   "index": {
@@ -498,6 +499,24 @@
       "rebuild": "索引を再構築",
       "rebuilt": "{dramas} 作品 / {chunks} チャンクを再構築（失敗 {failed}）",
       "note": "初回チャット時に自動で索引を構築し、脚本の保存後に自動更新します。モデルファイルがない場合は検索をスキップし、Agent の動作には影響しません。"
+    },
+    "memory": {
+      "title": "セッション横断メモリ（fusion-memory）",
+      "desc": "Agent 対話が過去の嗜好・決定を自動想起し、対話後に非同期でメモリへ書き込む",
+      "label": "メモリ想起と書き込み",
+      "test": "想起テスト",
+      "testQuery": "主人公の名前と嗜好は？",
+      "connected": "接続済み",
+      "offline": "未接続",
+      "offlineNote": "fm-server 未起動 (127.0.0.1:11435)。Agent はメモリをスキップ",
+      "stats": "メモリ {n} 件",
+      "recallEmpty": "関連メモリなし"
+    },
+    "supervisor": {
+      "title": "Agent 監督層",
+      "desc": "supervisor プロンプトが Agent の出力を毎回審査し、品質判定と問題リストを返す",
+      "label": "出力品質レビュー",
+      "note": "審査失敗時は素通し、Agent の主流程を妨げない"
     }
   },
   "episode": {

@@ -90,3 +90,45 @@ export function setRagEnabled(enabled: boolean): boolean {
     .run()
   return enabled
 }
+
+const MEMORY_ENABLED_KEY = 'agent_memory_enabled'
+
+/** 跨会话记忆开关（fusion-memory）：默认开；fm-server 未启时检索静默降级为无记忆块 */
+export function isMemoryEnabled(): boolean {
+  const row = db.select().from(schema.appSettings)
+    .where(eq(schema.appSettings.key, MEMORY_ENABLED_KEY))
+    .get()
+  return row?.value !== 'false'
+}
+
+export function setMemoryEnabled(enabled: boolean): boolean {
+  db.insert(schema.appSettings)
+    .values({ key: MEMORY_ENABLED_KEY, value: enabled ? 'true' : 'false', updatedAt: now() })
+    .onConflictDoUpdate({
+      target: schema.appSettings.key,
+      set: { value: enabled ? 'true' : 'false', updatedAt: now() },
+    })
+    .run()
+  return enabled
+}
+
+const SUPERVISOR_ENABLED_KEY = 'agent_supervisor_enabled'
+
+/** Agent 监督层开关：默认开；审阅模型调用失败时降级为 pass-through 不阻断 */
+export function isSupervisorEnabled(): boolean {
+  const row = db.select().from(schema.appSettings)
+    .where(eq(schema.appSettings.key, SUPERVISOR_ENABLED_KEY))
+    .get()
+  return row?.value !== 'false'
+}
+
+export function setSupervisorEnabled(enabled: boolean): boolean {
+  db.insert(schema.appSettings)
+    .values({ key: SUPERVISOR_ENABLED_KEY, value: enabled ? 'true' : 'false', updatedAt: now() })
+    .onConflictDoUpdate({
+      target: schema.appSettings.key,
+      set: { value: enabled ? 'true' : 'false', updatedAt: now() },
+    })
+    .run()
+  return enabled
+}

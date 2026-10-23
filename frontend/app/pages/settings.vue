@@ -216,6 +216,58 @@
             </div>
             <p class="config-empty">{{ t('settings.rag.note') }}</p>
           </section>
+          <!-- 跨会话记忆：fusion-memory 检索历史偏好注入 Agent，对话后异步写入 -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.memory.title') }}</span>
+                <div class="svc-group-sub">{{ t('settings.memory.desc') }}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm ml-auto" :disabled="memoryRecalling" @click="recallMemoryTest">
+                <Loader2 v-if="memoryRecalling" :size="13" class="animate-spin" />
+                <RefreshCw v-else :size="13" /> {{ t('settings.memory.test') }}
+              </button>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge style-badge"><Brain :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line">
+                  <span class="config-name">{{ t('settings.memory.label') }}</span>
+                  <span :class="['tag', memoryStatus?.enabled ? 'tag-success' : '']">{{ memoryStatus?.enabled ? t('settings.rag.on') : t('settings.common.disabled') }}</span>
+                  <span v-if="memoryStatus" :class="['tag', memoryStatus.reachable ? 'tag-success' : 'tag-warning']">{{ memoryStatus.reachable ? t('settings.memory.connected') : t('settings.memory.offline') }}</span>
+                </div>
+                <div class="config-sub mono">{{ memoryStatus?.reachable ? t('settings.memory.stats', { n: memoryStatus.memoryCount ?? 0 }) : t('settings.memory.offlineNote') }}</div>
+                <div v-if="memoryRecallResult" class="config-sub">{{ memoryRecallResult }}</div>
+              </div>
+              <label class="config-switch">
+                <input type="checkbox" class="sr-only" :checked="!!memoryStatus?.enabled" @change="toggleMemory">
+                <span class="switch" :class="{ on: !!memoryStatus?.enabled }"></span>
+              </label>
+            </div>
+          </section>
+          <!-- Agent 监督层：supervisor prompt 复审 Agent 产出 -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.supervisor.title') }}</span>
+                <div class="svc-group-sub">{{ t('settings.supervisor.desc') }}</div>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge style-badge"><ShieldCheck :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line">
+                  <span class="config-name">{{ t('settings.supervisor.label') }}</span>
+                  <span :class="['tag', supervisorStatus?.enabled ? 'tag-success' : '']">{{ supervisorStatus?.enabled ? t('settings.rag.on') : t('settings.common.disabled') }}</span>
+                </div>
+                <div class="config-sub">{{ t('settings.supervisor.note') }}</div>
+              </div>
+              <label class="config-switch">
+                <input type="checkbox" class="sr-only" :checked="!!supervisorStatus?.enabled" @change="toggleSupervisor">
+                <span class="switch" :class="{ on: !!supervisorStatus?.enabled }"></span>
+              </label>
+            </div>
+          </section>
           <div class="sections">
             <section v-for="st in serviceTypes" :key="st.type" class="card svc-group">
               <div class="svc-group-head">
@@ -844,12 +896,12 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound, Code2, Search } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound, Code2, Search, Brain, ShieldCheck } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { aiConfigAPI, customProviderAPI, ragAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
+import { aiConfigAPI, customProviderAPI, ragAPI, memoryAPI, supervisorAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
@@ -1264,6 +1316,44 @@ async function reindexRag() {
   }
 }
 
+// ===== 跨会话记忆（fusion-memory）+ Agent 监督层 =====
+const memoryStatus = ref(null)
+const memoryRecalling = ref(false)
+const memoryRecallResult = ref('')
+async function loadMemoryStatus() {
+  try { memoryStatus.value = await memoryAPI.status() } catch (e) { toastError(e) }
+}
+async function toggleMemory() {
+  try {
+    await memoryAPI.setEnabled(!memoryStatus.value?.enabled)
+    await loadMemoryStatus()
+  } catch (e) { toastError(e) }
+}
+async function recallMemoryTest() {
+  if (memoryRecalling.value) return
+  memoryRecalling.value = true
+  memoryRecallResult.value = ''
+  try {
+    const r = await memoryAPI.recall(t('settings.memory.testQuery'))
+    memoryRecallResult.value = r?.context ? r.context.slice(0, 300) : t('settings.memory.recallEmpty')
+  } catch (e) {
+    toastError(e)
+  } finally {
+    memoryRecalling.value = false
+  }
+}
+
+const supervisorStatus = ref(null)
+async function loadSupervisorStatus() {
+  try { supervisorStatus.value = await supervisorAPI.status() } catch (e) { toastError(e) }
+}
+async function toggleSupervisor() {
+  try {
+    await supervisorAPI.setEnabled(!supervisorStatus.value?.enabled)
+    await loadSupervisorStatus()
+  } catch (e) { toastError(e) }
+}
+
 // ===== Agent Configs =====
 const agentCfgs = ref([])
 const agentPane = ref('prompt')   // 右侧子 tab：prompt | skills
@@ -1570,7 +1660,7 @@ async function saveStyle() {
   } catch (e) { toastError(e) }
 }
 
-onMounted(() => { loadCfgs(); loadCustomProviders(); loadRagStatus(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
+onMounted(() => { loadCfgs(); loadCustomProviders(); loadRagStatus(); loadMemoryStatus(); loadSupervisorStatus(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
 // ===== 应用内引导（设置页）：快捷配置 + 手动模板两步 =====
 const SETTINGS_TOUR = [

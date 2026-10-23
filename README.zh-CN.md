@@ -116,6 +116,24 @@ Agent 回答自带全项目背景——完全离线：
 - 索引免维护：首次对话自动建立，剧本保存后自动刷新；设置页提供「重建索引」按钮。
 - 检索失败即跳过（fail-open）——模型文件缺失或索引失败时 Agent 行为不变。
 
+#### 🧠 跨会话记忆
+
+Agent 记得住你在不同会话、不同短剧里的创作决定，底层对接 [fusion-memory](../fusion-memory)（本地记忆中枢，HTTP `:11435`）：
+
+- 每次 Agent 对话完成后，本轮内容自动写入 `project` / `fusion-drama` 命名空间——创作偏好与决定跨重启持久保留。
+- 每次对话前，检索 top-5 最相关的历史记忆注入为记忆块（排在 RAG 块之前；与用户当前要求冲突时以用户要求为准）。
+- 设置页展示连接状态、记忆总数与「测试召回」按钮。
+- 全链路 fail-open：fm-server 未启动或超时，Agent 行为不变；设置页可随时关闭。
+
+#### 🛡️ Agent 监督层
+
+每条 Agent 回复送达前都经过一道监督复审：
+
+- 专用监督提示词（内置 4 语言，与其他提示词一样可在设置页在线编辑）重读用户请求与 Agent 产出，返回结构化判定：`pass` / `issues` / `summary`。
+- 只标记实质性缺陷（漏掉要求的产出、格式错误、与请求矛盾）——风格细节一律放行。
+- 判定不通过时前端弹出警告提示并附问题清单；判定同时写入剧集事件流（`agent_reviewed`）留痕。
+- 复审与 Agent 共用同一 GPU 串行队列（不与视频/图片生成争用 Metal），失败即降级放行（degraded）——监督层任何异常都不影响原始回复。
+
 #### 🗺️ 无限画布
 
 视频制作阶段提供自由画布视图（与列表视图可切换）：
@@ -155,6 +173,8 @@ Agent 回答自带全项目背景——完全离线：
 | `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
 | `FUSION_API_TOKEN` | — | 服务器模式 API 令牌。**必填（≥32 字符）**：令牌过弱时服务器拒绝启动，除非设置 `FUSION_BIND_HOST`。前端以 `Bearer` 方式携带（设置页 → 通用中配置一次，存 localStorage） |
 | `FUSION_SHELL_GATEWAY` | — | Union Web 接入：fusion-web-shell 网关地址（如 `http://localhost:11432`）。设置后启动时把 `web/manifest.json` 注册到宿主注册中心（幂等、best-effort）。带 `?embedded=1` 打开页面会隐藏自有头部导航，供 Shell 内嵌 |
+| `FUSION_MEMORY_URL` | `http://127.0.0.1:11435` | fusion-memory（fm-server）地址，跨会话 Agent 记忆 |
+| `FUSION_MEMORY_API_KEY` | 读 `~/.fusion-memory/api_key` 文件 | fm-server RPC 的 Bearer 密钥（缺省回落共享密钥文件） |
 
 > **说明**：AI 服务的 API Key、Base URL 和模型参数全部在 Web 界面的「设置」页配置并入库，不在配置文件/环境变量中维护。
 

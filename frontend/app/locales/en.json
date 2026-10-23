@@ -90,7 +90,8 @@
   "composables": {
     "agent": {
       "busy": "Operation in progress",
-      "done": "Done"
+      "done": "Done",
+      "reviewFailed": "Supervisor review failed: {summary}"
     }
   },
   "index": {
@@ -498,6 +499,24 @@
       "rebuild": "Rebuild Index",
       "rebuilt": "Rebuilt {dramas} dramas / {chunks} chunks ({failed} failed)",
       "note": "Indexing starts automatically on first chat and refreshes when a script is saved. If model files are missing, retrieval is skipped silently without affecting Agents."
+    },
+    "memory": {
+      "title": "Cross-Session Memory (fusion-memory)",
+      "desc": "Agent chats recall past preferences and decisions; each turn is committed back to memory",
+      "label": "Memory recall & commit",
+      "test": "Test recall",
+      "testQuery": "What is the protagonist called and any preferences?",
+      "connected": "Connected",
+      "offline": "Offline",
+      "offlineNote": "fm-server not running (127.0.0.1:11435); agents will skip memory",
+      "stats": "{n} memories stored",
+      "recallEmpty": "No related memories yet"
+    },
+    "supervisor": {
+      "title": "Agent Supervisor",
+      "desc": "A supervisor prompt reviews every agent output and returns a quality verdict with issues",
+      "label": "Output quality review",
+      "note": "Review failures pass pass through without blocking the agent"
     }
   },
   "episode": {

@@ -16,6 +16,8 @@ import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
 import customProviders from './routes/custom-providers.js'
 import rag from './routes/rag.js'
+import memory from './routes/memory.js'
+import supervisor from './routes/supervisor.js'
 import stylePresets from './routes/stylePresets.js'
 import prompts from './routes/prompts.js'
 import agent from './routes/agent.js'
@@ -96,6 +98,8 @@ api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
 api.route('/custom-providers', customProviders)
 api.route('/rag', rag)
+api.route('/memory', memory)
+api.route('/supervisor', supervisor)
 api.route('/style-presets', stylePresets)
 api.route('/prompts', prompts)
 api.route('/agent', agent)

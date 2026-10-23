@@ -23,6 +23,17 @@ export function useAgent() {
         config_id: configId || undefined,
       }, AGENT_TIMEOUT_MS)
       toast.success(i18n.global.t('composables.agent.done'))
+      // 监督层判定：不通过时把问题清单顶给用户（通过/降级不额外打扰）
+      const review = data?.review
+      if (review && review.pass === false) {
+        const issues = Array.isArray(review.issues) && review.issues.length
+          ? review.issues.join('；')
+          : ''
+        toast.warning(i18n.global.t('composables.agent.reviewFailed', { summary: review.summary || '' }), {
+          description: issues,
+          duration: 10000,
+        })
+      }
       onDone?.()
     } catch (err: any) {
       toastError(err)
