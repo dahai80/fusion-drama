@@ -463,6 +463,31 @@
     "cfgDelete": {
       "title": "AI 설정 삭제",
       "message": "설정 \"{name}\"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다."
+    },
+    "custom": {
+      "title": "커스텀 Provider",
+      "desc": "JS 코드로 어떤 이미지/영상 벤더든 연결. 코드 수정·재시작 불필요. 위 AI 설정에서 custom:<name>를 선택해 사용하세요.",
+      "addTitle": "커스텀 Provider 추가",
+      "editTitle": "커스텀 Provider 편집",
+      "sub": "어댑터 메서드 내보내기 (샌드박스 실행, 파일/프로세스 접근 없음)",
+      "name": "식별자",
+      "namePlaceholder": "my-provider (소문자/숫자/하이픈)",
+      "nameHint": "provider 식별자 custom:<name>의 일부. 생성 후 변경 불가",
+      "nameRequired": "식별자를 입력하세요",
+      "type": "서비스 유형",
+      "typePlaceholder": "유형 선택",
+      "code": "어댑터 코드",
+      "codeHint": "module.exports로 내보내기: buildGenerateRequest / parseGenerateResponse / buildPollRequest / parsePollResponse / extractImageUrl / extractImageBase64 (영상은 extractVideoUrl)",
+      "codeRequired": "어댑터 코드를 입력하세요",
+      "enabled": "활성화",
+      "test": "드라이런",
+      "testOk": "커스텀 provider \"{name}\" 드라이런 통과",
+      "testFail": "커스텀 provider \"{name}\" 드라이런 실패: {error}",
+      "empty": "커스텀 provider가 없습니다"
+    },
+    "customDelete": {
+      "title": "커스텀 Provider 삭제",
+      "message": "\"{name}\"을(를) 삭제할까요? 이를 참조하는 AI 설정이 작동하지 않게 됩니다."
     }
   },
   "episode": {

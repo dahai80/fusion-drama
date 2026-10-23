@@ -50,6 +50,19 @@ export const MIGRATIONS: Migration[] = [
     { version: 5, name: 'task-retry-of', statements: [
         'ALTER TABLE sys_task ADD COLUMN retry_of INTEGER',
     ] },
+
+    // v6 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，node:vm 沙箱热注册）
+    { version: 6, name: 'custom-providers', statements: [
+        `CREATE TABLE IF NOT EXISTS custom_providers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            code TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )`,
+    ] },
 ]
 
 const MAX_BACKUPS = 10

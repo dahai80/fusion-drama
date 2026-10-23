@@ -97,6 +97,16 @@ The interface ships in **中文 / English / 日本語 / 한국어**, with a glob
 | **Image** | OpenAI, Gemini, Volcano Engine |
 | **Video** | Volcano Engine Seedance 2.0 (Standard / Fast / Mini), MiniMax H3, Alibaba Bailian Wan 3.0 (Prime / Standard) |
 | **Video (local)** | [fusion-mlx](https://github.com/dahai80/fusion-mlx) self-hosted on Apple Silicon: LTX-2.5 (primary, joint A/V), MiniMax-H3 33B (quality, Turbo LoRA 4-step), Wan2.2-TI2V-5B (Chinese-native prompts) |
+| **Image / Video (custom)** | Any vendor — bring your own adapter as JS code (see below) |
+
+#### 🧩 Programmable Providers
+
+Connect **any** image/video vendor without touching the source or restarting the service:
+
+- Write a small JS adapter in **Settings → AI Services → Custom Providers**. It exports the same adapter interface used internally (`buildGenerateRequest`, `parseGenerateResponse`, `buildPollRequest`, `parsePollResponse`, plus `extractImageUrl`/`extractImageBase64` for images or `extractVideoUrl` for videos).
+- Code runs in a `node:vm` sandbox (no `require`/`process`/`fs` access, 5s eval timeout) and is registered as the provider key `custom:<name>`.
+- Pick `custom:<name>` when adding an AI config, set its Base URL / API Key / models, and it flows through the normal generation pipeline (GPU queue, task lifecycle, file download).
+- A built-in **Dry Run** button evaluates the code and previews the exact HTTP request it would build (auth headers redacted). Edits take effect immediately — no restart.
 
 ---
 

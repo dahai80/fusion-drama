@@ -1,6 +1,7 @@
 /**
  * Provider Adapter 注册表
- * 根据 provider 名称返回对应的 Adapter 实例
+ * 根据 provider 名称返回对应的 Adapter 实例；
+ * `custom:<name>` 前缀走可编程 provider（DB 存 JS 代码，node:vm 沙箱热注册）
  */
 import { OpenAIImageAdapter } from './openai-image'
 import { GeminiImageAdapter } from './gemini-image'
@@ -10,6 +11,7 @@ import { MiniMaxVideoAdapter } from './minimax-video'
 import { AliyunWanVideoAdapter } from './aliyun-wan-video'
 import { FusionVideoAdapter } from './fusion-video'
 import type { ImageProviderAdapter, VideoProviderAdapter } from './types'
+import { isCustomProvider, getCustomImageAdapter, getCustomVideoAdapter } from '../custom-providers'
 
 // 图片 Adapter 注册表
 export const imageAdapters: Record<string, ImageProviderAdapter> = {
@@ -28,10 +30,11 @@ export const videoAdapters: Record<string, VideoProviderAdapter> = {
 
 /**
  * 获取图片 Adapter
- * @param provider 厂商名称
- * @returns 对应的 Adapter
+ * @param provider 厂商名称（内置名或 custom:<name>）
+ * @returns 对应的 Adapter（custom 需查 DB，故为异步）
  */
-export function getImageAdapter(provider: string): ImageProviderAdapter {
+export async function getImageAdapter(provider: string): Promise<ImageProviderAdapter> {
+  if (isCustomProvider(provider)) return getCustomImageAdapter(provider.toLowerCase())
   const adapter = imageAdapters[provider.toLowerCase()]
   if (!adapter) throw new Error(`Unsupported image provider: ${provider}`)
   return adapter
@@ -39,10 +42,11 @@ export function getImageAdapter(provider: string): ImageProviderAdapter {
 
 /**
  * 获取视频 Adapter
- * @param provider 厂商名称
- * @returns 对应的 Adapter
+ * @param provider 厂商名称（内置名或 custom:<name>）
+ * @returns 对应的 Adapter（custom 需查 DB，故为异步）
  */
-export function getVideoAdapter(provider: string): VideoProviderAdapter {
+export async function getVideoAdapter(provider: string): Promise<VideoProviderAdapter> {
+  if (isCustomProvider(provider)) return getCustomVideoAdapter(provider.toLowerCase())
   const adapter = videoAdapters[provider.toLowerCase()]
   if (!adapter) throw new Error(`Unsupported video provider: ${provider}`)
   return adapter

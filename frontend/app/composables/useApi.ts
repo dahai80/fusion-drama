@@ -164,6 +164,17 @@ export const aiConfigAPI = {
   test: (d: any) => api.post('/ai-configs/test', d),
 }
 
+// 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，沙箱热注册）
+export const customProviderAPI = {
+  list: () => api.get<any[]>('/custom-providers'),
+  get: (id: number) => api.get(`/custom-providers/${id}`),
+  create: (d: any) => api.post('/custom-providers', d),
+  update: (id: number, d: any) => api.put(`/custom-providers/${id}`, d),
+  del: (id: number) => api.del(`/custom-providers/${id}`),
+  test: (d: any) => api.post('/custom-providers/test', d),
+  testById: (id: number, d?: any) => api.post(`/custom-providers/${id}/test`, d || {}),
+}
+
 // lang 缺省/为 zh 时读写基础版（不带 query，保持原请求形态）
 const langQ = (lang?: string) => (lang && lang !== 'zh' ? `?lang=${lang}` : '')
 

@@ -14,6 +14,7 @@ import characters from './routes/characters.js'
 import tasks from './routes/tasks.js'
 import upload from './routes/upload.js'
 import aiConfigs, { aiProviders } from './routes/aiConfigs.js'
+import customProviders from './routes/custom-providers.js'
 import stylePresets from './routes/stylePresets.js'
 import prompts from './routes/prompts.js'
 import agent from './routes/agent.js'
@@ -92,6 +93,7 @@ api.route('/tasks', tasks)
 api.route('/upload', upload)
 api.route('/ai-configs', aiConfigs)
 api.route('/ai-providers', aiProviders)
+api.route('/custom-providers', customProviders)
 api.route('/style-presets', stylePresets)
 api.route('/prompts', prompts)
 api.route('/agent', agent)

@@ -295,6 +295,17 @@ export const sqliteSchemaStatements = [
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+
+  // 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，node:vm 沙箱热注册）
+  `CREATE TABLE IF NOT EXISTS custom_providers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    code TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
 ]
 
 /**

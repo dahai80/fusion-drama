@@ -64,12 +64,13 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   assert.doesNotMatch(ai, /'vidu'/)
   assert.doesNotMatch(ai, /audio:\s*\[/)
   assert.match(ai, /isOfficialProvider/)
-  assert.match(ai, /isOfficialProvider\(serviceType,\s*r\.provider\)/)
-  assert.match(ai, /isOfficialProvider\(row\.serviceType as ServiceType,\s*row\.provider\)/)
+  // 边界校验升级为 isValidProvider：官方清单之外放行 custom:<name> 可编程 provider（仅 image/video）
+  assert.match(ai, /isValidProvider\(serviceType,\s*r\.provider\)/)
+  assert.match(ai, /isValidProvider\(row\.serviceType as ServiceType,\s*row\.provider\)/)
 
-  assert.match(route, /isOfficialProvider/)
-  assert.match(route, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
-  assert.match(route, /isOfficialProvider\(serviceType,\s*provider\)/)
+  assert.match(route, /isValidProvider/)
+  assert.match(route, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(route, /isValidProvider\(serviceType,\s*provider\)/)
   assert.match(route, /不支持的 service_type\/provider/)
 })
 
@@ -80,18 +81,18 @@ test('AI config routes reject unsupported service/provider pairs in create, test
   const updateRoute = routeBlock(route, "app.put('/:id',")
 
   assert.match(createRoute, /if \(!body\.service_type \|\| !body\.provider\)/)
-  assert.match(createRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(createRoute, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
   assert.match(createRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(testRoute, /if \(!body\.service_type \|\| !body\.provider \|\| !body\.base_url\)/)
-  assert.match(testRoute, /isOfficialProvider\(body\.service_type,\s*body\.provider\)/)
+  assert.match(testRoute, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
   assert.match(testRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(updateRoute, /const serviceType = 'service_type' in body \? body\.service_type : existing\.serviceType/)
   assert.match(updateRoute, /const provider = 'provider' in body \? body\.provider : existing\.provider/)
   assert.doesNotMatch(updateRoute, /body\.service_type \|\| existing\.serviceType/)
   assert.doesNotMatch(updateRoute, /body\.provider \|\| existing\.provider/)
-  assert.match(updateRoute, /isOfficialProvider\(serviceType,\s*provider\)/)
+  assert.match(updateRoute, /isValidProvider\(serviceType,\s*provider\)/)
   assert.match(updateRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 })
 

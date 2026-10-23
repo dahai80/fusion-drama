@@ -39,6 +39,18 @@ export function isOfficialProvider(serviceType?: string | null, provider?: strin
   return !!providers && providers.includes((provider || '').toLowerCase())
 }
 
+/**
+ * 配置合法性：官方 provider 或 `custom:<name>` 可编程 provider（仅 image/video——
+ * 文本走 AI SDK 直连路径不经适配器注册表，自定义只覆盖图片/视频）
+ */
+export function isValidProvider(serviceType?: string | null, provider?: string | null): boolean {
+  if (isOfficialProvider(serviceType, provider)) return true
+  if (!provider) return false
+  return (serviceType === 'image' || serviceType === 'video')
+    && provider.toLowerCase().startsWith('custom:')
+    && provider.slice('custom:'.length).trim().length > 0
+}
+
 export function getTextProviderBaseUrl(config: AIConfig) {
   const provider = config.provider.toLowerCase()
 
@@ -65,7 +77,7 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
   const rows = (await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
   )
-    .filter(r => r.isActive && isOfficialProvider(serviceType, r.provider))
+    .filter(r => r.isActive && isValidProvider(serviceType, r.provider))
     .sort((a, b) => (b.priority || 0) - (a.priority || 0)) // 高优先级优先
 
   const active = rows[0]
@@ -108,7 +120,7 @@ export async function getActiveConfigId(serviceType: ServiceType): Promise<numbe
   const rows = (await db.select().from(schema.aiServiceConfigs)
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
   )
-    .filter(r => r.isActive && isOfficialProvider(serviceType, r.provider))
+    .filter(r => r.isActive && isValidProvider(serviceType, r.provider))
     .sort((a, b) => (b.priority || 0) - (a.priority || 0))
   return rows[0]?.id ?? null
 }
@@ -120,7 +132,7 @@ export async function getConfigById(id: number): Promise<AIConfig | null> {
     logTaskWarn('AIConfig', 'config-by-id-missing', { configId: id })
     return null
   }
-  if (!isOfficialProvider(row.serviceType as ServiceType, row.provider)) {
+  if (!isValidProvider(row.serviceType as ServiceType, row.provider)) {
     logTaskWarn('AIConfig', 'config-by-id-unsupported-provider', {
       configId: id,
       serviceType: row.serviceType,

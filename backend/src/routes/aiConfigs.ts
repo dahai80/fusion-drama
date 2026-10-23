@@ -1,10 +1,24 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
 import { db, getInsertId, schema } from '../db/index.js'
 import { success, notFound, created, badRequest, now } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { joinProviderUrl } from '../services/adapters/url.js'
-import { isOfficialProvider, parseConfigTemperature } from '../services/ai.js'
+import { isValidProvider, parseConfigTemperature } from '../services/ai.js'
+import { isCustomProvider, customProviderName } from '../services/custom-providers.js'
+import { and, eq } from 'drizzle-orm'
+
+/**
+ * custom:<name> 配置合法性：对应 custom_providers 行须存在、启用且类型匹配，
+ * 避免生图/生视频时才发现 provider 缺失
+ */
+async function assertCustomProviderUsable(serviceType: string, provider: string) {
+  if (!isCustomProvider(provider)) return
+  const name = customProviderName(provider.toLowerCase())
+  const [row] = await db.select().from(schema.customProviders)
+    .where(and(eq(schema.customProviders.name, name), eq(schema.customProviders.type, serviceType)))
+  if (!row) throw new Error(`自定义 provider "${name}" 不存在（类型 ${serviceType}）`)
+  if (!row.enabled) throw new Error(`自定义 provider "${name}" 已停用，请先在设置中启用`)
+}
 import { redactUrl, logTaskError, logTaskProgress, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -150,8 +164,13 @@ app.post('/', async (c) => {
   if (!body.service_type || !body.provider) {
     return badRequest(c, '需要 service_type 与 provider')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
+  if (!isValidProvider(body.service_type, body.provider)) {
     return badRequest(c, '不支持的 service_type/provider')
+  }
+  try {
+    await assertCustomProviderUsable(body.service_type, body.provider)
+  } catch (err: any) {
+    return badRequest(c, err.message)
   }
 
   let temperature: number | null = null
@@ -194,7 +213,7 @@ app.post('/test', async (c) => {
   if (!body.service_type || !body.provider || !body.base_url) {
     return badRequest(c, '需要 service_type、provider 与 base_url')
   }
-  if (!isOfficialProvider(body.service_type, body.provider)) {
+  if (!isValidProvider(body.service_type, body.provider)) {
     return badRequest(c, '不支持的 service_type/provider')
   }
 
@@ -285,8 +304,13 @@ app.put('/:id', async (c) => {
 
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
-  if (!isOfficialProvider(serviceType, provider)) {
+  if (!isValidProvider(serviceType, provider)) {
     return badRequest(c, '不支持的 service_type/provider')
+  }
+  try {
+    await assertCustomProviderUsable(serviceType, provider)
+  } catch (err: any) {
+    return badRequest(c, err.message)
   }
 
   const updates: Record<string, any> = { updatedAt: now() }

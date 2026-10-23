@@ -15,7 +15,7 @@ import { appendTaskEvent } from '../utils/task-events'
 // P2: 零超时 dispatcher 模块级单例——每个 fetch new Agent 会各建一个连接池，从不 close
 const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
-import type { AIConfig } from './adapters/types'
+import type { AIConfig, ImageProviderAdapter } from './adapters/types'
 import { getModel } from '../agents/index.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
 import { Agent as UndiciAgent } from 'undici'
@@ -425,7 +425,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     let url: string, method: string, headers: Record<string, string>, body: unknown
 
     if (type === 'image') {
-      const adapter = getImageAdapter(config.provider)
+      const adapter = await getImageAdapter(config.provider)
       const resolvedReferenceImages = await normalizeReferenceImages(params.referenceImages)
       // 队列内富化：资产缺最终提示词时先跑 prompt_generator 补齐（与生图严格串行）
       const enrichedPrompt = await enrichImagePromptIfNeeded(record, params, label)
@@ -440,7 +440,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
         referenceImages: resolvedReferenceImages.length ? JSON.stringify(resolvedReferenceImages) : null,
       }))
     } else {
-      const adapter = getVideoAdapter(config.provider)
+      const adapter = await getVideoAdapter(config.provider)
       const resolvedImageUrl = await normalizeVideoReferenceUrl(params.imageUrl)
       const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl)
       const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl)
@@ -528,7 +528,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     logTaskPayload(label, 'response payload', { id, provider: config.provider, result })
 
     if (type === 'image') {
-      const adapter = getImageAdapter(config.provider)
+      const adapter = await getImageAdapter(config.provider)
       const { isAsync, taskId, imageUrl } = adapter.parseGenerateResponse(result)
 
       if (!isAsync && imageUrl) {
@@ -556,7 +556,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       return
     }
 
-    const adapter = getVideoAdapter(config.provider)
+    const adapter = await getVideoAdapter(config.provider)
     const { isAsync, taskId, videoUrl } = adapter.parseGenerateResponse(result)
 
     if (!isAsync && videoUrl) {
@@ -600,7 +600,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
   const type = record.type as TaskType
   const label = taskLabel(type)
   const profile = POLL_PROFILES[type]
-  const adapter = type === 'image' ? getImageAdapter(config.provider) : getVideoAdapter(config.provider)
+  const adapter = type === 'image' ? await getImageAdapter(config.provider) : await getVideoAdapter(config.provider)
   const startedAt = Date.now()
 
   for (let i = 0; i < profile.attempts; i++) {
@@ -671,7 +671,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
           }
           if (adapter.provider === 'gemini') {
             // Gemini 可能返回 base64
-            const b64 = (adapter as ReturnType<typeof getImageAdapter>).extractImageBase64(result)
+            const b64 = (adapter as ImageProviderAdapter).extractImageBase64(result)
             if (b64) {
               logTaskSuccess(label, 'poll-base64-complete', { id: record.id, taskId, mimeType: b64.mimeType })
               await enqueueGpuWork(`image-complete-${record.id}`, () => handleImageCompleteBase64(record, b64.data, b64.mimeType))

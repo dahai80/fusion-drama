@@ -463,6 +463,31 @@
     "cfgDelete": {
       "title": "删除 AI 配置",
       "message": "确定删除配置「{name}」？该操作不可恢复。"
+    },
+    "custom": {
+      "title": "自定义 Provider",
+      "desc": "用 JS 代码接入任意图片/视频厂商，无需改代码、无需重启。在上方 AI 配置中选择 custom:<name> 即可使用。",
+      "addTitle": "添加自定义 Provider",
+      "editTitle": "编辑自定义 Provider",
+      "sub": "导出适配器方法（沙箱执行，无文件/进程访问权限）",
+      "name": "标识名",
+      "namePlaceholder": "my-provider（小写字母/数字/中划线）",
+      "nameHint": "作为 provider 标识 custom:<name> 的组成部分，创建后不可修改",
+      "nameRequired": "请填写标识名",
+      "type": "服务类型",
+      "typePlaceholder": "选择类型",
+      "code": "适配器代码",
+      "codeHint": "module.exports 导出：buildGenerateRequest / parseGenerateResponse / buildPollRequest / parsePollResponse / extractImageUrl / extractImageBase64（视频为 extractVideoUrl）",
+      "codeRequired": "请填写适配器代码",
+      "enabled": "启用",
+      "test": "干跑测试",
+      "testOk": "自定义 provider「{name}」干跑通过",
+      "testFail": "自定义 provider「{name}」干跑失败：{error}",
+      "empty": "暂无自定义 provider"
+    },
+    "customDelete": {
+      "title": "删除自定义 Provider",
+      "message": "确定删除「{name}」？引用它的 AI 配置将失效。"
     }
   },
   "episode": {

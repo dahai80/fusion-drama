@@ -155,6 +155,38 @@
               </button>
             </div>
           </section>
+          <!-- 可编程 provider：用户自定义图片/视频适配器（JS 代码热注册，provider 标识 custom:<name>） -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.custom.title') }}</span>
+                <div class="svc-group-sub">{{ t('settings.custom.desc') }}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm ml-auto" @click="startAddCustom"><Plus :size="13" /> {{ t('common.add') }}</button>
+            </div>
+            <div v-for="p in customProviders" :key="p.id" class="config-row">
+              <div class="provider-badge style-badge"><Code2 :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line">
+                  <span class="config-name mono">custom:{{ p.name }}</span>
+                  <span class="tag mono">{{ p.type }}</span>
+                  <span v-if="!p.enabled" class="tag">{{ t('settings.common.disabled') }}</span>
+                </div>
+                <div class="config-sub mono truncate">{{ p.code_preview }}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" :disabled="customTesting" @click="testCustomById(p)">
+                <Loader2 v-if="customTesting" :size="12" class="animate-spin" />
+                {{ t('settings.custom.test') }}
+              </button>
+              <label class="config-switch">
+                <input type="checkbox" class="sr-only" :checked="p.enabled" @change="toggleCustom(p)">
+                <span class="switch" :class="{ on: p.enabled }"></span>
+              </label>
+              <button class="btn btn-ghost btn-icon btn-sm" @click="startEditCustom(p)"><Pencil :size="13" /></button>
+              <button class="btn btn-danger btn-icon btn-sm" @click="customToDelete = p"><Trash2 :size="13" /></button>
+            </div>
+            <p v-if="!customProviders.length" class="config-empty">{{ t('settings.custom.empty') }}</p>
+          </section>
           <div class="sections">
             <section v-for="st in serviceTypes" :key="st.type" class="card svc-group">
               <div class="svc-group-head">
@@ -602,6 +634,54 @@
       </form>
     </div>
 
+    <!-- Custom Provider Dialog -->
+    <div v-if="customDialog" class="overlay" @click.self="customDialog = false">
+      <form class="dialog custom-provider-dialog" @submit.prevent="saveCustom">
+        <div class="dialog-head">
+          <div>
+            <div class="dialog-title">{{ customEditId ? t('settings.custom.editTitle') : t('settings.custom.addTitle') }}</div>
+            <div class="dialog-sub">{{ t('settings.custom.sub') }}</div>
+          </div>
+          <span class="tag tag-accent ml-auto"><Code2 :size="12" /> custom</span>
+        </div>
+        <div class="dialog-body custom-provider-dialog-body">
+          <label class="field">
+            <span class="field-label">{{ t('settings.custom.name') }} <span class="required">*</span></span>
+            <input v-model="customForm.name" class="input mono" :placeholder="t('settings.custom.namePlaceholder')" :disabled="!!customEditId" />
+            <span class="field-hint">{{ t('settings.custom.nameHint') }}</span>
+          </label>
+          <label class="field">
+            <span class="field-label">{{ t('settings.custom.type') }} <span class="required">*</span></span>
+            <BaseSelect v-model="customForm.type" :options="customTypeOptions" :placeholder="t('settings.custom.typePlaceholder')" />
+          </label>
+          <div class="field">
+            <span class="field-label">{{ t('settings.custom.code') }} <span class="required">*</span></span>
+            <textarea v-model="customForm.code" class="textarea mono code-editor" rows="14" spellcheck="false" :placeholder="customCodeTemplate"></textarea>
+            <span class="field-hint">{{ t('settings.custom.codeHint') }}</span>
+          </div>
+          <label class="field" style="display:flex; align-items:center; gap:8px; cursor:pointer">
+            <input v-model="customForm.enabled" type="checkbox" />
+            <span class="field-label" style="margin:0">{{ t('settings.custom.enabled') }}</span>
+          </label>
+          <div v-if="customTestResult" class="test-result" :class="{ ok: customTestResult.ok, bad: !customTestResult.ok }">
+            <div class="test-result-head">
+              <span class="tag" :class="customTestResult.ok ? 'tag-success' : 'tag-error'">{{ customTestResult.ok ? 'OK' : 'FAIL' }}</span>
+              <span class="mono" style="word-break:break-all">{{ customTestResult.ok ? `${customTestResult.request?.method} ${customTestResult.request?.url}` : customTestResult.error }}</span>
+            </div>
+            <pre v-if="customTestResult.ok" class="mono test-result-preview">{{ JSON.stringify({ headers: customTestResult.request?.headers, body: customTestResult.request?.body }, null, 2) }}</pre>
+          </div>
+        </div>
+        <div class="dialog-foot">
+          <button type="button" class="btn btn-ghost test-draft-btn" :disabled="customTesting" @click="testDraftCustom">
+            <Loader2 v-if="customTesting" :size="12" class="animate-spin" />
+            <span v-else>{{ t('settings.custom.test') }}</span>
+          </button>
+          <button type="button" class="btn" @click="customDialog = false">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn btn-primary">{{ t('common.save') }}</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Add Skill Dialog -->
     <div v-if="addSkillDialog" class="overlay" @click.self="addSkillDialog = false">
       <form class="dialog skill-dialog" @submit.prevent="confirmAddSkill">
@@ -723,16 +803,24 @@
       @confirm="confirmDelCfg"
       @cancel="cfgToDelete = null"
     />
+    <ConfirmDialog
+      :open="!!customToDelete"
+      :title="t('settings.customDelete.title')"
+      :message="t('settings.customDelete.message', { name: customToDelete?.name })"
+      :loading="deletingCustom"
+      @confirm="confirmDelCustom"
+      @cancel="customToDelete = null"
+    />
   </div>
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound, Code2 } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { aiConfigAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
+import { aiConfigAPI, customProviderAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
@@ -790,7 +878,14 @@ const serviceTypes = computed(() => [
   { type: 'video', label: t('common.serviceType.video') },
 ])
 const providers = ['gemini', 'openai', 'volcengine', 'minimax', 'aliyun']
-const providerSelectOptions = computed(() => providers.map(p => ({ label: p, value: p })))
+// provider 下拉 = 内置官方 + 已启用自定义（custom:<name>，按当前服务类型过滤）
+const providerSelectOptions = computed(() => {
+    const base = providers.map(p => ({ label: p, value: p }))
+    const customs = customProviders.value
+        .filter(p => p.enabled && p.type === cfgForm.service_type)
+        .map(p => ({ label: `custom:${p.name}`, value: `custom:${p.name}` }))
+    return [...base, ...customs]
+})
 const serviceMeta = computed(() => ({
   text: { label: t('common.serviceType.text'), desc: t('settings.ai.meta.text') },
   image: { label: t('common.serviceType.image'), desc: t('settings.ai.meta.image') },
@@ -996,6 +1091,119 @@ async function saveCfg() {
     else await aiConfigAPI.create({ service_type: cfgForm.service_type, provider: cfgForm.provider, name: cfgForm.name || `${cfgForm.provider}-${cfgForm.service_type}`, api_key: cfgForm.api_key, base_url: cfgForm.base_url, model: models, priority: cfgForm.priority, temperature })
     cfgDialog.value = false; toast.success(t('common.saved')); loadCfgs()
   } catch (e) { toastError(e) }
+}
+
+// ===== 可编程 Provider（自定义图片/视频适配器） =====
+const customProviders = ref([])
+const customDialog = ref(false)
+const customEditId = ref(null)
+const customTesting = ref(false)
+const customTestResult = ref(null)
+const customToDelete = ref(null)
+const deletingCustom = ref(false)
+const customForm = reactive({ name: '', type: 'image', code: '', enabled: true })
+const customTypeOptions = computed(() => [
+  { label: t('common.serviceType.image'), value: 'image' },
+  { label: t('common.serviceType.video'), value: 'video' },
+])
+// 新建时的代码脚手架：导出全部必需方法，用户在其上改实现
+const customCodeTemplate = `module.exports = {
+    buildGenerateRequest(config, record) {
+        return {
+            url: config.baseUrl + '/v1/images/generations',
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + config.apiKey, 'Content-Type': 'application/json' },
+            body: { model: config.model, prompt: record.prompt, size: record.size || '1024x1024' },
+        }
+    },
+    parseGenerateResponse(result) {
+        return { isAsync: false, imageUrl: result.data && result.data[0] && result.data[0].url }
+    },
+    buildPollRequest(config, taskId) {
+        return { url: config.baseUrl + '/v1/images/' + taskId, method: 'GET', headers: { Authorization: 'Bearer ' + config.apiKey }, body: undefined }
+    },
+    parsePollResponse(result) {
+        return { status: 'completed', imageUrl: result.url }
+    },
+    extractImageUrl(result) { return result.url || null },
+    extractImageBase64() { return null },
+}`
+
+async function loadCustomProviders() {
+  try { customProviders.value = await customProviderAPI.list() } catch (e) { toastError(e) }
+}
+function startAddCustom() {
+  customEditId.value = null
+  customTestResult.value = null
+  Object.assign(customForm, { name: '', type: 'image', code: '', enabled: true })
+  customDialog.value = true
+}
+async function startEditCustom(p) {
+  customEditId.value = p.id
+  customTestResult.value = null
+  try {
+    const row = await customProviderAPI.get(p.id)
+    Object.assign(customForm, { name: row.name, type: row.type, code: row.code, enabled: !!row.enabled })
+    customDialog.value = true
+  } catch (e) { toastError(e) }
+}
+async function toggleCustom(p) {
+  try {
+    await customProviderAPI.update(p.id, { enabled: !p.enabled })
+    await loadCustomProviders()
+  } catch (e) { toastError(e) }
+}
+async function testDraftCustom() {
+  customTesting.value = true
+  try {
+    customTestResult.value = await customProviderAPI.test({ name: customForm.name || 'draft', type: customForm.type, code: customForm.code })
+  } catch (e) {
+    toastError(e)
+  } finally {
+    customTesting.value = false
+  }
+}
+async function testCustomById(p) {
+  customTesting.value = true
+  try {
+    const result = await customProviderAPI.testById(p.id)
+    customTestResult.value = result
+    if (result.ok) toast.success(t('settings.custom.testOk', { name: p.name }))
+    else toast.warning(t('settings.custom.testFail', { name: p.name, error: result.error }))
+  } catch (e) {
+    toastError(e)
+  } finally {
+    customTesting.value = false
+  }
+}
+async function saveCustom() {
+  if (!customForm.name.trim()) { toast.warning(t('settings.custom.nameRequired')); return }
+  if (!customForm.code.trim()) { toast.warning(t('settings.custom.codeRequired')); return }
+  try {
+    if (customEditId.value) {
+      await customProviderAPI.update(customEditId.value, { type: customForm.type, code: customForm.code, enabled: customForm.enabled })
+    } else {
+      await customProviderAPI.create({ name: customForm.name.trim(), type: customForm.type, code: customForm.code, enabled: customForm.enabled })
+    }
+    customDialog.value = false
+    toast.success(t('common.saved'))
+    await loadCustomProviders()
+  } catch (e) { toastError(e) }
+}
+async function confirmDelCustom() {
+  const p = customToDelete.value
+  if (!p || deletingCustom.value) return
+  try {
+    deletingCustom.value = true
+    await customProviderAPI.del(p.id)
+    customToDelete.value = null
+    toast.success(t('index.deleted'))
+    await loadCustomProviders()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    deletingCustom.value = false
+  }
 }
 
 // ===== Agent Configs =====
@@ -1304,7 +1512,7 @@ async function saveStyle() {
   } catch (e) { toastError(e) }
 }
 
-onMounted(() => { loadCfgs(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
+onMounted(() => { loadCfgs(); loadCustomProviders(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
 // ===== 应用内引导（设置页）：快捷配置 + 手动模板两步 =====
 const SETTINGS_TOUR = [
@@ -1874,6 +2082,9 @@ watch(tab, (t) => {
 /* Dialogs */
 .config-dialog { width: min(720px, calc(100vw - 40px)); }
 .config-dialog-body { display: flex; flex-direction: column; gap: 14px; }
+.custom-provider-dialog { width: min(760px, calc(100vw - 40px)); }
+.custom-provider-dialog-body { display: flex; flex-direction: column; gap: 14px; }
+.code-editor { font-size: 12px; line-height: 1.55; min-height: 240px; resize: vertical; white-space: pre; }
 .skill-dialog { width: 440px; }
 .skill-dialog-body { display: flex; flex-direction: column; gap: 12px; }
 .dialog-sub { margin-top: 4px; font-size: 12px; color: var(--text-2); }

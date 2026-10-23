@@ -463,6 +463,31 @@
     "cfgDelete": {
       "title": "AI設定を削除",
       "message": "設定「{name}」を削除しますか？元に戻せません。"
+    },
+    "custom": {
+      "title": "カスタム Provider",
+      "desc": "JS コードで任意の画像/動画ベンダーに接続。コード変更・再起動不要。上の AI 設定で custom:<name> を選択して利用します。",
+      "addTitle": "カスタム Provider 追加",
+      "editTitle": "カスタム Provider 編集",
+      "sub": "アダプターメソッドをエクスポート（サンドボックス実行、ファイル/プロセスアクセスなし）",
+      "name": "識別名",
+      "namePlaceholder": "my-provider（小文字/数字/ハイフン）",
+      "nameHint": "provider 識別子 custom:<name> の一部。作成後は変更できません",
+      "nameRequired": "識別名を入力してください",
+      "type": "サービスタイプ",
+      "typePlaceholder": "タイプを選択",
+      "code": "アダプターコード",
+      "codeHint": "module.exports でエクスポート: buildGenerateRequest / parseGenerateResponse / buildPollRequest / parsePollResponse / extractImageUrl / extractImageBase64（動画は extractVideoUrl）",
+      "codeRequired": "アダプターコードを入力してください",
+      "enabled": "有効",
+      "test": "ドライラン",
+      "testOk": "カスタム provider「{name}」ドライラン成功",
+      "testFail": "カスタム provider「{name}」ドライラン失敗: {error}",
+      "empty": "カスタム provider はまだありません"
+    },
+    "customDelete": {
+      "title": "カスタム Provider 削除",
+      "message": "「{name}」を削除しますか？参照している AI 設定は無効になります。"
     }
   },
   "episode": {

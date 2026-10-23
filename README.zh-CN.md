@@ -96,6 +96,16 @@ data/       — 生成资源文件与 SQLite 数据库
 | **文本** | OpenAI(兼容接口)、Gemini |
 | **图片** | OpenAI、Gemini、火山引擎 |
 | **视频** | 火山引擎 Seedance 2.0(标准 / Fast / Mini)、MiniMax H3、阿里云百炼 Wan 3.0 (Prime / 标准) |
+| **图片/视频(自定义)** | 任意厂商——用 JS 代码写适配器接入(见下) |
+
+#### 🧩 可编程 Provider
+
+不改源码、不重启，用 JS 代码接入**任意**图片/视频厂商：
+
+- 在「设置 → AI 服务 → 自定义 Provider」编写 JS 适配器，导出与内置适配器相同的接口(`buildGenerateRequest`、`parseGenerateResponse`、`buildPollRequest`、`parsePollResponse`，图片另有 `extractImageUrl`/`extractImageBase64`，视频为 `extractVideoUrl`)。
+- 代码在 `node:vm` 沙箱中执行(无 `require`/`process`/`fs` 访问，求值 5s 超时熔断)，注册为 provider 标识 `custom:<name>`。
+- 新建 AI 配置时选择 `custom:<name>`，填写 Base URL / API Key / 模型，即进入正常生成管线(GPU 串行队列、任务生命周期、文件下载)。
+- 内置「干跑测试」按钮：求值代码并预览将构建的 HTTP 请求(鉴权头脱敏)。编辑即时生效，无需重启。
 
 ---
 

@@ -463,6 +463,31 @@
     "cfgDelete": {
       "title": "Delete AI config",
       "message": "Delete config \"{name}\"? This cannot be undone."
+    },
+    "custom": {
+      "title": "Custom Providers",
+      "desc": "Connect any image/video vendor with JS code — no source changes, no restart. Pick custom:<name> in the AI configs above to use it.",
+      "addTitle": "Add Custom Provider",
+      "editTitle": "Edit Custom Provider",
+      "sub": "Export adapter methods (sandboxed, no file/process access)",
+      "name": "Identifier",
+      "namePlaceholder": "my-provider (lowercase/digits/dash)",
+      "nameHint": "Part of the provider key custom:<name>; immutable after creation",
+      "nameRequired": "Identifier is required",
+      "type": "Service Type",
+      "typePlaceholder": "Select type",
+      "code": "Adapter Code",
+      "codeHint": "Export via module.exports: buildGenerateRequest / parseGenerateResponse / buildPollRequest / parsePollResponse / extractImageUrl / extractImageBase64 (video uses extractVideoUrl)",
+      "codeRequired": "Adapter code is required",
+      "enabled": "Enabled",
+      "test": "Dry Run",
+      "testOk": "Custom provider \"{name}\" dry run passed",
+      "testFail": "Custom provider \"{name}\" dry run failed: {error}",
+      "empty": "No custom providers yet"
+    },
+    "customDelete": {
+      "title": "Delete Custom Provider",
+      "message": "Delete \"{name}\"? AI configs referencing it will stop working."
     }
   },
   "episode": {
