@@ -488,6 +488,16 @@
     "customDelete": {
       "title": "커스텀 Provider 삭제",
       "message": "\"{name}\"을(를) 삭제할까요? 이를 참조하는 AI 설정이 작동하지 않게 됩니다."
+    },
+    "rag": {
+      "title": "지식 검색(RAG)",
+      "desc": "대본·캐릭터·장면·소품을 로컬로 임베딩(bge-small ONNX, CPU 추론)하여 Agent 대화에 배경 컨텍스트로 자동 주입합니다.",
+      "label": "Agent 컨텍스트 검색",
+      "on": "활성화",
+      "stats": "{model} · {n}개 청크 인덱싱",
+      "rebuild": "인덱스 재구축",
+      "rebuilt": "{dramas}편 / {chunks}청크 재구축 (실패 {failed})",
+      "note": "첫 대화 시 자동으로 인덱스를 구축하고 대본 저장 후 자동 갱신합니다. 모델 파일이 없으면 검색을 건너뛰며 Agent 동작에는 영향 없습니다."
     }
   },
   "episode": {

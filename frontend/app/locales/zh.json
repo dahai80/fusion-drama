@@ -488,6 +488,16 @@
     "customDelete": {
       "title": "删除自定义 Provider",
       "message": "确定删除「{name}」？引用它的 AI 配置将失效。"
+    },
+    "rag": {
+      "title": "知识库检索（RAG）",
+      "desc": "剧本、角色、场景、道具本地向量化（bge-small ONNX，CPU 推理），Agent 对话时自动注入相关背景。",
+      "label": "Agent 上下文检索",
+      "on": "已启用",
+      "stats": "{model} · {n} 个索引块",
+      "rebuild": "重建索引",
+      "rebuilt": "已重建 {dramas} 部剧 / {chunks} 个索引块（失败 {failed}）",
+      "note": "首次对话自动建立索引；剧本保存后自动更新。模型文件缺失时自动跳过，不影响 Agent 正常使用。"
     }
   },
   "episode": {

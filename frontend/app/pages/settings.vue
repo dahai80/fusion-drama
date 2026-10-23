@@ -187,6 +187,35 @@
             </div>
             <p v-if="!customProviders.length" class="config-empty">{{ t('settings.custom.empty') }}</p>
           </section>
+          <!-- ONNX RAG：本地向量检索，Agent 对话自动注入剧本/角色/场景/道具背景 -->
+          <section class="card svc-group">
+            <div class="svc-group-head">
+              <div class="svc-group-heading">
+                <span class="svc-group-title">{{ t('settings.rag.title') }}</span>
+                <div class="svc-group-sub">{{ t('settings.rag.desc') }}</div>
+              </div>
+              <button class="btn btn-ghost btn-sm ml-auto" :disabled="ragIndexing" @click="reindexRag">
+                <Loader2 v-if="ragIndexing" :size="13" class="animate-spin" />
+                <RefreshCw v-else :size="13" /> {{ t('settings.rag.rebuild') }}
+              </button>
+            </div>
+            <div class="config-row">
+              <div class="provider-badge style-badge"><Search :size="15" /></div>
+              <div class="config-main">
+                <div class="config-line">
+                  <span class="config-name">{{ t('settings.rag.label') }}</span>
+                  <span :class="['tag', ragStatus?.enabled ? 'tag-success' : '']">{{ ragStatus?.enabled ? t('settings.rag.on') : t('settings.common.disabled') }}</span>
+                </div>
+                <div class="config-sub mono">{{ ragStatus ? t('settings.rag.stats', { model: ragStatus.model, n: ragStatus.totalChunks }) : t('common.loading') }}</div>
+                <div v-if="ragReindexResult" class="config-sub">{{ ragReindexResult }}</div>
+              </div>
+              <label class="config-switch">
+                <input type="checkbox" class="sr-only" :checked="!!ragStatus?.enabled" @change="toggleRag">
+                <span class="switch" :class="{ on: !!ragStatus?.enabled }"></span>
+              </label>
+            </div>
+            <p class="config-empty">{{ t('settings.rag.note') }}</p>
+          </section>
           <div class="sections">
             <section v-for="st in serviceTypes" :key="st.type" class="card svc-group">
               <div class="svc-group-head">
@@ -815,12 +844,12 @@
 </template>
 
 <script setup>
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound, Code2 } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Palette, ExternalLink, Star, HardDrive, Database, RefreshCw, Download, Languages, SunMoon, X, KeyRound, Code2, Search } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
 import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
-import { aiConfigAPI, customProviderAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
+import { aiConfigAPI, customProviderAPI, ragAPI, promptAPI, skillsAPI, storageAPI, stylePresetAPI, settingsAPI, serverUpdateAPI } from '~/composables/useApi'
 import { useDesktopBridge } from '~/composables/useDesktopBridge'
 import { useMigrateState } from '~/composables/useMigrateState'
 import { useTheme } from '~/composables/useTheme'
@@ -1206,6 +1235,35 @@ async function confirmDelCustom() {
   }
 }
 
+// ===== ONNX RAG（本地向量检索，Agent 上下文注入） =====
+const ragStatus = ref(null)
+const ragIndexing = ref(false)
+const ragReindexResult = ref('')
+async function loadRagStatus() {
+  try { ragStatus.value = await ragAPI.status() } catch (e) { toastError(e) }
+}
+async function toggleRag() {
+  try {
+    const next = !ragStatus.value?.enabled
+    await ragAPI.setEnabled(next)
+    await loadRagStatus()
+  } catch (e) { toastError(e) }
+}
+async function reindexRag() {
+  if (ragIndexing.value) return
+  ragIndexing.value = true
+  ragReindexResult.value = ''
+  try {
+    const r = await ragAPI.indexAll()
+    ragReindexResult.value = t('settings.rag.rebuilt', { dramas: r.dramas, chunks: r.chunks, failed: r.failed })
+    await loadRagStatus()
+  } catch (e) {
+    toastError(e)
+  } finally {
+    ragIndexing.value = false
+  }
+}
+
 // ===== Agent Configs =====
 const agentCfgs = ref([])
 const agentPane = ref('prompt')   // 右侧子 tab：prompt | skills
@@ -1512,7 +1570,7 @@ async function saveStyle() {
   } catch (e) { toastError(e) }
 }
 
-onMounted(() => { loadCfgs(); loadCustomProviders(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
+onMounted(() => { loadCfgs(); loadCustomProviders(); loadRagStatus(); loadAgents(); loadAllSkills(); loadAgentPrompt(selectedAgent.value); loadStylePresets() })
 
 // ===== 应用内引导（设置页）：快捷配置 + 手动模板两步 =====
 const SETTINGS_TOUR = [

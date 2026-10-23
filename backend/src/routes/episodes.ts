@@ -8,6 +8,8 @@ import { getActiveConfigId } from '../services/ai.js'
 import { logTaskWarn } from '../utils/task-logger.js'
 import { readEpisodeEvents, formatTaskEvent } from '../utils/task-events.js'
 import { cascadeDeleteEpisode } from '../utils/cascade.js'
+import { isRagEnabled } from '../services/app-settings.js'
+import { indexDrama } from '../services/rag.js'
 import { EXTRACT_TARGETS, getExtractionStatus, startExtraction, type ExtractTarget } from '../services/extraction.js'
 import { startStoryboardBreakdown } from '../services/storyboard-breakdown.js'
 import { getVideoPromptBatchStatus, startVideoPromptBatch } from '../services/video-prompts.js'
@@ -110,6 +112,16 @@ app.put('/:id', async (c) => {
   if ('resolution' in updates) drizzleUpdates.resolution = updates.resolution
 
   await db.update(schema.episodes).set(drizzleUpdates).where(eq(schema.episodes.id, id))
+
+  // ONNX RAG：剧本内容变更后异步重建该剧的向量索引（失败不阻断保存；CPU 嵌入秒级）
+  if (('script_content' in updates || 'content' in updates) && isRagEnabled()) {
+    const [ep] = await db.select({ dramaId: schema.episodes.dramaId }).from(schema.episodes).where(eq(schema.episodes.id, id))
+    if (ep?.dramaId) {
+      void indexDrama(ep.dramaId).catch(err => {
+        console.error(`[RAG] reindex after script save failed (drama ${ep.dramaId}):`, err.message)
+      })
+    }
+  }
   return success(c)
 })
 

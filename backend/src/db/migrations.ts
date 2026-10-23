@@ -63,6 +63,20 @@ export const MIGRATIONS: Migration[] = [
             updated_at TEXT NOT NULL
         )`,
     ] },
+
+    // v7 ONNX RAG：剧本/角色/场景/道具向量化索引（bge-small-zh CPU 嵌入，top-k 注入 Agent）
+    { version: 7, name: 'rag-chunks', statements: [
+        `CREATE TABLE IF NOT EXISTS rag_chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            drama_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            embedding TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )`,
+        'CREATE INDEX IF NOT EXISTS idx_rag_chunks_drama_id ON rag_chunks (drama_id)',
+    ] },
 ]
 
 const MAX_BACKUPS = 10

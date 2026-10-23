@@ -22,7 +22,7 @@ await build({
   platform: 'node',
   target: 'node20',
   sourcemap: true,
-  external: ['sharp', 'better-sqlite3', 'ffmpeg-static', 'ffprobe-static'],
+  external: ['sharp', 'better-sqlite3', 'ffmpeg-static', 'ffprobe-static', '@huggingface/transformers', 'onnxruntime-node', 'onnxruntime-web', '@huggingface/tokenizers'],
   banner: {
     // esbuild 打 CJS→ESM 不垫片 __dirname/__filename/require（fluent-ffmpeg 等依赖），
     // 在产物顶层统一注入；__dirname 指向 build/ 目录，仅 presets 等未用到的模块相对路径受影响

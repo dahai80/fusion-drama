@@ -306,6 +306,17 @@ export const sqliteSchemaStatements = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+
+  // ONNX RAG：剧本/角色/场景/道具向量化索引（bge-small-zh CPU 嵌入，top-k 注入 Agent）
+  `CREATE TABLE IF NOT EXISTS rag_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    title TEXT,
+    content TEXT NOT NULL,
+    embedding TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
 ]
 
 /**

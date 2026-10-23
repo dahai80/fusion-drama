@@ -108,6 +108,15 @@ Connect **any** image/video vendor without touching the source or restarting the
 - Pick `custom:<name>` when adding an AI config, set its Base URL / API Key / models, and it flows through the normal generation pipeline (GPU queue, task lifecycle, file download).
 - A built-in **Dry Run** button evaluates the code and previews the exact HTTP request it would build (auth headers redacted). Edits take effect immediately — no restart.
 
+#### 📚 Knowledge Retrieval (RAG)
+
+Agents answer with full awareness of your project — entirely offline:
+
+- Scripts, characters, scenes and props are embedded locally with `bge-small-zh-v1.5` (ONNX, CPU inference — zero GPU contention with video/image models) into an SQLite vector index.
+- Every Agent chat automatically retrieves the top-5 relevant chunks and injects them as background context (ranked by cosine similarity).
+- Indexing is hands-off: it starts automatically on first chat, and refreshes whenever a script is saved. A manual **Rebuild Index** button is available in Settings.
+- Retrieval fails open — if model files are missing or indexing fails, Agents work exactly as before.
+
 ---
 
 ## 🚀 Quick Start

@@ -69,3 +69,24 @@ export function setToursSeen(ids: unknown): string[] {
     .run()
   return clean
 }
+
+const RAG_ENABLED_KEY = 'rag_enabled'
+
+/** ONNX RAG 开关：默认开（模型缺失/加载失败时检索静默降级为无上下文，不阻断 Agent） */
+export function isRagEnabled(): boolean {
+  const row = db.select().from(schema.appSettings)
+    .where(eq(schema.appSettings.key, RAG_ENABLED_KEY))
+    .get()
+  return row?.value !== 'false'
+}
+
+export function setRagEnabled(enabled: boolean): boolean {
+  db.insert(schema.appSettings)
+    .values({ key: RAG_ENABLED_KEY, value: enabled ? 'true' : 'false', updatedAt: now() })
+    .onConflictDoUpdate({
+      target: schema.appSettings.key,
+      set: { value: enabled ? 'true' : 'false', updatedAt: now() },
+    })
+    .run()
+  return enabled
+}

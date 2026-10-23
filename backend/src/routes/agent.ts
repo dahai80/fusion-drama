@@ -6,6 +6,8 @@ import { eq } from 'drizzle-orm'
 import { validAgentTypes } from '../agents/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
 import { enqueueGpuWork } from '../services/gpu-queue.js'
+import { isRagEnabled } from '../services/app-settings.js'
+import { buildRagContextBlock } from '../services/rag.js'
 import { mastra } from '../mastra/index.js'
 import { db, schema } from '../db/index.js'
 import { now } from '../utils/response.js'
@@ -75,10 +77,22 @@ app.post('/:type/chat', async (c) => {
   void appendEpisodeEvent(episode_id, 'agent_started', { agent: agentType })
 
   try {
+    // ONNX RAG：CPU 向量检索本 drama 的剧本/角色/场景/道具，作为背景块前缀注入用户消息。
+    // 关闭/模型缺失/无索引时 buildRagContextBlock 返回 null，消息原样发送，不阻断主流程
+    let ragBlock: string | null = null
+    if (isRagEnabled()) {
+      try {
+        ragBlock = await buildRagContextBlock(drama_id, message)
+      } catch (e: any) {
+        logTaskWarn('Agent', 'rag-context-failed', { dramaId: drama_id, error: e?.message })
+      }
+    }
+    const userContent = ragBlock ? `${ragBlock}\n\n${message}` : message
+
     // Agent 推理打文本模型（Qwen3.5 decode burst），与图片/视频生成共用 GPU 串行队列，
     // 避免与 LTX-2.5/FLUX 并发争用触发 Metal crash（见 gpu-queue.ts 注释）
     const result = await enqueueGpuWork(`Agent-${agentType}`, () => agent.generate(
-      [{ role: 'user', content: message }],
+      [{ role: 'user', content: userContent }],
       { maxSteps: 20, requestContext },
     ))
     void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })

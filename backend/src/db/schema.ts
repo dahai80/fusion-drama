@@ -315,3 +315,13 @@ export const customProviders = sqliteTable('custom_providers', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 })
+
+export const ragChunks = sqliteTable('rag_chunks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  kind: text('kind').notNull(),
+  title: text('title'),
+  content: text('content').notNull(),
+  embedding: text('embedding').notNull(),
+  createdAt: text('created_at').notNull(),
+})

@@ -488,6 +488,16 @@
     "customDelete": {
       "title": "カスタム Provider 削除",
       "message": "「{name}」を削除しますか？参照している AI 設定は無効になります。"
+    },
+    "rag": {
+      "title": "ナレッジ検索（RAG）",
+      "desc": "脚本・キャラクター・シーン・小道具をローカルでベクトル化（bge-small ONNX、CPU 推論）し、Agent チャットに背景コンテキストとして自動注入します。",
+      "label": "Agent コンテキスト検索",
+      "on": "有効",
+      "stats": "{model} · {n} チャンクを索引化",
+      "rebuild": "索引を再構築",
+      "rebuilt": "{dramas} 作品 / {chunks} チャンクを再構築（失敗 {failed}）",
+      "note": "初回チャット時に自動で索引を構築し、脚本の保存後に自動更新します。モデルファイルがない場合は検索をスキップし、Agent の動作には影響しません。"
     }
   },
   "episode": {

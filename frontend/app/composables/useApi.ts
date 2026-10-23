@@ -175,6 +175,14 @@ export const customProviderAPI = {
   testById: (id: number, d?: any) => api.post(`/custom-providers/${id}/test`, d || {}),
 }
 
+// ONNX RAG：本地向量检索（bge-small CPU），Agent 对话自动注入剧本/角色/场景/道具上下文
+export const ragAPI = {
+  status: () => api.get<any>('/rag/status'),
+  setEnabled: (enabled: boolean) => api.put('/rag/enabled', { enabled }),
+  indexAll: () => api.post('/rag/index-all', {}, 600_000),
+  search: (dramaId: number, q: string) => api.get(`/rag/search?drama_id=${dramaId}&q=${encodeURIComponent(q)}`),
+}
+
 // lang 缺省/为 zh 时读写基础版（不带 query，保持原请求形态）
 const langQ = (lang?: string) => (lang && lang !== 'zh' ? `?lang=${lang}` : '')
 
