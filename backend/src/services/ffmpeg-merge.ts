@@ -127,8 +127,11 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
 
   try {
     await new Promise<void>((resolve, reject) => {
-      // fluent-ffmpeg typings 未收录 .timeout（运行时支持，秒，超时杀进程）
-      const cmd = ffmpeg() as any
+      const cmd = ffmpeg()
+      // fluent-ffmpeg 无 .timeout 方法（误用直接 not a function 报错）——
+      // wall-clock 上限（秒）用 start 事件 + 定时器 + kill 实现：ffmpeg 挂死时杀进程，merge 记录落 failed
+      let timer: NodeJS.Timeout | null = null
+      const clearTimer = () => { if (timer) clearTimeout(timer) }
       cmd
         .input(listPath)
         .inputOptions(['-f', 'concat', '-safe', '0'])
@@ -143,10 +146,9 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
           '-movflags', '+faststart',
         ])
         .output(outputPath)
-        // fluent-ffmpeg wall-clock 上限（秒）：ffmpeg 挂死时杀进程，merge 记录落 failed
-        .timeout(3600)
-        .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err))
+        .on('start', () => { timer = setTimeout(() => cmd.kill('SIGKILL'), 3_600_000) })
+        .on('end', () => { clearTimer(); resolve() })
+        .on('error', (err: Error) => { clearTimer(); reject(err) })
         .run()
     })
   } finally {

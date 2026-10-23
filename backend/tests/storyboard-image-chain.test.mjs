@@ -38,3 +38,11 @@ test('health engineOk probe sends fusion api key', () => {
   const index = read('src/index.ts')
   assert.match(index, /authorization: `Bearer \$\{cfg\.apiKey\}`/)
 })
+
+test('ffmpeg merge does not call nonexistent fluent-ffmpeg .timeout', () => {
+  // 旧 bug：.timeout(3600) 运行时 not a function → 所有 merge 必 failed；
+  // wall-clock 上限必须用 start 事件 + 定时器 + kill 实现
+  const merge = read('src/services/ffmpeg-merge.ts')
+  assert.doesNotMatch(merge, /\.timeout\(/)
+  assert.match(merge, /setTimeout\(\(\) => cmd\.kill\('SIGKILL'\), 3_600_000\)/)
+})
