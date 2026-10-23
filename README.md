@@ -172,7 +172,7 @@ No config files — everything is set via environment variables (all have defaul
 | `FRONTEND_DIST` | `frontend/dist` | Frontend static build directory |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | bundled npm binaries | Custom ffmpeg/ffprobe executable paths |
 | `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
-| `FUSION_API_TOKEN` | — | Server-mode API token. **Required (≥32 chars)**: the server refuses to start on weaker tokens unless `FUSION_BIND_HOST` is set. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
+| `FUSION_API_TOKEN` | auto-generated on first boot | Server-mode API token (≥32 chars). On non-loopback deployments without an explicit token, the server generates a random 64-hex token on first boot, persists it to `app_settings.server_api_token` (reused across restarts) and logs it once. Loopback (desktop/dev) stays token-free. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
 | `FUSION_BIND_HOST` | — | Set to mark a loopback-only deployment and bypass the token enforcement above |
 | `FUSION_SHELL_GATEWAY` | — | Union Web integration: base URL of the fusion-web-shell gateway (e.g. `http://localhost:11432`). When set, the backend registers `web/manifest.json` with the shell's manifest registry on startup (best-effort, idempotent). Loading the app with `?embedded=1` hides its own header for shell embedding |
 | `FUSION_MEMORY_URL` | `http://127.0.0.1:11435` | fusion-memory (fm-server) base URL for cross-session Agent memory |

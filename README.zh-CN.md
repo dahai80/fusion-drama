@@ -171,7 +171,7 @@ Agent 记得住你在不同会话、不同短剧里的创作决定，底层对�
 | `FRONTEND_DIST` | `frontend/dist` | 前端静态产物目录 |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | npm 内置二进制 | 自定义 ffmpeg/ffprobe 可执行文件路径 |
 | `PUBLIC_BASE_URL` | — | Seedance 引用本地参考资源时所需的公网地址（服务器部署用） |
-| `FUSION_API_TOKEN` | — | 服务器模式 API 令牌。**必填（≥32 字符）**：令牌过弱时服务器拒绝启动，除非设置 `FUSION_BIND_HOST`。前端以 `Bearer` 方式携带（设置页 → 通用中配置一次，存 localStorage） |
+| `FUSION_API_TOKEN` | 首启自动生成 | 服务器模式 API 令牌（≥32 字符）。对外部署（非 loopback 绑定）未显式配置时，首启自动生成 64 位十六进制 token 持久化到 `app_settings.server_api_token`（重启复用）并在日志打印一次；本地/桌面（loopback）保持免鉴权。前端以 `Bearer` 方式携带（设置页 → 通用中配置一次，存 localStorage） |
 | `FUSION_SHELL_GATEWAY` | — | Union Web 接入：fusion-web-shell 网关地址（如 `http://localhost:11432`）。设置后启动时把 `web/manifest.json` 注册到宿主注册中心（幂等、best-effort）。带 `?embedded=1` 打开页面会隐藏自有头部导航，供 Shell 内嵌 |
 | `FUSION_MEMORY_URL` | `http://127.0.0.1:11435` | fusion-memory（fm-server）地址，跨会话 Agent 记忆 |
 | `FUSION_MEMORY_API_KEY` | 读 `~/.fusion-memory/api_key` 文件 | fm-server RPC 的 Bearer 密钥（缺省回落共享密钥文件） |

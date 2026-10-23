@@ -498,7 +498,8 @@
       "stats": "{model} · {n} indexed chunks",
       "rebuild": "Rebuild Index",
       "rebuilt": "Rebuilt {dramas} dramas / {chunks} chunks ({failed} failed)",
-      "note": "Indexing starts automatically on first chat and refreshes when a script is saved. If model files are missing, retrieval is skipped silently without affecting Agents."
+      "note": "Indexing starts automatically on first chat and refreshes when a script is saved. If model files are missing, retrieval is skipped silently without affecting Agents.",
+      "degradedToast": "RAG is enabled but the embedding model failed to load — retrieval is inactive (retries on next chat)"
     },
     "memory": {
       "title": "Cross-Session Memory (fusion-memory)",
@@ -510,7 +511,8 @@
       "offline": "Offline",
       "offlineNote": "fm-server not running (127.0.0.1:11435); agents will skip memory",
       "stats": "{n} memories stored",
-      "recallEmpty": "No related memories yet"
+      "recallEmpty": "No related memories yet",
+      "degradedToast": "Cross-session memory is enabled but fusion-memory is unreachable — memory is inactive"
     },
     "supervisor": {
       "title": "Agent Supervisor",

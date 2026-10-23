@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import crypto from 'crypto'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -37,6 +38,7 @@ import fs from 'fs'
 import { sqlite } from './db/index.js'
 import { currentVersion } from './db/migrations.js'
 import { getActiveConfig } from './services/ai.js'
+import { getServerApiToken, setServerApiToken } from './services/app-settings.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '../..')
@@ -164,13 +166,28 @@ try {
 // 服务器部署默认全网卡（Docker 需要），配合 FUSION_API_TOKEN 鉴权
 const hostname = process.env.FUSION_BIND_HOST || undefined
 
-// FR-P0-1: 对外部署（未绑定 127.0.0.1）必须有 >=32B token，否则拒启——
-// 桌面/dev（127.0.0.1 绑定）两形态免鉴权不受影响；拒启而非降级运行，
-// 杜绝“以为有鉴权其实裸奔”（审计 C1 的业务面收口）
+// FR-P0-1: 对外部署（未绑定 127.0.0.1）必须有 >=32B token——
+// 桌面/dev（127.0.0.1 绑定）两形态免鉴权不受影响。
+// P3 首启自动生成（审计 1024）：未显式配置时生成 64 hex token 持久化到
+// app_settings.server_api_token（重启复用，不入库覆盖用户显式配置），杜绝裸奔
 const isLoopbackOnly = Boolean(process.env.FUSION_BIND_HOST)
 if (!isLoopbackOnly && (process.env.FUSION_API_TOKEN || '').length < 32) {
-    console.error('[server] FUSION_API_TOKEN 未设置或不足 32 字符：对外部署（非 127.0.0.1 绑定）必须配置强 token 才能启动。本地开发请设置 FUSION_BIND_HOST=127.0.0.1')
-    process.exit(1)
+    const existing = getServerApiToken()
+    if (existing && existing.length >= 32) {
+        process.env.FUSION_API_TOKEN = existing
+        console.log('[server] 使用首启生成的 API token（app_settings.server_api_token），重置可删除该行')
+    } else {
+        const token = crypto.randomBytes(32).toString('hex')
+        try {
+            setServerApiToken(token)
+            process.env.FUSION_API_TOKEN = token
+            console.log('[server] 已自动生成 API token 并持久化到 app_settings.server_api_token，外部调用需携带 Authorization: Bearer <token>')
+            console.log(`[server] token: ${token}`)
+        } catch (err: any) {
+            console.error(`[server] FUSION_API_TOKEN 未设置且自动生成失败（${err?.message}）：对外部署（非 127.0.0.1 绑定）必须配置强 token 才能启动。本地开发请设置 FUSION_BIND_HOST=127.0.0.1`)
+            process.exit(1)
+        }
+    }
 }
 
 // D9: 主进程 getFreePort 与后端 bind 之间有 TOCTOU 窗口，端口被抢占时桌面模式下

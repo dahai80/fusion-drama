@@ -403,7 +403,7 @@ export function initSqliteSchema(sqlite: Database.Database) {
   }
   // 增量迁移：sys_task.episode_id（提取/资产类任务按集归属，聚合面板可见）
   const taskCols = sqlite.prepare(`PRAGMA table_info(sys_task)`).all() as { name: string }[]
-  if (taskCols.length && !taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
+  if (taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
     sqlite.exec(`ALTER TABLE sys_task ADD COLUMN episode_id INTEGER`)
     console.log('🧩 sys_task 已补 episode_id 列')
   }

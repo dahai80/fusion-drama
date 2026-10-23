@@ -10,10 +10,13 @@
  */
 import type { MiddlewareHandler } from 'hono'
 
-const API_TOKEN = process.env.FUSION_API_TOKEN || ''
+// 每请求读 env：index.ts 启动闸可先生成 token 再回写 env（P3 首启自动生成），
+// 模块加载期快照会固化空值导致自动生成的 token 不生效
+const apiToken = () => process.env.FUSION_API_TOKEN || ''
 
 /** Bearer token 鉴权（token 未配置时直接放行） */
 export const requireApiToken: MiddlewareHandler = async (c, next) => {
+  const API_TOKEN = apiToken()
   if (!API_TOKEN) return next()
   if (c.req.path === '/api/v1/health' || c.req.path === '/health') return next()
   const auth = c.req.header('Authorization') || ''

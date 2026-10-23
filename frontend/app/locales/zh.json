@@ -498,7 +498,8 @@
       "stats": "{model} · {n} 个索引块",
       "rebuild": "重建索引",
       "rebuilt": "已重建 {dramas} 部剧 / {chunks} 个索引块（失败 {failed}）",
-      "note": "首次对话自动建立索引；剧本保存后自动更新。模型文件缺失时自动跳过，不影响 Agent 正常使用。"
+      "note": "首次对话自动建立索引；剧本保存后自动更新。模型文件缺失时自动跳过，不影响 Agent 正常使用。",
+      "degradedToast": "RAG 已开启但模型加载失败，检索暂未生效（对话时自动重试）"
     },
     "memory": {
       "title": "跨会话记忆（fusion-memory）",
@@ -510,7 +511,8 @@
       "offline": "未连接",
       "offlineNote": "fm-server 未运行（127.0.0.1:11435），Agent 将跳过记忆",
       "stats": "记忆库共 {n} 条",
-      "recallEmpty": "暂无相关记忆"
+      "recallEmpty": "暂无相关记忆",
+      "degradedToast": "跨会话记忆已开启但 fusion-memory 服务不可达，记忆暂未生效"
     },
     "supervisor": {
       "title": "Agent 监督层",

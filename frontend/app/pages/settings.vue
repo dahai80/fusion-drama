@@ -1292,7 +1292,17 @@ const ragStatus = ref(null)
 const ragIndexing = ref(false)
 const ragReindexResult = ref('')
 async function loadRagStatus() {
-  try { ragStatus.value = await ragAPI.status() } catch (e) { toastError(e) }
+  try {
+    ragStatus.value = await ragAPI.status()
+    // 审计 P2：弱网模型加载失败是静默 fail-open——有失败记录时大声告警
+    // （modelLoaded=false 且无 lastError 是冷启动正常态：模型懒加载，首次对话才拉起）
+    if (ragStatus.value?.enabled && ragStatus.value?.lastError) {
+      toast.warning(t('settings.rag.degradedToast'), {
+        description: ragStatus.value.lastError,
+        duration: 10000,
+      })
+    }
+  } catch (e) { toastError(e) }
 }
 async function toggleRag() {
   try {
@@ -1321,7 +1331,13 @@ const memoryStatus = ref(null)
 const memoryRecalling = ref(false)
 const memoryRecallResult = ref('')
 async function loadMemoryStatus() {
-  try { memoryStatus.value = await memoryAPI.status() } catch (e) { toastError(e) }
+  try {
+    memoryStatus.value = await memoryAPI.status()
+    // 审计 P2：fm-server 未启动时记忆静默失效——开着但服务不可达时大声告警
+    if (memoryStatus.value?.enabled && !memoryStatus.value?.reachable) {
+      toast.warning(t('settings.memory.degradedToast'), { duration: 10000 })
+    }
+  } catch (e) { toastError(e) }
 }
 async function toggleMemory() {
   try {

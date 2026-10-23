@@ -22,6 +22,8 @@ const TOP_K = 5
 
 // transformers.js 懒加载：首次用到才 import（启动零开销，桌面版离线时不受影响）
 let extractorPromise: Promise<any> | null = null
+// 最近一次加载失败原因（状态接口透出，弱网环境静默失效可在设置页看到根因）
+let lastLoadError: string | null = null
 
 async function getExtractor(): Promise<any> {
     if (!extractorPromise) {
@@ -49,11 +51,13 @@ async function getExtractor(): Promise<any> {
                 }
             }
             if (!extractor) throw lastErr
+            lastLoadError = null
             logTaskSuccess('RAG', 'model-loaded', { model: EMBED_MODEL })
             return extractor
         })().catch(err => {
             // 加载失败后允许重试（下次调用重新走加载），但必须大声记录
             extractorPromise = null
+            lastLoadError = String(err?.message || err).slice(0, 300)
             throw err
         })
     }
@@ -235,10 +239,11 @@ export async function buildRagContextBlock(dramaId: number, query: string): Prom
     return `以下是从本项目资料库检索到的相关背景（供参考，与用户要求冲突时以用户要求为准）：\n\n${sections.join('\n\n')}`
 }
 
-/** 状态接口数据：模型加载状态 + 各 drama 索引量 */
+/** 状态接口数据：模型加载状态 + 最近加载失败原因 + 各 drama 索引量 */
 export async function ragStatus(): Promise<{
     model: string
     modelLoaded: boolean
+    lastError: string | null
     totalChunks: number
     dramas: { dramaId: number; chunks: number }[]
 }> {
@@ -248,6 +253,7 @@ export async function ragStatus(): Promise<{
     return {
         model: EMBED_MODEL,
         modelLoaded: isRagModelLoaded(),
+        lastError: lastLoadError,
         totalChunks: rows.length,
         dramas: [...byDrama.entries()].map(([dramaId, chunks]) => ({ dramaId, chunks })),
     }

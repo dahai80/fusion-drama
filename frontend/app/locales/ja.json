@@ -498,7 +498,8 @@
       "stats": "{model} · {n} チャンクを索引化",
       "rebuild": "索引を再構築",
       "rebuilt": "{dramas} 作品 / {chunks} チャンクを再構築（失敗 {failed}）",
-      "note": "初回チャット時に自動で索引を構築し、脚本の保存後に自動更新します。モデルファイルがない場合は検索をスキップし、Agent の動作には影響しません。"
+      "note": "初回チャット時に自動で索引を構築し、脚本の保存後に自動更新します。モデルファイルがない場合は検索をスキップし、Agent の動作には影響しません。",
+      "degradedToast": "RAG は有効ですが埋め込みモデルのロードに失敗しました。検索は無効です（次回チャットで再試行）"
     },
     "memory": {
       "title": "セッション横断メモリ（fusion-memory）",
@@ -510,7 +511,8 @@
       "offline": "未接続",
       "offlineNote": "fm-server 未起動 (127.0.0.1:11435)。Agent はメモリをスキップ",
       "stats": "メモリ {n} 件",
-      "recallEmpty": "関連メモリなし"
+      "recallEmpty": "関連メモリなし",
+      "degradedToast": "セッション横断メモリは有効ですが fusion-memory に到達できません。メモリは無効です"
     },
     "supervisor": {
       "title": "Agent 監督層",

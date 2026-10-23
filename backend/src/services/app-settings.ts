@@ -132,3 +132,23 @@ export function setSupervisorEnabled(enabled: boolean): boolean {
     .run()
   return enabled
 }
+
+const SERVER_TOKEN_KEY = 'server_api_token'
+
+/** 首启自动生成的服务器 API token（对外部署未显式配 FUSION_API_TOKEN 时用） */
+export function getServerApiToken(): string | null {
+    const row = db.select().from(schema.appSettings)
+        .where(eq(schema.appSettings.key, SERVER_TOKEN_KEY))
+        .get()
+    return row?.value || null
+}
+
+export function setServerApiToken(token: string): void {
+    db.insert(schema.appSettings)
+        .values({ key: SERVER_TOKEN_KEY, value: token, updatedAt: now() })
+        .onConflictDoUpdate({
+            target: schema.appSettings.key,
+            set: { value: token, updatedAt: now() },
+        })
+        .run()
+}

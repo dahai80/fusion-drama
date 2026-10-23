@@ -498,7 +498,8 @@
       "stats": "{model} · {n}개 청크 인덱싱",
       "rebuild": "인덱스 재구축",
       "rebuilt": "{dramas}편 / {chunks}청크 재구축 (실패 {failed})",
-      "note": "첫 대화 시 자동으로 인덱스를 구축하고 대본 저장 후 자동 갱신합니다. 모델 파일이 없으면 검색을 건너뛰며 Agent 동작에는 영향 없습니다."
+      "note": "첫 대화 시 자동으로 인덱스를 구축하고 대본 저장 후 자동 갱신합니다. 모델 파일이 없으면 검색을 건너뛰며 Agent 동작에는 영향 없습니다.",
+      "degradedToast": "RAG가 활성화되었지만 임베딩 모델 로드에 실패했습니다. 검색이 비활성 상태입니다(다음 채팅 때 재시도)"
     },
     "memory": {
       "title": "세션 간 기억(fusion-memory)",
@@ -510,7 +511,8 @@
       "offline": "미연결",
       "offlineNote": "fm-server 미실행(127.0.0.1:11435), Agent는 기억 건너뜀",
       "stats": "기억 {n}건",
-      "recallEmpty": "관련 기억 없음"
+      "recallEmpty": "관련 기억 없음",
+      "degradedToast": "세션 간 메모리가 활성화되었지만 fusion-memory에 접근할 수 없습니다. 메모리가 비활성 상태입니다"
     },
     "supervisor": {
       "title": "Agent 감독 계층",
