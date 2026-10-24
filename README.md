@@ -124,6 +124,7 @@ Agents remember your creative decisions across sessions and dramas, powered by [
 - Every Agent chat is committed to the `project` / `fusion-drama` namespace after the reply — preferences and decisions persist across restarts.
 - Before each chat, the top-5 most relevant past memories are retrieved and injected as a memory block ahead of the RAG block (user instructions always win on conflict).
 - The Settings page shows connection status, total memory count and a **Test recall** button.
+- **Desktop auto-bootstrap**: the desktop app probes `:11435` at startup and, if nothing is listening, spawns the bundled `fm-server` binary itself (an already-running instance is reused; the child is stopped on app quit). A missing binary degrades gracefully — memory shows offline in Settings, everything else works.
 - Fully fail-open: if fm-server is not running or times out, Agents work exactly as before. Toggle it off anytime in Settings.
 
 #### 🛡️ Agent Supervisor
@@ -134,6 +135,14 @@ Every Agent reply is double-checked by a supervisor pass before it reaches you:
 - Only substantive defects are flagged (missing required output, wrong format, contradicting the request) — style nits pass.
 - A failed verdict surfaces as a warning toast with the issue list; the verdict is also recorded in the episode event stream (`agent_reviewed`).
 - Reviews run on the same GPU serial queue as Agents (no Metal contention) and degrade open — any supervisor failure lets the original reply through untouched.
+
+#### ⚡ Live Streaming Agent Output
+
+All Agent chats (script rewrite, storyboard breakdown, per-shot video prompts) stream over SSE instead of blocking on a single response:
+
+- Text deltas, tool calls and tool results are pushed as they happen — a floating stream panel in the workbench shows the reply building up in real time, with the tool trail alongside.
+- The final `done` event carries the same payload as the old non-streaming response (full text, tool calls/results, supervisor verdict), so autosave, memory commit and review toasts behave identically.
+- The stream runs inside the same GPU serial queue as before — streaming never adds Metal contention with image/video generation.
 
 #### 🗺️ Infinite Canvas
 

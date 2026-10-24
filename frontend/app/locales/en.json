@@ -87,6 +87,19 @@
       "refreshing": "Language switched, refreshing…"
     }
   },
+  "agent": {
+    "type": {
+      "script_rewriter": "Script Rewriter",
+      "storyboard_breaker": "Storyboard Breaker",
+      "prompt_generator": "Prompt Generator",
+      "extractor": "Asset Extractor"
+    },
+    "stream": {
+      "title": "AI Assistant",
+      "running": "running",
+      "finished": "finished"
+    }
+  },
   "composables": {
     "agent": {
       "busy": "Operation in progress",

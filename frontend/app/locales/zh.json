@@ -87,6 +87,19 @@
       "refreshing": "语言已切换，正在刷新…"
     }
   },
+  "agent": {
+    "type": {
+      "script_rewriter": "剧本改写",
+      "storyboard_breaker": "分镜拆解",
+      "prompt_generator": "提示词生成",
+      "extractor": "资产提取"
+    },
+    "stream": {
+      "title": "AI 助手",
+      "running": "执行中",
+      "finished": "已完成"
+    }
+  },
   "composables": {
     "agent": {
       "busy": "操作执行中",

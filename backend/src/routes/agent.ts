@@ -1,7 +1,8 @@
 /**
- * Agent 聊天路由 — 非流式版本
+ * Agent 聊天路由 — 非流式 + SSE 流式两个版本
  */
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { eq } from 'drizzle-orm'
 import { validAgentTypes } from '../agents/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
@@ -194,6 +195,154 @@ app.get('/:type/debug', async (c) => {
   const agentType = c.req.param('type')
   if (!validAgentTypes.includes(agentType)) return badRequest(c, '无效的 Agent 类型')
   return success(c, { agent_type: agentType, valid: true })
+})
+
+// Mastra ChunkType → 前端 SSE 事件（只透出有展示价值的：文本增量/工具调用/工具结果）
+function sseEventFromChunk(chunk: any): { event: string, data: string } | null {
+    const p = chunk?.payload || {}
+    switch (chunk?.type) {
+        case 'text-delta':
+            return p.text ? { event: 'delta', data: JSON.stringify({ text: String(p.text) }) } : null
+        case 'tool-call':
+            return { event: 'tool', data: JSON.stringify({ toolName: p.toolName ?? null }) }
+        case 'tool-result':
+            return { event: 'tool_result', data: JSON.stringify({ toolName: p.toolName ?? null }) }
+        default:
+            return null
+    }
+}
+
+// POST /agent/:type/chat/stream — SSE 流式版：中间步骤（工具调用/文本增量）实时推送，
+// done 事件带完整结果（与非流式响应同构：text/toolCalls/toolResults/review）。
+// GPU 串行队列覆盖整个流消费期；监督复审/记忆写入/事件流与非流式版完全一致
+app.post('/:type/chat/stream', async (c) => {
+  const agentType = c.req.param('type')
+  if (!validAgentTypes.includes(agentType)) {
+    return badRequest(c, `无效的 Agent 类型：${agentType}`)
+  }
+  const body = await c.req.json()
+  const { message, drama_id, episode_id } = body
+  logTaskStart('Agent', `${agentType}(stream)`, { dramaId: drama_id, episodeId: episode_id, message })
+  if (!episode_id || !drama_id) {
+    logTaskError('Agent', `${agentType}(stream)`, { reason: 'missing drama_id or episode_id' })
+    return badRequest(c, '需要 drama_id 与 episode_id')
+  }
+  const agent = mastra.getAgent(agentType)
+  if (!agent) {
+    logTaskError('Agent', `${agentType}(stream)`, { reason: 'agent not found' })
+    return badRequest(c, 'Agent 不存在')
+  }
+  const requestContext = buildAgentRequestContext({
+    episodeId: episode_id,
+    dramaId: drama_id,
+    modelOverride: body.model || undefined,
+    textConfigId: body.config_id || undefined,
+  })
+  const startTime = performance.now()
+  void appendEpisodeEvent(episode_id, 'agent_started', { agent: agentType })
+
+  // 上下文前缀（跨会话记忆 + RAG）与非流式版一致：记忆在前，用户要求优先
+  let ragBlock: string | null = null
+  if (isRagEnabled()) {
+    try {
+      ragBlock = await buildRagContextBlock(drama_id, message)
+    } catch (e: any) {
+      logTaskWarn('Agent', 'rag-context-failed', { dramaId: drama_id, error: e?.message })
+    }
+  }
+  let memoryBlock: string | null = null
+  if (isMemoryEnabled()) {
+    try {
+      memoryBlock = await retrieveMemoryContext(message)
+      if (memoryBlock) logTaskProgress('Agent', 'memory-context-injected', { agentType, dramaId: drama_id, len: memoryBlock.length })
+    } catch (e: any) {
+      logTaskWarn('Agent', 'memory-context-failed', { dramaId: drama_id, error: e?.message })
+    }
+  }
+  const contextPrefix = [memoryBlock, ragBlock].filter(Boolean).join('\n\n')
+  const userContent = contextPrefix ? `${contextPrefix}\n\n${message}` : message
+
+  return streamSSE(c, async (stream) => {
+    try {
+      const out = await enqueueGpuWork(`Agent-${agentType}`, async () => {
+        const result = await agent.stream(
+          [{ role: 'user', content: userContent }],
+          { maxSteps: 20, requestContext },
+        )
+        const reader = (result.fullStream as ReadableStream<any>).getReader()
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const evt = sseEventFromChunk(value)
+          if (evt) await stream.writeSSE(evt)
+        }
+        return result
+      })
+      const text = await out.text
+      const toolCalls = (await out.toolCalls) || []
+      const toolResults = (await out.toolResults) || []
+      const normalizedToolCalls = toolCalls.map((tc: any) => ({
+        toolName: normalizeToolName(tc),
+        args: tc?.payload?.args ?? tc?.args ?? tc?.input ?? null,
+      }))
+      const normalizedToolResults = toolResults.map((tr: any) => ({
+        toolName: normalizeToolName(tr),
+        result: normalizeToolResult(tr),
+      }))
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
+      logTaskProgress('Agent', 'stream-tool-summary', {
+        agentType,
+        toolCalls: normalizedToolCalls.map((tc: any) => tc.toolName),
+      })
+      void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })
+
+      // 监督复审 + 记忆写入：与非流式版一致
+      let review = null
+      if (isSupervisorEnabled()) {
+        const verdict = await enqueueGpuWork(`Supervisor-${agentType}`, () =>
+          reviewAgentOutput(agentType, message, text || ''))
+        review = verdict
+        void appendEpisodeEvent(episode_id, 'agent_reviewed', {
+          agent: agentType, pass: verdict.pass, degraded: verdict.degraded,
+          issues: verdict.issues, summary: verdict.summary,
+        })
+      }
+      if (isMemoryEnabled() && (text || '').trim()) {
+        void commitAgentMemory({
+          agentType, dramaId: drama_id, episodeId: episode_id,
+          userMessage: message, assistantMessage: text || '',
+        }).then(ok => {
+          if (!ok) logTaskWarn('Agent', 'memory-commit-skipped', { agentType, dramaId: drama_id })
+        })
+      }
+
+      // script_rewriter 兜底（同非流式版）：text 形似剧本且未调 save_script 时自动落库
+      if (agentType === 'script_rewriter') {
+        const calledSave = normalizedToolCalls.some((tc: any) => tc.toolName === 'save_script' || tc.toolName === 'saveScript')
+        const trimmed = (text || '').trim()
+        if (!calledSave && /^##\s*S\d/.test(trimmed) && trimmed.length > 200) {
+          try {
+            await db.update(schema.episodes).set({ scriptContent: trimmed, updatedAt: now() })
+              .where(eq(schema.episodes.id, episode_id))
+            logTaskWarn('Agent', 'script-autosave', { episodeId: episode_id, reason: 'save_script not called, text looks like screenplay', len: trimmed.length })
+          } catch (e: any) {
+            logTaskError('Agent', 'script-autosave', { episodeId: episode_id, error: e?.message })
+          }
+        }
+      }
+
+      logTaskSuccess('Agent', `${agentType}(stream)`, { elapsedSeconds: elapsed })
+      await stream.writeSSE({ event: 'done', data: JSON.stringify({
+        type: 'done', text: text || '', toolCalls: normalizedToolCalls, toolResults: normalizedToolResults, review,
+      }) })
+    } catch (err: any) {
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
+      logTaskError('Agent', `${agentType}(stream)`, { elapsedSeconds: elapsed, error: err.message })
+      void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: false, ms: Math.round(performance.now() - startTime), error: String(err.message || '').slice(0, 300) })
+      console.error(err.stack || err)
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ type: 'error', message: String(err?.message || err).slice(0, 500) }) })
+    }
+  })
 })
 
 export default app

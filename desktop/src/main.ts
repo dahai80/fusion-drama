@@ -10,10 +10,12 @@
  */
 import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from 'electron'
 import type { UtilityProcess } from 'electron'
+import { spawn } from 'child_process'
 import * as net from 'net'
 import * as fs from 'fs'
 import * as fsp from 'fs/promises'
 import * as path from 'path'
+import * as os from 'os'
 import { registerMigrationIpc } from './migrate'
 import { registerUpdater, markQuitting } from './updater'
 
@@ -228,6 +230,67 @@ function startBackend(): void {
   })
 }
 
+// ---- fm-server（跨会话记忆，可选自举） ----
+// 桌面版自动拉起 fusion-memory：已在跑（手动/集群）直接复用；否则从打包资源
+// （bin/fm-server）或 dev 机 fusion-memory 构建产物拉起。二进制缺失/拉起失败
+// 一律优雅降级——记忆功能 off，设置页显示离线，不影响主流程
+let fmServerProc: ReturnType<typeof spawn> | null = null
+
+async function probeFmServer(timeoutMs = 2000): Promise<boolean> {
+    try {
+        const res = await fetch('http://127.0.0.1:11435/healthz', { signal: AbortSignal.timeout(timeoutMs) })
+        return res.ok
+    } catch {
+        return false
+    }
+}
+
+function fmServerBinCandidates(): string[] {
+    const exe = process.platform === 'win32' ? '.exe' : ''
+    return [
+        path.join(resolveResourceDir(), 'bin', `fm-server${exe}`),
+        path.join(os.homedir(), 'fusion', 'fusion-memory', 'target', 'release', `fm-server${exe}`),
+    ]
+}
+
+async function ensureFmServer(): Promise<void> {
+    if (await probeFmServer()) {
+        console.log('[main] fm-server already running on :11435, reuse')
+        return
+    }
+    for (const bin of fmServerBinCandidates()) {
+        if (!fs.existsSync(bin)) continue
+        console.log(`[main] spawning fm-server from ${bin}`)
+        fmServerProc = spawn(bin, [], { stdio: 'pipe' })
+        fmServerProc.stdout?.on('data', chunk => process.stdout.write(`[fm-server] ${chunk}`))
+        fmServerProc.stderr?.on('data', chunk => process.stderr.write(`[fm-server] ${chunk}`))
+        fmServerProc.on('exit', code => {
+            console.log(`[main] fm-server exited (code ${code})`)
+            fmServerProc = null
+        })
+        // 启动等待（ sled 打开 + HTTP 监听，本机秒级；给 15s 上限）
+        for (let i = 0; i < 30; i++) {
+            if (await probeFmServer(1000)) {
+                console.log('[main] fm-server healthy, cross-session memory available')
+                return
+            }
+            if (fmServerProc === null) break
+            await new Promise(r => setTimeout(r, 500))
+        }
+        console.warn('[main] fm-server spawned but did not become healthy, memory degrades')
+        return
+    }
+    console.warn('[main] fm-server binary not found, cross-session memory unavailable (settings shows offline)')
+}
+
+function stopFmServer(): void {
+    if (fmServerProc) {
+        console.log('[main] stopping fm-server')
+        fmServerProc.kill()
+        fmServerProc = null
+    }
+}
+
 // ---- 窗口 ----
 
 function createWindow() {
@@ -291,6 +354,8 @@ async function bootstrap() {
     await waitHealthy(backendPort)
     backendRestartAttempts = 0
     console.log('[main] backend healthy, opening window')
+    // fm-server 自举不阻塞开窗：拉起慢/失败时窗口照常，记忆优雅降级
+    void ensureFmServer()
     await createWindow()
   } catch (err) {
     console.error('[main] 启动失败:', err)
@@ -359,6 +424,7 @@ app.on('before-quit', () => {
   quitting = true
   markQuitting()
   backend?.kill()
+  stopFmServer()
 })
 
 app.on('window-all-closed', () => {

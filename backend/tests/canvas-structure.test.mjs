@@ -31,20 +31,25 @@ test('frontend canvas drag persists positions via layout API', () => {
     const api = read('../frontend/app/composables/useApi.ts')
     assert.match(api, /layout: \(items: Array<\{ id: number; canvas_x: number; canvas_y: number \}>\) => api\.put\('\/storyboards\/layout'/)
 
-    const page = read('../frontend/app/views/drama/episode.vue')
+    // 画布逻辑已抽到 StoryboardCanvas 组件（episode.vue 只保留视图切换状态 + helpers 注入）
+    const canvas = read('../frontend/app/components/StoryboardCanvas.vue')
     // 坐标持久化：拖拽松手写库，整理布局批量写库
-    assert.match(page, /storyboardAPI\.layout\(\[\{ id: drag\.id, canvas_x: drag\.x, canvas_y: drag\.y \}\]\)/)
-    assert.match(page, /async function tidyCanvasLayout/)
+    assert.match(canvas, /storyboardAPI\.layout\(\[\{ id: drag\.id, canvas_x: drag\.x, canvas_y: drag\.y \}\]\)/)
+    assert.match(canvas, /async function tidyCanvasLayout/)
     // 缺失坐标时分镜序号自动布局
-    assert.match(page, /const CANVAS_COLS = 4/)
-    assert.match(page, /sb\.canvas_x \?\? sb\.canvasX/)
+    assert.match(canvas, /const CANVAS_COLS = 4/)
+    assert.match(canvas, /sb\.canvas_x \?\? sb\.canvasX/)
     // 平移 + 缩放 + 连线
-    assert.match(page, /function startCanvasPan/)
-    assert.match(page, /function onCanvasWheel/)
-    assert.match(page, /const canvasEdges = computed/)
-    // 视图持久化 + 列表/画布切换
+    assert.match(canvas, /function startCanvasPan/)
+    assert.match(canvas, /function onCanvasWheel/)
+    assert.match(canvas, /const canvasEdges = computed/)
+
+    const page = read('../frontend/app/views/drama/episode.vue')
+    // 视图持久化 + 列表/画布切换 + 组件接线
     assert.match(page, /VIDEO_VIEW_STORE_KEY/)
     assert.match(page, /v-else-if="videoViewMode === 'canvas'"/)
+    assert.match(page, /<StoryboardCanvas/)
+    assert.match(page, /:helpers="canvasHelpers"/)
 })
 
 test('canvas i18n keys exist in all four locales', () => {

@@ -87,6 +87,19 @@
       "refreshing": "언어가 전환되었습니다. 새로고침 중…"
     }
   },
+  "agent": {
+    "type": {
+      "script_rewriter": "대본 리라이팅",
+      "storyboard_breaker": "스토리보드 분할",
+      "prompt_generator": "프롬프트 생성",
+      "extractor": "에셋 추출"
+    },
+    "stream": {
+      "title": "AI 어시스턴트",
+      "running": "실행 중",
+      "finished": "완료"
+    }
+  },
   "composables": {
     "agent": {
       "busy": "작업 실행 중",

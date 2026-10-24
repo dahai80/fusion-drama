@@ -66,3 +66,17 @@ if (fs.existsSync(ffmpegWin) && fs.existsSync(ffprobeWinSrc)) {
   fs.copyFileSync(ffprobeWinSrc, path.join(binWin, 'ffprobe.exe'))
   console.log('resources/bin-win ✓')
 }
+
+// 4. fm-server（可选，跨会话记忆桌面自举）：从本机 fusion-memory release 产物复制。
+//    缺失仅提示不阻断打包——运行时探测不到 fm-server 会优雅降级（记忆 off，设置页显示离线）
+import os from 'os'
+const fmServerSrc = process.env.FM_SERVER_BIN
+  || path.join(os.homedir(), 'fusion', 'fusion-memory', 'target', 'release', 'fm-server')
+if (fs.existsSync(fmServerSrc)) {
+  fs.copyFileSync(fmServerSrc, path.join(binMac, 'fm-server'))
+  fs.chmodSync(path.join(binMac, 'fm-server'), 0o755)
+  console.log('resources/bin-mac/fm-server ✓')
+} else {
+  console.warn('提示: 缺少 fm-server 二进制（fusion-memory 未构建），桌面版跨会话记忆不可用。' +
+    '构建: cd ~/fusion/fusion-memory && cargo build --release -p fm-server（或 FM_SERVER_BIN 指定路径）')
+}

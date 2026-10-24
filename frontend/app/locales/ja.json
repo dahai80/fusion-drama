@@ -87,6 +87,19 @@
       "refreshing": "言語を切替しました。再読み込み中…"
     }
   },
+  "agent": {
+    "type": {
+      "script_rewriter": "脚本リライト",
+      "storyboard_breaker": "絵コンテ分解",
+      "prompt_generator": "プロンプト生成",
+      "extractor": "アセット抽出"
+    },
+    "stream": {
+      "title": "AI アシスタント",
+      "running": "実行中",
+      "finished": "完了"
+    }
+  },
   "composables": {
     "agent": {
       "busy": "処理を実行中です",
