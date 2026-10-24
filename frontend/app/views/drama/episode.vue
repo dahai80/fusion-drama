@@ -908,232 +908,35 @@
         </template>
       </div>
 
-      <!-- ===== EXPORT PANEL ===== -->
-      <div v-else class="content-panel">
-        <div v-if="!sbs.length" class="step-empty" style="flex:1">
-          <div class="empty-visual">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </div>
-          <div class="empty-title">{{ t('episode.prod.notReady') }}</div>
-          <div class="empty-desc">{{ t('episode.export.notReadyDesc') }}</div>
-          <button class="btn btn-primary" @click="panel = 'script'">{{ t('episode.export.gotoScript') }}</button>
-        </div>
-        <div v-else class="export-split">
-          <div class="export-main">
-            <!-- 上方:成片列表 -->
-            <div class="export-section">
-              <div class="export-section-head">
-                <span class="export-section-title">{{ t('episode.export.filmList') }}</span>
-                <span class="dim" style="font-size:11px">{{ t('episode.export.countN', { n: exportMerges.length }) }}</span>
-                <button
-                  :class="['btn btn-sm ml-auto export-done-btn', { on: exportDone }]"
-                  :title="t('episode.export.markDoneTitle')"
-                  @click="toggleExportDone"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  {{ exportDone ? t('episode.export.markedDone') : t('episode.export.markDone') }}
-                </button>
-                <button class="btn btn-sm" @click="loadExportMerges">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                  {{ t('common.refresh') }}
-                </button>
-              </div>
-              <div v-if="exportMerges.length" class="export-merge-strip">
-                <div
-                  v-for="m in exportMerges"
-                  :key="m.id"
-                  :class="['merge-card', m.status === 'completed' && m.merged_url && 'playable']"
-                  :role="m.status === 'completed' && m.merged_url ? 'button' : undefined"
-                  :tabindex="m.status === 'completed' && m.merged_url ? 0 : undefined"
-                  @click="m.status === 'completed' && m.merged_url && (activeMerge = m)"
-                  @keydown.enter.prevent="m.status === 'completed' && m.merged_url && (activeMerge = m)"
-                >
-                  <div class="merge-card-thumb">
-                    <video
-                      v-if="m.status === 'completed' && m.merged_url"
-                      :src="'/' + m.merged_url"
-                      :poster="posterOf('/' + m.merged_url) || undefined"
-                      preload="none"
-                      muted
-                      playsinline
-                      tabindex="-1"
-                    />
-                    <div v-else :class="['merge-card-pending', m.status === 'failed' && 'is-failed']" :title="m.status === 'failed' ? m.error_msg : null">
-                      {{ m.status === 'failed' ? mapError(m.error_msg, { fallback: 'episode.export.mergeFailed' }) : t('episode.export.merging') }}
-                    </div>
-                    <span v-if="m.status === 'completed' && m.merged_url" class="merge-card-play">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                    </span>
-                  </div>
-                  <div class="merge-card-meta">
-                    <span class="mono">{{ formatHistoryTime(m.created_at) }}</span>
-                    <span v-if="m.duration">· {{ m.duration }}s</span>
-                    <a
-                      v-if="m.status === 'completed' && m.merged_url"
-                      :href="'/' + m.merged_url"
-                      download
-                      class="btn btn-sm"
-                      @click.stop
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      {{ t('common.download') }}
-                    </a>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="export-merge-empty">{{ t('episode.export.empty') }}</div>
-            </div>
+      <!-- ===== EXPORT PANEL（模板在 ExportPanel 组件） ===== -->
+      <ExportPanel
+        v-else
+        :sbs="sbs"
+        :merges="exportMerges"
+        :done="exportDone"
+        :ready-ids="exportReadyIds"
+        :selected-ready-ids="exportSelectedReadyIds"
+        :shot-vid-count="shotVidCount"
+        :helpers="exportHelpers"
+        @toggle-done="toggleExportDone"
+        @refresh="loadExportMerges"
+        @select-all="toggleSelectAllExport"
+        @merge="doMerge"
+        @toggle-select="toggleExportSelect"
+        @preview="sb => previewShot = sb"
+        @play-merge="m => activeMerge = m"
+        @goto-script="panel = 'script'"
+      />
 
-            <!-- 下方:镜头素材(可勾选) -->
-            <div class="export-section export-section-grow">
-              <div class="export-section-head">
-                <span class="export-section-title">{{ t('episode.export.shotAssets') }}</span>
-                <span class="dim" style="font-size:11px">{{ t('episode.export.shotStat', { done: shotVidCount, total: sbs.length, selected: exportSelectedReadyIds.length }) }}</span>
-                <div class="ml-auto flex gap-1">
-                  <button class="btn btn-sm" :disabled="!exportReadyIds.length" @click="toggleSelectAllExport">
-                    {{ exportSelectedReadyIds.length === exportReadyIds.length && exportReadyIds.length ? t('episode.export.clearSelection') : t('episode.export.selectAllReady') }}
-                  </button>
-                  <button
-                    class="btn btn-sm btn-primary"
-                    :disabled="!exportSelectedReadyIds.length"
-                    @click="doMerge(exportSelectedReadyIds)"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                    {{ t('episode.export.mergeSelected', { n: exportSelectedReadyIds.length }) }}
-                  </button>
-                </div>
-              </div>
-              <div class="export-grid">
-                <div
-                  v-for="(sb, i) in sbs"
-                  :key="sb.id"
-                  :class="['exp-card', { selected: isExportSelected(sb.id), playable: hasVid(sb) }]"
-                  :role="hasVid(sb) ? 'button' : undefined"
-                  :tabindex="hasVid(sb) ? 0 : undefined"
-                  @click="toggleExportSelect(sb)"
-                  @keydown.enter.prevent="toggleExportSelect(sb)"
-                >
-                  <div class="exp-thumb">
-                    <video
-                      v-if="hasVid(sb)"
-                      :src="'/' + getVideoUrl(sb)"
-                      :poster="posterOf('/' + getVideoUrl(sb)) || undefined"
-                      preload="none"
-                      muted
-                      playsinline
-                      tabindex="-1"
-                    />
-                    <div v-else class="exp-thumb-empty">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                    </div>
-                    <span class="exp-thumb-index">#{{ String(i+1).padStart(2,'0') }}</span>
-                    <span v-if="sb.duration" class="exp-thumb-duration">{{ sb.duration }}s</span>
-                    <span
-                      v-if="hasVid(sb)"
-                      class="exp-play"
-                      :title="t('episode.export.previewShot')"
-                      @click.stop="previewShot = sb"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                    </span>
-                    <span v-if="hasVid(sb)" :class="['exp-check', isExportSelected(sb.id) && 'on']">
-                      <svg v-if="isExportSelected(sb.id)" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  </div>
-                  <div class="exp-row-line">
-                    <span class="truncate" style="flex:1;font-size:11px">{{ sb.description || sb.title || '—' }}</span>
-                    <span :class="['dot', hasVid(sb) && 'ok']" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== TASK DRAWER ===== -->
-      <div v-if="taskDrawer" class="task-drawer-overlay" @click.self="closeTaskDrawer">
-        <aside class="task-drawer" role="dialog" aria-modal="true" :aria-label="t('episode.tasks.title')">
-          <header class="task-drawer-head">
-            <div>
-              <div class="video-task-title">{{ t('episode.tasks.title') }}</div>
-              <div class="video-task-meta">{{ t('episode.tasks.meta', { n: genTaskRows.length }) }}</div>
-            </div>
-            <div class="task-drawer-head-actions">
-              <button class="btn btn-sm" @click="loadGenTasks">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                {{ t('common.refresh') }}
-              </button>
-              <button class="btn btn-ghost btn-icon" @click="closeTaskDrawer"><X :size="14" /></button>
-            </div>
-          </header>
-          <div class="video-task-metrics task-drawer-metrics">
-            <span class="video-task-metric is-pending">{{ t('episode.vid.metricPending', { n: genTaskActiveCount }) }}</span>
-            <span class="video-task-metric is-done">{{ t('episode.vid.metricDone', { n: genTaskDoneCount }) }}</span>
-            <span class="video-task-metric is-failed">{{ t('episode.vid.metricFailed', { n: genTaskFailedCount }) }}</span>
-          </div>
-          <div v-if="!genTaskRows.length" class="step-empty task-drawer-empty">
-            <div class="empty-visual">
-              <ListTodo :size="32" />
-            </div>
-            <div class="empty-title">{{ t('episode.tasks.emptyTitle') }}</div>
-            <div class="empty-desc">{{ t('episode.tasks.emptyDesc') }}</div>
-          </div>
-          <div v-else class="video-task-table task-drawer-body">
-            <div
-              v-for="row in genTaskRows"
-              :key="row.key"
-              :class="['video-task-row', 'gen-task-row', 'is-' + genTaskStateClass(row.status)]"
-            >
-              <div class="video-task-preview">
-                <video
-                  v-if="row.previewUrl && (row.kind === 'video' || row.kind === 'merge')"
-                  :src="genTaskPreviewSrc(row.previewUrl)"
-                  :poster="posterOf(genTaskPreviewSrc(row.previewUrl)) || undefined"
-                  controls
-                  preload="none"
-                  playsinline
-                />
-                <img
-                  v-else-if="row.previewUrl"
-                  :src="thumbOf(genTaskPreviewSrc(row.previewUrl))"
-                  :alt="row.targetLabel"
-                  loading="lazy"
-                  @error="thumbFallback($event, genTaskPreviewSrc(row.previewUrl))"
-                  @click="openImageViewer(genTaskPreviewSrc(row.previewUrl), row.targetLabel)"
-                />
-                <div v-else class="video-task-empty">
-                  <Loader2 v-if="genTaskStateClass(row.status) === 'pending'" :size="18" class="animate-spin" />
-                  <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                </div>
-                <span class="video-task-index">{{ genTaskKindLabel(row.kind) }}</span>
-              </div>
-              <div class="video-task-main">
-                <div class="video-task-line">
-                  <strong class="video-task-name truncate">{{ row.targetLabel }}</strong>
-                </div>
-                <div class="video-task-meta-line">
-                  <span class="video-task-loc truncate">{{ row.provider }}{{ row.model ? ' · ' + row.model : '' }}</span>
-                  <template v-if="genTaskDuration(row)">
-                    <span class="video-task-sep">·</span>
-                    <span>{{ t('episode.tasks.duration', { dur: genTaskDuration(row) }) }}</span>
-                  </template>
-                  <span class="video-task-sep">·</span>
-                  <span>#{{ row.id }}</span>
-                </div>
-                <div v-if="row.errorMsg" class="video-task-error" :title="row.errorMsg">
-                  {{ mapError(row.errorMsg) }}
-                  <div v-if="row.kind === 'video' && videoModerationHint(row.errorMsg)" class="video-task-error-hint">{{ videoModerationHint(row.errorMsg) }}</div>
-                </div>
-              </div>
-              <span :class="['video-task-status', 'is-' + genTaskStateClass(row.status)]">
-                <span :class="['dot', genTaskStateClass(row.status) === 'done' && 'ok', genTaskStateClass(row.status) === 'pending' && 'pending']" />
-                {{ genTaskStatusLabel(row.status) }}
-              </span>
-            </div>
-          </div>
-        </aside>
-      </div>
+      <!-- ===== TASK DRAWER（模板/行渲染在 TaskDrawer 组件） ===== -->
+      <TaskDrawer
+        :open="taskDrawer"
+        :rows="genTaskRows"
+        :helpers="taskDrawerHelpers"
+        @close="closeTaskDrawer"
+        @refresh="loadGenTasks"
+        @open-image="openImageViewer"
+      />
 
       <div v-if="assetDetail.open && assetDetail.item" class="overlay asset-detail-overlay" @click.self="closeAssetDetail">
         <section
@@ -2359,17 +2162,10 @@ function stopGenTasksPolling() {
   if (genTasksTimer) { stopPoll(genTasksTimer); genTasksTimer = null }
 }
 
+// 顶栏徽章用的进行中计数（done/failed 计数由 TaskDrawer 组件从 rows 自算）
 const genTaskActiveCount = computed(() =>
   genTasks.value.filter(t => t.status === 'processing').length +
   genMerges.value.filter(m => m.status === 'processing' || m.status === 'pending').length
-)
-const genTaskDoneCount = computed(() =>
-  genTasks.value.filter(t => t.status === 'completed').length +
-  genMerges.value.filter(m => m.status === 'completed').length
-)
-const genTaskFailedCount = computed(() =>
-  genTasks.value.filter(t => t.status === 'failed').length +
-  genMerges.value.filter(m => m.status === 'failed').length
 )
 
 function genTaskTargetLabel(task) {
@@ -2432,35 +2228,11 @@ const genTaskRows = computed(() => {
   return [...taskRows, ...mergeRows].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
 })
 
-function genTaskKindLabel(kind) {
-  return kind === 'extract' ? t('episode.tasks.extractKind') : kind === 'image' ? t('common.serviceType.image') : kind === 'video' ? t('common.serviceType.video') : t('episode.tasks.mergeKind')
-}
+// 任务抽屉组件依赖注入：审核提示判定（与列表视图共用）
+const taskDrawerHelpers = { moderationHint: videoModerationHint }
 
-function genTaskStatusLabel(status) {
-  if (status === 'completed') return t('episode.status.done')
-  if (status === 'failed') return t('episode.status.failed')
-  return t('episode.status.generating')
-}
-
-// 映射到现有 video-task-status 的样式类:is-done / is-pending / is-failed
-function genTaskStateClass(status) {
-  if (status === 'completed') return 'done'
-  if (status === 'failed') return 'failed'
-  return 'pending'
-}
-
-// local_path 为站内相对路径补 '/',远端 result_url 原样使用
-function genTaskPreviewSrc(url) {
-  if (!url) return ''
-  return /^https?:\/\//.test(url) ? url : '/' + url
-}
-
-function genTaskDuration(row) {
-  if (!row.createdAt || !row.completedAt) return ''
-  const ms = new Date(row.completedAt).getTime() - new Date(row.createdAt).getTime()
-  if (!Number.isFinite(ms) || ms < 0) return ''
-  return ms >= 60000 ? `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s` : `${Math.round(ms / 1000)}s`
-}
+// 导出面板组件依赖注入：视频判定/地址/时间格式化（与列表视图共用）
+const exportHelpers = { hasVid, getVideoUrl, formatHistoryTime }
 
 // 抽屉打开且有进行中任务时,4s 轮询;关闭或全部结束时停止
 watch([taskDrawer, genTaskActiveCount], ([open, active]) => {
@@ -5938,65 +5710,6 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   background: var(--surface-muted);
 }
 
-/* Export */
-.export-split { flex: 1; display: flex; min-height: 0; }
-.export-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: stretch; gap: 18px; padding: 16px 20px 24px; }
-.export-section { display: flex; flex-direction: column; min-height: 0; }
-.export-section-grow { flex: 1; }
-.export-section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.export-section-title { font-size: 13px; font-weight: 800; color: var(--text-0); }
-.export-merge-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
-.merge-card {
-  flex: 0 0 auto;
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px;
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-}
-.merge-card video {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 6px;
-  background: var(--media-surface);
-  display: block;
-}
-.merge-card-pending {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  border-radius: 6px;
-  background: var(--surface-muted);
-  color: var(--text-3);
-  font-size: 11px;
-  text-align: center;
-}
-.merge-card-pending.is-failed { color: var(--error); background: var(--error-bg); }
-.merge-card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); min-width: 0; }
-.merge-card-meta .btn { margin-left: auto; }
-.merge-card.playable { cursor: pointer; }
-.merge-card.playable:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
-.merge-card-thumb { position: relative; }
-.merge-card-play {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: rgba(0,0,0,0.28);
-  color: #fff;
-  opacity: 0;
-  transition: opacity 0.15s var(--ease-out);
-  pointer-events: none;
-}
-.merge-card.playable:hover .merge-card-play { opacity: 1; }
 .merge-viewer-dialog { width: min(1080px, calc(100vw - 56px)); }
 .merge-viewer-body {
   display: flex;
@@ -6012,104 +5725,6 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   background: #000;
   display: block;
 }
-.export-merge-empty {
-  padding: 14px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  color: var(--text-3);
-  font-size: 12px;
-  text-align: center;
-}
-.export-grid {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  align-content: start;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-.exp-card { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; border-radius: var(--radius); background: var(--surface-raised); border: 1px solid var(--border); }
-.exp-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-card); }
-.exp-card.playable { cursor: pointer; }
-.exp-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
-.exp-check {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,0.9);
-  background: rgba(0,0,0,0.35);
-  color: #fff;
-}
-.exp-check.on { background: var(--accent); border-color: var(--accent); }
-.exp-thumb {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border: 1px solid var(--surface-outline);
-  border-radius: 6px;
-  background: var(--media-surface);
-}
-.exp-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.exp-thumb-empty { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
-.exp-thumb-index {
-  position: absolute;
-  left: 5px;
-  top: 5px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(0,0,0,0.56);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
-}
-.exp-thumb-duration {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-/* 镜头预览：悬停浮现的居中播放钮，点击打开预览弹窗（不影响卡片勾选） */
-.exp-play {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.9);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.62);
-  color: #fff;
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s, background 0.15s;
-}
-.exp-card:hover .exp-play { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-.exp-play:hover { background: var(--accent); }
-/* 导出完成手动标记按钮 */
-.export-done-btn.on {
-  background: var(--success-bg, var(--accent-bg));
-  color: var(--success, var(--accent-text));
-  border-color: transparent;
-  font-weight: 600;
-}
-.exp-row-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 
 /* Shared */
 .dim { color: var(--text-3); }
@@ -6131,8 +5746,7 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
     grid-template-columns: 1fr;
   }
 
-  .split-layout,
-  .export-split {
+  .split-layout {
     flex-direction: column;
   }
 
@@ -6203,14 +5817,6 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
 
 }
 
-/* ===== 任务列表面板 ===== */
-.gen-task-row {
-  grid-template-columns: 84px minmax(0, 1fr) auto;
-  cursor: default;
-}
-.gen-task-row .video-task-preview img {
-  cursor: zoom-in;
-}
 
 /* 任务触发按钮(顶栏) */
 .task-drawer-trigger {
@@ -6231,57 +5837,6 @@ button.video-task-metric.on { box-shadow: 0 0 0 2px var(--accent); }
   line-height: 1;
 }
 
-/* 右侧抽屉 */
-.task-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 118;
-  display: flex;
-  justify-content: flex-end;
-  background: var(--scrim);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: fadeIn 0.18s var(--ease-out);
-}
-.task-drawer {
-  width: min(560px, 100vw);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--panel-bg);
-  border-left: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-xl);
-  animation: taskDrawerIn 0.22s var(--ease-out);
-}
-@keyframes taskDrawerIn {
-  from { transform: translateX(24px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-.task-drawer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--surface-outline);
-}
-.task-drawer-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.task-drawer-metrics {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--surface-outline);
-}
-.task-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-}
-.task-drawer-empty {
-  flex: 1;
-  justify-content: center;
-}
 
 @media (max-width: 860px) {
   .studio {
