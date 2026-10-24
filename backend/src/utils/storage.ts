@@ -12,7 +12,7 @@ import { STORAGE_ROOT } from './paths.js'
 /**
  * 下载远程文件到本地存储
  */
-export async function downloadFile(url: string, subDir: string): Promise<string> {
+export async function downloadFile(url: string, subDir: string, authHeaders?: Record<string, string>): Promise<string> {
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
@@ -33,7 +33,7 @@ export async function downloadFile(url: string, subDir: string): Promise<string>
 
   // 带超时 + 流式落盘：无超时的 fetch 会在 GPU 串行锁内无限挂起，
   // arrayBuffer 全量缓冲会把 37MB+ 视频整段拉进内存
-  const resp = await fetch(url, { signal: AbortSignal.timeout(5 * 60_000) })
+  const resp = await fetch(url, { headers: authHeaders, signal: AbortSignal.timeout(5 * 60_000) })
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
   if (!resp.body) throw new Error('Download failed: empty body')
 

@@ -15,7 +15,7 @@ import { appendTaskEvent } from '../utils/task-events'
 // P2: 零超时 dispatcher 模块级单例——每个 fetch new Agent 会各建一个连接池，从不 close
 const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
-import type { AIConfig, ImageProviderAdapter } from './adapters/types'
+import type { AIConfig, ImageProviderAdapter, VideoProviderAdapter } from './adapters/types'
 import { getModel } from '../agents/index.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
 import { Agent as UndiciAgent } from 'undici'
@@ -680,9 +680,23 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
             }
           }
         } else if (pollResp.videoUrl) {
-          logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl: pollResp.videoUrl })
+          // fusion-mlx #1254 交接：completed 作业的产物不在 status 响应里，
+          // 'job-output' 占位符 → 解析带鉴权的 /jobs/{id}/output/0 产物 URL。
+          // 该 URL 是临时文件（1800s TTL）且需 Bearer 鉴权，落库走 localPath。
+          let videoUrl = pollResp.videoUrl
+          let authHeaders: Record<string, string> | undefined
+          if (videoUrl === 'job-output') {
+            const outReq = (adapter as VideoProviderAdapter).buildJobOutputRequest?.(config, taskId, 0)
+            if (!outReq) {
+              await failTask(record.id, 'Job completed but adapter cannot build output request')
+              return
+            }
+            videoUrl = outReq.url
+            authHeaders = outReq.headers
+          }
+          logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl })
           // A2: 下载/海报帧/TTS 配音/ffmpeg 混流同样入 GPU 串行队列
-          await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, pollResp.videoUrl, pollResp.duration))
+          await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, videoUrl, pollResp.duration, authHeaders))
           return
         }
         // 上游报告完成但没有产物 URL：终态失败，不让轮询空转到超时
@@ -790,14 +804,16 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   }
 }
 
-async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined) {
-  // L6: data URI 外的远端 URL 先落库（签名 URL 短期有效，下载失败可查可重取）
+async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, authHeaders?: Record<string, string>) {
+  // L6: data URI 外的远端 URL 先落库（签名 URL 短期有效，下载失败可查可重取）。
+  // #1254 交接的产物 URL 是临时文件且带鉴权，不存在「重取」——落库占位无妨，
+  // 真相源以 localPath 为准。
   if (!videoUrl.startsWith('data:')) {
     await db.update(schema.sysTask)
       .set({ resultUrl: videoUrl, updatedAt: now() })
       .where(eq(schema.sysTask.id, record.id))
   }
-  const localPath = await downloadFile(videoUrl, 'videos')
+  const localPath = await downloadFile(videoUrl, 'videos', authHeaders)
   // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频——失败只降级
   try {
     await extractVideoPoster(localPath)

@@ -57,6 +57,13 @@ export interface VideoProviderAdapter {
   parsePollResponse(result: any): VideoPollResponse
 
   extractVideoUrl(result: any): string | null
+
+  /**
+   * fusion-mlx #1254 交接专用：作业完成后经带鉴权的产物端点取回成品
+   * （/v1/videos/jobs/{id}/output/{index}，FileResponse 流式 mp4）。
+   * 仅 fusion adapter 实现；宿主在 videoUrl 为占位符 'job-output' 时调用。
+   */
+  buildJobOutputRequest?(config: AIConfig, taskId: string, index?: number): ProviderRequest
 }
 
 // ============ 通用类型 ============

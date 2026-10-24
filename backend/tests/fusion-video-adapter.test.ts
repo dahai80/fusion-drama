@@ -76,7 +76,7 @@ test('fusion passes seed and first frame image', () => {
   assert.equal(request.body.image, 'data:image/png;base64,first')
 })
 
-test('fusion parses sync b64 response and rejects polling', () => {
+test('fusion parses sync b64 response and rejects empty data', () => {
   assert.deepEqual(adapter.parseGenerateResponse({
     data: [{ b64_json: 'AAAA' }],
   }), { isAsync: false, videoUrl: 'data:video/mp4;base64,AAAA' })
@@ -86,7 +86,56 @@ test('fusion parses sync b64 response and rejects polling', () => {
   }), { isAsync: false, videoUrl: 'http://127.0.0.1:11434/static/out.mp4' })
 
   assert.throws(() => adapter.parseGenerateResponse({ data: [] }), /缺少 data\[0\]/)
-  assert.throws(() => adapter.buildPollRequest(config, 'task-1'), /同步接口/)
+})
+
+// ─── #1254 交接：同步窗口 600s 耗尽 → 202 job 交接 + 轮询认领 ───
+
+test('fusion parses 202 video_job_pending handoff as async task', () => {
+  // 上游 videos_routes.py TimeoutError 分支的确切响应形态
+  assert.deepEqual(adapter.parseGenerateResponse({
+    error: {
+      message: 'Video generation still in progress; poll GET /v1/videos/jobs/e21b or fetch output',
+      type: 'video_job_pending',
+      code: 'video_job_pending',
+      job_id: 'e21ba27b945240e1',
+    },
+  }), { isAsync: true, taskId: 'e21ba27b945240e1' })
+})
+
+test('fusion poll request targets GET /v1/videos/jobs/{id} with auth', () => {
+  const req = adapter.buildPollRequest(config, 'e21ba27b945240e1')
+  assert.equal(req.url, 'http://127.0.0.1:11434/v1/videos/jobs/e21ba27b945240e1')
+  assert.equal(req.method, 'GET')
+  assert.equal(req.headers.Authorization, 'Bearer test-key-123')
+})
+
+test('fusion job output request targets /output/{index} with auth', () => {
+  const req = adapter.buildJobOutputRequest(config, 'e21ba27b945240e1')
+  assert.equal(req.url, 'http://127.0.0.1:11434/v1/videos/jobs/e21ba27b945240e1/output/0')
+  assert.equal(req.method, 'GET')
+  assert.equal(req.headers.Authorization, 'Bearer test-key-123')
+  assert.equal(adapter.buildJobOutputRequest(config, 'j1', 2).url.endsWith('/output/2'), true)
+})
+
+test('fusion parses job poll responses across lifecycle', () => {
+  // running/queued → processing（继续轮询）
+  assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'running', progress: 0.8 }),
+    { status: 'processing' })
+  assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'queued' }),
+    { status: 'processing' })
+  // 上游偶发在轮询响应里回 202 形态
+  assert.deepEqual(adapter.parsePollResponse({ error: { code: 'video_job_pending' } }),
+    { status: 'processing' })
+  // completed → 占位符，宿主据此走 buildJobOutputRequest 下载
+  assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'completed', progress: 1.0 }),
+    { status: 'completed', videoUrl: 'job-output' })
+  // failed/cancelled → 终态失败
+  assert.deepEqual(adapter.parsePollResponse({ status: 'failed', error: 'OOM' }),
+    { status: 'failed', error: 'OOM' })
+  assert.deepEqual(adapter.parsePollResponse({ status: 'cancelled' }),
+    { status: 'failed', error: '视频作业 cancelled' })
+  // 作业被 prune/重启丢失（404 detail）→ 无法恢复
+  assert.equal(adapter.parsePollResponse({ detail: "Video job 'xxx' not found" }).status, 'failed')
 })
 
 // LTX-Video legacy 2B routing removed (2026-10-15): 2s cap / 768-only / no

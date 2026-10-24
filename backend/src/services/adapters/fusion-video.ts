@@ -3,9 +3,12 @@
  * 端点: /v1/videos/generate（同步阻塞，返回 base64 data URI）
  * 模型: dgrauet--ltx-2.5-mlx-q8 等 fusion-mlx 加载的本地视频模型
  *
- * 协议特点：无任务轮询，单次请求直接返回 { data: [{ b64_json | url }] }。
- * 同步响应通过 parseGenerateResponse 返回 isAsync=false + data URI，
- * 由 generation.ts 走 handleVideoComplete 下载落盘（downloadFile 支持 data URI）。
+ * 协议特点：正常同步响应为 { data: [{ b64_json | url }] }，无任务轮询。
+ * #1254 交接：上游同步窗口 _SYNC_VIDEO_WAIT_SECONDS=600s 耗尽而作业仍在跑时，
+ * 返回 202 + { error: { code: "video_job_pending", job_id } }——作业已 shield
+ * 在服务端继续执行，客户端经 GET /v1/videos/jobs/{job_id} 轮询，完成后从
+ * /v1/videos/jobs/{job_id}/output/0 取回成品（须 Bearer 鉴权；作业终态 1800s
+ * TTL 后被 prune 连临时文件回收）。isAsync=true 走 generation.ts 的 pollTask。
  */
 import type {
   VideoProviderAdapter,
@@ -239,6 +242,13 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
   }
 
   parseGenerateResponse(result: any): VideoGenResponse {
+    // #1254 交接：同步窗口 600s 耗尽而作业仍在跑 → 202 { error: { code:
+    // "video_job_pending", job_id } }。作业在服务端 shield 继续跑，转轮询。
+    const pendingJobId = result?.error?.job_id
+      ?? (result?.error?.code === 'video_job_pending' ? result?.error?.job_id : null)
+    if (pendingJobId) {
+      return { isAsync: true, taskId: String(pendingJobId) }
+    }
     const item = result?.data?.[0]
     if (!item) throw new Error('fusion-mlx 视频响应缺少 data[0]')
     const videoUrl = item.url || (item.b64_json ? `data:video/mp4;base64,${item.b64_json}` : null)
@@ -247,13 +257,48 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     return { isAsync: false, videoUrl }
   }
 
-  buildPollRequest(_config: AIConfig, _taskId: string): ProviderRequest {
-    // 同步接口，不应走到轮询；保留空实现满足接口
-    throw new Error('fusion-mlx 视频为同步接口，无轮询')
+  buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
+    // #1254 交接后的作业轮询：GET /v1/videos/jobs/{job_id}
+    // （ queued/running → processing；completed → 宿主从 buildJobOutputRequest 取产物）
+    return {
+      url: joinProviderUrl(config.baseUrl, '/v1', `/videos/jobs/${taskId}`),
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${config.apiKey}` },
+      body: null,
+    }
   }
 
-  parsePollResponse(_result: any): VideoPollResponse {
-    return { status: 'failed', error: 'fusion-mlx 视频为同步接口，无轮询' }
+  /** 交接作业完成后的产物请求：GET /v1/videos/jobs/{job_id}/output/0
+   *  （FileResponse 流式回传 mp4，需 Bearer 鉴权）。generation.ts 收到
+   *  videoUrl='job-output' 占位时改用本方法发起下载。 */
+  buildJobOutputRequest(config: AIConfig, taskId: string, index = 0): ProviderRequest {
+    return {
+      url: joinProviderUrl(config.baseUrl, '/v1', `/videos/jobs/${taskId}/output/${index}`),
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${config.apiKey}` },
+      body: null,
+    }
+  }
+
+  parsePollResponse(result: any): VideoPollResponse {
+    if (result?.error?.code === 'video_job_pending') {
+      return { status: 'processing' }
+    }
+    // 已终态又被 404（prune/重启丢失）：无法恢复，终态失败
+    if (result?.detail && String(result.detail).includes('not found')) {
+      return { status: 'failed', error: `fusion-mlx 视频作业已丢失: ${result.detail}` }
+    }
+    switch (result?.status) {
+      case 'completed':
+        // 产物本体不在 status 响应里（在 /output/{index}），用占位符让宿主走
+        // buildJobOutputRequest 下载；output_files 数量可 >1（多输出极少见，取首个）
+        return { status: 'completed', videoUrl: 'job-output' }
+      case 'failed':
+      case 'cancelled':
+        return { status: 'failed', error: result?.error || `视频作业 ${result?.status}` }
+      default:
+        return { status: 'processing' }
+    }
   }
 
   extractVideoUrl(result: any): string | null {
