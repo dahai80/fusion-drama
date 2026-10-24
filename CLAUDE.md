@@ -18,7 +18,6 @@ frontend/  — Nuxt 3 + Vue 3 + TypeScript，ssr:false（纯 CSS，无 UI 框架
 desktop/   — Electron 桌面版：主进程 + esbuild 打包脚本 + electron-builder 配置
 docker/    — 容器 entrypoint（workspace 模板 copy-once 到数据卷）
 data/      — SQLite 数据库（fusion.sqlite3）+ 生成的静态文件（static/）
-configs/   — 遗留死配置，代码零引用
 ```
 
 ## Commands
@@ -103,5 +102,5 @@ SQLite 单文件（默认 `data/fusion.sqlite3`，桌面版在 userData，Docker
 
 - **环境变量**（全部有默认值，本地 dev 零配置；全集见 README「Environment Variables」）：`SQLITE_PATH` / `PORT`(5679) / `STORAGE_PATH` / `FUSION_DATA_DIR` / `WORKSPACE_PATH` / `FRONTEND_DIST` / `FFMPEG_BIN`/`FFPROBE_BIN` / `PUBLIC_BASE_URL` / `FUSION_VERSION` / `FUSION_UPDATE_FEED` / `FUSION_WATCHTOWER_URL`/`TOKEN` / `AI_DISABLE_THINKING` / `AI_THINKING_OFF_PATCH`
 - AI 服务配置（API key/baseUrl/模型/温度）存 DB（`ai_service_configs` 表），设置页维护，**不在配置文件或环境变量**
-- `configs/config.yaml` 是死配置（勿参考）
+- `FUSION_API_TOKEN`：对外部署（非 loopback 绑定）未显式配置时首启自动生成 64 hex 并持久化到 `app_settings.server_api_token`（重启复用）；本地/桌面（loopback）免鉴权不变
 - `PUBLIC_BASE_URL`：Seedance 引用本地参考资源需公网地址，桌面版无此能力（有中文报错）

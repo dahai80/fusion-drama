@@ -32,7 +32,7 @@ import { requestLogger, errorHandler } from './middleware/logger.js'
 import { requireApiToken, requireSafeContentType } from './middleware/auth.js'
 import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
-import { now } from './utils/response.js'
+import { now, notFound } from './utils/response.js'
 import { DATA_ROOT, STORAGE_ROOT } from './utils/paths.js'
 import fs from 'fs'
 import { sqlite } from './db/index.js'
@@ -127,6 +127,10 @@ app.use('/static/*', serveStatic({ root: STORAGE_ROOT, rewriteRequestPath: p => 
 
 // Serve frontend (production build) — 桌面版由主进程注入 FRONTEND_DIST（resources/frontend）
 const distPath = process.env.FRONTEND_DIST || path.join(projectRoot, 'frontend', 'dist')
+// API 404 硬闸：/api/v1/* 未匹配任何路由时返回 JSON 404，绝不落到下面的 SPA
+// index.html fallback——静默回 HTML 会把调用方的路径/参数错误伪装成"成功响应"，
+// 排障时表现为拿到一段前端页面（实测踩坑，见 audit/fusion-drama-audit-1024.md §四）
+app.use('/api/v1/*', async (c) => notFound(c, `API 路由不存在: ${c.req.method} ${c.req.path}`))
 app.use('*', serveStatic({ root: distPath }))
 app.get('*', serveStatic({ root: distPath, path: 'index.html' }))
 
