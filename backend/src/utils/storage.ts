@@ -27,15 +27,17 @@ export async function downloadFile(url: string, subDir: string, authHeaders?: Re
     return `static/${subDir}/${filename}`
   }
 
-  const ext = getExtFromUrl(url)
-  const filename = `${uuid()}${ext}`
-  const filePath = path.join(dir, filename)
-
   // 带超时 + 流式落盘：无超时的 fetch 会在 GPU 串行锁内无限挂起，
   // arrayBuffer 全量缓冲会把 37MB+ 视频整段拉进内存
   const resp = await fetch(url, { headers: authHeaders, signal: AbortSignal.timeout(5 * 60_000) })
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
   if (!resp.body) throw new Error('Download failed: empty body')
+
+  // Content-Type 先行：部分产物端点 URL 无扩展名（fusion-mlx /jobs/{id}/output/0
+  // 是 FileResponse 裸路径），URL 推断会落到 .bin
+  const ext = extFromContentType(resp.headers.get('content-type')) || getExtFromUrl(url)
+  const filename = `${uuid()}${ext}`
+  const filePath = path.join(dir, filename)
 
   const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
   let received = 0
@@ -80,6 +82,13 @@ function getExtFromUrl(url: string): string {
     if (ext && ext.length <= 5) return ext
   } catch {}
   return '.bin'
+}
+
+/** 响应 Content-Type → 扩展名（URL 无扩展名的产物端点兜底） */
+function extFromContentType(contentType: string | null): string | null {
+  if (!contentType) return null
+  const mime = contentType.split(';')[0].trim().toLowerCase()
+  return mimeTypeExt(mime)
 }
 
 /** 常见 MIME 类型 → 文件扩展名（data URI 落盘用） */
