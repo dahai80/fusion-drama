@@ -172,7 +172,8 @@
       "charCount": "캐릭터 {n}",
       "sceneCount": "장면 {n}",
       "epCount": "{n}화",
-      "addEpisode": "화 추가"
+      "addEpisode": "화 추가",
+      "importNovel": "소설 가져오기"
     },
     "tabs": {
       "episodes": "에피소드 목록",
@@ -1043,5 +1044,30 @@
         "desc": "이 \"?\" 버튼으로 이 페이지의 가이드를 다시 재생할 수 있습니다. 즐거운 제작 되세요!"
       }
     }
+  },
+  "novel": {
+    "title": "소설 가져오기",
+    "step": {
+      "import": "가져오기",
+      "outline": "개요",
+      "plan": "회차 계획",
+      "rewrite": "각본 재작성"
+    },
+    "inputPlaceholder": "소설 전문을 붙여넣거나 아래 버튼으로 .txt / .md 파일을 불러오세요…",
+    "importFile": "파일 불러오기",
+    "charCount": "{n}자",
+    "existingHint": "기존 파이프라인: {segments} 구간 / {outlined} 개요 완료 / {episodes} 회 (다시 가져오면 각본 없는 회차가 교체됨)",
+    "importing": "가져오는 중…",
+    "outlining": "구간별 개요 추출 중 (백그라운드 실행, 창을 닫아도 됨)",
+    "planning": "회차 계획 중…",
+    "rewriting": "회차별 각본 재작성 중 (백그라운드 실행)",
+    "done": "완료! {episodes}회 각본 생성됨",
+    "imported": "{name} 불러옴",
+    "importedSegments": "{n}구간으로 분할됨",
+    "importFailed": "파일 불러오기 실패",
+    "working": "처리 중…",
+    "start": "가져오기 시작",
+    "gotoEpisodes": "회차 목록으로",
+    "footCopy": "가져오기 후 자동 실행: 분할 → 개요 → 계획 → 재작성"
   }
 }

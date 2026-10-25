@@ -172,7 +172,8 @@
       "charCount": "{n} キャラクター",
       "sceneCount": "{n} シーン",
       "epCount": "{n} 話",
-      "addEpisode": "話を追加"
+      "addEpisode": "話を追加",
+      "importNovel": "小説をインポート"
     },
     "tabs": {
       "episodes": "エピソード一覧",
@@ -1043,5 +1044,30 @@
         "desc": "この「?」ボタンでこのページのガイドを再表示できます。良い制作を！"
       }
     }
+  },
+  "novel": {
+    "title": "小説をインポート",
+    "step": {
+      "import": "取り込み",
+      "outline": "アウトライン",
+      "plan": "話数計画",
+      "rewrite": "書き直し"
+    },
+    "inputPlaceholder": "小説全文を貼り付け、または下のボタンから .txt / .md ファイルを読み込み…",
+    "importFile": "ファイル読み込み",
+    "charCount": "{n} 文字",
+    "existingHint": "既存パイプライン：{segments} 区間 / {outlined} アウトライン済み / {episodes} 話（再インポートは台本未作成の話を置き換えます）",
+    "importing": "インポート中…",
+    "outlining": "区間ごとにアウトライン抽出（バックグラウンド実行、ウィンドウを閉じてもOK）",
+    "planning": "話数計画中…",
+    "rewriting": "各話の台本を書き直し中（バックグラウンド実行）",
+    "done": "完了！{episodes} 話の台本を生成しました",
+    "imported": "{name} を読み込みました",
+    "importedSegments": "{n} 区間に分割しました",
+    "importFailed": "ファイルの読み込みに失敗しました",
+    "working": "処理中…",
+    "start": "インポート開始",
+    "gotoEpisodes": "話数リストへ",
+    "footCopy": "インポート後は自動実行：分割 → アウトライン → 計画 → 書き直し"
   }
 }

@@ -26,6 +26,7 @@ import merge from './routes/merge.js'
 import skills from './routes/skills.js'
 import props from './routes/props.js'
 import settings from './routes/settings.js'
+import novel from './routes/novel.js'
 import storage from './routes/storage.js'
 import serverUpdate from './routes/serverUpdate.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
@@ -110,6 +111,7 @@ api.route('/skills', skills)
 api.route('/props', props)
 api.route('/storage', storage)
 api.route('/settings', settings)
+api.route('/novel', novel)
 api.route('/server-update', serverUpdate)
 
 app.route('/api/v1', api)

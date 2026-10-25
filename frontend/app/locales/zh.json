@@ -172,7 +172,8 @@
       "charCount": "{n} 角色",
       "sceneCount": "{n} 场景",
       "epCount": "{n} 集",
-      "addEpisode": "添加集"
+      "addEpisode": "添加集",
+      "importNovel": "导入小说"
     },
     "tabs": {
       "episodes": "剧集列表",
@@ -1043,5 +1044,30 @@
         "desc": "点这个「?」按钮可重新播放本页引导。祝创作顺利！"
       }
     }
+  },
+  "novel": {
+    "title": "导入小说",
+    "step": {
+      "import": "导入",
+      "outline": "大纲",
+      "plan": "分集",
+      "rewrite": "改写"
+    },
+    "inputPlaceholder": "粘贴整本小说文本，或从下方按钮导入 .txt / .md 文件…",
+    "importFile": "导入文件",
+    "charCount": "{n} 字",
+    "existingHint": "已有管线：{segments} 块 / {outlined} 已出大纲 / {episodes} 集（重新导入将替换未写剧本的分集）",
+    "importing": "导入中…",
+    "outlining": "逐段提取大纲（后台运行，可关闭窗口）",
+    "planning": "规划分集…",
+    "rewriting": "逐集滚动改写剧本（后台运行）",
+    "done": "完成！已生成 {episodes} 集剧本",
+    "imported": "已导入 {name}",
+    "importedSegments": "已切分为 {n} 段",
+    "importFailed": "文件导入失败",
+    "working": "处理中…",
+    "start": "开始导入",
+    "gotoEpisodes": "进入剧集列表",
+    "footCopy": "导入后自动执行：切块 → 大纲 → 分集 → 改写"
   }
 }

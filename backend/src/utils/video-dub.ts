@@ -2,7 +2,7 @@
  * 视频对白配音（TTS）— 修复 LTX-2.5 联合 A/V 只产出环境底噪、无清晰对白的问题
  *
  * 流程：从分镜 video_prompt 提取「角色名：台词」对白 → 逐条调用 fusion-mlx
- * /v1/audio/speech（Kokoro TTS）合成 → 按顺序拼成一条音轨 → 与原视频混流
+ * /v1/audio/speech（Kokoro / Qwen3-TTS）合成 → 按顺序拼成一条音轨 → 与原视频混流
  * （原音轨降噪保留环境声，TTS 音轨置前）。
  *
  * 任一步骤失败均返回原视频路径，不阻断任务主流程。
@@ -32,10 +32,60 @@ async function getTtsEndpoint(): Promise<{ baseUrl: string; apiKey: string } | n
 }
 
 const TTS_MODEL = process.env.FUSION_TTS_MODEL || 'mlx-community--Kokoro-82M-bf16'
-// 多说话人音色轮换（Kokoro 中文男声）：不同角色分配不同声线，避免全片同声（bug2）。
-// 分配规则：按台词首次出现顺序，第 i 个说话人 → 第 i 个音色（循环）。
-const TTS_VOICE_ROTATION = (process.env.FUSION_TTS_VOICES || 'zm_yunjian,zm_yunyang,zm_yunxia')
+// 多说话人音色轮换池：按当前 TTS 模型族取表——不同角色分配不同声线，避免全片同声。
+const isQwen3Tts = /qwen3.*tts/i.test(TTS_MODEL)
+// Kokoro 内置多音色（E2E 验证 zm_yunjian/zm_yunyang/zm_yunxia 均可合成且互异）
+const KOKORO_TTS_VOICES = (process.env.FUSION_TTS_VOICES || 'zm_yunjian,zm_yunyang,zm_yunxia')
   .split(',').map(s => s.trim()).filter(Boolean)
+// Qwen3-TTS Base 无内置预设音色（E2E 实测 400："Base models have no built-in
+// preset voices"），音色走 ICL 克隆：workspace/voices/<name>.wav + 同名 .txt（ref 文本）。
+// 预设音色方案（Vivian/Dylan 等）仅存在于非 Base 版本，mlx 侧只有 Base。
+const VOICES_DIR = path.join(
+  process.env.WORKSPACE_PATH ? path.resolve(process.env.WORKSPACE_PATH) : path.resolve(__dirname, '../../workspace'),
+  'voices',
+)
+/** 列出 workspace/voices 下可用的克隆音色名（.wav + 同名 .txt 齐全才算） */
+function listRefVoices(): string[] {
+  try {
+    return fs.readdirSync(VOICES_DIR)
+      .filter(f => f.endsWith('.wav'))
+      .map(f => f.slice(0, -4))
+      .filter(name => fs.existsSync(path.join(VOICES_DIR, `${name}.txt`)))
+  } catch { return [] }
+}
+/** 读一个克隆音色的 ref_audio(base64)+ref_text；缺失返回 null 并告警 */
+function loadRefVoice(voice: string): { ref_audio: string; ref_text: string } | null {
+  try {
+    const wav = fs.readFileSync(path.join(VOICES_DIR, `${voice}.wav`))
+    const refText = fs.readFileSync(path.join(VOICES_DIR, `${voice}.txt`), 'utf8').trim()
+    if (!refText) return null
+    return { ref_audio: wav.toString('base64'), ref_text: refText }
+  } catch (err) {
+    logTaskWarn('VideoTask', 'tts-ref-voice-load-failed', { voice, error: (err as Error).message })
+    return null
+  }
+}
+/** 当前 TTS 模型的音色池；不认识 voice 参数的模型返回 []（不传 voice） */
+function ttsVoicePool(): string[] {
+  if (isQwen3Tts) return listRefVoices()
+  if (/kokoro/i.test(TTS_MODEL)) return KOKORO_TTS_VOICES
+  return []
+}
+/**
+ * 说话人 → 音色：characters.voice（显式指定，跨镜头/跨集稳定）优先，
+ * 否则按角色名 hash 轮换音色池——hash 保证同一角色在不同分镜/不同集
+ * 拿到同一音色（替代旧的「按台词首现顺序」per-shot 分配，那会导致
+ * 同角色跨镜头换声线）。
+ */
+export function voiceForSpeaker(speaker: string, characterVoices: Map<string, string>): string {
+  const explicit = characterVoices.get(speaker)
+  if (explicit) return explicit
+  const pool = ttsVoicePool()
+  if (!pool.length) return ''
+  let h = 0
+  for (let i = 0; i < speaker.length; i++) h = ((h << 5) - h + speaker.charCodeAt(i)) | 0
+  return pool[Math.abs(h) % pool.length]
+}
 // FUSION_TTS_VOICE 显式指定时全片单音色（覆盖轮换，兼容旧行为）
 const TTS_VOICE = process.env.FUSION_TTS_VOICE || ''
 
@@ -116,22 +166,27 @@ export function extractDialogue(
   return out
 }
 
-/** 查分镜绑定的角色名列表（用于 extractDialogue 精确匹配 @角色名）。 */
-async function getStoryboardSpeakers(storyboardId?: number): Promise<string[]> {
-  if (!storyboardId) return []
+/** 查分镜绑定的角色（名 + 固定音色），用于精确匹配 @角色名 与跨镜头音色一致。 */
+async function getStoryboardSpeakers(storyboardId?: number): Promise<{ names: string[]; voices: Map<string, string> }> {
+  if (!storyboardId) return { names: [], voices: new Map() }
   try {
     const rows = await db
-      .select({ name: schema.characters.name })
+      .select({ name: schema.characters.name, voice: schema.characters.voice })
       .from(schema.storyboardCharacters)
       .innerJoin(
         schema.characters,
         eq(schema.characters.id, schema.storyboardCharacters.characterId),
       )
       .where(eq(schema.storyboardCharacters.storyboardId, storyboardId))
-    return rows.map(r => r.name).filter(Boolean)
+    const names = rows.map(r => r.name).filter(Boolean)
+    const voices = new Map<string, string>()
+    for (const r of rows) {
+      if (r.name && r.voice) voices.set(r.name, r.voice)
+    }
+    return { names, voices }
   } catch (err) {
     logTaskWarn('VideoTask', 'tts-speakers-query-failed', { storyboardId, error: (err as Error).message })
-    return []
+    return { names: [], voices: new Map() }
   }
 }
 
@@ -151,15 +206,21 @@ async function synthesizeLine(text: string, idx: number, voice: string): Promise
   const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
   const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
   const attempt = async (): Promise<string | null> => {
-    // Kokoro 首次加载需下载/初始化，且与常驻 LLM 共存时可能被内存管理延迟，超时给足
+    // Qwen3-TTS Base：voice 是 workspace/voices 下的克隆音色名 → ref_audio+ref_text
+    const refVoice = isQwen3Tts && voice ? loadRefVoice(voice) : null
+    if (isQwen3Tts && voice && !refVoice) {
+      logTaskWarn('VideoTask', 'tts-ref-voice-missing', { idx, voice, voicesDir: VOICES_DIR })
+    }
     const res = await fetch(`${baseUrl}/v1/audio/speech`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: TTS_MODEL,
         input: text,
-        // Qwen3-TTS 无 voice 参数（音色内置）；仅对支持 voice 的模型（Kokoro 等）传
-        ...(voice && !/qwen3.*tts/i.test(TTS_MODEL) ? { voice } : {}),
+        // voice 由 voiceForSpeaker 按模型音色池产出：Kokoro 传内置音色名；
+        // Qwen3-TTS Base 传克隆参数；池空（不认识 voice 的模型）时不携带
+        ...(refVoice ? { ref_audio: refVoice.ref_audio, ref_text: refVoice.ref_text }
+          : voice && !isQwen3Tts ? { voice } : {}),
         response_format: 'wav',
       }),
       signal: AbortSignal.timeout(280_000),
@@ -198,21 +259,21 @@ export async function dubVideoDialogue(
     // 分镜绑定角色名用于精确解析 @角色名（LLM 常把动作描述夹在名字与「说」之间，
     // 无已知角色名则 extractDialogue 回退为紧邻「说」的词，同角色多句台词会因
     // 动作描述不同而映射到不同 speaker → 不同音色，破坏同角色音色一致性 bug2）。
-    const knownSpeakers = await getStoryboardSpeakers(storyboardId)
+    const { names: knownSpeakers, voices: characterVoices } = await getStoryboardSpeakers(storyboardId)
     const lines = extractDialogue(videoPrompt, knownSpeakers)
     if (!lines.length) return null
 
     const { ffmpeg: ffmpegOk } = await checkFfmpegSuite()
     if (!ffmpegOk) return null
 
-    // 说话人 → 音色分配：按台词首次出现顺序给每个说话人分配轮换表中的音色，
-    // 同一说话人多句台词共用同一声线（bug2：不同角色同声无法分辨）。
-    // FUSION_TTS_VOICE 显式指定时全片单音色；非 Kokoro 模型（如 Qwen3-TTS）忽略 voice。
+    // 说话人 → 音色：characters.voice 显式指定优先，否则角色名 hash 轮换音色池。
+    // hash 与分镜无关 → 同一角色跨镜头/跨集拿到同一音色（旧实现按台词首现顺序
+    // per-shot 分配，同角色换镜头会换声线）。FUSION_TTS_VOICE 显式指定时全片单音色。
     const speakerVoices = new Map<string, string>()
-    if (!TTS_VOICE && /kokoro/i.test(TTS_MODEL)) {
+    if (!TTS_VOICE) {
       for (const line of lines) {
         if (!speakerVoices.has(line.speaker)) {
-          speakerVoices.set(line.speaker, TTS_VOICE_ROTATION[speakerVoices.size % TTS_VOICE_ROTATION.length])
+          speakerVoices.set(line.speaker, voiceForSpeaker(line.speaker, characterVoices))
         }
       }
     }

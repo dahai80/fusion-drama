@@ -2927,11 +2927,14 @@ function getShotReferenceImages(sb) {
     if (!value || refs.includes(value) || refs.length >= refImageLimit.value) return
     refs.push(value)
   }
-  const scene = getStoryboardScene(sb)
-  pushRef(scene?.image_url || scene?.imageUrl)
+  // 顺序约定：角色定妆照最前——FLUX.1-Kontext 只消费 image[0] 做角色锚定
+  // （fusion-mlx edits 端点 image[0]=edit target），多图模型（Qwen-Image-Edit）
+  // 同样以人物图为第一语义输入；场景/道具随后
   for (const char of getStoryboardCharacters(sb)) {
     pushRef(char?.image_url || char?.imageUrl)
   }
+  const scene = getStoryboardScene(sb)
+  pushRef(scene?.image_url || scene?.imageUrl)
   for (const prop of getStoryboardProps(sb)) {
     pushRef(prop?.image_url || prop?.imageUrl)
   }

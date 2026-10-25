@@ -172,7 +172,8 @@
       "charCount": "{n} characters",
       "sceneCount": "{n} scenes",
       "epCount": "{n} episodes",
-      "addEpisode": "Add Episode"
+      "addEpisode": "Add Episode",
+      "importNovel": "Import Novel"
     },
     "tabs": {
       "episodes": "Episodes",
@@ -1043,5 +1044,30 @@
         "desc": "Click this \"?\" button to replay this page's guide. Happy creating!"
       }
     }
+  },
+  "novel": {
+    "title": "Import Novel",
+    "step": {
+      "import": "Import",
+      "outline": "Outline",
+      "plan": "Plan",
+      "rewrite": "Rewrite"
+    },
+    "inputPlaceholder": "Paste the full novel text, or load a .txt / .md file below…",
+    "importFile": "Load File",
+    "charCount": "{n} chars",
+    "existingHint": "Existing pipeline: {segments} segments / {outlined} outlined / {episodes} episodes (re-import replaces episodes without scripts)",
+    "importing": "Importing…",
+    "outlining": "Extracting outlines per segment (background task, window can be closed)",
+    "planning": "Planning episodes…",
+    "rewriting": "Rewriting episode scripts (background task)",
+    "done": "Done! {episodes} episode scripts generated",
+    "imported": "Loaded {name}",
+    "importedSegments": "Split into {n} segments",
+    "importFailed": "Failed to load file",
+    "working": "Working…",
+    "start": "Start Import",
+    "gotoEpisodes": "Go to Episodes",
+    "footCopy": "After import, runs automatically: chunk → outline → plan → rewrite"
   }
 }

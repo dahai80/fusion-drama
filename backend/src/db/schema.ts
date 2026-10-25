@@ -44,6 +44,29 @@ export const episodes = sqliteTable('episodes', {
   deletedAt: text('deleted_at'),
 })
 
+// 小说导入管线：切块（章界优先，~18k 字窗口）→ 逐块大纲 → 分集规划 → 逐集滚动改写
+export const novelSegments = sqliteTable('novel_segments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  seq: integer('seq').notNull(),
+  content: text('content').notNull(),
+  chapterTitle: text('chapter_title'),
+  outline: text('outline'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const novelEpisodePlans = sqliteTable('novel_episode_plans', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  episodeId: integer('episode_id'),
+  episodeNumber: integer('episode_number').notNull(),
+  plan: text('plan').notNull(),
+  recap: text('recap'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
 // FR-P1-1: 任务事件流（SSE 回放源）；seq 单调递增供 Last-Event-ID 续传
 export const sysTaskEvents = sqliteTable('sys_task_events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -69,6 +92,9 @@ export const characters = sqliteTable('characters', {
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
   seedValue: text('seed_value'),
+  // 角色固定音色（可选，模型相关名如 Kokoro zm_yunjian / Qwen3-TTS Vivian）；
+  // 空值时 video-dub 按角色名 hash 轮换取当前 TTS 模型音色表
+  voice: text('voice'),
   sortOrder: integer('sort_order'),
   localPath: text('local_path'),
   createdAt: text('created_at').notNull(),

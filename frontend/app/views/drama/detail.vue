@@ -25,6 +25,12 @@
           </span>
         </div>
       </div>
+      <button class="btn head-action" @click="novelWizardOpen = true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        {{ t('detail.head.importNovel') }}
+      </button>
       <button class="btn btn-primary head-action" @click="openAddEpisode">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -558,6 +564,12 @@
       @confirm="confirmDelEpisode"
       @cancel="episodeToDelete = null"
     />
+    <NovelWizard
+      :open="novelWizardOpen"
+      :drama-id="dramaId"
+      @close="novelWizardOpen = false"
+      @done="onNovelDone"
+    />
   </div>
 </template>
 
@@ -567,6 +579,7 @@ import { toastError } from '~/composables/useToast'
 import { useI18n } from 'vue-i18n'
 import { dramaAPI, episodeAPI, characterAPI, sceneAPI, propAPI, uploadAPI } from '~/composables/useApi'
 import BaseSelect from '~/components/BaseSelect.vue'
+import NovelWizard from '~/components/NovelWizard.vue'
 
 const { t, locale } = useI18n()
 
@@ -578,6 +591,12 @@ if (!Number.isInteger(dramaId) || dramaId <= 0) {
   throw createError({ statusCode: 404, statusMessage: 'Invalid drama id', fatal: true })
 }
 const addDialog = ref(false)
+// 整本小说导入向导（切块→大纲→分集→改写），完成后刷新剧集列表
+const novelWizardOpen = ref(false)
+async function onNovelDone() {
+  novelWizardOpen.value = false
+  await load()
+}
 const creatingEpisode = ref(false)
 const newEpisodeTitle = ref('')
 const episodeToDelete = ref(null)

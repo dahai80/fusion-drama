@@ -67,6 +67,19 @@ export const dramaAPI = {
   del: (id: number) => api.del(`/dramas/${id}?confirm=true`),
 }
 
+// 整本小说导入管线：切块 → 大纲 → 分集规划 → 逐集滚动改写
+export const novelAPI = {
+  import: (dramaId: number, content: string, replace = true) =>
+    api.post('/novel/import', { drama_id: dramaId, content, replace }, 300_000),
+  outline: (dramaId: number) => api.post('/novel/outline', { drama_id: dramaId }),
+  plan: (dramaId: number, targetMinutes = 2) =>
+    api.post('/novel/plan', { drama_id: dramaId, target_minutes: targetMinutes }, 600_000),
+  rewriteAll: (dramaId: number) => api.post('/novel/rewrite', { drama_id: dramaId }),
+  rewriteOne: (dramaId: number, episodeId: number) =>
+    api.post(`/novel/rewrite/${episodeId}`, { drama_id: dramaId }, 900_000),
+  status: (dramaId: number) => api.get(`/novel/status?drama_id=${dramaId}`),
+}
+
 export const episodeAPI = {
   create: (data: any) => api.post('/episodes', data),
   update: (id: number, data: any) => api.put(`/episodes/${id}`, data),

@@ -50,11 +50,23 @@ data/       — Generated assets and the SQLite database
 
 ## ✨ Features
 
+### 📖 Full-Novel Import Pipeline
+
+Turn an entire novel into a multi-episode drama in one guided flow (drama detail page → **Import Novel**):
+
+1. **Chunking** — chapter-boundary aware, ~18k-char windows (fits the proven 20k context), sentence-boundary hard splits
+2. **Per-segment outlines** — background batch, resumable, structured JSON summaries + character cards
+3. **Episode planning** — single-pass plan from merged outlines with coverage validation; re-planning never touches user-edited episodes
+4. **Rolling rewrite** — per-episode script rewrite with source text + character cards + previous-episode recap for continuity
+
+All steps run on the shared GPU serial queue and are idempotent — interrupted runs resume where they left off.
+
 ### 🎭 Character Management
 
 - ✅ AI-generated character designs
 - ✅ Batch character generation
 - ✅ Character image upload and management
+- ✅ In-context character editing via FLUX.1 Kontext (`/v1/images/edits`): keeps face/outfit identity while changing pose or background
 
 ### 🎬 Video Tasks
 
@@ -67,6 +79,7 @@ data/       — Generated assets and the SQLite database
 - ✅ Text-to-video generation
 - ✅ FFmpeg per-shot compositing and subtitle handling
 - ✅ Full-episode stitching and export
+- ✅ Per-character TTS voice dubbing: each character gets a stable voice across shots/episodes (explicit per-character voice, or deterministic name-hash assignment). Kokoro uses built-in voices; Qwen3-TTS Base clones voices from `workspace/voices/<name>.wav` + `.txt` reference pairs
 
 ### 📦 Asset Management
 

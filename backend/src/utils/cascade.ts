@@ -105,6 +105,9 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
     if (assetIds.prop.length) rows.props = (await db.delete(schema.props).where(inArray(schema.props.id, assetIds.prop))).changes ?? 0
     if (tasks.length) rows.sys_tasks = (await db.delete(schema.sysTask).where(eq(schema.sysTask.dramaId, dramaId))).changes ?? 0
     if (merges.length) rows.video_merges = (await db.delete(schema.videoMerges).where(eq(schema.videoMerges.dramaId, dramaId))).changes ?? 0
+    // 小说导入管线产物随剧清理（novel_segments / novel_episode_plans 均以 drama_id 锚定）
+    rows.novel_segments = (await db.delete(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId))).changes ?? 0
+    rows.novel_episode_plans = (await db.delete(schema.novelEpisodePlans).where(eq(schema.novelEpisodePlans.dramaId, dramaId))).changes ?? 0
     rows.dramas = (await db.delete(schema.dramas).where(eq(schema.dramas.id, dramaId))).changes ?? 0
 
     const filesResult = await deleteFiles(files, 'none')

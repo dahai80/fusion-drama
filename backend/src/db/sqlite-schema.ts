@@ -58,6 +58,7 @@ export const sqliteSchemaStatements = [
     image_url TEXT,
     reference_images TEXT,
     seed_value TEXT,
+    voice TEXT,
     sort_order INTEGER,
     local_path TEXT,
     created_at TEXT NOT NULL,
@@ -261,6 +262,28 @@ export const sqliteSchemaStatements = [
     deleted_at TEXT
   )`,
 
+  `CREATE TABLE IF NOT EXISTS novel_segments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    chapter_title TEXT,
+    outline TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS novel_episode_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER NOT NULL,
+    episode_id INTEGER,
+    episode_number INTEGER NOT NULL,
+    plan TEXT NOT NULL,
+    recap TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+
   `CREATE TABLE IF NOT EXISTS assets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     drama_id INTEGER,
@@ -407,6 +430,13 @@ export function initSqliteSchema(sqlite: Database.Database) {
     sqlite.exec(`ALTER TABLE sys_task ADD COLUMN episode_id INTEGER`)
     console.log('🧩 sys_task 已补 episode_id 列')
   }
+  // 增量迁移：characters.voice（角色固定音色，TTS 配音跨镜头/跨集一致；
+  // 空值由 video-dub 按角色名 hash 轮换取当前 TTS 模型的音色表兜底）
+  const charCols = sqlite.prepare(`PRAGMA table_info(characters)`).all() as { name: string }[]
+  if (charCols.length && !charCols.some(c => c.name === 'voice')) {
+    sqlite.exec(`ALTER TABLE characters ADD COLUMN voice TEXT`)
+    console.log('🧩 characters 已补 voice 列')
+  }
   // B28/B29: 高频过滤列补索引（幂等）。episodes 唯一索引防重复集号：
   // 前端"新建剧集"双击会插两行同号 episode（B22），唯一索引是最后防线。
   // 已有重复数据的旧库创建会失败——捕获后跳过，不阻断启动。
@@ -415,6 +445,8 @@ export function initSqliteSchema(sqlite: Database.Database) {
     `CREATE INDEX IF NOT EXISTS idx_sys_task_status ON sys_task (status)`,
     `CREATE INDEX IF NOT EXISTS idx_episodes_drama_id ON episodes (drama_id)`,
     `CREATE INDEX IF NOT EXISTS idx_storyboards_episode_id ON storyboards (episode_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_novel_segments_drama_id ON novel_segments (drama_id, seq)`,
+    `CREATE INDEX IF NOT EXISTS idx_novel_plans_drama_id ON novel_episode_plans (drama_id, episode_number)`,
     `CREATE INDEX IF NOT EXISTS idx_characters_drama_id ON characters (drama_id)`,
     `CREATE INDEX IF NOT EXISTS idx_scenes_drama_id ON scenes (drama_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_episodes_drama_number ON episodes (drama_id, episode_number)`,

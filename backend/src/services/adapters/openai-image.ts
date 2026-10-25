@@ -70,6 +70,12 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
    * /v1/images/edits：参考图以 multipart/form-data 的 image[] 文件上传。
    * 参考图在 generation.ts 已归一化为 data URL（本地压缩 / 远程下载），
    * 这里只做 base64 → Blob 的转换；multipart 边界由 fetch 自动设置，不要手填 Content-Type。
+   *
+   * FLUX.1-Kontext（模型名含 kontext）in-context editing：fusion-mlx 只消费
+   * image[0]（edit target），多余参考图会被静默丢弃（上游 #1374）——只上传
+   * 首张，且 prompt 包装为编辑指令（保持角色身份不变 + 新镜头描述），
+   * 直接沿用 t2i 提示词会让 Kontext 把画面当重新生成而非编辑。
+   * 参考图顺序约定（drama 前端 getShotReferenceImages）：角色定妆照在前。
    */
   private buildEditsRequest(
     config: AIConfig,
@@ -78,14 +84,17 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     size: string,
     refs: string[],
   ): ProviderRequest {
+    const isKontext = /kontext/i.test(model)
+    const KONTEXT_PROMPT_PREFIX = 'Edit this image. Keep the exact same character identity, face and outfit unchanged. '
     const form = new FormData()
     form.append('model', model)
-    form.append('prompt', prompt || '')
+    form.append('prompt', isKontext ? KONTEXT_PROMPT_PREFIX + (prompt || '') : (prompt || ''))
     form.append('size', size)
     form.append('n', '1')
 
     let appended = 0
-    for (const ref of refs) {
+    const uploadRefs = isKontext ? refs.slice(0, 1) : refs
+    for (const ref of uploadRefs) {
       const parsed = parseDataUrl(ref)
       if (!parsed) continue
       const buffer = Buffer.from(parsed.data, 'base64')
