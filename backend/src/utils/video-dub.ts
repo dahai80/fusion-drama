@@ -10,6 +10,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { eq } from 'drizzle-orm'
 import { getAbsolutePath } from './storage.js'
 import { ffmpeg, checkFfmpegSuite } from './ffmpeg.js'
@@ -38,14 +39,37 @@ const isQwen3Tts = /qwen3.*tts/i.test(TTS_MODEL)
 const KOKORO_TTS_VOICES = (process.env.FUSION_TTS_VOICES || 'zm_yunjian,zm_yunyang,zm_yunxia')
   .split(',').map(s => s.trim()).filter(Boolean)
 // Qwen3-TTS Base 无内置预设音色（E2E 实测 400："Base models have no built-in
-// preset voices"），音色走 ICL 克隆：workspace/voices/<name>.wav + 同名 .txt（ref 文本）。
-// 预设音色方案（Vivian/Dylan 等）仅存在于非 Base 版本，mlx 侧只有 Base。
+// preset voices"），音色走 ICL 克隆。两级来源：
+//   1. fusion-mlx 服务端音色包（#1383，v0.10.16+）：~/.fusion-mlx/voices/<name>/，
+//      请求直接传 voice 名即可，免每请求 base64（E2E 实测 1.3s vs base64 更慢）
+//   2. 本地兜底 workspace/voices/<name>.wav + 同名 .txt（ref 文本），逐请求随包上传
 const VOICES_DIR = path.join(
-  process.env.WORKSPACE_PATH ? path.resolve(process.env.WORKSPACE_PATH) : path.resolve(__dirname, '../../workspace'),
+  process.env.WORKSPACE_PATH
+    ? path.resolve(process.env.WORKSPACE_PATH)
+    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../workspace'),
   'voices',
 )
-/** 列出 workspace/voices 下可用的克隆音色名（.wav + 同名 .txt 齐全才算） */
-function listRefVoices(): string[] {
+/** 服务端音色包名集合（懒加载缓存；服务端不可达则空集走本地） */
+let serverVoiceBundles: string[] | null = null
+async function listServerVoiceBundles(baseUrl: string, apiKey: string): Promise<string[]> {
+  if (serverVoiceBundles) return serverVoiceBundles
+  let names: string[] = []
+  try {
+    const res = await fetch(`${baseUrl}/v1/audio/voices`, {
+      headers: { authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data: any = await res.json()
+    names = (data?.voice_bundles || []).map((v: any) => v.name).filter(Boolean)
+  } catch (err) {
+    logTaskWarn('VideoTask', 'tts-server-voices-unavailable', { error: (err as Error).message })
+  }
+  serverVoiceBundles = names
+  return names
+}
+/** 列出 workspace/voices 下可用的本地克隆音色名（.wav + 同名 .txt 齐全才算） */
+function listLocalRefVoices(): string[] {
   try {
     return fs.readdirSync(VOICES_DIR)
       .filter(f => f.endsWith('.wav'))
@@ -53,7 +77,7 @@ function listRefVoices(): string[] {
       .filter(name => fs.existsSync(path.join(VOICES_DIR, `${name}.txt`)))
   } catch { return [] }
 }
-/** 读一个克隆音色的 ref_audio(base64)+ref_text；缺失返回 null 并告警 */
+/** 读一个本地克隆音色的 ref_audio(base64)+ref_text；缺失返回 null 并告警 */
 function loadRefVoice(voice: string): { ref_audio: string; ref_text: string } | null {
   try {
     const wav = fs.readFileSync(path.join(VOICES_DIR, `${voice}.wav`))
@@ -65,9 +89,9 @@ function loadRefVoice(voice: string): { ref_audio: string; ref_text: string } | 
     return null
   }
 }
-/** 当前 TTS 模型的音色池；不认识 voice 参数的模型返回 []（不传 voice） */
+/** 当前 TTS 模型的音色池（本地同步视图）；不认识 voice 参数的模型返回 []（不传 voice） */
 function ttsVoicePool(): string[] {
-  if (isQwen3Tts) return listRefVoices()
+  if (isQwen3Tts) return listLocalRefVoices()
   if (/kokoro/i.test(TTS_MODEL)) return KOKORO_TTS_VOICES
   return []
 }
@@ -75,12 +99,12 @@ function ttsVoicePool(): string[] {
  * 说话人 → 音色：characters.voice（显式指定，跨镜头/跨集稳定）优先，
  * 否则按角色名 hash 轮换音色池——hash 保证同一角色在不同分镜/不同集
  * 拿到同一音色（替代旧的「按台词首现顺序」per-shot 分配，那会导致
- * 同角色跨镜头换声线）。
+ * 同角色跨镜头换声线）。pool 可由调用方注入（qwen3 时并入服务端音色包）。
  */
-export function voiceForSpeaker(speaker: string, characterVoices: Map<string, string>): string {
+export function voiceForSpeaker(speaker: string, characterVoices: Map<string, string>, poolOverride?: string[]): string {
   const explicit = characterVoices.get(speaker)
   if (explicit) return explicit
-  const pool = ttsVoicePool()
+  const pool = poolOverride ?? ttsVoicePool()
   if (!pool.length) return ''
   let h = 0
   for (let i = 0; i < speaker.length; i++) h = ((h << 5) - h + speaker.charCodeAt(i)) | 0
@@ -201,14 +225,16 @@ async function probeDuration(absPath: string): Promise<number> {
 }
 
 /** 调用 TTS 合成一句台词，返回 wav 临时文件路径 */
-async function synthesizeLine(text: string, idx: number, voice: string): Promise<string | null> {
+async function synthesizeLine(text: string, idx: number, voice: string, serverVoices?: Set<string>): Promise<string | null> {
   const ep = await getTtsEndpoint()
   const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
   const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
   const attempt = async (): Promise<string | null> => {
-    // Qwen3-TTS Base：voice 是 workspace/voices 下的克隆音色名 → ref_audio+ref_text
-    const refVoice = isQwen3Tts && voice ? loadRefVoice(voice) : null
-    if (isQwen3Tts && voice && !refVoice) {
+    // Qwen3-TTS Base：服务端音色包（#1383）命中 → 直接传 voice 名（免 base64）；
+    // 否则按本地 workspace/voices 克隆（ref_audio+ref_text 随包上传）
+    const isServerVoice = isQwen3Tts && voice && serverVoices?.has(voice)
+    const refVoice = isQwen3Tts && voice && !isServerVoice ? loadRefVoice(voice) : null
+    if (isQwen3Tts && voice && !isServerVoice && !refVoice) {
       logTaskWarn('VideoTask', 'tts-ref-voice-missing', { idx, voice, voicesDir: VOICES_DIR })
     }
     const res = await fetch(`${baseUrl}/v1/audio/speech`, {
@@ -218,9 +244,10 @@ async function synthesizeLine(text: string, idx: number, voice: string): Promise
         model: TTS_MODEL,
         input: text,
         // voice 由 voiceForSpeaker 按模型音色池产出：Kokoro 传内置音色名；
-        // Qwen3-TTS Base 传克隆参数；池空（不认识 voice 的模型）时不携带
+        // Qwen3-TTS Base 服务端音色包传 voice 名 / 本地克隆传 ref 参数；
+        // 池空（不认识 voice 的模型）时不携带
         ...(refVoice ? { ref_audio: refVoice.ref_audio, ref_text: refVoice.ref_text }
-          : voice && !isQwen3Tts ? { voice } : {}),
+          : voice && (!isQwen3Tts || isServerVoice) ? { voice } : {}),
         response_format: 'wav',
       }),
       signal: AbortSignal.timeout(280_000),
@@ -269,11 +296,29 @@ export async function dubVideoDialogue(
     // 说话人 → 音色：characters.voice 显式指定优先，否则角色名 hash 轮换音色池。
     // hash 与分镜无关 → 同一角色跨镜头/跨集拿到同一音色（旧实现按台词首现顺序
     // per-shot 分配，同角色换镜头会换声线）。FUSION_TTS_VOICE 显式指定时全片单音色。
+    // Qwen3-TTS：音色池 = 服务端音色包（#1383，优先，免 base64）+ 本地 workspace/voices 兜底。
+    let poolOverride: string[] | undefined
+    let serverSet: Set<string> | undefined
+    if (isQwen3Tts && !TTS_VOICE) {
+      const ep = await getTtsEndpoint()
+      const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
+      const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
+      const serverBundles = await listServerVoiceBundles(baseUrl, apiKey)
+      const serverBundleSet = new Set(serverBundles)
+      const locals = listLocalRefVoices().filter(v => !serverBundleSet.has(v))
+      serverSet = serverBundleSet
+      poolOverride = [...serverBundles, ...locals]
+      if (poolOverride.length) {
+        logTaskProgress('VideoTask', 'tts-voice-pool', {
+          taskId, server: serverBundles.length, local: locals.length,
+        })
+      }
+    }
     const speakerVoices = new Map<string, string>()
     if (!TTS_VOICE) {
       for (const line of lines) {
         if (!speakerVoices.has(line.speaker)) {
-          speakerVoices.set(line.speaker, voiceForSpeaker(line.speaker, characterVoices))
+          speakerVoices.set(line.speaker, voiceForSpeaker(line.speaker, characterVoices, poolOverride))
         }
       }
     }
@@ -291,7 +336,7 @@ export async function dubVideoDialogue(
     const wavs: string[] = []
     for (let i = 0; i < lines.length; i++) {
       const voice = TTS_VOICE || speakerVoices.get(lines[i].speaker) || ''
-      const wav = await synthesizeLine(lines[i].text, i, voice)
+      const wav = await synthesizeLine(lines[i].text, i, voice, serverSet)
       if (wav) {
         wavs.push(wav)
         ttsDirs.push(path.dirname(wav))

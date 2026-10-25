@@ -54,7 +54,9 @@ test('per-character voice assignment is stable and DB-overridable', () => {
   assert.match(dub, /voiceForSpeaker/)
   assert.match(dub, /KOKORO_TTS_VOICES/)
   // Qwen3-TTS Base 无预设音色（E2E 验证 400）→ ICL 克隆：workspace/voices ref 音色库
-  assert.match(dub, /listRefVoices/)
+  // + 服务端音色包优先（fusion-mlx #1383，voice 名直传免 base64）
+  assert.match(dub, /listLocalRefVoices/)
+  assert.match(dub, /listServerVoiceBundles/)
   assert.match(dub, /ref_audio/)
   assert.match(dub, /isQwen3Tts/)
 })

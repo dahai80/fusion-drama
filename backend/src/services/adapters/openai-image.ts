@@ -85,12 +85,18 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     refs: string[],
   ): ProviderRequest {
     const isKontext = /kontext/i.test(model)
+    // Qwen-Image-Edit 多图 conditioning（fusion-mlx #1375）：角色定妆照之外的场景/道具
+    // 参考图也被消费，不截断——多图喂入做「把角色放进场景」类编辑
+    const isQwenEdit = /qwen.*edit/i.test(model)
     const KONTEXT_PROMPT_PREFIX = 'Edit this image. Keep the exact same character identity, face and outfit unchanged. '
     const form = new FormData()
     form.append('model', model)
     form.append('prompt', isKontext ? KONTEXT_PROMPT_PREFIX + (prompt || '') : (prompt || ''))
     form.append('size', size)
     form.append('n', '1')
+    // Qwen-Image-Edit-2509 bf16 56GB：上游默认 30 步必超 600s hang deadline（#1407），
+    // 6 步实测 494s 出 1024x1024；降到 6 保住 deadline
+    if (isQwenEdit) form.append('num_inference_steps', '6')
 
     let appended = 0
     const uploadRefs = isKontext ? refs.slice(0, 1) : refs
