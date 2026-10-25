@@ -94,8 +94,9 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     form.append('prompt', isKontext ? KONTEXT_PROMPT_PREFIX + (prompt || '') : (prompt || ''))
     form.append('size', size)
     form.append('n', '1')
-    // Qwen-Image-Edit-2509 bf16 56GB：上游默认 30 步必超 600s hang deadline（#1407），
-    // 6 步实测 494s 出 1024x1024；降到 6 保住 deadline
+    // Qwen-Image-Edit-2509 bf16 56GB ~80s/步：上游 600s deadline 已改为不活跃预算
+    // （#1407，v0.10.17），30 步默认不再被杀但需 ~40min/图——管线速度考量固定 6 步
+    // （实测 494s 出 1024x1024）
     if (isQwenEdit) form.append('num_inference_steps', '6')
 
     let appended = 0
