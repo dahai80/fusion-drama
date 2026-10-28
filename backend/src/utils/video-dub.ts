@@ -227,8 +227,9 @@ async function probeDuration(absPath: string): Promise<number> {
 /** 调用 TTS 合成一句台词，返回 wav 临时文件路径 */
 async function synthesizeLine(text: string, idx: number, voice: string, serverVoices?: Set<string>): Promise<string | null> {
   const ep = await getTtsEndpoint()
+  // API key env 用规范名（config-conventions §1），legacy MLX key 别名已收敛
   const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
-  const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
+  const apiKey = ep?.apiKey || process.env.FUSION_CLIENT_KEY || ''
   const attempt = async (): Promise<string | null> => {
     // Qwen3-TTS Base：服务端音色包（#1383）命中 → 直接传 voice 名（免 base64）；
     // 否则按本地 workspace/voices 克隆（ref_audio+ref_text 随包上传）
@@ -302,7 +303,7 @@ export async function dubVideoDialogue(
     if (isQwen3Tts && !TTS_VOICE) {
       const ep = await getTtsEndpoint()
       const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
-      const apiKey = ep?.apiKey || process.env.FUSION_MLX_API_KEY || ''
+      const apiKey = ep?.apiKey || process.env.FUSION_CLIENT_KEY || ''
       const serverBundles = await listServerVoiceBundles(baseUrl, apiKey)
       const serverBundleSet = new Set(serverBundles)
       const locals = listLocalRefVoices().filter(v => !serverBundleSet.has(v))
