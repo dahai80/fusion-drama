@@ -9,5 +9,6 @@
   "health": "http://localhost:5679/api/v1/health",
   "backend": "http://localhost:5679/api/v1",
   "devices": ["desktop", "mobile-readonly"],
-  "category": "domain"
+  "category": "domain",
+  "sort": 36
 }
