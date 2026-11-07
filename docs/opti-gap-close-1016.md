@@ -9,7 +9,7 @@ audience: engineer
 status: draft
 version: 1.0.0
 updated: 2026-11-07
-owner: @dahai
+owner: "@dahai"
 source_of_truth:
   - docs/opti-gap-close-1016.md
 ---
