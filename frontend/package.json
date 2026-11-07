@@ -12,7 +12,7 @@
   "dependencies": {
     "driver.js": "^1.8.0",
     "lucide-vue-next": "^0.511.0",
-    "nuxt": "^3.17.5",
+    "nuxt": "^4.6.4",
     "vue": "^3.5.13",
     "vue-i18n": "^11.4.10",
     "vue-router": "^4.5.1",
@@ -24,5 +24,10 @@
   "allowScripts": {
     "esbuild@0.27.4": true,
     "@parcel/watcher@2.5.6": true
+  },
+  "overrides": {
+    "glob": "14.0.4",
+    "minimatch": "11.0.5",
+    "deepmerge": "4.1.0"
   }
 }
