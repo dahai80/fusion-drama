@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/guide
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "优化计划 2026-10-15", en: "Optimization plan 2026-10-15" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/opti-plan-1015.md
+---
+
 # fusion-drama 优化落地计划（对应 architecture/fusion-drama-opti-prd-1015.md v2）
 
 日期：2026-10-15。PRD 逐条对照当前源码后的结论与执行批次。

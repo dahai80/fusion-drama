@@ -1,10 +1,26 @@
+---
+doc_id: fusion-drama/guide
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "fusion-drama Claude 工程指南", en: "fusion-drama Claude engineering guide" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - CLAUDE.md
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-Fuse 短剧（Fusion Drama）— AI 短剧/漫剧一站式制作工具。全 TypeScript 栈：小说 → 剧本改写 → 资产提取 → 生图 → 分镜拆解 → 生视频 → FFmpeg 拼接导出。支持 Electron 桌面版（macOS dmg / Windows NSIS）、Docker 服务器部署。多语言：中文/英文/日文/韩文。
+Fuse 短剧（Fusion Drama）— AI 短剧/漫剧全流程制作工具。全 TypeScript 栈：小说 → 剧本改写 → 资产提取 → 生图 → 分镜拆解 → 生视频 → FFmpeg 拼接导出。支持 Electron 桌面版（macOS dmg / Windows NSIS）、Docker 服务器部署。多语言：中文/英文/日文/韩文。
 
 ## Structure
 
