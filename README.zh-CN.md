@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/readme
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "Fusion Drama README（简体中文）", en: "Fusion Drama README (Simplified Chinese)" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.zh-CN.md
+---
+
 # 🎬 Fusion Drama - AI 短剧生成平台
 
 <div align="center">
@@ -13,7 +29,7 @@
 
 [功能特性](#-功能特性) • [快速开始](#-快速开始) • [图文教程](#-图文教程) • [桌面版](#-桌面应用推荐) • [部署指南](#-部署指南)
 
-<h2>🔑 <a href="https://bench.dpdns.org">获取 Fusion API Key 👉 立即查看</a></h2>
+## 🔑 [获取 Fusion API Key 👉 立即查看](https://bench.dpdns.org)
 
 **文本 · 图片 · 视频全部 AI 能力，一个 Key 即可开通**
 
@@ -33,7 +49,7 @@ Fusion Drama 是一个基于 AI 的短剧自动化生产平台，实现从剧本
 - **🤖 AI 驱动**：使用大语言模型解析剧本，提取角色、场景和分镜信息
 - **🎨 智能创作**：AI 绘图生成角色形象和场景背景
 - **📹 视频生成**：基于文生视频和图生视频模型自动生成分镜视频
-- **🔄 工作流**：完整的短剧制作工作流，从创意到成片一站式完成
+- **🔄 工作流**：完整的短剧制作工作流，从创意到成片全流程完成
 - **🏠 本地优先**：搭配 Apple Silicon 自部署 [fusion-mlx](https://github.com/dahai80/fusion-mlx)，文/图/视频生成全离线（LTX-2.5 / MiniMax-H3 / Wan2.2）——无云端 Key、数据不出机；FFmpeg 拼接与导出始终内置
 
 ### 🛠️ 技术架构
@@ -131,7 +147,7 @@ Agent 回答自带全项目背景——完全离线：
 
 #### 🧠 跨会话记忆
 
-Agent 记得住你在不同会话、不同短剧里的创作决定，底层对接 [fusion-memory](../fusion-memory)（本地记忆中枢，HTTP `:11435`）：
+Agent 记得住你在不同会话、不同短剧里的创作决定，底层对接 [fusion-memory](https://github.com/dahai80/fusion-memory)（本地记忆中枢，HTTP `:11435`）：
 
 - 每次 Agent 对话完成后，本轮内容自动写入 `project` / `fusion-drama` 命名空间——创作偏好与决定跨重启持久保留。
 - 每次对话前，检索 top-5 最相关的历史记忆注入为记忆块（排在 RAG 块之前；与用户当前要求冲突时以用户要求为准）。
@@ -577,7 +593,7 @@ cd ../frontend && npm run build
 
 ## 🔗 相关链接
 
-- [Fuse 短剧（Fusion Drama）](https://github.com/dahai80/fusion-drama) — AI 短剧一站式制作工具（本项目）
+- [Fuse 短剧（Fusion Drama）](https://github.com/dahai80/fusion-drama) — AI 短剧全流程制作工具（本项目）
 - [fusion-mlx](https://github.com/dahai80/fusion-mlx) — 自托管 Apple Silicon 推理引擎，为本地 fusion 视频服务提供算力
 
 ---

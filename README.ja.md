@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/readme
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "Fusion Drama README（日文）", en: "Fusion Drama README (Japanese)" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.ja.md
+---
+
 # 🎬 Fusion Drama - AI ショートドラマ生成プラットフォーム
 
 <div align="center">
@@ -13,7 +29,7 @@
 
 [機能](#-機能) • [クイックスタート](#-クイックスタート) • [チュートリアル](#-チュートリアル画像付き) • [デスクトップ版](#-デスクトップアプリ推奨) • [デプロイ](#-デプロイ)
 
-<h2>🔑 <a href="https://bench.dpdns.org">Fusion API Key を取得 👉 今すぐ見る</a></h2>
+## 🔑 [Fusion API Key を取得 👉 今すぐ見る](https://bench.dpdns.org)
 
 **テキスト・画像・動画のすべての AI 機能を、1 つの Key で有効化**
 

@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/readme
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "Fusion Drama README（韩文）", en: "Fusion Drama README (Korean)" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.ko.md
+---
+
 # 🎬 Fusion Drama - AI 숏드라마 생성 플랫폼
 
 <div align="center">
@@ -13,7 +29,7 @@
 
 [기능](#-기능) • [빠른 시작](#-빠른-시작) • [튜토리얼](#-그림-튜토리얼) • [데스크톱 앱](#-데스크톱-앱-권장) • [배포](#-배포)
 
-<h2>🔑 <a href="https://bench.dpdns.org">Fusion API Key 받기 👉 바로 보기</a></h2>
+## 🔑 [Fusion API Key 받기 👉 바로 보기](https://bench.dpdns.org)
 
 **텍스트 · 이미지 · 영상 모든 AI 기능, Key 하나로 활성화**
 

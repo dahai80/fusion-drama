@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/readme
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "Fusion Drama README（英文）", en: "Fusion Drama README (English)" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.md
+---
+
 # 🎬 Fusion Drama - AI Short Drama Generation Platform
 
 <div align="center">
@@ -13,7 +29,7 @@
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Desktop App](#-desktop-app-recommended) • [Deployment](#-deployment)
 
-<h2>🔑 <a href="https://bench.dpdns.org">Get a Fusion API Key 👉 Get started</a></h2>
+## 🔑 [Get a Fusion API Key 👉 Get started](https://bench.dpdns.org)
 
 **Text, image, and video AI capabilities — one key unlocks everything**
 
@@ -132,7 +148,7 @@ Agents answer with full awareness of your project — entirely offline:
 
 #### 🧠 Cross-Session Memory
 
-Agents remember your creative decisions across sessions and dramas, powered by [fusion-memory](../fusion-memory) (local memory hub, HTTP `:11435`):
+Agents remember your creative decisions across sessions and dramas, powered by [fusion-memory](https://github.com/dahai80/fusion-memory) (local memory hub, HTTP `:11435`):
 
 - Every Agent chat is committed to the `project` / `fusion-drama` namespace after the reply — preferences and decisions persist across restarts.
 - Before each chat, the top-5 most relevant past memories are retrieved and injected as a memory block ahead of the RAG block (user instructions always win on conflict).

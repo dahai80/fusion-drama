@@ -1,3 +1,19 @@
+---
+doc_id: fusion-drama/guide
+product: fusion-drama
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "优化缺口收口 2026-10-16", en: "Optimization gap close 2026-10-16" }
+audience: engineer
+status: draft
+version: 1.0.0
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/opti-gap-close-1016.md
+---
+
 # PRD 补齐计划（fusion-drama-opti-prd-1015 对照差距，2026-10-16）
 
 来源：PRD 对照复盘结论——代码 3 项部分落地 + 5 项裁撤内 3 项可补、E2E 验收矩阵 10 条只跑 1 条。
