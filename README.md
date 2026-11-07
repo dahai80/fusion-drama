@@ -342,11 +342,11 @@ Double-click to install, works out of the box (macOS + Windows): the SQLite data
 
 Installation notes:
 
-- The macOS build is unsigned — on first launch you may see "App is damaged and can't be opened" (Gatekeeper quarantine, not actual file damage). Fix: `sudo xattr -cr /Applications/FusionDrama.app` (one-time; launches normally afterwards)
-- The Windows build is unsigned — SmartScreen will prompt "More info → Run anyway"
+- The macOS build is unsigned by default — on first launch you may see "App is damaged and can't be opened" (Gatekeeper quarantine, not actual file damage). Fix: `sudo xattr -cr /Applications/FusionDrama.app` (one-time; launches normally afterwards). To sign and notarize, set the standard electron-builder env vars before `npm run dist`: `CSC_LINK` (+`CSC_KEY_PASSWORD`) for the Developer ID certificate and `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` for notarization — electron-builder picks them up automatically
+- The Windows build is unsigned by default — SmartScreen will prompt "More info → Run anyway". Set `CSC_LINK`/`CSC_KEY_PASSWORD` with a code-signing certificate to sign
 - User-data directory: `~/Library/Application Support/FusionDrama/` (database, generated media, writable copies of online-edited skills)
 - FFmpeg/FFprobe binaries are bundled — no system install needed
-- Electron is pinned to 37.x: better-sqlite3's win32 prebuilds max out at that ABI (the key to compilation-free cross-packaging)
+- Electron is pinned to 42.x (the 37.x pin was for better-sqlite3 win32 prebuilds; 42.x works with the current native rebuild pipeline — run `npm run rebuild:native` once after upgrading)
 - External links open in the system browser (e.g. "Get a key at bench.dpdns.org")
 
 #### 🔄 In-App Updates (no Apple signing required)
