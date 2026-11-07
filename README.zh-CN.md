@@ -147,7 +147,7 @@ Agent 回答自带全项目背景——完全离线：
 
 #### 🧠 跨会话记忆
 
-Agent 记得住你在不同会话、不同短剧里的创作决定，底层对接 [fusion-memory](../fusion-memory)（本地记忆中枢，HTTP `:11435`）：
+Agent 记得住你在不同会话、不同短剧里的创作决定，底层对接 [fusion-memory](https://github.com/dahai80/fusion-memory)（本地记忆中枢，HTTP `:11435`）：
 
 - 每次 Agent 对话完成后，本轮内容自动写入 `project` / `fusion-drama` 命名空间——创作偏好与决定跨重启持久保留。
 - 每次对话前，检索 top-5 最相关的历史记忆注入为记忆块（排在 RAG 块之前；与用户当前要求冲突时以用户要求为准）。

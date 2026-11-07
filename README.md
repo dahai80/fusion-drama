@@ -148,7 +148,7 @@ Agents answer with full awareness of your project — entirely offline:
 
 #### 🧠 Cross-Session Memory
 
-Agents remember your creative decisions across sessions and dramas, powered by [fusion-memory](../fusion-memory) (local memory hub, HTTP `:11435`):
+Agents remember your creative decisions across sessions and dramas, powered by [fusion-memory](https://github.com/dahai80/fusion-memory) (local memory hub, HTTP `:11435`):
 
 - Every Agent chat is committed to the `project` / `fusion-drama` namespace after the reply — preferences and decisions persist across restarts.
 - Before each chat, the top-5 most relevant past memories are retrieved and injected as a memory block ahead of the RAG block (user instructions always win on conflict).
