@@ -340,6 +340,19 @@ export const sqliteSchemaStatements = [
     embedding TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,
+
+  // Checklist 1107 #3: append-only prompt history — every saved final prompt
+  // (character/scene/prop image, storyboard image/video) is archived here so
+  // regeneration and regression comparison have a version trail
+  `CREATE TABLE IF NOT EXISTS prompt_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    prompt TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_prompt_history_target ON prompt_history (drama_id, target_type, target_id)`,
 ]
 
 /**

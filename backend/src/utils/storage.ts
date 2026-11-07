@@ -12,19 +12,43 @@ import { STORAGE_ROOT } from './paths.js'
 /**
  * 下载远程文件到本地存储
  */
-export async function downloadFile(url: string, subDir: string, authHeaders?: Record<string, string>): Promise<string> {
+export async function downloadFile(
+  url: string,
+  subDir: string,
+  authHeaders?: Record<string, string>,
+  opts?: { allowLoopback?: boolean },
+): Promise<string> {
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
   // data URI（如本地模型同步返回的 data:video/mp4;base64,...）直接解码落盘
+  // Audit 1107 F-10: cap decoded size — a hostile/huge data URI must not buffer
+  // unbounded bytes into memory (decoded cap mirrors MAX_DOWNLOAD_BYTES below)
   if (url.startsWith('data:')) {
     const match = /^data:([^;,]+);base64,(.*)$/s.exec(url)
     if (!match) throw new Error('Unsupported data URI (only base64 is supported)')
+    const MAX_DATA_URI_DECODED = 512 * 1024 * 1024
+    const decodedLen = Math.floor(match[2].length * 3 / 4)
+    if (decodedLen > MAX_DATA_URI_DECODED) {
+      throw new Error(`data URI exceeds ${Math.round(MAX_DATA_URI_DECODED / 1024 / 1024)}MB cap`)
+    }
     const ext = mimeTypeExt(match[1]) || '.bin'
     const filename = `${uuid()}${ext}`
     const filePath = path.join(dir, filename)
     fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'))
     return `static/${subDir}/${filename}`
+  }
+
+  // Audit 1107 F-10: SSRF gate — result URLs come from provider responses
+  // (incl. user-configured custom providers); the server must not fetch
+  // private/link-local/loopback addresses. Cloud providers return public URLs;
+  // the fusion local engine returns data URIs, except the #1254 job-output
+  // handover whose URL is built from the admin-configured baseUrl — that path
+  // passes allowLoopback explicitly.
+  if (opts?.allowLoopback && isLoopbackUrl(url)) {
+    // admin-configured local engine, fetch allowed
+  } else {
+    await assertPublicHttpUrl(url)
   }
 
   // 带超时 + 流式落盘：无超时的 fetch 会在 GPU 串行锁内无限挂起，
@@ -268,6 +292,18 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<void> {
 
 function isIpLiteral(hostname: string): boolean {
   return net.isIPv4(hostname) || net.isIPv6(hostname)
+}
+
+/** Loopback-only check for the allowLoopback opt-out (never covers LAN ranges) */
+function isLoopbackUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+      ? ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(u.hostname)
+      : false
+  } catch {
+    return false
+  }
 }
 
 function isPrivateAddress(addr: string): boolean {

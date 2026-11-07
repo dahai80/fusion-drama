@@ -65,3 +65,8 @@ data/backups/
 data/models/
 .atomcode/
 .d3-assets.py
+
+# History scrub bundle (contains pre-scrub secrets, never publish)
+fusion-drama-pre-scrub.bundle
+.remember/
+prompt-optimizer/

@@ -6,7 +6,7 @@
  * 级联本身。文件删除全部走 deleteStoredFile（jail 断言防越界），收集阶段
  * 返回计数与文件清单供响应/日志审计。
  */
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { deleteStoredFile } from './storage.js'
 
@@ -105,9 +105,22 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
     if (assetIds.prop.length) rows.props = (await db.delete(schema.props).where(inArray(schema.props.id, assetIds.prop))).changes ?? 0
     if (tasks.length) rows.sys_tasks = (await db.delete(schema.sysTask).where(eq(schema.sysTask.dramaId, dramaId))).changes ?? 0
     if (merges.length) rows.video_merges = (await db.delete(schema.videoMerges).where(eq(schema.videoMerges.dramaId, dramaId))).changes ?? 0
+    // Audit 1107 F-6: task events were never cleaned (comment claimed otherwise) —
+    // delete by collected task ids plus agent-level events anchored on episodes
+    rows.sys_task_events = (await db.delete(schema.sysTaskEvents).where(
+        tasks.length || epIds.length
+            ? or(
+                tasks.length ? inArray(schema.sysTaskEvents.taskId, tasks.map(t => t.id)) : undefined,
+                epIds.length ? inArray(schema.sysTaskEvents.episodeId, epIds) : undefined,
+              )
+            : eq(schema.sysTaskEvents.id, -1),
+    )).changes ?? 0
+    // RAG chunks are drama-anchored knowledge base rows
+    rows.rag_chunks = (await db.delete(schema.ragChunks).where(eq(schema.ragChunks.dramaId, dramaId))).changes ?? 0
     // 小说导入管线产物随剧清理（novel_segments / novel_episode_plans 均以 drama_id 锚定）
     rows.novel_segments = (await db.delete(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId))).changes ?? 0
     rows.novel_episode_plans = (await db.delete(schema.novelEpisodePlans).where(eq(schema.novelEpisodePlans.dramaId, dramaId))).changes ?? 0
+    rows.prompt_history = (await db.delete(schema.promptHistory).where(eq(schema.promptHistory.dramaId, dramaId))).changes ?? 0
     rows.dramas = (await db.delete(schema.dramas).where(eq(schema.dramas.id, dramaId))).changes ?? 0
 
     const filesResult = await deleteFiles(files, 'none')
@@ -140,6 +153,12 @@ export async function cascadeDeleteEpisode(episodeId: number): Promise<CascadeRe
     rows.episode_props = (await db.delete(schema.episodeProps).where(eq(schema.episodeProps.episodeId, episodeId))).changes ?? 0
     if (tasks.length) rows.sys_tasks = (await db.delete(schema.sysTask).where(eq(schema.sysTask.episodeId, episodeId))).changes ?? 0
     if (merges.length) rows.video_merges = (await db.delete(schema.videoMerges).where(eq(schema.videoMerges.episodeId, episodeId))).changes ?? 0
+    // Audit 1107 F-6: task events + agent-level events anchored on this episode
+    rows.sys_task_events = (await db.delete(schema.sysTaskEvents).where(
+        tasks.length
+            ? or(eq(schema.sysTaskEvents.episodeId, episodeId), inArray(schema.sysTaskEvents.taskId, tasks.map(t => t.id)))
+            : eq(schema.sysTaskEvents.episodeId, episodeId),
+    )).changes ?? 0
     rows.episodes = (await db.delete(schema.episodes).where(eq(schema.episodes.id, episodeId))).changes ?? 0
 
     const filesResult = await deleteFiles(files, 'none')

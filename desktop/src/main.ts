@@ -11,6 +11,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from 'electron'
 import type { UtilityProcess } from 'electron'
 import { spawn } from 'child_process'
+import * as crypto from 'crypto'
 import * as net from 'net'
 import * as fs from 'fs'
 import * as fsp from 'fs/promises'
@@ -129,18 +130,68 @@ export function normCase(p: string): string {
 // ---- workspace 模板 ----
 
 /**
- * workspace 模板拷贝（copy-once + 版本标记）：
- * - 目标无版本标记（首启动）或版本较旧 → 只补缺失文件，永不覆盖用户编辑
- * - 版本一致 → 跳过
- * 例外：prompts/ 随版本升级强制覆盖——prompt 与代码内 DEFAULT_PROMPTS 同源迭代
- * （设置页有「恢复默认」，且编辑场景少）；skills/ 保持只增不覆盖（可能有用户新建）
+ * workspace 模板升级（checklist 1107 #6：哈希三方合并）：
+ * - 首启动（无版本标记）→ 全量补拷（force:false，绝不覆盖）
+ * - 版本升级 → 逐文件判定：
+ *     目标与新版相同 → 跳过
+ *     目标与「上次部署基线」相同（用户没改过）→ 用新版覆盖
+ *     目标被用户改过 → 保留用户版，新版落为 <file>.new
+ *   基线存 .template-hashes（上次部署后每个文件的 sha256）
+ * 修复了旧行为的两个缺陷：skills 永不更新（修复到不了用户）、prompts 无脑覆盖（毁用户编辑）
  */
 function syncWorkspaceTemplate(templateDir: string, destDir: string) {
   const marker = path.join(destDir, '.template-version')
-  if (fs.existsSync(marker) && fs.readFileSync(marker, 'utf8').trim() === TEMPLATE_VERSION) return
-  fs.cpSync(templateDir, destDir, { recursive: true, force: false, errorOnExist: false })
-  fs.cpSync(path.join(templateDir, 'prompts'), path.join(destDir, 'prompts'), { recursive: true, force: true })
+  const hashFile = path.join(destDir, '.template-hashes')
+  const firstRun = !fs.existsSync(marker)
+  if (!firstRun && fs.readFileSync(marker, 'utf8').trim() === TEMPLATE_VERSION) return
+
+  const baseline = new Map<string, string>()
+  if (fs.existsSync(hashFile)) {
+    for (const line of fs.readFileSync(hashFile, 'utf8').split('\n')) {
+      const idx = line.indexOf('  ')
+      if (idx > 0) baseline.set(line.slice(idx + 2).trim(), line.slice(0, idx).trim())
+    }
+  }
+
+  const walk = (dir: string): string[] => {
+    const out: string[] = []
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) out.push(...walk(p))
+      else if (e.isFile()) out.push(p)
+    }
+    return out
+  }
+
+  const sha256 = (f: string) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex')
+  const newHashes: string[] = []
+  let copied = 0, overwritten = 0, keptNew = 0
+  for (const abs of walk(templateDir)) {
+    const rel = path.relative(templateDir, abs).replace(/\\/g, '/')
+    const dest = path.join(destDir, rel)
+    const newHash = sha256(abs)
+    newHashes.push(`${newHash}  ${rel}`)
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    if (firstRun || !fs.existsSync(dest)) {
+      fs.cpSync(abs, dest, { force: false })
+      copied++
+      continue
+    }
+    const curHash = sha256(dest)
+    if (curHash === newHash) continue
+    const oldHash = baseline.get(rel)
+    if (oldHash && curHash === oldHash) {
+      fs.cpSync(abs, dest, { force: true })
+      overwritten++
+    } else {
+      fs.cpSync(abs, `${dest}.new`, { force: true })
+      keptNew++
+      console.warn(`[main] workspace file user-modified, new template saved as ${rel}.new`)
+    }
+  }
+  fs.writeFileSync(hashFile, newHashes.sort().join('\n') + '\n')
   fs.writeFileSync(marker, TEMPLATE_VERSION)
+  console.log(`[main] workspace template synced: copied=${copied} overwritten=${overwritten} keptAsNew=${keptNew}`)
 }
 
 function resolveResourceDir(): string {

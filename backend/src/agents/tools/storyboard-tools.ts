@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { db, getInsertId, schema } from '../../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
+import { recordPromptHistory } from '../../utils/prompt-history.js'
 import { logTaskProgress, logTaskSuccess, logTaskWarn } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId, requireAgentIds } from '../context.js'
 
@@ -445,6 +446,10 @@ const updateStoryboard = createTool({
     if ('scene_id' in fields) updates.sceneId = fields.scene_id
     if ('duration' in fields) updates.duration = fields.duration
     await db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, storyboard_id))
+    // Checklist 1107 #3: archive prompt versions (final composition incl. style
+    // happens downstream; here we record exactly what the agent authored)
+    if (fields.image_prompt) await recordPromptHistory(dramaId, 'storyboard_image', storyboard_id, fields.image_prompt)
+    if (fields.video_prompt) await recordPromptHistory(dramaId, 'storyboard_video', storyboard_id, fields.video_prompt)
     if ('character_ids' in fields) await syncStoryboardCharacters(storyboard_id, fields.character_ids || [])
     if ('prop_ids' in fields) await syncStoryboardProps(storyboard_id, fields.prop_ids || [])
     logTaskSuccess('StoryboardTool', 'update-complete', {

@@ -7,7 +7,7 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/fusion-drama/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/fusion-drama/fusion-drama/releases)
+[![Release](https://img.shields.io/github/v/release/dahai80/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/dahai80/fusion-drama/releases)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | **日本語** | [한국어](README.ko.md)
 
@@ -131,7 +131,7 @@ data/       — 生成アセットと SQLite データベース
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/fusion-drama/fusion-drama.git
+git clone https://github.com/dahai80/fusion-drama.git
 cd fusion-drama
 
 # バックエンドの依存をインストール

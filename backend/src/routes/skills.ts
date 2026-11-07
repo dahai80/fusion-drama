@@ -64,6 +64,8 @@ app.put('/*', async (c) => {
   const body = await c.req.json()
   const lang = normalizeLang(c.req.query('lang') ?? body.lang)
   if (lang !== 'zh' && !await fsm().exists(skillFile(id))) return badRequest(c, '技能不存在')
+  // Audit 1107 F-11: content must be a string — undefined would write "undefined" to disk
+  if (typeof body.content !== 'string') return badRequest(c, 'content 必须为字符串')
   await fsm().writeFile(skillFile(id, lang), body.content, { recursive: true })
   // 目录 mtime 不会因文件内容编辑而更新（APFS），显式刷新技能缓存；语言变体直读无需刷新
   if (lang === 'zh') await refreshSkillWorkspaces()
@@ -83,9 +85,12 @@ app.post('/', async (c) => {
   if (await fsm().exists(skillFile(id))) return badRequest(c, '技能已存在')
 
   const name = segments[segments.length - 1]
+  // Audit 1107 F-11: description is interpolated into YAML frontmatter —
+  // strip newlines/`---` so it can't break out of the description field
+  const safeDesc = String(description || '').replace(/[\r\n]+/g, ' ').replace(/---/g, '—').slice(0, 300)
   const content = `---
 name: ${name}
-description: ${description || ''}
+description: ${safeDesc}
 ---
 
 # ${name}

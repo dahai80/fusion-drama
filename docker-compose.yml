@@ -27,7 +27,7 @@ services:
       FUSION_WATCHTOWER_URL: http://watchtower:8080
       FUSION_WATCHTOWER_TOKEN: ${WATCHTOWER_TOKEN:?Set WATCHTOWER_TOKEN in .env (openssl rand -hex 32)}
       # 发布清单（默认 GitHub Releases latest.json，与桌面版同一份）
-      # FUSION_UPDATE_FEED: https://github.com/fusion-drama/fusion-drama/releases/latest/download/latest.json
+      # FUSION_UPDATE_FEED: https://github.com/dahai80/fusion-drama/releases/latest/download/latest.json
     volumes:
       - fusion-data:/app/data
     labels:

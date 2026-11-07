@@ -14,13 +14,29 @@ import type { MiddlewareHandler } from 'hono'
 // 模块加载期快照会固化空值导致自动生成的 token 不生效
 const apiToken = () => process.env.FUSION_API_TOKEN || ''
 
+/**
+ * Shared credential check (audit 1107 F-7): Authorization header, cookie
+ * (img/video tags cannot attach headers — the frontend mirrors the token
+ * into a `fusion_api_token` cookie on save), or `?token=` query param.
+ */
+export function hasValidApiToken(c: { req: { header(n: string): string | undefined, query(n: string): string | undefined } | any }): boolean {
+  const API_TOKEN = apiToken()
+  if (!API_TOKEN) return true
+  const auth = c.req.header('Authorization') || ''
+  if (auth === `Bearer ${API_TOKEN}`) return true
+  const cookie = c.req.header('Cookie') || ''
+  // plain substring compare, not RegExp — token may contain regex metacharacters
+  if (cookie.split(/;\s*/).some((p: string) => p === `fusion_api_token=${API_TOKEN}`)) return true
+  if (c.req.query('token') === API_TOKEN) return true
+  return false
+}
+
 /** Bearer token 鉴权（token 未配置时直接放行） */
 export const requireApiToken: MiddlewareHandler = async (c, next) => {
   const API_TOKEN = apiToken()
   if (!API_TOKEN) return next()
   if (c.req.path === '/api/v1/health' || c.req.path === '/health') return next()
-  const auth = c.req.header('Authorization') || ''
-  if (auth === `Bearer ${API_TOKEN}`) return next()
+  if (hasValidApiToken(c)) return next()
   console.warn(`[auth] unauthorized ${c.req.method} ${c.req.path}`)
   return c.json({ code: 401, message: 'Unauthorized' }, 401)
 }

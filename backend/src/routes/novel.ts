@@ -23,14 +23,23 @@ import {
 
 const app = new Hono()
 
+// Audit 1107 F-5: hard ceiling on import size (2M chars ≈ thousands of segments;
+// anything bigger is a abuse/misuse vector — blocks CPU + DB, not a real novel)
+const NOVEL_IMPORT_MAX = 2_000_000
+
 // POST /novel/import {drama_id, content, replace?}
 app.post('/import', async (c) => {
   const body = await c.req.json()
   if (!body.drama_id) return badRequest(c, 'drama_id 必填')
   if (!body.content || typeof body.content !== 'string') return badRequest(c, 'content 必填')
   if (body.content.length < 500) return badRequest(c, '小说内容过短（至少 500 字）')
+  if (body.content.length > NOVEL_IMPORT_MAX) return badRequest(c, `小说内容过长（上限 ${NOVEL_IMPORT_MAX} 字）`)
+  // F-5: reject non-existent drama before doing any work
+  const dramaId = Number(body.drama_id)
+  const [drama] = await db.select({ id: schema.dramas.id }).from(schema.dramas).where(eq(schema.dramas.id, dramaId)).limit(1)
+  if (!drama) return badRequest(c, `drama 不存在: ${dramaId}`)
   try {
-    const result = await importNovel(Number(body.drama_id), body.content, body.replace !== false)
+    const result = await importNovel(dramaId, body.content, body.replace !== false)
     return success(c, result)
   } catch (err) {
     return badRequest(c, (err as Error).message)

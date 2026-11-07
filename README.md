@@ -7,7 +7,7 @@
 [![Node Version](https://img.shields.io/badge/Node.js-20+-339933?style=flat&logo=node.js)](https://nodejs.org)
 [![Vue Version](https://img.shields.io/badge/Vue-3.x-4FC08D?style=flat&logo=vue.js)](https://vuejs.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/fusion-drama/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/fusion-drama/fusion-drama/releases)
+[![Release](https://img.shields.io/github/v/release/dahai80/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/dahai80/fusion-drama/releases)
 
 **English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
@@ -194,8 +194,10 @@ No config files — everything is set via environment variables (all have defaul
 | `FRONTEND_DIST` | `frontend/dist` | Frontend static build directory |
 | `FFMPEG_BIN` / `FFPROBE_BIN` | bundled npm binaries | Custom ffmpeg/ffprobe executable paths |
 | `PUBLIC_BASE_URL` | — | Public URL Seedance needs to reference local assets (server deployments) |
-| `FUSION_API_TOKEN` | auto-generated on first boot | Server-mode API token (≥32 chars). On non-loopback deployments without an explicit token, the server generates a random 64-hex token on first boot, persists it to `app_settings.server_api_token` (reused across restarts) and logs it once. Loopback (desktop/dev) stays token-free. The frontend sends it as `Bearer` auth (set it once in Settings → General, stored in localStorage) |
-| `FUSION_BIND_HOST` | — | Set to mark a loopback-only deployment and bypass the token enforcement above |
+| `FUSION_API_TOKEN` | auto-generated on first boot | Server-mode API token (≥32 chars). On non-loopback deployments without an explicit token, the server generates a random 64-hex token on first boot, persists it to `app_settings.server_api_token` (reused across restarts) and logs a prefix only. Loopback (desktop/dev) stays token-free. The frontend sends it as `Bearer` auth (set it once in Settings → General — stored in localStorage and mirrored to a `fusion_api_token` cookie so `<img>`/`<video>` tags can load `/static` media); `/static/*` also accepts `?token=` for download links |
+| `FUSION_BIND_HOST` | — | Bind address for the HTTP listener. `127.0.0.1` / `localhost` / `::1` mark a loopback-only deployment and bypass token enforcement; any other value (e.g. `0.0.0.0`) binds all interfaces and **requires** the token above |
+| `FUSION_IMAGE_REVIEW` | auto | Image QA gate (checklist 1107 #4): after a local (fusion) image generation, a vision model scores consistency/quality/artifacts and fires one corrective retry on low scores. Default on for the fusion provider, off for cloud providers; set `1`/`true` to force on, `0`/`false` to force off |
+| `FUSION_IMAGE_REVIEW_MODEL` | `mlx-community--Qwen2.5-VL-7B-Instruct-4bit` | Vision model used by the image QA gate (must be served by the configured text endpoint) |
 | `FUSION_SHELL_GATEWAY` | — | Union Web integration: base URL of the fusion-web-shell gateway (e.g. `http://localhost:11432`). When set, the backend registers `web/manifest.json` with the shell's manifest registry on startup (best-effort, idempotent). Loading the app with `?embedded=1` hides its own header for shell embedding |
 | `FUSION_MEMORY_URL` | `http://127.0.0.1:11435` | fusion-memory (fm-server) base URL for cross-session Agent memory |
 | `FUSION_MEMORY_API_KEY` | `~/.fusion-memory/api_key` file | Bearer key for fm-server RPC calls (falls back to reading the shared key file) |
@@ -206,7 +208,7 @@ No config files — everything is set via environment variables (all have defaul
 
 ```bash
 # Clone the repository
-git clone https://github.com/fusion-drama/fusion-drama.git
+git clone https://github.com/dahai80/fusion-drama.git
 cd fusion-drama
 
 # Install backend dependencies

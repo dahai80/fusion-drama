@@ -23,6 +23,20 @@ export interface VideoPromptBatchStatus {
 
 const tasks = new Map<number, VideoPromptBatchStatus>()
 
+/**
+ * Checklist 1107 #5: structured per-model constraints for the prompt agent —
+ * replaces the old prose "根据模型特性" hint (agent guessed durations, produced
+ * 10s scripts for a 5s-capped model → TTS dialogue overflow, see memory
+ * video-duration-storyboard-fallback). Keep in sync with adapters/fusion-video.ts.
+ */
+export function videoModelConstraints(model?: string | null): { maxSeconds: number, resolution: string } {
+    const m = (model || '').toLowerCase()
+    if (m.includes('minimax') || m.includes('h3')) return { maxSeconds: 5, resolution: '1024x576' }
+    if (m.includes('wan2.2') || m.includes('ti2v') || m.includes('5b')) return { maxSeconds: 10, resolution: '960x544' }
+    if (m.includes('ltx')) return { maxSeconds: 10, resolution: '1344x768' }
+    return { maxSeconds: 10, resolution: '' }
+}
+
 /** sys_task 行 → 状态对象（重启后 DB 回读用） */
 function statusFromRow(row: typeof schema.sysTask.$inferSelect): VideoPromptBatchStatus {
     let params: any = {}
@@ -67,6 +81,7 @@ export async function startVideoPromptBatch(
   tasks.set(episodeId, { status: 'running', total: 0, completed: 0, failed: 0, started_at: new Date().toISOString() })
   const pending: (typeof schema.storyboards.$inferSelect)[] = []
   let videoLabel = '默认'
+  let modelConstraints = videoModelConstraints('')
   try {
     const sbs = await db.select().from(schema.storyboards)
       .where(eq(schema.storyboards.episodeId, episodeId))
@@ -84,7 +99,10 @@ export async function startVideoPromptBatch(
     const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
     if (ep?.videoConfigId) {
       const [cfg] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, ep.videoConfigId))
-      if (cfg) videoLabel = `${cfg.name} (${cfg.provider})`
+      if (cfg) {
+        videoLabel = `${cfg.name} (${cfg.provider})`
+        modelConstraints = videoModelConstraints(cfg.model)
+      }
     }
   } catch (err) {
     tasks.delete(episodeId)
@@ -135,7 +153,8 @@ export async function startVideoPromptBatch(
       try {
         await agent.generate([{
           role: 'user',
-          content: `请为分镜 #${sb.storyboardNumber}(ID:${sb.id})生成视频提示词(video_prompt)。视频模型:${videoLabel},请根据该模型的特性和时长限制生成。
+          content: `请为分镜 #${sb.storyboardNumber}(ID:${sb.id})生成视频提示词(video_prompt)。视频模型:${videoLabel}。
+模型硬约束(必须遵守)：单镜头总时长不超过 ${modelConstraints.maxSeconds} 秒${modelConstraints.resolution ? `，目标分辨率 ${modelConstraints.resolution}（16:9）` : ''}——按分镜 description 的时长切分段落时不得超过该上限，台词朗读时间也要落在总时长内。
 请先调用 read_storyboard_context 获取该分镜的画面描述(含【镜头N】子镜头与台词/旁白)、氛围及时长，据此生成 video_prompt(第一行是信息头：列出该分镜出场的人物与场景，用 @角色名/@场景名 引用；之后按 3 秒分段换行、用 @角色名/@场景名/@道具名 引用参考素材；段落内允许多镜头切镜，段与段可以是不同景别/角度/对象，但不跨场景，切镜点对齐分镜 description 的【镜头N】结构),然后调用 update_storyboard 保存到分镜 ID:${sb.id}。update_storyboard 参数只传 storyboard_id 和 video_prompt 两个键,不要回传该分镜的其他任何字段,不要重新拆分整集。`,
         }], { maxSteps: 8, requestContext })
         // 以实际落库为准判定成败

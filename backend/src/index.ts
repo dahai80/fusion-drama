@@ -30,7 +30,7 @@ import novel from './routes/novel.js'
 import storage from './routes/storage.js'
 import serverUpdate from './routes/serverUpdate.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
-import { requireApiToken, requireSafeContentType } from './middleware/auth.js'
+import { requireApiToken, requireSafeContentType, hasValidApiToken } from './middleware/auth.js'
 import { db, schema } from './db/index.js'
 import { eq } from 'drizzle-orm'
 import { now, notFound } from './utils/response.js'
@@ -119,7 +119,17 @@ app.route('/api/v1', api)
 // Serve static files (storage) — 仅服务 STORAGE_ROOT（DATA_ROOT/static），
 // 绝不能服务 DATA_ROOT 本身：否则 /static/fusion.sqlite3 可整库下载（含明文 API key）
 // 生成的图片/视频按 uuid 命名、内容不变，标记为 immutable 让浏览器长缓存
+// Audit 1107 F-7: /static must honor the API token too — generated media is user
+// data and the whole DB download risk was already excluded above, but images/
+// videos are still per-tenant assets. Token accepted via header (fetch), cookie
+// (img/video tags can't set headers — frontend mirrors token into cookie), or
+// ?token= (download links). Unset token = loopback/desktop mode, no gate.
 app.use('/static/*', async (c, next) => {
+  const API_TOKEN = process.env.FUSION_API_TOKEN || ''
+  if (API_TOKEN && !hasValidApiToken(c)) {
+    console.warn(`[auth] unauthorized static request ${c.req.path}`)
+    return c.json({ code: 401, message: 'Unauthorized' }, 401)
+  }
   await next()
   if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable')
   // C3: MIME 按扩展名返回，禁嗅探防止把上传物嗅探成 text/html 执行
@@ -174,9 +184,12 @@ const hostname = process.env.FUSION_BIND_HOST || undefined
 
 // FR-P0-1: 对外部署（未绑定 127.0.0.1）必须有 >=32B token——
 // 桌面/dev（127.0.0.1 绑定）两形态免鉴权不受影响。
+// Audit 1107 F-1: derive loopback from the VALUE, not mere presence —
+// FUSION_BIND_HOST=0.0.0.0 must bind all interfaces AND keep token enforcement.
 // P3 首启自动生成（审计 1024）：未显式配置时生成 64 hex token 持久化到
 // app_settings.server_api_token（重启复用，不入库覆盖用户显式配置），杜绝裸奔
-const isLoopbackOnly = Boolean(process.env.FUSION_BIND_HOST)
+const bindHost = process.env.FUSION_BIND_HOST || ''
+const isLoopbackOnly = bindHost === '127.0.0.1' || bindHost === 'localhost' || bindHost === '::1'
 if (!isLoopbackOnly && (process.env.FUSION_API_TOKEN || '').length < 32) {
     const existing = getServerApiToken()
     if (existing && existing.length >= 32) {
@@ -188,7 +201,8 @@ if (!isLoopbackOnly && (process.env.FUSION_API_TOKEN || '').length < 32) {
             setServerApiToken(token)
             process.env.FUSION_API_TOKEN = token
             console.log('[server] 已自动生成 API token 并持久化到 app_settings.server_api_token，外部调用需携带 Authorization: Bearer <token>')
-            console.log(`[server] token: ${token}`)
+            // Audit 1107 F-8: never print the full token to logs, prefix only
+            console.log(`[server] token: ${token.slice(0, 8)}…`)
         } catch (err: any) {
             console.error(`[server] FUSION_API_TOKEN 未设置且自动生成失败（${err?.message}）：对外部署（非 127.0.0.1 绑定）必须配置强 token 才能启动。本地开发请设置 FUSION_BIND_HOST=127.0.0.1`)
             process.exit(1)

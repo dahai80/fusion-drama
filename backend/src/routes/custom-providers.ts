@@ -145,7 +145,9 @@ app.post('/test', async (c) => {
         return success(c, result)
     } catch (err: any) {
         logTaskError('CustomProvider', 'dry-run-failed', { name, type, error: err.message })
-        return success(c, { ok: false, error: err.message })
+        // Audit 1107 F-13: dry-run failure is a 4xx, not a 200-wrapped ok:false —
+        // silent success shape hides breakage from API consumers and monitoring
+        return c.json({ code: 400, message: err.message, ok: false }, 400)
     }
 })
 
@@ -169,7 +171,8 @@ app.post('/:id/test', async (c) => {
         return success(c, result)
     } catch (err: any) {
         logTaskError('CustomProvider', 'dry-run-failed', { id, name: row.name, error: err.message })
-        return success(c, { ok: false, error: err.message })
+        // Audit 1107 F-13: same as /test — failure must not masquerade as 200 ok
+        return c.json({ code: 400, message: err.message, ok: false }, 400)
     }
 })
 

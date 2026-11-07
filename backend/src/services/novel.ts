@@ -207,6 +207,22 @@ export interface NovelTask {
 }
 const tasks = new Map<string, NovelTask>()
 
+// Audit 1107 F-15: bound the in-process task map — keys are `${dramaId}:${kind}`
+// so long-running servers accumulate one entry per drama forever. Evict oldest
+// finished entries past the cap; running tasks are never evicted.
+const NOVEL_TASKS_MAX = 200
+function setNovelTask(key: string, task: NovelTask) {
+    if (!tasks.has(key) && tasks.size >= NOVEL_TASKS_MAX) {
+        for (const [k, v] of tasks) {
+            if (v.status !== 'running') {
+                tasks.delete(k)
+                if (tasks.size < NOVEL_TASKS_MAX) break
+            }
+        }
+    }
+    tasks.set(key, task)
+}
+
 export function getNovelTask(dramaId: number, kind: string): NovelTask | null {
   return tasks.get(`${dramaId}:${kind}`) || null
 }
@@ -218,7 +234,7 @@ export async function outlineAllSegments(dramaId: number): Promise<void> {
   const key = `${dramaId}:outline`
   if (tasks.get(key)?.status === 'running') throw new Error('大纲任务已在运行')
   const task: NovelTask = { status: 'running', started_at: new Date().toISOString() }
-  tasks.set(key, task)
+  setNovelTask(key, task)
   logTaskStart('Novel', 'outline-start', { dramaId })
   void (async () => {
     try {
@@ -426,7 +442,7 @@ export async function rewriteAllEpisodes(dramaId: number, targetLanguage = '中�
   const key = `${dramaId}:rewrite`
   if (tasks.get(key)?.status === 'running') throw new Error('改写任务已在运行')
   const task: NovelTask = { status: 'running', started_at: new Date().toISOString() }
-  tasks.set(key, task)
+  setNovelTask(key, task)
   logTaskStart('Novel', 'rewrite-all-start', { dramaId })
   void (async () => {
     try {

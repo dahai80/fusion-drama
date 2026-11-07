@@ -1474,11 +1474,19 @@ const contentLangLabel = computed(() =>
 // ===== 通用：外观主题（localStorage 持久化，即时生效） =====
 const { themeMode, setThemeMode } = useTheme()
 // FR-P0-1: 服务器 token 模式前端鉴权配置（localStorage 持久化，请求层统一注入）
+// Audit 1107 F-7: mirror the token into a cookie so <img>/<video> tags (which
+// cannot attach Authorization headers) can load /static media on token-secured
+// deployments; backend accepts cookie or ?token= for those requests
 const apiTokenInput = ref(localStorage.getItem('FUSION_API_TOKEN') || '')
 function saveApiToken() {
   const v = apiTokenInput.value.trim()
-  if (v) localStorage.setItem('FUSION_API_TOKEN', v)
-  else localStorage.removeItem('FUSION_API_TOKEN')
+  if (v) {
+    localStorage.setItem('FUSION_API_TOKEN', v)
+    document.cookie = `fusion_api_token=${v}; path=/; max-age=31536000; SameSite=Strict`
+  } else {
+    localStorage.removeItem('FUSION_API_TOKEN')
+    document.cookie = 'fusion_api_token=; path=/; max-age=0; SameSite=Strict'
+  }
   toast.success(t('settings.general.apiTokenSaved'))
 }
 

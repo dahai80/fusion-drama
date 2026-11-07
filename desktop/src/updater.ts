@@ -18,7 +18,7 @@ import { spawn, execFile } from 'child_process'
 // D10: FUSION_UPDATE_FEED 仅 dev 调试用——打包版跟随默认 feed，防本地 env 注入劫持更新源
 const FEED_URLS = (process.env.FUSION_UPDATE_FEED && !app.isPackaged)
   ? [process.env.FUSION_UPDATE_FEED]
-  : ['https://github.com/fusion-drama/fusion-drama/releases/latest/download/latest.json']
+  : ['https://github.com/dahai80/fusion-drama/releases/latest/download/latest.json']
 
 export interface UpdateState {
   status: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'error'

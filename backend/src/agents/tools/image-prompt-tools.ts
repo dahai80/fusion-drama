@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { db, schema } from '../../db/index.js'
 import { eq } from 'drizzle-orm'
 import { now } from '../../utils/response.js'
+import { recordPromptHistory } from '../../utils/prompt-history.js'
 import { getDramaStylePrompt } from '../../services/style-preset.js'
 import { getDramaId } from '../context.js'
 
@@ -61,6 +62,7 @@ const saveCharacterFinalPrompt = createTool({
     await db.update(schema.characters)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.characters.id, character_id))
+    await recordPromptHistory(dramaId, 'character', character_id, finalPrompt)
 
     return {
       character_id: c.id,
@@ -115,6 +117,7 @@ const saveSceneFinalPrompt = createTool({
     await db.update(schema.scenes)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.scenes.id, scene_id))
+    await recordPromptHistory(dramaId, 'scene', scene_id, finalPrompt)
 
     return {
       scene_id: s.id,
@@ -168,6 +171,7 @@ const savePropFinalPrompt = createTool({
     await db.update(schema.props)
       .set({ finalPrompt, updatedAt: now() })
       .where(eq(schema.props.id, prop_id))
+    await recordPromptHistory(dramaId, 'prop', prop_id, finalPrompt)
 
     return {
       prop_id: p.id,

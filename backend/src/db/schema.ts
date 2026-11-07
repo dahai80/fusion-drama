@@ -353,3 +353,14 @@ export const ragChunks = sqliteTable('rag_chunks', {
   embedding: text('embedding').notNull(),
   createdAt: text('created_at').notNull(),
 })
+
+// Checklist 1107 #3: append-only prompt history (character/scene/prop final
+// prompts, storyboard image/video prompts) — version trail for regeneration
+export const promptHistory = sqliteTable('prompt_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  dramaId: integer('drama_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: integer('target_id').notNull(),
+  prompt: text('prompt').notNull(),
+  createdAt: text('created_at').notNull(),
+})

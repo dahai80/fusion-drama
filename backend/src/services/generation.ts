@@ -313,9 +313,36 @@ async function unloadFusionTextModel(): Promise<void> {
 /**
  * 生图前把含中文的提示词翻译成英文（走当前文本模型，一次直出）。
  * 失败时返回原文并记警告——翻译只是增强，不阻断生成。
+ *
+ * Checklist 1107 #2 (prompt-optimizer 吸收)：逐字保留契约 —— 引号内台词/文本、
+ * 角色名等锚点必须原样出现在译文里；翻译后逐项校验，缺失即告警并回填原文
+ * 锚点，杜绝「台词被意译导致 TTS 配音对不上、@名字锚点失效」这类静默劣化。
  */
+
+/** 提取必须逐字保留的锚点：中文引号「」/『』与英文引号内的文本 */
+function extractVerbatimAnchors(prompt: string): string[] {
+    const anchors: string[] = []
+    for (const re of [/[「『]([^「」『』]+)[」』]/g, /"([^"\n]{1,120})"/g]) {
+        let m: RegExpExecArray | null
+        while ((m = re.exec(prompt)) !== null) {
+            const v = m[1].trim()
+            if (v) anchors.push(v)
+        }
+    }
+    return [...new Set(anchors)]
+}
+
+/** 译文缺失锚点时回填：把丢失的引号片段按原文追加到译文末尾（显式标注） */
+function reattachLostAnchors(translated: string, anchors: string[]): { text: string, lost: string[] } {
+    const lost = anchors.filter(a => !translated.includes(a))
+    if (!lost.length) return { text: translated, lost }
+    const restored = lost.map(a => `"${a}"`).join(', ')
+    return { text: `${translated}, verbatim text: ${restored}`, lost }
+}
+
 async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: number): Promise<string> {
   if (!prompt || !containsChinese(prompt)) return prompt
+  const anchors = extractVerbatimAnchors(prompt)
   try {
     const { getTextConfig, getTextProviderBaseUrl } = await import('./ai.js')
     const textConfig = await getTextConfig()
@@ -330,7 +357,7 @@ async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: 
       body: JSON.stringify({
         model: textConfig.model,
         messages: [
-          { role: 'system', content: 'You are a translation engine for image-generation prompts. Translate the user text to English. Keep the visual details, style words, and structure verbatim in meaning; output ONLY the translated prompt text, no explanations, no quotes.' },
+          { role: 'system', content: 'You are a translation engine for image-generation prompts. Translate the user text to English. Keep the visual details, style words, and structure verbatim in meaning. VERBATIM CONTRACT: any text inside quotes, character names, and on-image caption text must appear in the output EXACTLY as written in the source (copy the characters verbatim, do not translate or paraphrase them). Output ONLY the translated prompt text, no explanations, no quotes.' },
           { role: 'user', content: prompt },
         ],
         max_tokens: 4096,
@@ -339,12 +366,22 @@ async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: 
     } as any)
     if (!resp.ok) throw new Error(`translate API ${resp.status}`)
     const result = await resp.json() as any
-    const translated = result?.choices?.[0]?.message?.content?.trim()
+    let translated = result?.choices?.[0]?.message?.content?.trim()
     if (!translated) return prompt
+    if (anchors.length) {
+      const { text, lost } = reattachLostAnchors(translated, anchors)
+      translated = text
+      if (lost.length) {
+        // loud, not silent: degraded anchors are visible in task events and logs
+        logTaskWarn(taskLabel_, 'prompt-verbatim-lost', { id, lost })
+        appendTaskEvent(id, 'warning', { message: `translation dropped verbatim anchors, re-attached: ${lost.join(' | ')}` })
+      }
+    }
     logTaskProgress(taskLabel_, 'prompt-translated', { id, originalLength: prompt.length, translatedLength: translated.length })
     return translated
   } catch (err: any) {
     logTaskWarn(taskLabel_, 'prompt-translate-failed', { id, error: err?.message })
+    appendTaskEvent(id, 'warning', { message: `prompt translation failed, using original Chinese text (FLUX may degrade): ${err?.message}` })
     return prompt
   }
 }
@@ -685,6 +722,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
           // 该 URL 是临时文件（1800s TTL）且需 Bearer 鉴权，落库走 localPath。
           let videoUrl = pollResp.videoUrl
           let authHeaders: Record<string, string> | undefined
+          let allowLoopback = false
           if (videoUrl === 'job-output') {
             const outReq = (adapter as VideoProviderAdapter).buildJobOutputRequest?.(config, taskId, 0)
             if (!outReq) {
@@ -693,10 +731,13 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
             }
             videoUrl = outReq.url
             authHeaders = outReq.headers
+            // Audit 1107 F-10: this URL is built from the admin-configured
+            // fusion-mlx baseUrl (loopback) — exempt from the SSRF gate
+            allowLoopback = true
           }
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl })
           // A2: 下载/海报帧/TTS 配音/ffmpeg 混流同样入 GPU 串行队列
-          await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, videoUrl, pollResp.duration, authHeaders))
+          await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, videoUrl, pollResp.duration, authHeaders, allowLoopback))
           return
         }
         // 上游报告完成但没有产物 URL：终态失败，不让轮询空转到超时
@@ -756,6 +797,44 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
   logTaskSuccess('ImageTask', 'downloaded', { id: record.id, provider: record.provider, localPath })
 
   await writeBackImageAssets(record, localPath)
+  await runImageReviewGate(record, localPath)
+}
+
+// Checklist 1107 #4: VLM review gate — score consistency/quality/artifacts,
+// fire ONE corrective retry task when the image is clearly off. Retries carry
+// params.review_retry=true and skip review (no loops). Best-effort: review
+// failure never fails the completed task. Used by both URL and base64 paths.
+async function runImageReviewGate(record: SysTaskRecord, localPath: string) {
+  try {
+    const params = parseTaskParams(record.params)
+    if (params.review_retry) return
+    const { reviewGeneratedImage, reviewNeedsRetry, reviewRetryPrompt } = await import('./image-review.js')
+    const review = await reviewGeneratedImage(localPath, record.prompt || '', record.provider, 'ImageTask', record.id)
+    if (review && reviewNeedsRetry(review)) {
+      const cfg = await getActiveConfig('image')
+      if (cfg) {
+        const retryPrompt = reviewRetryPrompt(record.prompt || '', review)
+        const retryParams: Record<string, any> = { ...params, prompt: retryPrompt, review_retry: true }
+        delete retryParams.referenceImages
+        const retryId = await createTask('image', cfg, {
+          storyboardId: record.storyboardId ?? undefined,
+          dramaId: record.dramaId ?? undefined,
+          sceneId: record.sceneId ?? undefined,
+          characterId: record.characterId ?? undefined,
+          propId: record.propId ?? undefined,
+          prompt: retryPrompt,
+          model: record.model,
+          retryOf: record.id,
+        }, retryParams)
+        appendTaskEvent(record.id, 'review-retry', { review, retryTaskId: retryId })
+        logTaskWarn('ImageTask', 'review-retry-spawned', { id: record.id, retryId, score: review.score, issues: review.issues })
+      }
+    } else if (review) {
+      appendTaskEvent(record.id, 'review-passed', { score: Math.round(review.score * 10) / 10, consistency: review.consistency, quality: review.quality, artifacts: review.artifacts })
+    }
+  } catch (err: any) {
+    logTaskWarn('ImageTask', 'review-gate-error', { id: record.id, error: err?.message })
+  }
 }
 
 async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: string, mimeType: string) {
@@ -774,6 +853,7 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
   logTaskSuccess('ImageTask', 'saved-base64', { id: record.id, provider: record.provider, mimeType, localPath })
 
   await writeBackImageAssets(record, localPath)
+  await runImageReviewGate(record, localPath)
 }
 
 // 图片完成后回写业务表：分镜(按 frameType)、角色、场景、道具
@@ -804,7 +884,7 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
   }
 }
 
-async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, authHeaders?: Record<string, string>) {
+async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, authHeaders?: Record<string, string>, allowLoopback = false) {
   // L6: data URI 外的远端 URL 先落库（签名 URL 短期有效，下载失败可查可重取）。
   // #1254 交接的产物 URL 是临时文件且带鉴权，不存在「重取」——落库占位无妨，
   // 真相源以 localPath 为准。
@@ -813,7 +893,7 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
       .set({ resultUrl: videoUrl, updatedAt: now() })
       .where(eq(schema.sysTask.id, record.id))
   }
-  const localPath = await downloadFile(videoUrl, 'videos', authHeaders)
+  const localPath = await downloadFile(videoUrl, 'videos', authHeaders, { allowLoopback })
   // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频——失败只降级
   try {
     await extractVideoPoster(localPath)

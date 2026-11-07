@@ -1,79 +1,29 @@
-# NOTICE
-
 Fusion Drama
-Copyright 2026 fusion-drama contributors
+Copyright (c) 2026 dahai80
 
-This product includes software developed as part of the Fusion Drama project
-(https://github.com/fusion-drama/fusion-drama).
+This product bundles binary distributions of FFmpeg via the npm packages
+`ffmpeg-static` and `ffprobe-static`. FFmpeg is licensed under the GNU
+General Public License (GPL) or, for some builds, the GNU Lesser General
+Public License (LGPL). The GPL build may include components such as
+libx264 licensed under GPL.
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not
-use this file except in compliance with the License. You may obtain a copy
-of the License at
+Accordingly, this application, when distributed with these binaries, is
+distributed under the terms of the GNU General Public License v2 or later
+with respect to those bundled components.
 
-    http://www.apache.org/licenses/LICENSE-2.0
+Source code offer (GPL section 3):
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-License for the specific language governing permissions and limitations
-under the License.
+  - FFmpeg source: https://ffmpeg.org/download.html
+  - ffmpeg-static (build scripts and binary sources):
+    https://github.com/eugeneware/ffmpeg-static
+  - ffprobe-static (build scripts and binary sources):
+    https://github.com/SavageCore/ffprobe-static
 
-## Third-Party Components
+The corresponding source code for the exact binary versions shipped in a
+given release can be obtained by building from the tagged revisions of the
+repositories above; the npm package version in package-lock.json identifies
+the exact binary build used.
 
-This project depends on the following third-party open-source components.
-Each is distributed under its own license; the list below covers the
-components that are bundled into distributed artifacts (desktop installers
-and Docker images) or otherwise prominently relied upon.
-
-### Bundled in desktop installers and Docker images
-
-| Component | License | Source |
-| --- | --- | --- |
-| ffmpeg-static | GPL-3.0-or-later | https://github.com/eugeneware/ffmpeg-static |
-| ffprobe-static | MIT | https://github.com/eugeneware/ffprobe-static |
-| ffprobe (bundled binary via ffprobe-static) | GPLv3 | https://ffmpeg.org |
-| better-sqlite3 | MIT | https://github.com/WiseLibs/better-sqlite3 |
-| sharp | Apache-2.0 | https://github.com/lovell/sharp |
-| libvips (bundled via sharp prebuilt binaries) | LGPL-2.1+ | https://libvips.github.io/libvips |
-| fluent-ffmpeg | MIT | https://github.com/fluent-ffmpeg/node-fluent-ffmpeg |
-| @mastra/core | Apache-2.0 | https://github.com/mastra-ai/mastra |
-| hono | MIT | https://github.com/honojs/hono |
-| drizzle-orm | Apache-2.0 | https://github.com/drizzle-team/drizzle-orm |
-| undici | MIT | https://github.com/nodejs/undici |
-
-### Frontend
-
-| Component | License | Source |
-| --- | --- | --- |
-| Nuxt 3 | MIT | https://github.com/nuxt/nuxt |
-| Vue 3 | MIT | https://github.com/vuejs/core |
-| vue-i18n | MIT | https://github.com/intlify/vue-i18n |
-| lucide-vue-next | ISC | https://github.com/lucide-icons/lucide |
-
-### Desktop shell (build-time)
-
-| Component | License | Source |
-| --- | --- | --- |
-| Electron | MIT | https://github.com/electron/electron |
-| electron-builder | MIT | https://github.com/electron-userland/electron-builder |
-| esbuild | MIT | https://github.com/evanw/esbuild |
-
-### GPL component note
-
-ffmpeg-static ships an FFmpeg binary built with GPL components
-(GPL-3.0-or-later). When redistributing Fusion Drama desktop installers
-(dmg/exe) or Docker images that bundle this binary, you must comply with
-the GNU GPL v3 for that component, including offering the corresponding
-source. See https://www.gnu.org/licenses/gpl-3.0.html and
-https://github.com/eugeneware/ffmpeg-static#license.
-
-The ffprobe binary bundled via ffprobe-static is likewise GPL-3.0-or-later
-and carries the same redistribution obligations as ffmpeg-static.
-
-sharp's prebuilt binaries bundle libvips (LGPL-2.1-or-later). Distributing
-binaries that link libvips requires allowing users to relink or replace the
-LGPL component; shipping the unmodified official sharp prebuilds satisfies
-this in practice. See https://www.gnu.org/licenses/old-licenses/lgpl-2.1.
-
-All other bundled components are MIT / Apache-2.0 / ISC and remain subject
-to their respective licenses.
+Other npm dependencies remain under their respective licenses (MIT, Apache-2.0,
+BSD, etc.). Nothing in this notice changes the licensing of this repository's
+own source code.

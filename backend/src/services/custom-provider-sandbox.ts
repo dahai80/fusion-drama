@@ -4,10 +4,20 @@
  * 纯模块（无 DB 依赖）：求值 / 校验 / 方法包装。DB 读写与缓存见 custom-providers.ts。
  * 沙箱限制：无 require/process/fs/Buffer/global；提供 console/fetch/URL/URLSearchParams。
  * 模块求值同步执行带 5s 超时熔断；适配器方法在生成管线中按需调用。
+ *
+ * Audit 1107 F-9 trust statement: node:vm is NOT a security boundary. Host-realm
+ * values reachable from user code (e.g. an object's .constructor.constructor)
+ * can in principle reach the host Function constructor. The in-context wrappers
+ * below close the casual `fetch.constructor` / `URL.constructor` escape paths,
+ * and codeGeneration.strings=false blocks eval/Function-from-strings inside the
+ * context — but this feature must be treated as "admin-defined adapter code
+ * runs with backend privileges", never marketed as a hard sandbox.
  */
 import vm from 'node:vm'
 
 const EVAL_TIMEOUT_MS = 5000
+/** Audit 1107 F-9: cap adapter source size — a 50MB "adapter" is abuse, not code */
+const MAX_CODE_BYTES = 256 * 1024
 
 /** 适配器必须导出的方法集合（与 adapters/types.ts 接口一一对应） */
 const REQUIRED_EXPORTS = {
@@ -30,16 +40,28 @@ function sandboxConsole(name: string) {
  * 用户代码约定：`module.exports = { buildGenerateRequest(...) {...}, ... }`
  */
 export function evaluateCustomProviderCode(code: string, name: string): Record<string, any> {
+    if (Buffer.byteLength(code, 'utf8') > MAX_CODE_BYTES) {
+        throw new Error(`custom provider code exceeds ${MAX_CODE_BYTES / 1024}KB limit`)
+    }
+    // host fetch is reachable only through an in-context wrapper (F-9):
+    // user code sees a sandbox-realm function, so .constructor lands on the
+    // context's own Function (disabled via codeGeneration.strings=false)
     const sandbox: Record<string, any> = {
         module: { exports: {} as Record<string, any> },
         console: sandboxConsole(name),
-        fetch: (...args: any[]) => fetch(...(args as [any, any])),
-        URL,
-        URLSearchParams,
+        __hostFetch: (...args: any[]) => fetch(...(args as [any, any])),
+        __hostURL: URL,
+        __hostURLSearchParams: URLSearchParams,
         setTimeout: () => { throw new Error('setTimeout is not available in custom provider sandbox') },
     }
     sandbox.exports = sandbox.module.exports
     const context = vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } })
+    // define public wrappers in the sandbox realm (host globals stay __-prefixed)
+    new vm.Script(`
+        this.fetch = function fetch(...a) { return __hostFetch(...a) }
+        this.URL = function URL(...a) { return new __hostURL(...a) }
+        this.URLSearchParams = function URLSearchParams(...a) { return new __hostURLSearchParams(...a) }
+    `, { filename: `custom-provider:globals:${name}` }).runInContext(context)
     const script = new vm.Script(`(function(){\n${code}\n})()`, { filename: `custom-provider:${name}` })
     script.runInContext(context, { timeout: EVAL_TIMEOUT_MS })
     const mod = sandbox.module.exports
