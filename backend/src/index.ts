@@ -256,9 +256,18 @@ async function registerShellManifest(actualPort: number) {
     manifest.health = `http://localhost:${actualPort}/api/v1/health`
     manifest.backend = `http://localhost:${actualPort}/api/v1`
     manifest.version = process.env.FUSION_VERSION || manifest.version
+    // fusion-drama#16 gap 2: 注册必须带 upstream，否则网关 shellProxy 无法路由
+    // /shell/fusion-drama/*（module_not_found: no proxy upstream configured）。
+    manifest.upstream = `http://127.0.0.1:${actualPort}`
+    // fusion-drama#16 gap 1: 注册端点要求鉴权（master_key / web_shell.admin_key /
+    // 本模块 fm- key），裸 POST 一律 403 manifest_forbidden。
+    const adminKey = process.env.FUSION_SHELL_ADMIN_KEY || ''
     const res = await fetch(`${gateway.replace(/\/$/, '')}/api/v1/shell/manifests`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(adminKey ? { Authorization: `Bearer ${adminKey}` } : {}),
+      },
       body: JSON.stringify(manifest),
       signal: AbortSignal.timeout(3000),
     })

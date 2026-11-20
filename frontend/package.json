@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nuxt dev --port 3013",
     "build": "nuxt build",
+    "build:shell": "FUSION_SHELL_BASE=/shell/fusion-drama/ nuxt generate",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
