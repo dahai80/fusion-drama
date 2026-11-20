@@ -70,3 +70,4 @@ data/models/
 fusion-drama-pre-scrub.bundle
 .remember/
 prompt-optimizer/
+.fusion-drama.pid
