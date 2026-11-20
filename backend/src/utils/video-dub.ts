@@ -22,10 +22,10 @@ async function getTtsEndpoint(): Promise<{ baseUrl: string; apiKey: string } | n
   try {
     const { getActiveConfig } = await import('../services/ai.js')
     // TTS 无独立服务类型，回退到文本服务配置（同源 fusion-mlx）。
-    // 但文本配置可能指向 fusion-gateway（无 /v1/audio/speech 透传）——
-    // gateway 地址的配置跳过，TTS 始终直连 fusion-mlx。
+    // fusion-gateway v0.9.190+ 已透传 /v1/audio/speech（gateway#698），
+    // 文本配置指向 gateway :11432 时同样可用——统一走 gateway，不再直连绕行。
     const cfg = await getActiveConfig('text')
-    if (cfg?.baseUrl && cfg?.apiKey && !/gateway|:11432/.test(cfg.baseUrl)) {
+    if (cfg?.baseUrl && cfg?.apiKey) {
       return { baseUrl: cfg.baseUrl.replace(/\/+$/, ''), apiKey: cfg.apiKey }
     }
   } catch { /* 无配置时走默认 */ }
@@ -228,7 +228,7 @@ async function probeDuration(absPath: string): Promise<number> {
 async function synthesizeLine(text: string, idx: number, voice: string, serverVoices?: Set<string>): Promise<string | null> {
   const ep = await getTtsEndpoint()
   // API key env 用规范名（config-conventions §1），legacy MLX key 别名已收敛
-  const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
+  const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11432'
   const apiKey = ep?.apiKey || process.env.FUSION_CLIENT_KEY || ''
   const attempt = async (): Promise<string | null> => {
     // Qwen3-TTS Base：服务端音色包（#1383）命中 → 直接传 voice 名（免 base64）；
@@ -302,7 +302,7 @@ export async function dubVideoDialogue(
     let serverSet: Set<string> | undefined
     if (isQwen3Tts && !TTS_VOICE) {
       const ep = await getTtsEndpoint()
-      const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434'
+      const baseUrl = ep?.baseUrl || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11432'
       const apiKey = ep?.apiKey || process.env.FUSION_CLIENT_KEY || ''
       const serverBundles = await listServerVoiceBundles(baseUrl, apiKey)
       const serverBundleSet = new Set(serverBundles)
