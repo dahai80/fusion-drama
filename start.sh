@@ -43,8 +43,12 @@ start() {
     rm -f "$PID_FILE"
     build_frontend
     log_info "starting fusion-drama backend on ${HOST}:${PORT} ..."
+    # Issue #18: exec directly so the pidfile pid IS the listener —
+    # `npm run start` records the npm pid while the :5679 listener is a
+    # tsx/node descendant; stop() then kills npm and leaves an orphan.
+    # cd + exec makes bash replace itself with node (same pid as $! below).
     PORT="$PORT" FUSION_BIND_HOST="$HOST" FRONTEND_DIST="$FRONTEND_DIST" \
-        nohup npm run --prefix "$SCRIPT_DIR/backend" start \
+        nohup bash -c "cd '$SCRIPT_DIR/backend' && exec node --import tsx src/index.ts" \
         >>"$STDOUT_LOG" 2>>"$STDERR_LOG" &
     echo $! > "$PID_FILE"
     # wait for /api/v1/health (up to 30s; tsx cold start + sqlite init)
