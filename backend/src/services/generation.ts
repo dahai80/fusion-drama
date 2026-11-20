@@ -267,11 +267,11 @@ function containsChinese(text: string): boolean {
 /** fusion-mlx \u56fe\u7247\u6a21\u578b\uff08FLUX.1-dev\uff09\u65e0 ttl_seconds \u4e0d\u4f1a\u81ea\u52a8\u9a71\u9010\uff0c
  *  \u56fe\u751f\u6210\u540e\u5e38\u9a7b ~34GB GPU \u5185\u5b58\uff0c\u4e0e\u540e\u7eed\u8d44\u4ea7\u63d0\u53d6 Qwen3.5 decode \u4e89\u7528 \u2192
  *  Metal command buffer \u5d29\u6e83 \u2192 fusion-mlx SIGTERM\u3002\u56fe\u5b8c\u6210\u540e\u663e\u5f0f\u5378\u8f7d\u3002
- *  \u4ec5\u5bf9 baseUrl \u6307\u5411 fusion-mlx\uff08localhost:11434\uff09\u7684 openai \u56fe\u7247\u914d\u7f6e\u751f\u6548\u3002 */
+ *  \u4ec5\u5bf9 baseUrl \u6307\u5411 fusion-mlx/gateway \uff08:11434/:11432\uff09\u7684 openai \u56fe\u7247\u914d\u7f6e\u751f\u6548\u3002 */
 async function unloadFusionImageModel(config: AIConfig, model: string | null): Promise<void> {
   try {
     const baseUrl = config.baseUrl || ''
-    if (!/127\.0\.0\.1:11434|localhost:11434/.test(baseUrl)) return
+    if (!/127\.0\.0\.1:11434|localhost:11434|127\.0\.0\.1:11432|localhost:11432/.test(baseUrl)) return
     const m = model || config.model || ''
     if (!m) return
     const url = `${baseUrl.replace(/\/+$/, '')}/v1/models/${m}/unload`
@@ -289,13 +289,13 @@ async function unloadFusionImageModel(config: AIConfig, model: string | null): P
 /** fusion-mlx 文本模型（Qwen3.5）在视频翻译后被加载常驻，与随后准入的
  *  LTX-2.5（~60GB）内存竞争 → memory guard 直接取消视频任务（503）。
  *  视频翻译完成后显式卸载文本模型，为视频生成腾出内存。
- *  仅对 baseUrl 指向 fusion-mlx（localhost:11434）的文本配置生效。 */
+ *  仅对 baseUrl 指向 fusion-mlx/gateway（:11434/:11432）的文本配置生效。 */
 async function unloadFusionTextModel(): Promise<void> {
   try {
     const config = await getActiveConfig('text')
     if (!config) return
     const baseUrl = config.baseUrl || ''
-    if (!/127\.0\.0\.1:11434|localhost:11434/.test(baseUrl)) return
+    if (!/127\.0\.0\.1:11434|localhost:11434|127\.0\.0\.1:11432|localhost:11432/.test(baseUrl)) return
     const m = config.model || ''
     if (!m) return
     const url = `${baseUrl.replace(/\/+$/, '')}/v1/models/${m}/unload`
