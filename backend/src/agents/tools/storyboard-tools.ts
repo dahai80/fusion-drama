@@ -73,30 +73,62 @@ async function validateStoryboardBindings(episodeId: number, dramaId: number, sc
   if (sceneId != null && !episodeSceneIds.has(sceneId)) {
     const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, sceneId))
     if (!scene || scene.dramaId !== dramaId || scene.deletedAt) {
-      throw new Error(`scene_id ${sceneId} 不属于当前项目`)
+      // Small local models hallucinate asset ids even when the context lists
+      // none (issue #14 E2E: scene_id 1 with zero extracted scenes). One bad
+      // id must not fail the whole save — drop the binding and warn instead.
+      logTaskWarn('StoryboardTool', 'binding-dropped', {
+        episodeId,
+        kind: 'scene',
+        id: sceneId,
+        reason: 'not in this drama (model hallucinated or asset not extracted)',
+      })
+      sceneId = null
+    } else {
+      await db.insert(schema.episodeScenes).values({ episodeId, sceneId, createdAt: now() })
     }
-    await db.insert(schema.episodeScenes).values({ episodeId, sceneId, createdAt: now() })
   }
 
-  const uniqueCharacterIds = [...new Set((characterIds || []).filter(Boolean))]
-  for (const characterId of uniqueCharacterIds) {
-    if (episodeCharacterIds.has(characterId)) continue
+  const sanitizedCharacterIds: number[] = []
+  for (const characterId of [...new Set((characterIds || []).filter(Boolean))]) {
+    if (episodeCharacterIds.has(characterId)) {
+      sanitizedCharacterIds.push(characterId)
+      continue
+    }
     const [character] = await db.select().from(schema.characters).where(eq(schema.characters.id, characterId))
     if (!character || character.dramaId !== dramaId || character.deletedAt) {
-      throw new Error(`character_id ${characterId} 不属于当前项目`)
+      logTaskWarn('StoryboardTool', 'binding-dropped', {
+        episodeId,
+        kind: 'character',
+        id: characterId,
+        reason: 'not in this drama (model hallucinated or asset not extracted)',
+      })
+      continue
     }
+    sanitizedCharacterIds.push(characterId)
     await db.insert(schema.episodeCharacters).values({ episodeId, characterId, createdAt: now() })
   }
 
-  const uniquePropIds = [...new Set((propIds || []).filter(Boolean))]
-  for (const propId of uniquePropIds) {
-    if (episodePropIds.has(propId)) continue
+  const sanitizedPropIds: number[] = []
+  for (const propId of [...new Set((propIds || []).filter(Boolean))]) {
+    if (episodePropIds.has(propId)) {
+      sanitizedPropIds.push(propId)
+      continue
+    }
     const [prop] = await db.select().from(schema.props).where(eq(schema.props.id, propId))
     if (!prop || prop.dramaId !== dramaId || prop.deletedAt) {
-      throw new Error(`prop_id ${propId} 不属于当前项目`)
+      logTaskWarn('StoryboardTool', 'binding-dropped', {
+        episodeId,
+        kind: 'prop',
+        id: propId,
+        reason: 'not in this drama (model hallucinated or asset not extracted)',
+      })
+      continue
     }
+    sanitizedPropIds.push(propId)
     await db.insert(schema.episodeProps).values({ episodeId, propId, createdAt: now() })
   }
+
+  return { sceneId, characterIds: sanitizedCharacterIds, propIds: sanitizedPropIds }
 }
 
 type ToolContext = ToolExecutionContext | undefined
@@ -307,7 +339,7 @@ const saveStoryboards = createTool({
     )
 
     for (const sb of storyboards) {
-      await validateStoryboardBindings(episodeId, dramaId, sb.scene_id, sb.character_ids, sb.prop_ids)
+      const bindings = await validateStoryboardBindings(episodeId, dramaId, sb.scene_id, sb.character_ids, sb.prop_ids)
       const existingId = shotToId.get(sb.shot_number)
       if (existingId !== undefined) {
         await db.update(schema.storyboards).set({
@@ -318,11 +350,11 @@ const saveStoryboards = createTool({
           atmosphere: sb.atmosphere, imagePrompt: sb.image_prompt,
           videoPrompt: sb.video_prompt, bgmPrompt: sb.bgm_prompt,
           soundEffect: sb.sound_effect,
-          sceneId: sb.scene_id, duration: sb.duration || 10,
+          sceneId: bindings.sceneId, duration: sb.duration || 10,
           updatedAt: ts,
         }).where(eq(schema.storyboards.id, existingId))
-        await syncStoryboardCharacters(existingId, sb.character_ids || [])
-        await syncStoryboardProps(existingId, sb.prop_ids || [])
+        await syncStoryboardCharacters(existingId, bindings.characterIds)
+        await syncStoryboardProps(existingId, bindings.propIds)
       } else {
         const res = await db.insert(schema.storyboards).values({
           episodeId,
@@ -334,13 +366,13 @@ const saveStoryboards = createTool({
           atmosphere: sb.atmosphere, imagePrompt: sb.image_prompt,
           videoPrompt: sb.video_prompt, bgmPrompt: sb.bgm_prompt,
           soundEffect: sb.sound_effect,
-          sceneId: sb.scene_id, duration: sb.duration || 10,
+          sceneId: bindings.sceneId, duration: sb.duration || 10,
           createdAt: ts, updatedAt: ts,
         })
         const newId = getInsertId(res)
         shotToId.set(sb.shot_number, newId)
-        await syncStoryboardCharacters(newId, sb.character_ids || [])
-        await syncStoryboardProps(newId, sb.prop_ids || [])
+        await syncStoryboardCharacters(newId, bindings.characterIds)
+        await syncStoryboardProps(newId, bindings.propIds)
       }
     }
 
@@ -421,7 +453,7 @@ const updateStoryboard = createTool({
           .where(eq(schema.storyboardProps.storyboardId, storyboard_id)))
           .map(link => link.propId)
 
-    await validateStoryboardBindings(
+    const bindings = await validateStoryboardBindings(
       episodeId,
       dramaId,
       'scene_id' in fields ? fields.scene_id : storyboard.sceneId,
@@ -443,21 +475,21 @@ const updateStoryboard = createTool({
     if ('bgm_prompt' in fields) updates.bgmPrompt = fields.bgm_prompt
     if ('sound_effect' in fields) updates.soundEffect = fields.sound_effect
     if ('description' in fields) updates.description = fields.description
-    if ('scene_id' in fields) updates.sceneId = fields.scene_id
+    if ('scene_id' in fields) updates.sceneId = bindings.sceneId
     if ('duration' in fields) updates.duration = fields.duration
     await db.update(schema.storyboards).set(updates).where(eq(schema.storyboards.id, storyboard_id))
     // Checklist 1107 #3: archive prompt versions (final composition incl. style
     // happens downstream; here we record exactly what the agent authored)
     if (fields.image_prompt) await recordPromptHistory(dramaId, 'storyboard_image', storyboard_id, fields.image_prompt)
     if (fields.video_prompt) await recordPromptHistory(dramaId, 'storyboard_video', storyboard_id, fields.video_prompt)
-    if ('character_ids' in fields) await syncStoryboardCharacters(storyboard_id, fields.character_ids || [])
-    if ('prop_ids' in fields) await syncStoryboardProps(storyboard_id, fields.prop_ids || [])
+    if ('character_ids' in fields) await syncStoryboardCharacters(storyboard_id, bindings.characterIds)
+    if ('prop_ids' in fields) await syncStoryboardProps(storyboard_id, bindings.propIds)
     logTaskSuccess('StoryboardTool', 'update-complete', {
       episodeId,
       storyboardId: storyboard_id,
       updatedFields: Object.keys(updates),
-      characterIds: 'character_ids' in fields ? (fields.character_ids || []).join(',') : undefined,
-      propIds: 'prop_ids' in fields ? (fields.prop_ids || []).join(',') : undefined,
+      characterIds: bindings.characterIds.join(',') || undefined,
+      propIds: bindings.propIds.join(',') || undefined,
     })
     return { message: `Storyboard ${storyboard_id} updated` }
   },
