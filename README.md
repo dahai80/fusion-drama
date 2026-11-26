@@ -25,7 +25,7 @@ source_of_truth:
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/dahai80/fusion-drama?style=flat&logo=github&label=Release)](https://github.com/dahai80/fusion-drama/releases)
 
-**English** | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**English** | [简体中文](README_CN.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Walkthrough](#-visual-walkthrough) • [Desktop App](#-desktop-app-recommended) • [Deployment](#-deployment)
 

@@ -11,7 +11,7 @@ version: 1.0.0
 updated: 2026-11-07
 owner: @dahai
 source_of_truth:
-  - README.zh-CN.md
+  - README.md
 ---
 
 # 🎬 Fusion Drama - AI 短剧生成平台
