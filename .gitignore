@@ -32,6 +32,8 @@ data/fusion_drama.db-shm
 data/*.sqlite3
 data/*.sqlite3-wal
 data/*.sqlite3-shm
+data/*.mysql-imported*
+data/backups/
 data/public.sql
 data/*.bak*
 data/static/
