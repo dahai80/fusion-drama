@@ -9,7 +9,7 @@ test('drama creation no longer pre-creates episodes from total_episodes', () => 
   const dramas = read('src/routes/dramas.ts')
 
   assert.doesNotMatch(dramas, /total_episodes \|\| 1/)
-  assert.doesNotMatch(dramas, /第\$\{i\}集/)
+  assert.doesNotMatch(dramas, /第\$\{i\}集/) // i18n: user-facing (removed-template guard)
   assert.doesNotMatch(dramas, /Create default episodes/)
 })
 
@@ -29,10 +29,10 @@ test('style presets route is mounted and implements CRUD', () => {
   assert.match(route, /app\.post\('\/'/)
   assert.match(route, /app\.put\('\/:id'/)
   assert.match(route, /app\.delete\('\/:id'/)
-  // value 唯一约束 + 格式校验 + 查重
+  // value unique constraint + format validation + duplicate check
   assert.match(route, /VALUE_PATTERN/)
-  assert.match(route, /风格 key 已存在/)
-  // GET 支持 ?all=1 且默认过滤停用项
+  assert.match(route, /style key already exists/)
+  // GET supports ?all=1 and filters out disabled entries by default
   assert.match(route, /query\('all'\)/)
   assert.match(route, /r\.isActive/)
 })
@@ -46,7 +46,7 @@ test('drama style prompt is injected into image prompt composition', () => {
   assert.match(service, /getDramaStylePrompt/)
   assert.match(service, /stylePresets\.value, drama\.style/)
   assert.match(gridTools, /getDramaStylePrompt\(dramaId\)/)
-  // 保存最终提示词时由工具拼接项目视觉风格（风格片段置于最前方）
+  // The tools prepend the project visual style when saving the final prompt (style fragment goes first)
   assert.match(gridTools, /stylePrompt \? `\$\{stylePrompt\}, \$\{prompt\}` : prompt/)
   assert.match(characters, /getDramaStylePrompt/)
   assert.match(characters, /characterImagePrompt\(char, stylePrompt\)/)
@@ -56,6 +56,6 @@ test('drama style prompt is injected into image prompt composition', () => {
 test('agent default prompts no longer hardcode consistent art style', () => {
   const agents = read('src/agents/index.ts')
 
-  assert.doesNotMatch(agents, /必须包含 "consistent art style"/)
-  assert.match(agents, /视觉风格描述会由工具/)
+  assert.doesNotMatch(agents, /必须包含 "consistent art style"/) // i18n: user-facing (removed-template guard)
+  assert.match(agents, /视觉风格描述会由工具/) // i18n: user-facing
 })

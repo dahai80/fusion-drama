@@ -1,8 +1,8 @@
 /**
- * OpenAI DALL-E 图片生成 Adapter
- * 文生图端点: /v1/images/generations (注意 /v1 前缀)
- * 参考生图端点: /v1/images/edits (multipart/form-data, image[] 文件上传)
- * 响应格式: { data: [{ url: "..." }] } 或 { data: [{ b64_json: "..." }] }
+ * OpenAI DALL-E image generation adapter
+ * text-to-image endpoint: /v1/images/generations (note the /v1 prefix)
+ * reference-image endpoint: /v1/images/edits (multipart/form-data, image[] file upload)
+ * response shape: { data: [{ url: "..." }] } or { data: [{ b64_json: "..." }] }
  */
 import type {
   ImageProviderAdapter,
@@ -28,7 +28,8 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
       ? this.normalizeGptImageSize(record.size)
       : record.size || '1024x1024'
 
-    // 有参考图 → 走 edits（multipart 上传图片文件）；无参考图 → 纯文生图 generations
+    // with reference images → use edits (multipart file upload); without → plain
+    // text-to-image generations
     const refs = this.parseReferenceImages(record.referenceImages)
     if (refs.length) {
       return this.buildEditsRequest(config, model, record.prompt, size, refs)
@@ -67,15 +68,18 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
   }
 
   /**
-   * /v1/images/edits：参考图以 multipart/form-data 的 image[] 文件上传。
-   * 参考图在 generation.ts 已归一化为 data URL（本地压缩 / 远程下载），
-   * 这里只做 base64 → Blob 的转换；multipart 边界由 fetch 自动设置，不要手填 Content-Type。
+   * /v1/images/edits: reference images are uploaded as image[] files via multipart/form-data.
+   * generation.ts already normalized them to data URLs (local compression / remote download);
+   * this only converts base64 → Blob; the multipart boundary is set by fetch — never set
+   * Content-Type by hand.
    *
-   * FLUX.1-Kontext（模型名含 kontext）in-context editing：fusion-mlx 只消费
-   * image[0]（edit target），多余参考图会被静默丢弃（上游 #1374）——只上传
-   * 首张，且 prompt 包装为编辑指令（保持角色身份不变 + 新镜头描述），
-   * 直接沿用 t2i 提示词会让 Kontext 把画面当重新生成而非编辑。
-   * 参考图顺序约定（drama 前端 getShotReferenceImages）：角色定妆照在前。
+   * FLUX.1-Kontext (model name contains kontext) in-context editing: fusion-mlx only
+   * consumes image[0] (edit target); extra reference images are silently dropped (upstream
+   * #1374) — upload only the first and wrap the prompt as an edit instruction (keep character
+   * identity unchanged + new shot description); reusing the raw t2i prompt makes Kontext
+   * treat the image as a regeneration instead of an edit.
+   * Reference-image ordering convention (drama frontend getShotReferenceImages): character
+   * costume shots first.
    */
   private buildEditsRequest(
     config: AIConfig,
@@ -85,8 +89,9 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     refs: string[],
   ): ProviderRequest {
     const isKontext = /kontext/i.test(model)
-    // Qwen-Image-Edit 多图 conditioning（fusion-mlx #1375）：角色定妆照之外的场景/道具
-    // 参考图也被消费，不截断——多图喂入做「把角色放进场景」类编辑
+    // Qwen-Image-Edit multi-image conditioning (fusion-mlx #1375): scene/prop reference
+    // images beyond the character costume shot are also consumed, not truncated — feed
+    // multiple images for "place the character into the scene"-style edits
     const isQwenEdit = /qwen.*edit/i.test(model)
     const KONTEXT_PROMPT_PREFIX = 'Edit this image. Keep the exact same character identity, face and outfit unchanged. '
     const form = new FormData()
@@ -94,9 +99,9 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     form.append('prompt', isKontext ? KONTEXT_PROMPT_PREFIX + (prompt || '') : (prompt || ''))
     form.append('size', size)
     form.append('n', '1')
-    // Qwen-Image-Edit-2509 bf16 56GB ~80s/步：上游 600s deadline 已改为不活跃预算
-    // （#1407，v0.10.17），30 步默认不再被杀但需 ~40min/图——管线速度考量固定 6 步
-    // （实测 494s 出 1024x1024）
+    // Qwen-Image-Edit-2509 bf16 56GB ~80s/step: upstream changed the 600s deadline to an
+    // inactivity budget (#1407, v0.10.17); 30 default steps no longer get killed but take
+    // ~40min/image — fixed at 6 steps for pipeline speed (measured 494s for 1024x1024)
     if (isQwenEdit) form.append('num_inference_steps', '6')
 
     let appended = 0
@@ -109,6 +114,7 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
       form.append('image[]', new Blob([buffer], { type: parsed.mimeType }), `reference-${++appended}.${ext}`)
     }
     if (!appended) {
+      // i18n: user-facing
       throw new Error('参考图片无法解析为可上传的文件（仅支持 data URL 形式的图片）')
     }
 
@@ -153,8 +159,9 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
   }
 
   parseGenerateResponse(result: any): ImageGenResponse {
-    // OpenAI 同步响应自带 id（resp-xxx），仅当无 data 数组时才视为异步 task 模式：
-    // 有 data = 同步图片结果，拿 result.id 去轮询会 404 空转到超时
+    // OpenAI sync responses carry their own id (resp-xxx); only treat it as async task
+    // mode when there is no data array: with data = sync image result, polling result.id
+    // would 404 idle until timeout
     if ((result.task_id || result.id) && !result.data) {
       return { isAsync: true, taskId: result.task_id || result.id }
     }
@@ -162,10 +169,10 @@ export class OpenAIImageAdapter implements ImageProviderAdapter {
     if (imageUrl) {
       return { isAsync: false, imageUrl }
     }
-    // b64_json 模式
+    // b64_json mode
     const b64 = result.data?.[0]?.b64_json
     if (b64) {
-      // 对于 base64，返回特殊标记，实际处理在 extractImageBase64
+      // for base64, return the sentinel marker; actual handling lives in extractImageBase64
       return { isAsync: false, imageUrl: undefined }
     }
     throw new Error('No image URL in response')

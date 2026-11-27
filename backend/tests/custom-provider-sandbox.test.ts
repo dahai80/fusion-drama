@@ -42,13 +42,15 @@ test('sandbox evaluates module.exports and wraps adapter methods', () => {
 })
 
 test('sandbox hides require/process/fs and rejects non-object exports', () => {
-    // require/process/fs 均不可见（直接引用抛 ReferenceError；typeof 只返回 undefined 不抛）
+    // require/process/fs are all invisible (direct references throw ReferenceError; typeof only returns undefined without throwing)
     assert.throws(() => evaluateCustomProviderCode('module.exports = { probe: require("fs") }', 'p1'), /require is not defined/)
     assert.throws(() => evaluateCustomProviderCode('module.exports = { probe: process.exit(1) }', 'p2'), /process is not defined/)
-    // 未导出对象（module.exports 保持空对象）
+    // No exported object (module.exports stays an empty object)
+    // i18n: user-facing
     assert.throws(() => evaluateCustomProviderCode('1 + 1', 'p3'), /未导出对象/)
-    // 缺必需方法
+    // Missing a required method
     const mod = evaluateCustomProviderCode('module.exports = { buildGenerateRequest() {} }', 'p4')
+    // i18n: user-facing
     assert.throws(() => validateCustomProviderExports(mod, 'image'), /缺少必需方法/)
 })
 
@@ -62,5 +64,6 @@ test('sandbox times out runaway code', () => {
 test('sandbox method wrapper surfaces provider name on error', () => {
     const mod = evaluateCustomProviderCode('module.exports = { boom() { throw new Error("kaput") } }', 'bad')
     const wrapped = wrapAdapterMethods(mod, ['boom'], 'bad')
+    // i18n: user-facing
     assert.throws(() => wrapped.boom(), /自定义 provider "bad" boom\(\) 执行失败: kaput/)
 })

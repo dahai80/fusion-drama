@@ -19,17 +19,17 @@ test('rag_chunks table shipped in migration v7, drizzle schema and sqlite-schema
 
 test('rag service embeds on CPU via mirror with retries and fails open', () => {
     const rag = read('src/services/rag.ts')
-    // bge-small ONNX CPU 嵌入：不占 GPU，与 fusion-mlx 视频模型无争用
+    // bge-small ONNX CPU embedding: no GPU usage, no contention with the fusion-mlx video model
     assert.match(rag, /bge-small-zh-v1\.5/)
     assert.match(rag, /device: 'cpu'/)
     assert.match(rag, /dtype: 'q8'/)
-    // 模型走 HF 镜像 + 本地缓存目录
+    // model loads via HF mirror + local cache dir
     assert.match(rag, /HF_MIRROR/)
     assert.match(rag, /hf-mirror\.com/)
     assert.match(rag, /models', 'embeddings/)
-    // 镜像站偶发超时：加载重试 3 次
+    // mirror occasionally times out: retry loading 3 times
     assert.match(rag, /attempt <= 3/)
-    // 检索失败静默降级（fail-open）：返回 null 不抛错，Agent 主流程不受影响
+    // retrieval failures degrade silently (fail-open): return null without throwing, agent main flow unaffected
     assert.match(rag, /search-failed/)
     assert.match(rag, /return null/)
 })
@@ -38,10 +38,10 @@ test('agent chat injects rag context into user message behind enabled toggle', (
     const agent = read('src/routes/agent.ts')
     assert.match(agent, /isRagEnabled\(\)/)
     assert.match(agent, /buildRagContextBlock\(drama_id, message\)/)
-    // 跨会话记忆块 + RAG 块拼接为统一前缀（记忆在前），再拼用户消息
+    // cross-session memory block + RAG block join into a unified prefix (memory first), then the user message
     assert.match(agent, /\[memoryBlock, ragBlock\]\.filter\(Boolean\)\.join\('\\n\\n'\)/)
     assert.match(agent, /contextPrefix \? `\$\{contextPrefix\}\\n\\n\$\{message\}` : message/)
-    // 注入失败仅告警不阻断
+    // injection failures only warn, never block
     assert.match(agent, /rag-context-failed/)
 
     const settings = read('src/services/app-settings.ts')

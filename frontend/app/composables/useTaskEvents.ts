@@ -1,9 +1,9 @@
 /**
- * 任务事件流客户端（FR-P1-1）— fetch-stream SSE
+ * Task event stream client (FR-P1-1) — fetch-stream SSE
  *
- * 不用 EventSource：无法带 Authorization 头（服务器 token 模式）。
- * fetch + ReadableStream 手解 SSE 帧（id:/event:/data:），断流自动重连并带
- * Last-Event-ID 续传；任务终态（end 事件）或 unmount 时停止。
+ * EventSource is not used: it cannot send an Authorization header (server token mode).
+ * fetch + ReadableStream hand-parses SSE frames (id:/event:/data:); stream drops auto-reconnect
+ * with Last-Event-ID resume; stops on task terminal state (end event) or unmount.
  */
 export interface TaskEvent {
     seq: number | string
@@ -16,9 +16,9 @@ export function useTaskEvents() {
     let controller: AbortController | null = null
 
     /**
-     * 连接事件流。kind='task'（默认）走 /tasks/:id/events——任务级生命周期；
-     * kind='episode' 走 /episodes/:id/events——Agent 级事件（tool_call/tool_result/
-     * agent_started/agent_finished，FR-P1-1）。两者 SSE 帧格式一致。
+     * Connects the event stream. kind='task' (default) uses /tasks/:id/events — task-level
+     * lifecycle; kind='episode' uses /episodes/:id/events — Agent-level events (tool_call/
+     * tool_result/agent_started/agent_finished, FR-P1-1). Both share the same SSE frame format.
      */
     async function connect(targetId: number | string, onEvent: (e: TaskEvent) => void, onEnd?: () => void, kind: 'task' | 'episode' = 'task') {
         stop()
@@ -62,7 +62,8 @@ export function useTaskEvents() {
                     }
                 } catch (err: any) {
                     if (controller?.signal.aborted) return
-                    // 断流重连退避；连接层错误不打扰用户（事件流是增强，任务状态仍由轮询兜底）
+                    // Reconnect backoff on stream drop; connection-layer errors stay silent (the stream is an
+                    // enhancement, task status still falls back to polling)
                     console.warn('[task-events] stream interrupted, retrying:', err?.message)
                     await new Promise(r => setTimeout(r, 3000))
                 }
@@ -89,6 +90,6 @@ export function useTaskEvents() {
         controller = null
     }
 
-    try { onUnmounted(() => stop()) } catch { /* 非 setup 上下文（单测）忽略 */ }
+    try { onUnmounted(() => stop()) } catch { /* not in a setup context (unit tests) — ignore */ }
     return { connect, stop }
 }

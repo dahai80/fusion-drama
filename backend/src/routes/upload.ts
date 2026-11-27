@@ -22,40 +22,41 @@ function extOf(name: string): string {
   return i >= 0 ? name.slice(i).toLowerCase() : ''
 }
 
-// 图片同样走白名单 + 大小上限：html/svg 落盘并同源服务 = stored XSS
+// Images also go through a whitelist + size cap: html/svg written to disk and served same-origin = stored XSS
 async function saveImageUpload(c: any) {
   const body = await c.req.parseBody()
   const file = body['file']
   if (!file || !(file instanceof File)) {
-    return badRequest(c, '文件必填')
+    return badRequest(c, 'file is required')
   }
   const ext = extOf(file.name)
   const mimeKnown = file.type && file.type !== 'application/octet-stream'
   if (!IMAGE_EXT.has(ext) || (mimeKnown && !IMAGE_MIME.has(file.type))) {
-    return badRequest(c, `仅支持 ${Array.from(IMAGE_EXT).join('/')} 格式的图片文件`)
+    return badRequest(c, `Only ${Array.from(IMAGE_EXT).join('/')} image files are supported`)
   }
-  // file.size 在缓冲前校验，避免先吃满内存再拒绝
+  // Validate file.size before buffering, to avoid eating memory first and rejecting later
   if (file.size > IMAGE_MAX) {
-    return badRequest(c, `图片文件大小不能超过 ${Math.round(IMAGE_MAX / 1024 / 1024)}MB`)
+    return badRequest(c, `Image file must not exceed ${Math.round(IMAGE_MAX / 1024 / 1024)}MB`)
   }
-  // B5: sharp 解码校验 + 重编码——MIME/扩展名可伪造，解码不过的"图片"（polyglot/
-  // html 夹带）直接拒收；png/jpeg/webp 重编码剥掉一切元数据，gif 仅校验（保动画）
+  // B5: sharp decode validation + re-encode — MIME/extension can be forged; "images" that fail
+  // decoding (polyglot/hidden html) are rejected outright; png/jpeg/webp re-encoding strips all
+  // metadata, gif is only validated (animation preserved)
   let raw = await file.arrayBuffer()
   try {
     const buf = Buffer.from(raw)
     const meta = await sharp(buf).metadata()
     if (!meta.format || !['jpeg', 'png', 'webp', 'gif'].includes(meta.format)) {
-      return badRequest(c, '不支持的图片格式')
+      return badRequest(c, 'Unsupported image format')
     }
     if (meta.format !== 'gif') {
       const re = await sharp(buf).toFormat(meta.format as any).toBuffer()
       raw = re.buffer.slice(re.byteOffset, re.byteOffset + re.byteLength) as ArrayBuffer
     }
   } catch {
-    return badRequest(c, '图片文件已损坏或格式不符')
+    return badRequest(c, 'Image file is corrupted or format mismatched')
   }
   const path = await saveUploadedFile(raw, 'uploads', file.name)
-  // 同步生成列表页缩略图，上传图与生图走同一套展示链路（失败不影响上传结果）
+  // Generate the list-page thumbnail synchronously so uploads and generated images share the same display pipeline (failure does not affect the upload result)
   await generateImageThumb(path)
   return success(c, { url: `/${path}`, path })
 }
@@ -70,18 +71,18 @@ async function saveMediaUpload(
   const body = await c.req.parseBody()
   const file = body['file']
   if (!file || !(file instanceof File)) {
-    return badRequest(c, '文件必填')
+    return badRequest(c, 'file is required')
   }
-  const label = kind === 'video' ? '视频' : '音频'
+  const label = kind === 'video' ? 'video' : 'audio'
   const ext = extOf(file.name)
-  // MIME 可伪造，扩展名兜底；空 / octet-stream 视为未知类型，仅按扩展名校验
+  // MIME can be forged; extension is the fallback. Empty / octet-stream is treated as unknown and validated by extension only
   const mimeKnown = file.type && file.type !== 'application/octet-stream'
   if (!allowedExt.has(ext) || (mimeKnown && !allowedMime.has(file.type))) {
-    return badRequest(c, `仅支持 ${Array.from(allowedExt).join('/')} 格式的${label}文件`)
+    return badRequest(c, `Only ${Array.from(allowedExt).join('/')} ${label} files are supported`)
   }
-  // file.size 在缓冲前校验
+  // Validate file.size before buffering
   if (file.size > maxBytes) {
-    return badRequest(c, `${label}文件大小不能超过 ${Math.round(maxBytes / 1024 / 1024)}MB`)
+    return badRequest(c, `${label} file must not exceed ${Math.round(maxBytes / 1024 / 1024)}MB`)
   }
   const buffer = await file.arrayBuffer()
   const path = await saveUploadedFile(new Uint8Array(buffer).buffer as ArrayBuffer, 'uploads', file.name)
@@ -91,10 +92,10 @@ async function saveMediaUpload(
 // POST /upload/image
 app.post('/image', async (c) => saveImageUpload(c))
 
-// POST /upload/video — 参考视频上传（Seedance 多模态参考用）
+// POST /upload/video — reference video upload (for Seedance multimodal reference)
 app.post('/video', async (c) => saveMediaUpload(c, 'video', VIDEO_EXT, VIDEO_MIME, VIDEO_MAX))
 
-// POST /upload/audio — 参考音频上传（Seedance 多模态参考用）
+// POST /upload/audio — reference audio upload (for Seedance multimodal reference)
 app.post('/audio', async (c) => saveMediaUpload(c, 'audio', AUDIO_EXT, AUDIO_MIME, AUDIO_MAX))
 
 export default app

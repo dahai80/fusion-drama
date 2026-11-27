@@ -1,14 +1,14 @@
 /**
- * 一键发布 — GitHub Releases
+ * One-click publish — GitHub Releases
  *
- * 用法(在 desktop/ 下执行):
- *   npm run publish [-- --notes "更新说明"]
+ * Usage (run inside desktop/):
+ *   npm run publish [-- --notes "update notes"]
  *
- * 前置:
- *   - desktop/release/ 已有本版本产物(npm run dist / dist:win 之后)
- *   - gh 已登录且对目标仓库有发布权限(GITHUB_REPOSITORY 可覆盖默认仓库)
+ * Prerequisites:
+ *   - desktop/release/ already contains this version's artifacts (after npm run dist / dist:win)
+ *   - gh is logged in and has release permission on the target repo (GITHUB_REPOSITORY overrides the default repo)
  *
- * 产物布局: vX.Y.Z Release(空格文件名自动规范化为点号,见 make-update-feed)
+ * Artifact layout: vX.Y.Z Release (space filenames are normalized to dots, see make-update-feed)
  */
 import fs from 'fs'
 import path from 'path'
@@ -29,8 +29,8 @@ function argOf(flag) { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1]
 const notes = argOf('--notes') || ''
 const skipGh = argv.includes('--skip-gh')
 
-// 与 make-update-feed 相同的产物清单。注意 electron-builder 的 NSIS 本地产物带空格
-// （FusionDrama Setup X.Y.Z.exe），GitHub 服务端会规范化为点号
+// Same artifact list as make-update-feed. Note that electron-builder's local NSIS artifact name
+// contains spaces (FusionDrama Setup X.Y.Z.exe); GitHub normalizes them to dots server-side
 const assets = [
   `FusionDrama-${version}-arm64.dmg`,
   `FusionDrama-${version}.dmg`,
@@ -38,31 +38,31 @@ const assets = [
   `FusionDrama-${version}-mac.zip`,
   `FusionDrama Setup ${version}.exe`,
 ]
-// URL 使用的规范化文件名（空格 → 点号，与 GitHub 服务端一致）
+// Dot-normalized filename used in URLs (spaces -> dots, matching GitHub server-side)
 const dotName = (f) => f.replace(/ /g, '.')
 const existing = assets.filter(f => fs.existsSync(path.join(RELEASE, f)))
 if (!existing.length) {
-  console.error(`release/ 下没有版本 ${version} 的产物,请先 npm run dist / dist:win`)
+  console.error(`no version ${version} artifacts under release/; run npm run dist / dist:win first`)
   process.exit(1)
 }
 
 // ---- 1. GitHub ----
 if (!skipGh) {
   console.log(`[1/2] GitHub Release ${tag} …`)
-  // gh release upload 要求 Release 已存在，不存在则先创建（--clobber 才能重复传）
+  // gh release upload requires the Release to exist; create it first when missing (--clobber allows re-upload)
   try {
     execFileSync('gh', ['release', 'view', tag], { stdio: 'ignore' })
   } catch {
-    console.log(`  Release 不存在，先创建 …`)
+    console.log('  Release missing, creating it first...')
     execFileSync('gh', ['release', 'create', tag, '--title', tag, '--notes', notes || tag], { stdio: 'inherit' })
   }
   const ghArgs = ['release', 'upload', tag, ...existing.map(f => path.join(RELEASE, f)), '--clobber']
   execFileSync('gh', ghArgs, { stdio: 'inherit' })
-  console.log(`  ✓ 已上传 ${existing.length} 个资产`)
+  console.log(`  ✓ uploaded ${existing.length} assets`)
 }
 
-// ---- 2. latest.json(指向 GitHub 直链,更新器默认源) ----
-console.log('[2/2] 生成更新清单 latest.json …')
+// ---- 2. latest.json (points at GitHub direct links; the updater's default feed) ----
+console.log('[2/2] generating update manifest latest.json...')
 async function sha256(file) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256')
@@ -75,7 +75,7 @@ for (const f of existing) {
   const key = f.includes('Setup') ? 'win32-x64'
     : f.includes('-arm64') ? 'darwin-arm64'
     : 'darwin-x64'
-  // 同一平台 dmg/zip 都存在时只取 zip(更新器用),dmg 是给手动安装的
+  // When both dmg/zip exist for a platform keep only the zip (updater uses it); dmg is for manual installs
   if (key !== 'win32-x64' && !f.endsWith('.zip')) continue
   platforms[key] = {
     url: `${baseUrl}/${encodeURIComponent(dotName(f))}`,
@@ -84,10 +84,10 @@ for (const f of existing) {
   }
 }
 fs.writeFileSync(path.join(RELEASE, 'latest.json'), JSON.stringify({ version, notes, platforms }, null, 2))
-console.log(`  ✓ latest.json 平台: ${Object.keys(platforms).join(', ')}`)
+console.log(`  ✓ latest.json platforms: ${Object.keys(platforms).join(', ')}`)
 if (!skipGh) execFileSync('gh', ['release', 'upload', tag, path.join(RELEASE, 'latest.json'), '--clobber'], { stdio: 'inherit' })
 
 console.log(`
-发布完成:
+Publish complete:
   https://github.com/fusion-drama/fusion-drama/releases/${tag}
 `)

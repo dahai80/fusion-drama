@@ -1,11 +1,11 @@
 /**
- * 角色/场景提取 Agent 工具
- * 模块级单例 — episodeId + dramaId 通过 RequestContext 按请求注入
+ * Character/scene extraction agent tools
+ * Module-level singletons — episodeId + dramaId injected per request via RequestContext
  *
- * 单 Agent 一步流程：
- * 1. 读取剧本内容
- * 2. 读取项目中已存在的角色/场景（用于去重）
- * 3. 提取角色/场景并智能去重后直接保存
+ * Single-agent one-pass flow:
+ * 1. read the script content
+ * 2. read existing characters/scenes in the project (for dedup)
+ * 3. extract characters/scenes, smart-dedupe, then save directly
  */
 import { createTool } from '@mastra/core/tools'
 import type { ToolExecutionContext } from '@mastra/core/tools'
@@ -16,7 +16,7 @@ import { now } from '../../utils/response.js'
 import { logTaskProgress, logTaskSuccess } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId, requireAgentIds } from '../context.js'
 
-// ─── 关联辅助 ────────────────────────────────────────────────
+// ─── Linking helpers ────────────────────────────────────────────────
 async function linkCharToEpisode(episodeId: number, characterId: number) {
   const ts = now()
   const existing = await db.select().from(schema.episodeCharacters)
@@ -47,31 +47,34 @@ async function linkPropToEpisode(episodeId: number, propId: number) {
   }
 }
 
-// ─── 名字归一化（近名去重） ───────────────────────────────────
-// 提取时同一角色/道具可能出现不同书写形式（如「林小雨」与「林小雨（主角）」、
-// 「林小雨(女主)」、「林小雨 」）。归一化后做精确比较，命中即复用已有，不重复创建。
+// ─── Name normalization (near-name dedup) ───────────────────────────────────
+// The same character/prop may appear in different spellings during extraction
+// (bare name vs name with a role qualifier or alias in full-width/ASCII brackets,
+// trailing spaces, etc.). After normalization we compare exactly; a hit reuses
+// the existing entry instead of creating a duplicate.
 function normalizeName(name: string): string {
   return (name || '')
-    .replace(/[（(][^（()）]*[）)]/g, '') // 去掉成对的中/英文括号内容（角色定位/别名）
-    .replace(/[（(].*$/, '')              // 兜底：未闭合括号从首个括号截断
-    .replace(/[\s　]+/g, '')          // 去空白与全角空格
+    .replace(/[（(][^（()）]*[）)]/g, '') // drop paired CJK/ASCII bracket content (role qualifiers/aliases)
+    .replace(/[（(].*$/, '')              // fallback: truncate unclosed brackets from the first one
+    .replace(/[\s　]+/g, '')          // strip whitespace and full-width spaces
     .toLowerCase()
     .trim()
 }
 
-// 场景地点只做空白归一化（不删括号：如「火车站（候车厅）」与「火车站（站台）」是不同场景）
+// Scene locations only get whitespace normalization (brackets kept: e.g.
+// "Station (Waiting Hall)" and "Station (Platform)" are different scenes)
 function normalizeLocation(loc: string): string {
   return (loc || '').replace(/[\s　]+/g, '').toLowerCase().trim()
 }
 
 type ToolContext = ToolExecutionContext | undefined
 
-// H6: 守卫实现收敛至 ../context.ts requireAgentIds，此处仅做上下文取值桥接
+// H6: guard implementation consolidated into ../context.ts requireAgentIds; this is only a context-value bridge
 function requireIds(context: ToolContext): { episodeId: number; dramaId: number } | { error: string } {
   return requireAgentIds(getEpisodeId(context?.requestContext), getDramaId(context?.requestContext))
 }
 
-// 1. 读取剧本内容
+// 1. Read the script content
 const readScriptForExtraction = createTool({
   id: 'read_script_for_extraction',
   description: 'Read the formatted screenplay for character/scene extraction.',
@@ -90,7 +93,7 @@ const readScriptForExtraction = createTool({
   },
 })
 
-// 2. 读取项目中已存在的角色（用于去重判断）
+// 2. Read characters already existing in the project (for dedup decisions)
 const readExistingCharacters = createTool({
   id: 'read_existing_characters',
   description: 'Read all characters already existing in this drama project (for deduplication).',
@@ -111,7 +114,7 @@ const readExistingCharacters = createTool({
       role: c.role || '',
       appearance: c.appearance || '',
       styling: c.styling || '',
-      normalized_name: normalizeName(c.name), // 用于判断近名复用：括号定位/别名视为同名
+      normalized_name: normalizeName(c.name), // for near-name reuse: bracket qualifiers/aliases count as the same name
     }))
     const payload = {
       count: visibleChars.length,
@@ -128,7 +131,7 @@ const readExistingCharacters = createTool({
   },
 })
 
-// 3. 读取项目中已存在的场景（用于去重判断）
+// 3. Read scenes already existing in the project (for dedup decisions)
 const readExistingScenes = createTool({
   id: 'read_existing_scenes',
   description: 'Read all scenes already existing in this drama project (for deduplication).',
@@ -149,7 +152,7 @@ const readExistingScenes = createTool({
       time: s.time || '',
       prompt: s.prompt || '',
       lighting: s.lighting || '',
-      normalized_location: normalizeLocation(s.location), // 用于判断近名复用（仅空白/大小写）
+      normalized_location: normalizeLocation(s.location), // for near-name reuse (whitespace/case only)
     }))
     const payload = {
       count: visibleScenes.length,
@@ -166,7 +169,7 @@ const readExistingScenes = createTool({
   },
 })
 
-// 4. 智能保存角色（按名字去重，与现有数据合并）
+// 4. Smart-save characters (dedupe by name, merge with existing data)
 const saveDedupCharacters = createTool({
   id: 'save_dedup_characters',
   description: 'Save extracted characters with deduplication. Existing characters (same name) are merged/updated; new ones are created. All are linked to the current episode.',
@@ -201,9 +204,9 @@ const saveDedupCharacters = createTool({
       const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
-        // 归一化命中：括号定位/别名等近名视作同一角色复用，避免重复创建
+        // Normalization hit: near-names with bracket qualifiers/aliases reuse the same character, avoiding duplicates
         if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-characters-reuse', { episodeId, dramaId, extracted: char.name, reused: existing.name })
-        // 已存在：合并信息，保留 ID
+        // Already exists: merge info, keep the ID
         await db.update(schema.characters).set({
           role: char.role || existing.role,
           description: char.description || existing.description,
@@ -214,7 +217,7 @@ const saveDedupCharacters = createTool({
         await linkCharToEpisode(episodeId, existing.id)
         results.merged++
       } else {
-        // 新增角色
+        // New character
         const res = await db.insert(schema.characters).values({
           name: char.name,
           role: char.role || '',
@@ -232,7 +235,7 @@ const saveDedupCharacters = createTool({
     }
 
     const payload = {
-      message: `角色保存完成：新增 ${results.created}，合并更新 ${results.merged}`,
+      message: `Characters saved: ${results.created} created, ${results.merged} merged`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-characters-complete', { episodeId, ...results })
@@ -240,7 +243,7 @@ const saveDedupCharacters = createTool({
   },
 })
 
-// 5. 智能保存场景（按地点+时间段去重，与现有数据合并）
+// 5. Smart-save scenes (dedupe by location+time, merge with existing data)
 const saveDedupScenes = createTool({
   id: 'save_dedup_scenes',
   description: 'Save extracted scenes with deduplication. Existing scenes (same location+time) are reused; new ones are created. All are linked to the current episode.',
@@ -266,7 +269,8 @@ const saveDedupScenes = createTool({
     })
 
     for (const scene of scenes) {
-      // 按地点+时间段精确匹配；地点仅做空白/大小写归一化（不删括号，避免误合并）
+      // Exact match on location+time; location uses whitespace/case normalization only
+      // (brackets kept to avoid wrongful merges)
       const scenesInProject = (await db.select().from(schema.scenes)
         .where(eq(schema.scenes.dramaId, dramaId)))
         .filter(s => !s.deletedAt)
@@ -275,7 +279,7 @@ const saveDedupScenes = createTool({
         || (normLocation ? scenesInProject.find(s => normalizeLocation(s.location) === normLocation && s.time === (scene.time || '')) : undefined)
 
       if (existing) {
-        // 已存在完全匹配的场景：关联并补齐描述/光影
+        // Fully matching scene exists: link and backfill description/lighting
         await db.update(schema.scenes).set({
           prompt: scene.prompt || scene.description || existing.prompt,
           lighting: scene.lighting || existing.lighting,
@@ -300,7 +304,7 @@ const saveDedupScenes = createTool({
     }
 
     const payload = {
-      message: `场景保存完成：新增 ${results.created}，复用已有 ${results.reused}`,
+      message: `Scenes saved: ${results.created} created, ${results.reused} reused`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-scenes-complete', { episodeId, ...results })
@@ -308,7 +312,7 @@ const saveDedupScenes = createTool({
   },
 })
 
-// 6. 读取项目中已存在的道具（用于去重判断）
+// 6. Read props already existing in the project (for dedup decisions)
 const readExistingProps = createTool({
   id: 'read_existing_props',
   description: 'Read all props already existing in this drama project (for deduplication).',
@@ -328,7 +332,7 @@ const readExistingProps = createTool({
       name: p.name,
       type: p.type || '',
       description: p.description || '',
-      normalized_name: normalizeName(p.name), // 用于判断近名复用：括号定位/别名视为同名
+      normalized_name: normalizeName(p.name), // for near-name reuse: bracket qualifiers/aliases count as the same name
     }))
     const payload = {
       count: visibleProps.length,
@@ -345,7 +349,7 @@ const readExistingProps = createTool({
   },
 })
 
-// 7. 智能保存道具（按名字去重，与现有数据合并）
+// 7. Smart-save props (dedupe by name, merge with existing data)
 const saveDedupProps = createTool({
   id: 'save_dedup_props',
   description: 'Save extracted props with deduplication. Existing props (same name) are merged/updated; new ones are created. All are linked to the current episode.',
@@ -378,9 +382,9 @@ const saveDedupProps = createTool({
       const matchedViaNorm = !!existing && existing !== exact
 
       if (existing) {
-        // 归一化命中：括号定位/别名等近名视作同一道具复用
+        // Normalization hit: near-names with bracket qualifiers/aliases reuse the same prop
         if (matchedViaNorm) logTaskProgress('ExtractTool', 'save-props-reuse', { episodeId, dramaId, extracted: prop.name, reused: existing.name })
-        // 已存在：合并信息，保留 ID；物品外貌变更后旧的最终提示词失效
+        // Already exists: merge info, keep the ID; when the item's appearance changes the old final prompt is invalidated
         await db.update(schema.props).set({
           type: prop.type || existing.type,
           description: prop.description || existing.description,
@@ -405,7 +409,7 @@ const saveDedupProps = createTool({
     }
 
     const payload = {
-      message: `道具保存完成：新增 ${results.created}，合并更新 ${results.merged}`,
+      message: `Props saved: ${results.created} created, ${results.merged} merged`,
       ...results,
     }
     logTaskSuccess('ExtractTool', 'save-props-complete', { episodeId, ...results })

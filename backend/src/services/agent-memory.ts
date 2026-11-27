@@ -1,8 +1,8 @@
 /**
- * 跨会话记忆 — 对接 fusion-memory（fm-server HTTP :11435，JSON-RPC 2.0）
- * Agent 对话前检索历史偏好/决定注入上下文，对话后异步写入本轮流。
- * 命名空间 project / fusion-drama：项目级可见，不污染其他 fusion-* 应用记忆。
- * 全链路 fail-open：fm-server 未启/超时/报错一律返回 null 不阻断 Agent 主流程。
+ * Cross-session memory — integrates with fusion-memory (fm-server HTTP :11435, JSON-RPC 2.0)
+ * Before an Agent conversation, retrieves historical preferences/decisions to inject into context; after the conversation, asynchronously writes this turn.
+ * Namespace project / fusion-drama: visible at project level, does not pollute other fusion-* apps' memory.
+ * Fail-open across the whole chain: fm-server down/timeout/error always returns null without blocking the Agent main flow.
  */
 import fs from 'fs'
 import os from 'os'
@@ -23,7 +23,7 @@ function fmApiKey(): string {
         cachedApiKey = process.env.FUSION_MEMORY_API_KEY
         return cachedApiKey
     }
-    // 与 fm-server 共享同一密钥文件（~/.fusion-memory/api_key，0600）
+    // Shares the same key file with fm-server (~/.fusion-memory/api_key, 0600)
     try {
         const keyFile = path.join(os.homedir(), '.fusion-memory', 'api_key')
         cachedApiKey = fs.readFileSync(keyFile, 'utf8').trim()
@@ -36,7 +36,7 @@ function fmApiKey(): string {
 async function fmRpc<T>(method: string, params: Record<string, unknown>): Promise<T | null> {
     const key = fmApiKey()
     if (!key) {
-        logTaskWarn('AgentMemory', 'no-api-key', { hint: '缺少 fusion-memory 密钥（~/.fusion-memory/api_key 或 FUSION_MEMORY_API_KEY）' })
+        logTaskWarn('AgentMemory', 'no-api-key', { hint: 'Missing fusion-memory API key (~/.fusion-memory/api_key or FUSION_MEMORY_API_KEY)' })
         return null
     }
     try {
@@ -73,7 +73,7 @@ export interface MemoryStatus {
     namespaceKey: string
 }
 
-/** 健康探测（healthz 公开端点 + count RPC） */
+/** Health probe (public healthz endpoint + count RPC) */
 export async function memoryStatus(): Promise<MemoryStatus> {
     const status: MemoryStatus = { reachable: false, memoryCount: null, baseUrl: FM_BASE_URL, namespace: NAMESPACE, namespaceKey: NAMESPACE_KEY }
     try {
@@ -88,8 +88,8 @@ export async function memoryStatus(): Promise<MemoryStatus> {
 }
 
 /**
- * 检索跨会话记忆上下文块；无可召回内容/失败返回 null。
- * 返回块格式与 RAG 块一致：前缀说明 + 与用户要求冲突时以用户要求为准
+ * Retrieves the cross-session memory context block; returns null when there is nothing to recall or on failure.
+ * The returned block format matches the RAG block: prefix explanation + the user's current request wins on conflict
  */
 export async function retrieveMemoryContext(query: string, topK = RETRIEVE_TOP_K): Promise<string | null> {
     if (!query.trim()) return null
@@ -102,6 +102,7 @@ export async function retrieveMemoryContext(query: string, topK = RETRIEVE_TOP_K
     const context = (result?.context || '').trim()
     if (!context) return null
     return [
+        // i18n: user-facing
         '以下是跨会话记忆（此前创作中的偏好与决定，供参考，与用户当前要求冲突时以用户要求为准）：',
         context,
     ].join('\n')
@@ -116,7 +117,7 @@ export interface AgentMemoryTurn {
     modelName?: string
 }
 
-/** 对话后异步写入记忆（调用方不 await，失败仅告警） */
+/** Asynchronously writes memory after the conversation (caller does not await; failures only warn) */
 export async function commitAgentMemory(turn: AgentMemoryTurn): Promise<boolean> {
     const ts = Math.floor(Date.now() / 1000)
     const interactionId = `drama-${turn.dramaId}-ep${turn.episodeId}-${ts}`

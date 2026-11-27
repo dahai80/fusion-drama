@@ -1,6 +1,6 @@
 /**
- * 将 Drizzle 返回的 camelCase 对象转换为 snake_case
- * 保持前端 API 兼容（和旧 Go 后端一致）
+ * Convert camelCase objects returned by Drizzle to snake_case
+ * Preserves frontend API compatibility (consistent with the legacy Go backend)
  */
 export function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {}

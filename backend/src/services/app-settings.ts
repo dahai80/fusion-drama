@@ -1,10 +1,10 @@
 /**
- * 应用级全局设置（app_settings key-value 表）
- * AI 内容语言：所有 Agent 产出（剧本/提取/分镜/提示词）统一使用的目标语言
- * 层次约束：本模块只依赖 db，严禁反向 import agents/*（agents/context.ts 会引用本模块）
+ * App-level global settings (app_settings key-value table)
+ * AI content language: the target language used uniformly by all Agent output (script/extraction/storyboard/prompts)
+ * Layering constraint: this module depends only on db; never import agents/* in reverse (agents/context.ts imports this module)
  *
- * 注意：刻意做成同步 API（better-sqlite3 驱动的 .get()/.run()），
- * 供 agents/context.ts 的同步 buildAgentRequestContext 内部直接调用
+ * Note: deliberately a synchronous API (better-sqlite3 driver's .get()/.run()),
+ * so agents/context.ts's synchronous buildAgentRequestContext can call it directly
  */
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
@@ -19,7 +19,7 @@ function isContentLanguage(v: unknown): v is ContentLanguage {
   return typeof v === 'string' && (CONTENT_LANGUAGES as readonly string[]).includes(v)
 }
 
-/** 读取全局内容语言；未设置或值非法时回退 'zh'（保持历史默认行为） */
+/** Read the global content language; falls back to 'zh' when unset or invalid (keeps the historical default behavior) */
 export function getContentLanguage(): ContentLanguage {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, CONTENT_LANGUAGE_KEY))
@@ -27,7 +27,7 @@ export function getContentLanguage(): ContentLanguage {
   return isContentLanguage(row?.value) ? row.value : 'zh'
 }
 
-/** 写入全局内容语言（upsert） */
+/** Write the global content language (upsert) */
 export function setContentLanguage(lang: ContentLanguage): ContentLanguage {
   if (!isContentLanguage(lang)) throw new Error(`Invalid content language: ${lang}`)
   db.insert(schema.appSettings)
@@ -48,7 +48,7 @@ function sanitizeTourIds(ids: unknown): string[] {
   return [...new Set(ids.filter(v => typeof v === 'string' && v.length > 0 && v.length <= 100))].slice(0, MAX_TOURS_SEEN)
 }
 
-/** 已看过的引导漫游 id 列表（JSON 数组存储）；桌面端端口随启动变化，localStorage 不可靠，故落库 */
+/** List of seen onboarding tour ids (stored as a JSON array); the desktop port changes across launches and localStorage is unreliable, so persist to DB */
 export function getToursSeen(): string[] {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, TOURS_SEEN_KEY))
@@ -56,7 +56,7 @@ export function getToursSeen(): string[] {
   try { return sanitizeTourIds(JSON.parse(row?.value || '[]')) } catch { return [] }
 }
 
-/** 写入已看过的引导漫游 id 列表（upsert） */
+/** Write the list of seen onboarding tour ids (upsert) */
 export function setToursSeen(ids: unknown): string[] {
   const clean = sanitizeTourIds(ids)
   const value = JSON.stringify(clean)
@@ -72,7 +72,7 @@ export function setToursSeen(ids: unknown): string[] {
 
 const RAG_ENABLED_KEY = 'rag_enabled'
 
-/** ONNX RAG 开关：默认开（模型缺失/加载失败时检索静默降级为无上下文，不阻断 Agent） */
+/** ONNX RAG toggle: default on (retrieval silently degrades to no context when the model is missing/load fails, without blocking Agents) */
 export function isRagEnabled(): boolean {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, RAG_ENABLED_KEY))
@@ -93,7 +93,7 @@ export function setRagEnabled(enabled: boolean): boolean {
 
 const MEMORY_ENABLED_KEY = 'agent_memory_enabled'
 
-/** 跨会话记忆开关（fusion-memory）：默认开；fm-server 未启时检索静默降级为无记忆块 */
+/** Cross-session memory toggle (fusion-memory): default on; retrieval silently degrades to no memory block when fm-server is not running */
 export function isMemoryEnabled(): boolean {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, MEMORY_ENABLED_KEY))
@@ -114,7 +114,7 @@ export function setMemoryEnabled(enabled: boolean): boolean {
 
 const SUPERVISOR_ENABLED_KEY = 'agent_supervisor_enabled'
 
-/** Agent 监督层开关：默认开；审阅模型调用失败时降级为 pass-through 不阻断 */
+/** Agent supervisor toggle: default on; degrades to pass-through without blocking when the review model call fails */
 export function isSupervisorEnabled(): boolean {
   const row = db.select().from(schema.appSettings)
     .where(eq(schema.appSettings.key, SUPERVISOR_ENABLED_KEY))
@@ -135,7 +135,7 @@ export function setSupervisorEnabled(enabled: boolean): boolean {
 
 const SERVER_TOKEN_KEY = 'server_api_token'
 
-/** 首启自动生成的服务器 API token（对外部署未显式配 FUSION_API_TOKEN 时用） */
+/** Server API token auto-generated on first launch (used for external deployment when FUSION_API_TOKEN is not explicitly configured) */
 export function getServerApiToken(): string | null {
     const row = db.select().from(schema.appSettings)
         .where(eq(schema.appSettings.key, SERVER_TOKEN_KEY))

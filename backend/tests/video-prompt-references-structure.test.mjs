@@ -9,20 +9,26 @@ test('prompt_generator video prompt format uses @name references instead of XML 
   const agents = read('src/agents/index.ts')
   const skill = read('workspace/skills/prompt-generator/video-prompt/SKILL.md')
 
-  // 场景/角色用 @名字 引用（名字必须与场景/角色列表完全一致）
+  // scenes/characters referenced via @name (names must match the scene/character lists exactly)
+  // i18n: user-facing — asserts the kept zh agent-prompt text
   assert.match(agents, /@场景名/)
+  // i18n: user-facing
   assert.match(agents, /@角色名/)
+  // i18n: user-facing
   assert.match(agents, /@小明 → @图片1小明/)
   assert.doesNotMatch(agents, /<location>/)
   assert.doesNotMatch(agents, /<role>/)
 
-  // SKILL.md 同步
+  // SKILL.md kept in sync
+  // i18n: user-facing — asserts the kept zh skill-file text
   assert.match(skill, /@场景名/)
+  // i18n: user-facing
   assert.match(skill, /@角色名/)
+  // i18n: user-facing
   assert.match(skill, /@小明.*@图片1小明/)
   assert.doesNotMatch(skill, /<location>/)
   assert.doesNotMatch(skill, /<role>/)
 
-  // settings.vue 不再内嵌默认提示词副本（改由 /prompts API 提供），
-  // 此处不重复断言前端
+  // settings.vue no longer embeds a default prompt copy (served by the /prompts API);
+  // the frontend is not re-asserted here
 })

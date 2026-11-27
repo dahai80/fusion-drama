@@ -10,13 +10,13 @@ const useAgent = read('app/composables/useAgent.ts')
 const useApi = read('app/composables/useApi.ts')
 
 test('workbench offers model selectors for rewrite, image and video generation', () => {
-  // 三个选择器（自定义 ModelSelect 弹窗组件，非原生 select）
+  // Three selectors (custom ModelSelect popover component, not a native select)
   assert.match(page, /<ModelSelect/)
   assert.match(page, /v-model="chatModel"/)
   assert.match(page, /v-model="imageModel"/)
   assert.match(page, /v-model="videoModel"/)
   assert.doesNotMatch(page, /<select v-model="chatModel"/)
-  // 选项汇总该类型全部启用配置的模型（去重、按优先级），API 返回的 model 可能已是数组
+  // Options aggregate models from all enabled configs of the type (deduped, priority-ordered); the API's model field may already be an array
   assert.match(page, /function collectModelOptions\(cfgs\)/)
   assert.match(page, /if \(Array\.isArray\(raw\)\) return raw\.filter\(Boolean\)/)
   assert.match(page, /collectModelOptions\(textConfigs\.value\)/)
@@ -28,36 +28,36 @@ test('workbench offers model selectors for rewrite, image and video generation',
 test('model select dropdown is a custom designed popover', () => {
   const component = read('app/components/ModelSelect.vue')
 
-  // 自定义弹窗由通用 AppMenu 承载（非原生 select），触发器带厂商图标 + 箭头
+  // The custom popover is hosted by the generic AppMenu (not a native select); trigger carries a vendor icon + arrow
   assert.match(component, /<AppMenu v-model:open="isOpen"/)
   assert.match(component, /<AppMenuItem/)
   assert.match(component, /model-select-trigger/)
   assert.match(component, /<ChevronDown :size="11"/)
   assert.match(component, /emit\('update:modelValue', model\)/)
-  // 多配置时展示来源配置名（showConfig），无「默认」语义的选择器可隐藏默认项
+  // With multiple configs, show the source config name (showConfig); selectors without default semantics can hide the default item
   assert.match(component, /showConfig/)
   assert.match(component, /hideDefault/)
-  // 图标按模型名推断，回退 provider
+  // Icon inferred from the model name, falling back to provider
   assert.match(component, /modelIconUrl\(currentOption\.value\.provider, currentOption\.value\.model\)/)
 })
 
 test('selected models are sent with rewrite, image and video generation requests', () => {
-  // 选中模型时连同其所属配置一起调用
+  // When a model is selected, its owning config is sent along with the call
   assert.match(page, /function ownerConfigId\(options, key\)/)
-  // 改写（Agent）透传模型与配置
+  // Rewrite (Agent) passes model and config through
   assert.match(useAgent, /model: model \|\| undefined/)
   assert.match(useAgent, /config_id: configId \|\| undefined/)
   assert.match(page, /runAgent\('script_rewriter'[\s\S]*?chatModelOverride\(\), chatConfigId\(\)\)/)
-  // 图片生成透传模型与配置
+  // Image generation passes model and config through
   assert.match(useApi, /generateImage: \(id: number, episodeId: number, model\?: string, configId\?: number, textModel\?: string, textConfigId\?: number\)/)
-  // 文本模型覆盖随生图/提取请求透传（缺提示词时后端触发提示词 Agent）
+  // Text model override passed through with image/extraction requests (backend triggers the prompt Agent when prompts are missing)
   assert.match(useApi, /text_model: textModel \|\| undefined/)
   assert.match(useApi, /text_config_id: textConfigId \|\| undefined/)
   assert.match(useApi, /config_id: configId \|\| undefined/)
   assert.match(page, /characterAPI\.generateImage\(id, epId\.value, bareModelName\(imageModel\.value\) \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
   assert.match(page, /sceneAPI\.generateImage\(id, epId\.value, bareModelName\(imageModel\.value\) \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
   assert.match(page, /characterAPI\.batchImages\(ids, epId\.value, bareModelName\(imageModel\.value\) \|\| undefined, ownerConfigId\(imageModelOptions\.value, imageModel\.value\), chatModelOverride\(\), chatConfigId\(\)\)/)
-  // 视频生成透传模型与配置
+  // Video generation passes model and config through
   assert.match(page, /model: bareModelName\(videoModel\.value\) \|\| undefined/)
   assert.match(page, /config_id: ownerConfigId\(videoModelOptions\.value, videoModel\.value\)/)
 })

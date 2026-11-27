@@ -1,5 +1,5 @@
 /**
- * AI 服务抽象层 — 从数据库配置中获取 provider 和 API key
+ * AI service abstraction layer — resolves provider and API key from database configuration
  */
 import { db, schema } from '../db/index.js'
 import { eq } from 'drizzle-orm'
@@ -13,11 +13,11 @@ export interface AIConfig {
   baseUrl: string
   apiKey: string
   model: string
-  /** 采样温度，null 表示不设置（跟随服务商默认）。存于 ai_service_configs.settings JSON */
+  /** Sampling temperature; null means unset (follows the provider default). Stored in the ai_service_configs.settings JSON */
   temperature?: number | null
 }
 
-/** 从 settings JSON 解析 temperature；非法值一律视为未设置 */
+/** Parses temperature from the settings JSON; invalid values are always treated as unset */
 export function parseConfigTemperature(settingsRaw: string | null | undefined): number | null {
   if (!settingsRaw) return null
   try {
@@ -40,8 +40,9 @@ export function isOfficialProvider(serviceType?: string | null, provider?: strin
 }
 
 /**
- * 配置合法性：官方 provider 或 `custom:<name>` 可编程 provider（仅 image/video——
- * 文本走 AI SDK 直连路径不经适配器注册表，自定义只覆盖图片/视频）
+ * Config validity: official provider or `custom:<name>` programmable provider (image/video only —
+ * text goes through the direct AI SDK path bypassing the adapter registry; custom only covers
+ * image/video)
  */
 export function isValidProvider(serviceType?: string | null, provider?: string | null): boolean {
   if (isOfficialProvider(serviceType, provider)) return true
@@ -69,7 +70,7 @@ export function getTextProviderBaseUrl(config: AIConfig) {
   return config.baseUrl
 }
 
-// Agent 多步循环会逐步重复解析同一配置，相同配置只打一次日志避免刷屏
+// Agent multi-step loops re-resolve the same config repeatedly; log each distinct config once to avoid spam
 const lastLoggedActiveConfigKey = new Map<string, string>()
 const lastLoggedConfigByIdKey = new Map<number, string>()
 
@@ -78,7 +79,7 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
     .where(eq(schema.aiServiceConfigs.serviceType, serviceType))
   )
     .filter(r => r.isActive && isValidProvider(serviceType, r.provider))
-    .sort((a, b) => (b.priority || 0) - (a.priority || 0)) // 高优先级优先
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0)) // higher priority first
 
   const active = rows[0]
   if (!active) {
@@ -109,12 +110,13 @@ export async function getActiveConfig(serviceType: ServiceType): Promise<AIConfi
 
 export async function getTextConfig(): Promise<AIConfig> {
   const config = await getActiveConfig('text')
+  // i18n: user-facing
   if (!config) throw new Error('未配置文本模型，请先到「设置」页添加并启用 AI 服务')
   return config
 }
 
 /**
- * 取某服务类型当前启用且优先级最高的官方配置 ID（创建集时自动锁定用）
+ * Highest-priority active official config ID for a service type (used to auto-lock when creating an episode)
  */
 export async function getActiveConfigId(serviceType: ServiceType): Promise<number | null> {
   const rows = (await db.select().from(schema.aiServiceConfigs)

@@ -1,16 +1,17 @@
 /**
- * 生成应用内更新器使用的版本清单 latest.json
+ * Generates the latest.json manifest consumed by the in-app updater
  *
- * 用法：npm run dist / dist:win 完成后执行 `node scripts/make-update-feed.mjs`
- *   --base-url <url>  下载基址，默认 GitHub Releases 直链
- *                     （https://github.com/<owner>/<repo>/releases/download/v<version>）
- *   --notes "文本"    本次更新说明
+ * Usage: after npm run dist / dist:win, run `node scripts/make-update-feed.mjs`
+ *   --base-url <url>  download base URL, defaults to the direct GitHub Releases link
+ *                     (https://github.com/<owner>/<repo>/releases/download/v<version>)
+ *   --notes "text"    update notes for this release
  *
- * 产物 release/latest.json 结构：
+ * Output release/latest.json structure:
  * { version, notes, platforms: { "<platform>-<arch>": { url, sha256, size } } }
  *
- * 发布：把 latest.json 与安装包一起上传到 GitHub Release（tag 形如 v1.0.1），
- * 更新器默认拉 releases/latest/download/latest.json 即完成推送。
+ * Publishing: upload latest.json together with the installers to the GitHub Release
+ * (tag like v1.0.1); the updater fetches releases/latest/download/latest.json by default,
+ * which completes the rollout.
  */
 import fs from 'fs'
 import path from 'path'
@@ -45,8 +46,8 @@ function sha256(file) {
   })
 }
 
-// 平台键（与更新器 process.platform-process.arch 一致）→ 产物文件名
-// （electron-builder 的 mac zip 命名带 -mac 后缀）
+// Platform key (matches the updater's process.platform-process.arch) -> artifact filename
+// (electron-builder's mac zip names carry a -mac suffix)
 const targets = [
   { key: 'darwin-arm64', file: `FusionDrama-${version}-arm64-mac.zip` },
   { key: 'darwin-x64', file: `FusionDrama-${version}-mac.zip` },
@@ -62,8 +63,8 @@ for (const t of targets) {
     continue
   }
   platforms[t.key] = {
-    // GitHub 上传资产时会把空格规范化为点号(gh CLI 与 API 均如此,无法保留空格),
-    // URL 必须按服务端实际资产名生成,否则下载 404
+    // GitHub normalizes spaces to dots when uploading assets (both gh CLI and API; spaces cannot
+    // be kept), so the URL must match the server-side asset name or downloads 404
     url: `${baseUrl}/${encodeURIComponent(t.file.replace(/ /g, '.'))}`,
     sha256: await sha256(file),
     size: fs.statSync(file).size,
@@ -71,13 +72,13 @@ for (const t of targets) {
 }
 
 if (missing.length === targets.length) {
-  console.error('release/ 下没有任何更新产物，请先运行 npm run dist / dist:win')
+  console.error('no update artifacts under release/; run npm run dist / dist:win first')
   process.exit(1)
 }
 
 const feed = { version, notes, platforms }
 const out = path.join(RELEASE, 'latest.json')
 fs.writeFileSync(out, JSON.stringify(feed, null, 2))
-console.log(`latest.json ✓ (${Object.keys(platforms).length} 平台)`)
-if (missing.length) console.warn(`缺失产物（未纳入清单）: ${missing.join(', ')}`)
+console.log(`latest.json ok (${Object.keys(platforms).length} platforms)`)
+if (missing.length) console.warn(`missing artifacts (excluded from manifest): ${missing.join(', ')}`)
 console.log(out)

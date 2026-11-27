@@ -1,10 +1,12 @@
 /**
- * 打包资源准备 — 组装 desktop/resources/（electron-builder extraResources 的来源）
+ * Packaging resource prep — assembles desktop/resources/ (the source of electron-builder
+ * extraResources)
  *
- * 1. frontend/           ← nuxt generate 产物（.output/public，含 index.html）
- * 2. workspace-template/ ← backend/workspace（skills + prompts，首启动拷入 userData）
- * 3. bin-<os>/           ← ffmpeg/ffprobe 按平台分目录（electron-builder ${os} 宏各取所需，
- *                          避免 mac 包带 exe、win 包带 mac 二进制白白 +144MB）
+ * 1. frontend/           ← nuxt generate output (.output/public, includes index.html)
+ * 2. workspace-template/ ← backend/workspace (skills + prompts, copied into userData on first boot)
+ * 3. bin-<os>/           ← ffmpeg/ffprobe split per platform (electron-builder ${os} macro picks
+ *                          what it needs, so the mac bundle doesn't ship exe files and the win
+ *                          bundle doesn't ship mac binaries for a wasted +144MB)
  */
 import fs from 'fs'
 import path from 'path'
@@ -19,23 +21,23 @@ const RES = path.join(DESKTOP, 'resources')
 fs.rmSync(RES, { recursive: true, force: true })
 fs.mkdirSync(RES, { recursive: true })
 
-// 1. 前端静态产物
+// 1. frontend static build output
 const frontendSrc = path.join(REPO, 'frontend', '.output', 'public')
 if (!fs.existsSync(path.join(frontendSrc, 'index.html'))) {
-  console.error('缺少前端产物：请先在 frontend/ 执行 npm run generate')
+  console.error('missing frontend build output: run npm run generate in frontend/ first')
   process.exit(1)
 }
 fs.cpSync(frontendSrc, path.join(RES, 'frontend'), { recursive: true })
 console.log('resources/frontend ✓')
 
-// 2. workspace 模板（skills 技能 + prompts 提示词）
+// 2. workspace template (skills + prompts)
 const workspaceSrc = path.join(REPO, 'backend', 'workspace')
 fs.cpSync(workspaceSrc, path.join(RES, 'workspace-template'), { recursive: true })
 console.log('resources/workspace-template ✓')
 
-// 3. ffmpeg 二进制（macOS/Linux 用 ffmpeg-static 当前平台的产物；
-//    Windows 交叉打包：ffmpeg.exe 从 ffmpeg-static GitHub release 获取（本地缓存），
-//    ffprobe.exe 直接用 ffprobe-static 自带的 win32/x64 产物）
+// 3. ffmpeg binaries (macOS/Linux use the ffmpeg-static build for the current platform;
+//    Windows cross-packaging: ffmpeg.exe comes from the ffmpeg-static GitHub release
+//    (locally cached), ffprobe.exe uses ffprobe-static's bundled win32/x64 build)
 const req = createRequire(import.meta.url)
 const binMac = path.join(RES, 'bin-mac')
 const binWin = path.join(RES, 'bin-win')
@@ -44,7 +46,7 @@ fs.mkdirSync(binWin, { recursive: true })
 const ffmpegPath = req('ffmpeg-static')
 const ffprobePath = req('ffprobe-static')?.path
 if (!ffmpegPath || !ffprobePath || !fs.existsSync(ffmpegPath) || !fs.existsSync(ffprobePath)) {
-  console.error('ffmpeg-static/ffprobe-static 二进制缺失，请重新 npm install（或配置 FFMPEG_BINARIES_URL 镜像）')
+  console.error('ffmpeg-static/ffprobe-static binaries missing; re-run npm install (or set the FFMPEG_BINARIES_URL mirror)')
   process.exit(1)
 }
 fs.copyFileSync(ffmpegPath, path.join(binMac, 'ffmpeg'))
@@ -53,13 +55,13 @@ fs.chmodSync(path.join(binMac, 'ffmpeg'), 0o755)
 fs.chmodSync(path.join(binMac, 'ffprobe'), 0o755)
 console.log('resources/bin-mac ✓')
 
-// 3b. Windows 二进制（打 win 包用；不打 win 包时缺失不报错，仅提示）
+// 3b. Windows binaries (for the win bundle; absence only warns, never fails non-win packaging)
 const winBinDir = path.join(DESKTOP, 'build', 'win-bin')
 const ffmpegWin = path.join(winBinDir, 'ffmpeg.exe')
 const ffprobeWinSrc = path.join(path.dirname(req.resolve('ffprobe-static/package.json')), 'bin', 'win32', 'x64', 'ffprobe.exe')
 if (!fs.existsSync(ffmpegWin)) {
-  console.warn('提示: 缺少 build/win-bin/ffmpeg.exe，Windows 包将无法内置 ffmpeg。' +
-    '获取: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-win32-x64')
+  console.warn('note: build/win-bin/ffmpeg.exe is missing, the Windows bundle will not embed ffmpeg.' +
+    ' Get it from: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-win32-x64')
 }
 if (fs.existsSync(ffmpegWin) && fs.existsSync(ffprobeWinSrc)) {
   fs.copyFileSync(ffmpegWin, path.join(binWin, 'ffmpeg.exe'))
@@ -67,8 +69,9 @@ if (fs.existsSync(ffmpegWin) && fs.existsSync(ffprobeWinSrc)) {
   console.log('resources/bin-win ✓')
 }
 
-// 4. fm-server（可选，跨会话记忆桌面自举）：从本机 fusion-memory release 产物复制。
-//    缺失仅提示不阻断打包——运行时探测不到 fm-server 会优雅降级（记忆 off，设置页显示离线）
+// 4. fm-server (optional, cross-session memory desktop bootstrap): copied from the local
+//    fusion-memory release build. Absence only warns and does not block packaging — at
+//    runtime a missing fm-server degrades gracefully (memory off, settings page shows offline)
 import os from 'os'
 const fmServerSrc = process.env.FM_SERVER_BIN
   || path.join(os.homedir(), 'fusion', 'fusion-memory', 'target', 'release', 'fm-server')
@@ -77,6 +80,6 @@ if (fs.existsSync(fmServerSrc)) {
   fs.chmodSync(path.join(binMac, 'fm-server'), 0o755)
   console.log('resources/bin-mac/fm-server ✓')
 } else {
-  console.warn('提示: 缺少 fm-server 二进制（fusion-memory 未构建），桌面版跨会话记忆不可用。' +
-    '构建: cd ~/fusion/fusion-memory && cargo build --release -p fm-server（或 FM_SERVER_BIN 指定路径）')
+  console.warn('note: fm-server binary missing (fusion-memory not built), desktop cross-session memory unavailable.' +
+    ' Build it: cd ~/fusion/fusion-memory && cargo build --release -p fm-server (or point FM_SERVER_BIN at a path)')
 }

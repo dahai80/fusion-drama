@@ -1,9 +1,11 @@
 /**
- * FR-P2-4 轮询收敛 — 组件内轮询定时器统一托管。
+ * FR-P2-4 polling consolidation — centrally managed in-component polling timers.
  *
- * start() 登记的 setInterval 在组件 unmount 时自动全清，调用方不再
- * 各自维护 onUnmounted 清理（漏挂即页面离开后照跑的回归源头）。
- * 返回 id 供调用方提前 stop（终态即停），语义与原生 setInterval 对齐。
+ * setInterval registered via start() is fully cleared on component unmount, so callers no
+ * longer maintain their own onUnmounted cleanup (a missed one meant timers kept running
+ * after leaving the page — a recurring regression source).
+ * Returns the id so callers can stop early (stop on terminal state); semantics match
+ * native setInterval.
  */
 import { onUnmounted } from 'vue'
 
@@ -26,6 +28,6 @@ export function usePolling() {
         timers.clear()
     }
 
-    try { onUnmounted(() => stopAll()) } catch { /* 非 setup 上下文（单测）忽略 */ }
+    try { onUnmounted(() => stopAll()) } catch { /* non-setup context (unit tests); ignore */ }
     return { start, stop, stopAll }
 }

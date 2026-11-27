@@ -1,6 +1,6 @@
 /**
- * 分镜拆解 Agent 工具
- * 模块级单例 — episodeId + dramaId 通过 RequestContext 按请求注入
+ * Storyboard-breakdown Agent tools
+ * Module-level singletons — episodeId + dramaId injected per request via RequestContext
  */
 import { createTool } from '@mastra/core/tools'
 import type { ToolExecutionContext } from '@mastra/core/tools'
@@ -12,7 +12,7 @@ import { recordPromptHistory } from '../../utils/prompt-history.js'
 import { logTaskProgress, logTaskSuccess, logTaskWarn } from '../../utils/task-logger.js'
 import { getDramaId, getEpisodeId, requireAgentIds } from '../context.js'
 
-/** 防循环：记录每集 save_storyboards 调用签名（replace_existing+镜头号）→ 次数 */
+/** Loop guard: records per-episode save_storyboards call signatures (replace_existing+shot numbers) → count */
 const saveSignatures = new Map<number, Map<string, number>>()
 
 async function syncStoryboardCharacters(storyboardId: number, characterIds: number[]) {
@@ -69,7 +69,7 @@ async function validateStoryboardBindings(episodeId: number, dramaId: number, sc
   const episodeCharacterIds = await getEpisodeCharacterIds(episodeId)
   const episodePropIds = await getEpisodePropIds(episodeId)
 
-  // 场景/角色/道具属于本剧但尚未关联到当前集时，自动补关联（拆分时即完成绑定）
+  // When a scene/character/prop belongs to this drama but is not yet linked to the current episode, auto-link it (binding completes during breakdown)
   if (sceneId != null && !episodeSceneIds.has(sceneId)) {
     const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, sceneId))
     if (!scene || scene.dramaId !== dramaId || scene.deletedAt) {
@@ -133,7 +133,7 @@ async function validateStoryboardBindings(episodeId: number, dramaId: number, sc
 
 type ToolContext = ToolExecutionContext | undefined
 
-// H6: 守卫实现收敛至 ../context.ts requireAgentIds，此处仅做上下文取值桥接
+// H6: guard implementation consolidated into ../context.ts requireAgentIds; this only bridges context value extraction
 function requireIds(context: ToolContext): { episodeId: number; dramaId: number } | { error: string } {
   return requireAgentIds(getEpisodeId(context?.requestContext), getDramaId(context?.requestContext))
 }
@@ -282,11 +282,11 @@ const storyboardFields = z.object({
 const saveStoryboards = createTool({
   id: 'save_storyboards',
   description: 'Save storyboards for this episode. Call in batches of at most 8 storyboards: the first batch must set replace_existing: true (clears all old storyboards for the episode, then writes), every following batch omits replace_existing (appends). Rows are upserted by shot_number, so overlapping batches and retries never create duplicates. When every storyboard is saved, STOP calling this tool and finish your reply — do not re-save the same batch.',
-  // 防循环：同一集内相同签名（replace_existing + 镜头号列表）的保存重复出现时，
-  // 说明模型陷入了重复调用，第 3 次起直接拒绝并返回终止指令
+  // Loop guard: when a save with the same signature (replace_existing + shot-number list) repeats within one episode,
+  // the model is stuck in repeated calls; from the 3rd occurrence reject outright and return a termination instruction
   inputSchema: z.object({
     replace_existing: z.union([z.boolean(), z.string(), z.undefined()]).transform(v => {
-      // 本地小模型常把布尔写成字符串 "true"/"false"，宽松归一
+      // Local small models often write booleans as the strings "true"/"false"; normalize leniently
       if (typeof v === 'boolean') return v
       return String(v).trim().toLowerCase() === 'true'
     }).optional(),
@@ -298,8 +298,8 @@ const saveStoryboards = createTool({
     const { episodeId, dramaId } = ids
     const ts = now()
 
-    // 防循环：相同签名（replace_existing + 镜头号列表）在本集重复保存 ≥2 次即拒绝，
-    // 避免本地小模型陷入"反复重存同一批分镜"的工具调用循环拖住整个请求
+    // Loop guard: reject when the same signature (replace_existing + shot-number list) has been saved >=2 times in this
+    // episode, preventing local small models from stalling the whole request in a "re-save the same batch" tool-call loop
     const signature = `${replace_existing === true}|${storyboards.map(sb => sb.shot_number).join(',')}`
     const sigCounts = saveSignatures.get(episodeId) ?? new Map<string, number>()
     const sigCount = (sigCounts.get(signature) ?? 0) + 1
@@ -331,7 +331,7 @@ const saveStoryboards = createTool({
       await db.delete(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
     }
 
-    // shot_number → id 索引（含本次调用内新增的行），保证按分镜号幂等 upsert
+    // shot_number → id index (including rows added within this call), guaranteeing idempotent upsert by shot number
     const existingRows = await db.select().from(schema.storyboards)
       .where(eq(schema.storyboards.episodeId, episodeId))
     const shotToId = new Map<number, number>(
@@ -376,7 +376,7 @@ const saveStoryboards = createTool({
       }
     }
 
-    // 整集时长 = 当前全部存活分镜时长之和（分批保存时不能再按单批累加）
+    // Episode duration = sum of all live storyboard durations (batched saves must not accumulate per batch)
     const allRows = await db.select().from(schema.storyboards)
       .where(eq(schema.storyboards.episodeId, episodeId))
     const totalDuration = allRows
@@ -426,8 +426,8 @@ const updateStoryboard = createTool({
     const [storyboard] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, storyboard_id))
     if (!storyboard) return { error: `Storyboard ${storyboard_id} not found` }
 
-    // 过滤模型回传的垃圾值：视频提示词 Agent 常把整行字段回传，
-    // 拿不准的字符串字段写成 "null"/"undefined"，直接覆盖会毁掉已有内容
+    // Filter junk values echoed back by the model: the video-prompt Agent often returns whole-row fields,
+    // writing uncertain string fields as "null"/"undefined" — letting them through would destroy existing content
     for (const key of Object.keys(fields) as (keyof typeof fields)[]) {
       const v = fields[key]
       if (typeof v === 'string' && (v === 'null' || v === 'undefined' || v === 'NULL' || v === 'Null')) {

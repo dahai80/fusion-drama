@@ -1,18 +1,21 @@
 /**
- * 数据目录统一解析 — 全项目唯一的路径锚点
+ * Unified data directory resolution — the single path anchor for the whole project
  *
- * dev：锚定仓库根 data/（__dirname 相对推断，src 与 tsc 产物深度一致）。
- * Electron 桌面版：主进程注入 FUSION_DATA_DIR 指向 userData 可写目录
- * （打包后 asar 内的 __dirname 相对推断不可用，写路径必须落在包外）。
+ * dev: anchored at the repo root data/ (inferred relative to __dirname; src and tsc
+ * output sit at the same depth).
+ * Electron desktop: the main process injects FUSION_DATA_DIR pointing at a writable
+ * userData directory (relative __dirname inference is unusable inside the packaged
+ * asar; write paths must land outside the bundle).
  *
- * STORAGE_PATH 语义保持不变：仅覆盖 static 存储根；未注入 FUSION_DATA_DIR
- * 时以其父目录为数据根，保证 getAbsolutePath('static/...') 的既有行为。
+ * STORAGE_PATH semantics unchanged: only overrides the static storage root; when
+ * FUSION_DATA_DIR is not injected, its parent directory is the data root, preserving
+ * the existing getAbsolutePath('static/...') behavior.
  */
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// src/utils → 上三级为仓库根
+// src/utils → three levels up is the repo root
 const repoRoot = path.resolve(__dirname, '../../..')
 
 export const DATA_ROOT = process.env.FUSION_DATA_DIR

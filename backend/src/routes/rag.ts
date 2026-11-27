@@ -8,32 +8,32 @@ import { logTaskError } from '../utils/task-logger.js'
 
 const app = new Hono()
 
-// GET /rag/status — 模型加载状态 + 索引量
+// GET /rag/status — model load status + index size
 app.get('/status', async (c) => {
     const status = await ragStatus()
     return success(c, { ...status, enabled: isRagEnabled() })
 })
 
-// PUT /rag/enabled — 开关（关闭时 Agent 不注入检索上下文）
+// PUT /rag/enabled — toggle (when off, agents do not inject retrieval context)
 app.put('/enabled', async (c) => {
     const body = await c.req.json()
-    if (typeof body.enabled !== 'boolean') return badRequest(c, 'enabled 须为布尔值')
+    if (typeof body.enabled !== 'boolean') return badRequest(c, 'enabled must be a boolean')
     return success(c, { enabled: setRagEnabled(body.enabled) })
 })
 
-// POST /rag/index/:dramaId — 手动全量重建某 drama 的索引
+// POST /rag/index/:dramaId — manually rebuild the full index for one drama
 app.post('/index/:dramaId', async (c) => {
     const dramaId = Number(c.req.param('dramaId'))
-    if (!Number.isInteger(dramaId) || dramaId <= 0) return badRequest(c, 'dramaId 不合法')
+    if (!Number.isInteger(dramaId) || dramaId <= 0) return badRequest(c, 'Invalid dramaId')
     try {
         const chunks = await indexDrama(dramaId)
         return success(c, { dramaId, chunks })
     } catch (err: any) {
-        return badRequest(c, `索引构建失败: ${err.message}`)
+        return badRequest(c, `Index build failed: ${err.message}`)
     }
 })
 
-// POST /rag/index-all — 重建全部 drama 的索引（设置页「立即重建」按钮）
+// POST /rag/index-all — rebuild the index for all dramas ("Rebuild Now" button on the settings page)
 app.post('/index-all', async (c) => {
     try {
         const dramas = await db.select({ id: schema.dramas.id }).from(schema.dramas)
@@ -51,16 +51,16 @@ app.post('/index-all', async (c) => {
         }
         return success(c, { dramas: results.length, chunks: results.reduce((s, r) => s + r.chunks, 0), failed })
     } catch (err: any) {
-        return badRequest(c, `索引构建失败: ${err.message}`)
+        return badRequest(c, `Index build failed: ${err.message}`)
     }
 })
 
-// GET /rag/search?drama_id=1&q=... — 检索调试（前端展示命中块与得分）
+// GET /rag/search?drama_id=1&q=... — retrieval debug (frontend shows hit chunks and scores)
 app.get('/search', async (c) => {
     const dramaId = Number(c.req.query('drama_id'))
     const q = c.req.query('q') || ''
-    if (!Number.isInteger(dramaId) || dramaId <= 0) return badRequest(c, 'drama_id 不合法')
-    if (!q.trim()) return badRequest(c, 'q 不能为空')
+    if (!Number.isInteger(dramaId) || dramaId <= 0) return badRequest(c, 'Invalid drama_id')
+    if (!q.trim()) return badRequest(c, 'q is required')
     const hits = await searchDrama(dramaId, q)
     return success(c, { hits: hits || [] })
 })

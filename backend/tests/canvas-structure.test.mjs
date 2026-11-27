@@ -19,7 +19,7 @@ test('storyboard canvas columns ship in migration v8 and drizzle schema', () => 
 test('storyboards route accepts per-node canvas coords and a bulk layout endpoint', () => {
     const route = read('src/routes/storyboards.ts')
     assert.match(route, /canvas_x: 'canvasX', canvas_y: 'canvasY'/)
-    // 批量保存必须注册在 /:id 之前，否则 'layout' 会被当成 id
+    // bulk save must be registered before /:id, otherwise 'layout' is treated as an id
     const layoutIdx = route.indexOf("app.put('/layout'")
     const idIdx = route.indexOf("app.put('/:id'")
     assert.ok(layoutIdx > -1, 'layout route missing')
@@ -31,21 +31,21 @@ test('frontend canvas drag persists positions via layout API', () => {
     const api = read('../frontend/app/composables/useApi.ts')
     assert.match(api, /layout: \(items: Array<\{ id: number; canvas_x: number; canvas_y: number \}>\) => api\.put\('\/storyboards\/layout'/)
 
-    // 画布逻辑已抽到 StoryboardCanvas 组件（episode.vue 只保留视图切换状态 + helpers 注入）
+    // canvas logic extracted into the StoryboardCanvas component (episode.vue keeps only view-switch state + injected helpers)
     const canvas = read('../frontend/app/components/StoryboardCanvas.vue')
-    // 坐标持久化：拖拽松手写库，整理布局批量写库
+    // coordinate persistence: drag release writes a single row, tidy layout writes in bulk
     assert.match(canvas, /storyboardAPI\.layout\(\[\{ id: drag\.id, canvas_x: drag\.x, canvas_y: drag\.y \}\]\)/)
     assert.match(canvas, /async function tidyCanvasLayout/)
-    // 缺失坐标时分镜序号自动布局
+    // missing coords fall back to auto-layout by storyboard index
     assert.match(canvas, /const CANVAS_COLS = 4/)
     assert.match(canvas, /sb\.canvas_x \?\? sb\.canvasX/)
-    // 平移 + 缩放 + 连线
+    // pan + zoom + edges
     assert.match(canvas, /function startCanvasPan/)
     assert.match(canvas, /function onCanvasWheel/)
     assert.match(canvas, /const canvasEdges = computed/)
 
     const page = read('../frontend/app/views/drama/episode.vue')
-    // 视图持久化 + 列表/画布切换 + 组件接线
+    // view persistence + list/canvas toggle + component wiring
     assert.match(page, /VIDEO_VIEW_STORE_KEY/)
     assert.match(page, /v-else-if="videoViewMode === 'canvas'"/)
     assert.match(page, /<StoryboardCanvas/)

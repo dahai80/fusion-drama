@@ -14,7 +14,8 @@ app.get('/', async (c) => {
   const status = c.req.query('status')
   const keyword = c.req.query('keyword')
 
-  // B15: 过滤/分页/计数下推 SQL——全表拉内存再 slice 在表增长后拖垮列表接口
+  // B15: push filtering/pagination/counting down to SQL — pulling the whole table into memory then
+  // slicing would drag the list API down as the table grows
   const conditions = [isNull(schema.dramas.deletedAt)]
   if (status) conditions.push(eq(schema.dramas.status, status))
   if (keyword) conditions.push(like(schema.dramas.title, `%${keyword}%`))
@@ -72,7 +73,7 @@ app.post('/', async (c) => {
   const [result] = await db.select().from(schema.dramas)
     .where(eq(schema.dramas.id, getInsertId(res)))
 
-  // 不再预建集 — 用户通过「添加集」流程创建（该流程会锁定图片/视频生成配置）
+  // No pre-created episodes — users create them via the "Add Episode" flow (which locks image/video generation config)
   return created(c, toSnakeCase(result))
 })
 
@@ -93,6 +94,7 @@ app.get('/stats', async (c) => {
 app.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, id))
+  // i18n: user-facing
   if (!drama) return notFound(c, '剧本不存在')
 
   const eps = await db.select().from(schema.episodes)
@@ -131,16 +133,20 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
-// DELETE /dramas/:id - 硬删除（不可恢复）
-// FR-P0-1/FR-BIZ-1: 删除需显式二次确认（confirm=true query 或 body）；级联清理
-// 剧集/分镜/资产/任务/拼接记录（DB 行 + storage 文件），响应返回清理计数。
-// 跨剧集仍引用的产物文件保留（引用检查在 utils/cascade.ts）
+// DELETE /dramas/:id - hard delete (unrecoverable)
+// FR-P0-1/FR-BIZ-1: deletion requires explicit double confirmation (confirm=true query or
+// body); cascades cleanup of episodes/storyboards/assets/tasks/merge records (DB rows +
+// storage files); the response returns cleanup counts.
+// Artifact files still referenced by other episodes are kept (reference checks in
+// utils/cascade.ts)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, id))
+  // i18n: user-facing
   if (!drama || drama.deletedAt) return notFound(c, '剧本不存在')
   const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
   if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
+    // i18n: user-facing
     return badRequest(c, '删除剧本需要二次确认：请携带 confirm=true（query 或 body）重试。此操作不可恢复，将级联删除剧集、分镜、资产与生成产物')
   }
   const result = await cascadeDeleteDrama(id)
@@ -179,6 +185,7 @@ app.put('/:id/episodes', async (c) => {
         ...ep,
         dramaId,
         episodeNumber: ep.episode_number || ep.episodeNumber || 1,
+        // i18n: user-facing — default episode title shown in the product
         title: ep.title || '未命名',
         createdAt: ts,
         updatedAt: ts,

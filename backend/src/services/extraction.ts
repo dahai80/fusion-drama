@@ -1,10 +1,12 @@
 /**
- * 资产提取任务 — 异步执行，按「集 × 类型」粒度跟踪
- * 角色 / 场景 / 道具 可分别单独提取，三类共享 GPU 串行队列（与媒体生成同锁）：
- * 并发 3 个 Agent 打 Qwen3.5 + FLUX 常驻 → GPU 争用 → Metal command buffer 崩溃 →
- * fusion-mlx SIGTERM 挂死。串行化后任意时刻仅一个 GPU 密集任务运行。
- * 任务状态双轨：运行态在进程内 Map（去重+实时），同时落 sys_task（type=extract）——
- * 重启后启动清扫统一标 failed，状态查询回退读 DB，前端不再「查无此任务」
+ * Asset extraction task — async, tracked at (episode x target) granularity.
+ * Characters / scenes / props can each be extracted separately; the three share the GPU serial
+ * queue (same lock as media generation): 3 concurrent Agents hitting Qwen3.5 + resident FLUX
+ * → GPU contention → Metal command buffer crash → fusion-mlx SIGTERM hang. After serialization
+ * only one GPU-heavy task runs at any moment.
+ * Dual-track task state: running state lives in an in-process Map (dedup + realtime) and is also
+ * persisted to sys_task (type=extract) — the startup sweep after a restart marks stale rows failed
+ * and status queries fall back to the DB, so the frontend no longer sees "no such task".
  */
 import { mastra } from '../mastra/index.js'
 import { buildAgentRequestContext } from '../agents/context.js'
@@ -28,11 +30,12 @@ export interface ExtractTask {
 const tasks = new Map<string, ExtractTask>()
 const keyOf = (episodeId: number, target: string) => `${episodeId}:${target}`
 
-/** 每类资产的提取指令：限定只提取该类型，并要求与已有数据去重合并 */
+/** Per-target extraction instruction: restrict to that type only, and require dedup/merge with existing data */
+// i18n: user-facing — LLM prompt text (product behavior)
 const EXTRACT_MESSAGES: Record<ExtractTarget, string> = {
-  characters: '请从本集剧本中提取所有角色信息（外貌需融合性格、含妆造），先用 read_existing_characters 读取项目已有角色，同名或近名（带括号定位/别名，如「林小雨（主角）」与「林小雨」）直接复用已有、不要重复创建，再用 save_dedup_characters 保存。本次只提取角色，不要提取场景和道具。',
-  scenes: '请从本集剧本中提取所有场景信息（地点、时间、光影等），先用 read_existing_scenes 读取已有场景去重，再用 save_dedup_scenes 保存。本次只提取场景，不要提取角色和道具。',
-  props: '请从本集剧本中提取关键道具（直接推动剧情且值得单独生成图片的物品，如凶器、信物、关键文件等，最多3个）。不要输出分析文字，直接调用 save_dedup_props 工具保存。没有符合条件的就传空数组。description 只记录物品外貌（材质、颜色、形状等）。先用 read_existing_props 读取已有道具去重，再调 save_dedup_props 保存。本次只提取道具。',
+  characters: '请从本集剧本中提取所有角色信息（外貌需融合性格、含妆造），先用 read_existing_characters 读取项目已有角色，同名或近名（带括号定位/别名，如「林小雨（主角）」与「林小雨」）直接复用已有、不要重复创建，再用 save_dedup_characters 保存。本次只提取角色，不要提取场景和道具。', // i18n: user-facing
+  scenes: '请从本集剧本中提取所有场景信息（地点、时间、光影等），先用 read_existing_scenes 读取已有场景去重，再用 save_dedup_scenes 保存。本次只提取场景，不要提取角色和道具。', // i18n: user-facing
+  props: '请从本集剧本中提取关键道具（直接推动剧情且值得单独生成图片的物品，如凶器、信物、关键文件等，最多3个）。不要输出分析文字，直接调用 save_dedup_props 工具保存。没有符合条件的就传空数组。description 只记录物品外貌（材质、颜色、形状等）。先用 read_existing_props 读取已有道具去重，再调 save_dedup_props 保存。本次只提取道具。', // i18n: user-facing
 }
 
 const SAVE_TOOL_MAP: Record<ExtractTarget, { snakeName: string; tool: any }> = {
@@ -45,7 +48,7 @@ function camelFromSnake(snake: string): string {
   return snake.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 }
 
-/** 从 raw 文本中用括号匹配提取完整 JSON（小模型常漏闭合标签或尾随文字） */
+/** Extracts a complete JSON value from raw text via bracket matching (small models often drop closing tags or trail extra text) */
 export function extractJson(raw: string): any | null {
     const start = raw.search(/[[{]/)
     if (start < 0) return null
@@ -98,11 +101,11 @@ export function extractJson(raw: string): any | null {
 }
 
 /**
- * 道具直接 LLM 提取：绕过 Mastra Agent，直接调 fusion-mlx 文本模型。
- * 4-bit Qwen3.5-4B 跑 Mastra Agent 多步工具循环不可靠——
- * ① 不调 save_dedup_props 而输出大段散文分析；② 调 mastra_workspace_* 而非 extract 工具；
- * ③ 第 4 个请求触发 scheduler 死锁（prefix cache 块损坏，waiting=1 running=0）。
- * 直接单次 LLM 调用 + JSON 输出绕过以上三问题。
+ * Direct LLM props extraction: bypasses the Mastra Agent and calls the fusion-mlx text model directly.
+ * 4-bit Qwen3.5-4B running a Mastra Agent multi-step tool loop is unreliable —
+ * 1) outputs long prose analysis instead of calling save_dedup_props; 2) calls mastra_workspace_* instead of
+ * the extract tools; 3) the 4th request triggers a scheduler deadlock (corrupted prefix-cache blocks, waiting=1 running=0).
+ * A single direct LLM call + JSON output bypasses all three problems.
  */
 async function directPropsExtraction(episodeId: number, dramaId: number, requestContext: any): Promise<{ directCall: true; propsCount: number; text: string }> {
     logTaskProgress('Extract', 'props-direct-llm', { episodeId })
@@ -123,14 +126,17 @@ async function directPropsExtraction(episodeId: number, dramaId: number, request
     }
     const baseUrl = getTextProviderBaseUrl(textConfig)
 
-    const systemPrompt = `你是道具提取助手。从剧本中提取关键道具——必须同时满足：
-1. 直接推动剧情（出现/交接/损坏/发现引发情节转折，如凶器、信物、关键文件、定情礼物、证据）
-2. 值得单独生成图片（分镜会给特写或反复出现，需要固定外观）
-排除：随手使用的日常物品（手机、筷子、水杯）、场景陈设（桌椅、灯具）、使用后放弃的普通兵器。
-一集通常 0-3 个，没有就输出空数组。最多保留 3 个。
-
-只输出 JSON 数组，不要输出任何其他文字：
-[{"name":"道具名","type":"类型（日常/武器/交通/装饰/文件等）","description":"物品外貌（材质、颜色、形状、大小、新旧、磨损），不写剧情用途"}]`
+    // i18n: user-facing — LLM prompt text (product behavior); content kept byte-identical
+    const systemPrompt = [
+        '你是道具提取助手。从剧本中提取关键道具——必须同时满足：', // i18n: user-facing
+        '1. 直接推动剧情（出现/交接/损坏/发现引发情节转折，如凶器、信物、关键文件、定情礼物、证据）', // i18n: user-facing
+        '2. 值得单独生成图片（分镜会给特写或反复出现，需要固定外观）', // i18n: user-facing
+        '排除：随手使用的日常物品（手机、筷子、水杯）、场景陈设（桌椅、灯具）、使用后放弃的普通兵器。', // i18n: user-facing
+        '一集通常 0-3 个，没有就输出空数组。最多保留 3 个。', // i18n: user-facing
+        '', // i18n: user-facing
+        '只输出 JSON 数组，不要输出任何其他文字：', // i18n: user-facing
+        '[{"name":"道具名","type":"类型（日常/武器/交通/装饰/文件等）","description":"物品外貌（材质、颜色、形状、大小、新旧、磨损），不写剧情用途"}]', // i18n: user-facing
+    ].join('\n')
 
     logTaskProgress('Extract', 'props-direct-llm-call', { episodeId, model: textConfig.model, scriptLen: episode.scriptContent.length })
     const resp = await fetch(`${baseUrl}/chat/completions`, {
@@ -148,7 +154,7 @@ async function directPropsExtraction(episodeId: number, dramaId: number, request
             max_tokens: 4096,
             temperature: 0.3,
         }),
-        // T1: 直连 LLM 也要有限超时——本地引擎毒死时不再无限占住 GPU 队列
+        // T1: even the direct LLM call needs a bounded timeout — a poisoned local engine must not hold the GPU queue forever
         signal: AbortSignal.timeout(30 * 60_000),
     })
 
@@ -182,8 +188,8 @@ async function directPropsExtraction(episodeId: number, dramaId: number, request
 }
 
 /**
- * 小模型（4-bit Qwen3.5-4B）常把 tool call 输出为文本而非标准 function call。
- * 解析两种格式：
+ * Small models (4-bit Qwen3.5-4B) often emit tool calls as text instead of standard function calls.
+ * Parses two formats:
  * 1. <function=saveDedupCharacters>\n<parameter=characters>\n[...JSON...]\n</parameter>
  * 2. {"name": "saveDedupCharacters", "arguments": {"characters": [...]}}
  */
@@ -232,24 +238,25 @@ function parseTextToolCall(text: string, target: ExtractTarget): Record<string, 
   return null
 }
 
-/** 启动异步提取任务（立即返回）；同集同类型已在运行时返回 false；可指定文本模型覆盖 */
+/** Starts an async extraction task (returns immediately); returns false when the same episode+target is already running; optional text model override */
 export async function startExtraction(episodeId: number, dramaId: number, target: ExtractTarget, opts: { model?: string; configId?: number } = {}): Promise<boolean> {
   const key = keyOf(episodeId, target)
   if (tasks.get(key)?.status === 'running') return false
-  // B13 TOCTOU：先同步占坑再落库——并发第二次请求在 await 期间进来时，running 检查直接拒绝；
-  // 落库失败须释放占坑
+  // B13 TOCTOU: claim the slot synchronously before persisting — a concurrent second request arriving during the await
+  // is rejected outright by the running check; a failed insert must release the slot
   const task: ExtractTask = { status: 'running', started_at: new Date().toISOString() }
   tasks.set(key, task)
 
   let dbTaskId: number
   try {
-    // 落库 sys_task：type=extract（不进媒体生成队列，extraction 自管生命周期），
-    // episode_id 供任务面板 /episodes/:id/generation-tasks 聚合过滤
+    // Persist to sys_task: type=extract (not in the media generation queue; extraction manages its own lifecycle),
+    // episode_id feeds the task panel /episodes/:id/generation-tasks aggregate filter
     const ts = new Date().toISOString()
     const insertRes = await db.insert(schema.sysTask).values({
       type: 'extract',
       dramaId,
       episodeId,
+      // i18n: user-facing
       prompt: `提取${target}`,
       model: opts.model || null,
       params: JSON.stringify({ target }),
@@ -272,16 +279,17 @@ export async function startExtraction(episodeId: number, dramaId: number, target
     textConfigId: opts.configId || undefined,
   })
   ;(async () => {
-    // 道具走直接 LLM 提取，绕过 Mastra Agent（4-bit 模型多步工具循环不可靠）
+    // Props use direct LLM extraction, bypassing the Mastra Agent (4-bit model multi-step tool loop is unreliable)
     if (target === 'props') {
       return enqueueGpuWork(`Extract-${target}-ep${episodeId}`, () => directPropsExtraction(episodeId, dramaId, requestContext))
     }
     const agent = mastra.getAgent('extractor')
+    // i18n: user-facing
     if (!agent) throw new Error('提取 Agent 不可用')
     return enqueueGpuWork(`Extract-${target}-ep${episodeId}`, () => agent.generate([{ role: 'user', content: EXTRACT_MESSAGES[target] }], {
       maxSteps: 20,
       requestContext,
-      // 逐步打印 Agent 进展：调用了哪些工具、输出了什么
+      // Print Agent progress step by step: which tools were called, what was output
       onStepFinish: (step: any) => {
         const tools = (step?.toolCalls || [])
           .map((t: any) => t?.toolName || t?.payload?.toolName)
@@ -298,7 +306,7 @@ export async function startExtraction(episodeId: number, dramaId: number, target
       task.status = 'done'
       task.finished_at = new Date().toISOString()
 
-      // 道具直接 LLM 路径：保存已在 directPropsExtraction 内完成，跳过 Agent 兜底逻辑
+      // Props direct-LLM path: saving already happened inside directPropsExtraction; skip the Agent fallback logic
       if (result?.directCall) {
         logTaskSuccess('Extract', target, { episodeId, propsCount: result.propsCount })
         return (async () => {
@@ -309,16 +317,16 @@ export async function startExtraction(episodeId: number, dramaId: number, target
               updatedAt: new Date().toISOString(),
             }).where(eq(schema.sysTask.id, dbTaskId))
           }
-        })().catch((e: any) => logTaskError('Extract', target, { episodeId, error: `状态回写失败: ${e?.message}` }))
+        })().catch((e: any) => logTaskError('Extract', target, { episodeId, error: `status write-back failed: ${e?.message}` }))
       }
 
       const toolNames = (result?.toolCalls || []).map((t: any) => t?.toolName).filter(Boolean)
       const saveInfo = SAVE_TOOL_MAP[target]
       const calledSave = toolNames.some((n: any) => n === saveInfo.snakeName || n === camelFromSnake(saveInfo.snakeName))
 
-      // 兜底：小模型常把 save_dedup_* 输出为文本而非标准 function call。
-      // 检测到未调 save 工具时，从 result.text 解析 <function=saveDedup*> 格式并直接执行工具。
-      // L11: 是否真正落库决定任务终态——未保存仍标 completed 会显示成功但数据为空
+      // Fallback: small models often emit save_dedup_* as text instead of a standard function call.
+      // When no save tool was called, parse the <function=saveDedup*> format from result.text and execute the tool directly.
+      // L11: whether data actually landed decides the terminal state — marking completed without saving shows success with empty data
       let saved = calledSave
       if (!saved) {
         const parsedArgs = parseTextToolCall(result?.text || '', target)
@@ -349,21 +357,24 @@ export async function startExtraction(episodeId: number, dramaId: number, target
         if (dbTaskId) {
           await db.update(schema.sysTask).set({
             status: saved ? 'completed' : 'failed',
+            // i18n: user-facing
             errorMsg: saved ? null : '提取完成但未保存任何资产（模型未调用保存工具），请重试',
             resultUrl: (result?.text || '').slice(0, 500) || null,
             updatedAt: new Date().toISOString(),
           }).where(eq(schema.sysTask.id, dbTaskId))
         }
-      })().catch((e: any) => logTaskError('Extract', target, { episodeId, error: `状态回写失败: ${e?.message}` }))
+      })().catch((e: any) => logTaskError('Extract', target, { episodeId, error: `status write-back failed: ${e?.message}` }))
     })
     .catch(async (err: any) => {
       task.status = 'error'
       task.finished_at = new Date().toISOString()
+      // i18n: user-facing
       task.error = err?.message || '提取失败'
       logTaskError('Extract', target, { episodeId, error: err?.message })
       if (dbTaskId) {
         await db.update(schema.sysTask).set({
           status: 'failed',
+          // i18n: user-facing
           errorMsg: err?.message || '提取失败',
           updatedAt: new Date().toISOString(),
         }).where(eq(schema.sysTask.id, dbTaskId))
@@ -372,9 +383,10 @@ export async function startExtraction(episodeId: number, dramaId: number, target
   return true
 }
 
-/** 查询某集三类资产的提取任务状态：内存优先（运行中实时），无内存态回退读 sys_task
- *  最近一行（重启后启动清扫已把 processing 标 failed，此处返回终态让前端看到
- *  「已中断，请重试」而非「未启动」——任务本身早已落 sys_task，见 startExtraction） */
+/** Returns extraction task status for the three targets of one episode: in-memory state first (realtime while running),
+ *  falling back to the latest sys_task row when no in-memory state exists (after a restart the startup sweep has already
+ *  marked processing rows failed, so this returns the terminal state and the frontend sees "interrupted, retry" instead
+ *  of "not started" — the task itself was persisted to sys_task, see startExtraction) */
 export async function getExtractionStatus(episodeId: number): Promise<Record<ExtractTarget, ExtractTask | null>> {
   const result = {} as Record<ExtractTarget, ExtractTask | null>
   const missing = EXTRACT_TARGETS.filter(t => !tasks.get(keyOf(episodeId, t)))

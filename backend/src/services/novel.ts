@@ -1,16 +1,18 @@
 /**
- * 整本小说导入管线 — 「扔一本小说 → 分集短剧」入口
+ * Full-novel import pipeline — the "throw in a novel → episodic short drama" entry
  *
- * 四步（全部 direct LLM 调用，绕过 Mastra Agent——小模型多步工具循环不可靠，
- * 沿用 extraction.ts directPropsExtraction 的结论）：
- *   1. 切块 chunkNovel（纯代码，章界优先 + ~18k 字窗口 + 硬上限兜底）
- *   2. 逐块大纲 outlineSegment（map：每块压缩为结构化摘要 1-2k 字）
- *   3. 分集规划 planEpisodes（全部块摘要单次可读 → 产分集大纲 + 建 episode 行）
- *   4. 逐集滚动改写 rewriteEpisode（原文块 ≤20k + 全剧人物卡 + 前情提要）
+ * Four steps (all direct LLM calls, bypassing Mastra agents — multi-step tool loops are
+ * unreliable on small models, per the extraction.ts directPropsExtraction finding):
+ *   1. Chunk chunkNovel (pure code: chapter boundaries first + ~18k-char window + hard cap fallback)
+ *   2. Per-chunk outline outlineSegment (map: each chunk compressed to a 1-2k-char structured summary)
+ *   3. Episode planning planEpisodes (all chunk summaries read in a single pass → episode outlines + episode rows)
+ *   4. Per-episode rolling rewrite rewriteEpisode (source chunks ≤20k + full character cards + recap)
  *
- * 2/3/4 是 GPU 密集 LLM 调用，共享 GPU 串行队列（与媒体生成同锁）。
- * 任务状态双轨：进程内 Map + sys_task（type=novel_*），重启后启动清扫标 failed。
- * 幂等可断点：outline/plan 产物落库，重跑从首个未完成块续。
+ * Steps 2/3/4 are GPU-heavy LLM calls sharing the GPU serial queue (same lock as media generation).
+ * Task state is dual-tracked: in-process Map + sys_task (type=novel_*); the startup sweep marks
+ * leftovers failed after restart.
+ * Idempotent/resumable: outline/plan artifacts are persisted; reruns continue from the first
+ * unfinished chunk.
  */
 import { and, asc, eq } from 'drizzle-orm'
 import { getActiveConfig, getTextProviderBaseUrl } from './ai.js'
@@ -18,10 +20,10 @@ import { enqueueGpuWork } from './gpu-queue.js'
 import { logTaskError, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 import { db, getInsertId, schema } from '../db/index.js'
 
-/** 单块目标窗口（字）。改写时上下文 = 块内容 + 人物卡 + 前情提要，
- *  18k 留 ~2k 余量给人物卡/提要/系统提示，实测可靠窗口 20.4k（E2E 验证） */
+/** Per-chunk target window (chars). Rewrite context = chunk content + character cards + recap;
+ *  18k leaves ~2k headroom for cards/recap/system prompt; measured reliable window 20.4k (E2E verified) */
 export const NOVEL_CHUNK_TARGET = 18_000
-/** 无章节标记时的硬切上限 */
+/** Hard split cap when no chapter markers exist */
 export const NOVEL_CHUNK_MAX = 20_000
 
 export interface NovelChunk {
@@ -30,17 +32,18 @@ export interface NovelChunk {
 }
 
 /**
- * 小说切块（纯函数，可单测）：
- *   1. 按「第N章/回/节 卷」等章节标记切章
- *   2. 相邻章合并直到接近目标窗口（章小于目标时打包）
- *   3. 单章超上限 → 按句读硬切
- *   4. 无任何章节标记 → 按目标窗口 + 句读边界硬切
+ * Novel chunking (pure function, unit-testable):
+ *   1. Split chapters by chapter/section/volume heading markers (see chapterRe below)
+ *   2. Merge adjacent chapters until near the target window (pack small chapters)
+ *   3. Single chapter over the cap → hard split on sentence boundaries
+ *   4. No chapter markers at all → hard split by target window + sentence boundaries
  */
 export function chunkNovel(raw: string, target = NOVEL_CHUNK_TARGET, max = NOVEL_CHUNK_MAX): NovelChunk[] {
   const text = (raw || '').replace(/\r\n/g, '\n').trim()
   if (!text) return []
 
-  // 章节标记：行首的 第N章/回/节/卷（N 为数字或汉字数字）
+  // Chapter markers: Chinese chapter/section/volume headings at line start (N is digits or Chinese numerals)
+  // i18n: user-facing
   const chapterRe = /^[ \t]*(第[0-9一二三四五六七八九十百千零两]+[章回节卷][^\n]*)$/gm
   const marks: { index: number; title: string }[] = []
   let m: RegExpExecArray | null
@@ -48,7 +51,7 @@ export function chunkNovel(raw: string, target = NOVEL_CHUNK_TARGET, max = NOVEL
     marks.push({ index: m.index, title: m[1].trim().slice(0, 60) })
   }
 
-  // 无章节标记：整本当一章走窗口硬切
+  // No chapter markers: treat the whole novel as one chapter and hard split by window
   const chapters: NovelChunk[] = []
   if (!marks.length) {
     chapters.push(...hardSplit({ content: text, chapterTitle: null }, target, max))
@@ -62,13 +65,14 @@ export function chunkNovel(raw: string, target = NOVEL_CHUNK_TARGET, max = NOVEL
     if (content) chapters.push({ content, chapterTitle: marks[i].title })
   }
 
-  // 相邻章合并至接近目标窗口（小章打包，减少块数与 LLM 调用次数）
+  // Merge adjacent chapters up to the target window (packs small chapters, reducing chunk
+  // count and LLM call count)
   const merged: NovelChunk[] = []
   for (const ch of chapters) {
     const last = merged[merged.length - 1]
     if (last && (last.content.length + ch.content.length) <= target) {
       last.content += '\n\n' + ch.content
-      // 保留首章标题；合并块标题记区间
+      // Keep the first chapter title; merged chunk title records the range
       last.chapterTitle = last.chapterTitle && last.chapterTitle !== ch.chapterTitle
         ? `${last.chapterTitle} ~ ${ch.chapterTitle}`
         : (last.chapterTitle || ch.chapterTitle)
@@ -77,7 +81,7 @@ export function chunkNovel(raw: string, target = NOVEL_CHUNK_TARGET, max = NOVEL
     }
   }
 
-  // 单块仍超上限（章太大）→ 句读边界硬切
+  // A single chunk still over the cap (chapter too large) → hard split on sentence boundaries
   const out: NovelChunk[] = []
   for (const ch of merged) {
     out.push(...hardSplit(ch, target, max))
@@ -85,7 +89,7 @@ export function chunkNovel(raw: string, target = NOVEL_CHUNK_TARGET, max = NOVEL
   return out
 }
 
-/** 按句读边界（。！？!?；;\n）硬切一块到 ≤max */
+/** Hard split one chunk to ≤max on sentence boundaries (。！？!?；;\n) */
 function hardSplit(ch: NovelChunk, target: number, max: number): NovelChunk[] {
   if (ch.content.length <= max) return [ch]
   const parts: NovelChunk[] = []
@@ -94,7 +98,8 @@ function hardSplit(ch: NovelChunk, target: number, max: number): NovelChunk[] {
   while (pos < ch.content.length) {
     let end = Math.min(pos + target, ch.content.length)
     if (end < ch.content.length) {
-      // 在窗口末尾往前找句读边界（最近 2k 内），找不到就地切
+      // Search backwards from the window end for a sentence boundary (within the last 2k);
+      // split in place if none is found
       const window = ch.content.slice(Math.max(pos, end - 2000), end)
       const lastStop = Math.max(window.lastIndexOf('。'), window.lastIndexOf('！'), window.lastIndexOf('？'), window.lastIndexOf('\n'), window.lastIndexOf('；'))
       if (lastStop > 0) end = Math.max(pos, end - 2000) + lastStop + 1
@@ -108,10 +113,10 @@ function hardSplit(ch: NovelChunk, target: number, max: number): NovelChunk[] {
   return parts
 }
 
-/** 直连文本模型一次调用（GPU 串行队列内），返回文本内容；失败抛错 */
+/** Single direct text-model call (inside the GPU serial queue); returns the text content, throws on failure */
 async function callTextModel(systemPrompt: string, userContent: string, maxTokens: number, label: string): Promise<string> {
   const textConfig = await getActiveConfig('text')
-  if (!textConfig) throw new Error('未配置文本模型服务')
+  if (!textConfig) throw new Error('Text model service not configured')
   const baseUrl = getTextProviderBaseUrl(textConfig)
   logTaskProgress('Novel', `${label}-llm-call`, { model: textConfig.model, inputLen: userContent.length })
   const resp = await fetch(`${baseUrl}/chat/completions`, {
@@ -137,12 +142,12 @@ async function callTextModel(systemPrompt: string, userContent: string, maxToken
   }
   const result: any = await resp.json()
   const content: string = result?.choices?.[0]?.message?.content?.trim() || ''
-  if (!content) throw new Error('LLM 空响应')
+  if (!content) throw new Error('LLM returned an empty response')
   logTaskProgress('Novel', `${label}-llm-response`, { textLen: content.length })
   return content
 }
 
-/** 从 raw 文本中用括号匹配提取完整 JSON（与 extraction.ts 同逻辑，含截断修复） */
+/** Extract complete JSON from raw text via bracket matching (same logic as extraction.ts, incl. truncation repair) */
 export function extractNovelJson(raw: string): any | null {
   const start = raw.search(/[[{]/)
   if (start < 0) return null
@@ -171,11 +176,11 @@ export function extractNovelJson(raw: string): any | null {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: 导入切块（同步，无 LLM）
+// Step 1: import + chunk (synchronous, no LLM)
 // ---------------------------------------------------------------------------
 export async function importNovel(dramaId: number, content: string, replace = true): Promise<{ segmentCount: number; totalChars: number }> {
   const chunks = chunkNovel(content)
-  if (!chunks.length) throw new Error('小说内容为空')
+  if (!chunks.length) throw new Error('Novel content is empty')
   if (replace) {
     await db.delete(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId))
     await db.delete(schema.novelEpisodePlans).where(eq(schema.novelEpisodePlans.dramaId, dramaId))
@@ -196,7 +201,7 @@ export async function importNovel(dramaId: number, content: string, replace = tr
 }
 
 // ---------------------------------------------------------------------------
-// Step 2: 逐块大纲（后台批处理，幂等：跳过已有 outline 的块）
+// Step 2: per-chunk outline (background batch, idempotent: chunks with an outline are skipped)
 // ---------------------------------------------------------------------------
 export interface NovelTask {
   status: 'running' | 'done' | 'error'
@@ -227,12 +232,17 @@ export function getNovelTask(dramaId: number, kind: string): NovelTask | null {
   return tasks.get(`${dramaId}:${kind}`) || null
 }
 
-const OUTLINE_SYSTEM_PROMPT = `你是小说剧本改编助手。阅读小说片段，输出结构化 JSON 摘要（供后续分集规划使用）。只输出 JSON，不要其他文字：
-{"summary":"剧情梗概（200-400字，按时间顺序，写清因果）","characters":[{"name":"人物名","profile":"固定人设：性别/年龄/外貌特征/性格/身份，50字内，跨片段必须一致"}],"scenes":["出现的地点及氛围"],"timeline":"时间线要点","hook":"本片段结尾的悬念/钩子"}`
+// i18n: user-facing
+const OUTLINE_SYSTEM_PROMPT = [
+  // i18n: user-facing
+  '你是小说剧本改编助手。阅读小说片段，输出结构化 JSON 摘要（供后续分集规划使用）。只输出 JSON，不要其他文字：',
+  // i18n: user-facing
+  '{"summary":"剧情梗概（200-400字，按时间顺序，写清因果）","characters":[{"name":"人物名","profile":"固定人设：性别/年龄/外貌特征/性格/身份，50字内，跨片段必须一致"}],"scenes":["出现的地点及氛围"],"timeline":"时间线要点","hook":"本片段结尾的悬念/钩子"}',
+].join('\n')
 
 export async function outlineAllSegments(dramaId: number): Promise<void> {
   const key = `${dramaId}:outline`
-  if (tasks.get(key)?.status === 'running') throw new Error('大纲任务已在运行')
+  if (tasks.get(key)?.status === 'running') throw new Error('Outline task is already running')
   const task: NovelTask = { status: 'running', started_at: new Date().toISOString() }
   setNovelTask(key, task)
   logTaskStart('Novel', 'outline-start', { dramaId })
@@ -241,7 +251,7 @@ export async function outlineAllSegments(dramaId: number): Promise<void> {
       const segments = await db.select().from(schema.novelSegments)
         .where(eq(schema.novelSegments.dramaId, dramaId))
         .orderBy(asc(schema.novelSegments.seq))
-      if (!segments.length) throw new Error('无小说切块，请先导入')
+      if (!segments.length) throw new Error('No novel chunks; import a novel first')
       let done = 0
       for (const seg of segments) {
         if (seg.outline) { done++; continue }
@@ -250,7 +260,7 @@ export async function outlineAllSegments(dramaId: number): Promise<void> {
         const parsed = extractNovelJson(text)
         if (!parsed) {
           logTaskWarn('Novel', 'outline-parse-fail', { dramaId, seq: seg.seq, textPreview: text.slice(0, 200) })
-          throw new Error(`块 ${seg.seq} 大纲解析失败`)
+          throw new Error(`Failed to parse outline for chunk ${seg.seq}`)
         }
         await db.update(schema.novelSegments)
           .set({ outline: JSON.stringify(parsed), updatedAt: new Date().toISOString() })
@@ -270,16 +280,16 @@ export async function outlineAllSegments(dramaId: number): Promise<void> {
   })()
 }
 
-/** 汇总全部块大纲为「人物卡 + 分段摘要」文本（规划与改写的共享上下文） */
+/** Aggregate all chunk outlines into a "character cards + per-segment summary" text (shared context for planning and rewriting) */
 export async function buildOutlineDigest(dramaId: number): Promise<{ digest: string; characterCards: string; segments: { seq: number; outline: any }[] }> {
   const segments = await db.select().from(schema.novelSegments)
     .where(eq(schema.novelSegments.dramaId, dramaId))
     .orderBy(asc(schema.novelSegments.seq))
-  if (!segments.length) throw new Error('无小说切块，请先导入')
+  if (!segments.length) throw new Error('No novel chunks; import a novel first')
   const missing = segments.filter(s => !s.outline)
-  if (missing.length) throw new Error(`尚有 ${missing.length} 块未生成大纲`)
+  if (missing.length) throw new Error(`${missing.length} chunks still have no outline`)
   const outlines = segments.map(s => ({ seq: s.seq, outline: JSON.parse(s.outline!) }))
-  // 人物卡：同名合并 profile（取首次出现，跨块一致是文本锚）
+  // Character cards: merge profiles by name (keep first occurrence; cross-chunk consistency is the text anchor)
   const charMap = new Map<string, string>()
   for (const { outline } of outlines) {
     for (const c of outline.characters || []) {
@@ -288,19 +298,29 @@ export async function buildOutlineDigest(dramaId: number): Promise<{ digest: str
   }
   const characterCards = [...charMap.entries()].map(([name, profile]) => `- ${name}：${profile}`).join('\n')
   const digest = outlines.map(({ seq, outline }) =>
+    // i18n: user-facing
     `【块 ${seq}】${outline.summary || ''}${outline.hook ? `（钩子：${outline.hook}）` : ''}`).join('\n\n')
   return { digest, characterCards, segments: outlines }
 }
 
 // ---------------------------------------------------------------------------
-// Step 3: 分集规划（单次 LLM：全部块摘要 → 分集大纲 + 建 episode 行）
+// Step 3: episode planning (single LLM call: all chunk summaries → episode outlines + episode rows)
 // ---------------------------------------------------------------------------
-const PLAN_SYSTEM_PROMPT = `你是短剧分集策划。基于全书的分段剧情摘要，规划分集短剧。只输出 JSON 数组，不要其他文字：
-[{"episode_number":1,"title":"本集标题（10字内，吸睛）","segment_range":[起块号,止块号],"synopsis":"本集剧情梗概（150-300字，写清起因-冲突-钩子）","emotional_arc":"情绪曲线一句话"}]
-规则：
-1. 每集对应连续的块区间（segment_range 必须覆盖所有块且不重叠）
-2. 分集点对齐剧情转折/悬念，集尾必须留钩子
-3. 每集时长按目标时长估算镜头量，不要硬凑集数`
+// i18n: user-facing
+const PLAN_SYSTEM_PROMPT = [
+  // i18n: user-facing
+  '你是短剧分集策划。基于全书的分段剧情摘要，规划分集短剧。只输出 JSON 数组，不要其他文字：',
+  // i18n: user-facing
+  '[{"episode_number":1,"title":"本集标题（10字内，吸睛）","segment_range":[起块号,止块号],"synopsis":"本集剧情梗概（150-300字，写清起因-冲突-钩子）","emotional_arc":"情绪曲线一句话"}]',
+  // i18n: user-facing
+  '规则：',
+  // i18n: user-facing
+  '1. 每集对应连续的块区间（segment_range 必须覆盖所有块且不重叠）',
+  // i18n: user-facing
+  '2. 分集点对齐剧情转折/悬念，集尾必须留钩子',
+  // i18n: user-facing
+  '3. 每集时长按目标时长估算镜头量，不要硬凑集数',
+].join('\n')
 
 export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 2): Promise<{ episodeCount: number }> {
   const { digest, segments } = await buildOutlineDigest(dramaId)
@@ -308,11 +328,12 @@ export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 
   const lastSeq = segments[segments.length - 1]?.seq ?? 1
   const planText = await enqueueGpuWork(`novel-plan-${dramaId}`, async () =>
     callTextModel(PLAN_SYSTEM_PROMPT,
+      // i18n: user-facing
       `全书分段剧情摘要（块 ${firstSeq}-${lastSeq}）：\n\n${digest}\n\n目标每集时长：${targetMinutes} 分钟。请规划分集。`,
       8192, 'plan'))
   const plans = extractNovelJson(planText)
-  if (!plans || !Array.isArray(plans) || !plans.length) throw new Error('分集规划解析失败')
-  // 校验块区间覆盖
+  if (!plans || !Array.isArray(plans) || !plans.length) throw new Error('Failed to parse episode plan')
+  // Validate segment-range coverage
   const ranges = plans.map((p: any) => p.segment_range).filter(Array.isArray)
   const covered = new Set<number>()
   for (const [a, b] of ranges) {
@@ -321,15 +342,16 @@ export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 
   const missingSeq = segments.filter(s => !covered.has(s.seq)).map(s => s.seq)
   if (missingSeq.length) {
     logTaskWarn('Novel', 'plan-coverage-gap', { dramaId, missingSeq })
-    throw new Error(`分集规划块区间未覆盖块 ${missingSeq.join(',')}，请重试规划`)
+    throw new Error(`Episode plan segment ranges do not cover chunks ${missingSeq.join(',')}; retry planning`)
   }
 
-  // 重建分集（规划可重跑：先清旧 plan 与其创建的空 episode）
+  // Rebuild episodes (planning is rerunnable: first clear old plans and the empty episodes they created)
   const oldPlans = await db.select().from(schema.novelEpisodePlans).where(eq(schema.novelEpisodePlans.dramaId, dramaId))
   for (const op of oldPlans) {
     if (op.episodeId) {
       const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, op.episodeId))
-      // 只删规划创建且未改写的空集（scriptContent 为空），用户手建/已有剧本的集不动
+      // Only delete empty episodes created by planning and not yet rewritten (scriptContent
+      // empty); episodes created manually or already holding a script are left alone
       if (ep && !ep.scriptContent) {
         await db.update(schema.episodes).set({ deletedAt: new Date().toISOString() }).where(eq(schema.episodes.id, op.episodeId))
       }
@@ -340,7 +362,8 @@ export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 
   for (const p of plans) {
     const episodeNumber = Number(p.episode_number)
     if (!episodeNumber) continue
-    // 复用同号未删集（若用户已有该集则挂 plan 不重建）
+    // Reuse an undeleted episode with the same number (attach the plan to a user-created
+    // episode instead of recreating it)
     const [existing] = await db.select().from(schema.episodes)
       .where(and(eq(schema.episodes.dramaId, dramaId), eq(schema.episodes.episodeNumber, episodeNumber)))
     let episodeId: number
@@ -351,6 +374,7 @@ export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 
       episodeId = getInsertId(await db.insert(schema.episodes).values({
         dramaId,
         episodeNumber,
+        // i18n: user-facing
         title: String(p.title || `第${episodeNumber}集`),
         description: String(p.synopsis || ''),
         status: 'draft',
@@ -373,15 +397,16 @@ export async function planEpisodesFromOutlines(dramaId: number, targetMinutes = 
 }
 
 // ---------------------------------------------------------------------------
-// Step 4: 逐集滚动改写（原文块 + 人物卡 + 前情提要 → scriptContent）
+// Step 4: per-episode rolling rewrite (source chunks + character cards + recap → scriptContent)
 // ---------------------------------------------------------------------------
+// i18n: user-facing (targetLanguage feeds the rewrite prompt)
 export async function rewriteEpisodeFromNovel(dramaId: number, episodeId: number, targetLanguage = '中文'): Promise<{ scriptLength: number }> {
   const [plan] = await db.select().from(schema.novelEpisodePlans)
     .where(and(eq(schema.novelEpisodePlans.dramaId, dramaId), eq(schema.novelEpisodePlans.episodeId, episodeId)))
-  if (!plan) throw new Error('该集无分集规划（需先运行分集规划）')
+  if (!plan) throw new Error('This episode has no plan (run episode planning first)')
   const planJson = JSON.parse(plan.plan)
   const [from, to] = planJson.segment_range || []
-  if (!from || !to) throw new Error('分集规划缺块区间')
+  if (!from || !to) throw new Error('Episode plan is missing its segment range')
 
   const { characterCards } = await buildOutlineDigest(dramaId)
   const rangeSegs = (await db.select().from(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId)))
@@ -391,10 +416,10 @@ export async function rewriteEpisodeFromNovel(dramaId: number, episodeId: number
   const sourceChars = sourceText.length
   if (sourceChars > 22_000) {
     logTaskWarn('Novel', 'rewrite-source-too-long', { dramaId, episodeId, sourceChars })
-    throw new Error(`本集原文块共 ${sourceChars} 字，超出单次改写窗口，请调整分集规划`)
+    throw new Error(`This episode's source text is ${sourceChars} characters, exceeding the single rewrite window; adjust the episode plan`)
   }
 
-  // 前情提要：前一集 plan 的 recap（滚动），无则用其 synopsis 兜底
+  // Recap: the previous episode plan's recap (rolling); falls back to its synopsis
   let recap = ''
   if (plan.episodeNumber > 1) {
     const [prevPlan] = await db.select().from(schema.novelEpisodePlans)
@@ -404,14 +429,25 @@ export async function rewriteEpisodeFromNovel(dramaId: number, episodeId: number
     }
   }
 
-  const systemPrompt = `你是短剧编剧。基于小说原文改编本集短剧剧本。只输出剧本正文，不要任何解释。
-格式要求：
-1. 每个镜头一段：场景标头（S01 内景/外景·地点·时间）+ 画面描述 + 人物对白（@角色名，动作描述，说：「台词」）
-2. 对白占剧本主体，台词口语化、有冲突感；每句台词 ≤60 字（TTS 单句上限）
-3. 人物外貌/性格必须严格遵循人物卡，不得改动人设
-4. 与前情提要在剧情上严格衔接，不重复已演过的情节
-5. 全文使用${targetLanguage}`
+  // i18n: user-facing
+  const systemPrompt = [
+    // i18n: user-facing
+    '你是短剧编剧。基于小说原文改编本集短剧剧本。只输出剧本正文，不要任何解释。',
+    // i18n: user-facing
+    '格式要求：',
+    // i18n: user-facing
+    '1. 每个镜头一段：场景标头（S01 内景/外景·地点·时间）+ 画面描述 + 人物对白（@角色名，动作描述，说：「台词」）',
+    // i18n: user-facing
+    '2. 对白占剧本主体，台词口语化、有冲突感；每句台词 ≤60 字（TTS 单句上限）',
+    // i18n: user-facing
+    '3. 人物外貌/性格必须严格遵循人物卡，不得改动人设',
+    // i18n: user-facing
+    '4. 与前情提要在剧情上严格衔接，不重复已演过的情节',
+    // i18n: user-facing
+    `5. 全文使用${targetLanguage}`,
+  ].join('\n')
 
+  // i18n: user-facing
   const userContent = `【全剧人物卡】\n${characterCards}\n\n${recap ? `【前情提要】\n${recap}\n\n` : ''}【本集剧情梗概】\n${planJson.synopsis || ''}\n\n【小说原文】\n${sourceText}`
 
   const script = await enqueueGpuWork(`novel-rewrite-${dramaId}-${episodeId}`, async () =>
@@ -422,9 +458,11 @@ export async function rewriteEpisodeFromNovel(dramaId: number, episodeId: number
     .set({ scriptContent: script, updatedAt: ts })
     .where(eq(schema.episodes.id, episodeId))
 
-  // 本集提要（供下一集滚动上下文）：轻量二次调用，失败不阻断（回退 synopsis）
+  // This episode's recap (rolling context for the next episode): lightweight second call,
+  // failure does not block (falls back to synopsis)
   try {
     const recapText = await enqueueGpuWork(`novel-recap-${dramaId}-${episodeId}`, async () =>
+      // i18n: user-facing
       callTextModel('你是剧本助手。用 200 字内总结本集剧本的关键剧情进展（供下一集改编时衔接），只输出总结正文。',
         script, 1024, 'recap'))
     await db.update(schema.novelEpisodePlans).set({ recap: recapText, updatedAt: ts })
@@ -437,10 +475,10 @@ export async function rewriteEpisodeFromNovel(dramaId: number, episodeId: number
   return { scriptLength: script.length }
 }
 
-/** 分集规划 + 全部集滚动改写（顺序，一集完成才下一集——前情提要依赖链） */
-export async function rewriteAllEpisodes(dramaId: number, targetLanguage = '中文'): Promise<void> {
+/** Episode planning + rolling rewrite of all episodes (sequential: an episode finishes before the next starts — recap dependency chain) */
+export async function rewriteAllEpisodes(dramaId: number, targetLanguage = '中文' /* i18n: user-facing */): Promise<void> {
   const key = `${dramaId}:rewrite`
-  if (tasks.get(key)?.status === 'running') throw new Error('改写任务已在运行')
+  if (tasks.get(key)?.status === 'running') throw new Error('Rewrite task is already running')
   const task: NovelTask = { status: 'running', started_at: new Date().toISOString() }
   setNovelTask(key, task)
   logTaskStart('Novel', 'rewrite-all-start', { dramaId })
@@ -449,7 +487,7 @@ export async function rewriteAllEpisodes(dramaId: number, targetLanguage = '中�
       const plans = await db.select().from(schema.novelEpisodePlans)
         .where(eq(schema.novelEpisodePlans.dramaId, dramaId))
         .orderBy(asc(schema.novelEpisodePlans.episodeNumber))
-      if (!plans.length) throw new Error('无分集规划，请先运行分集规划')
+      if (!plans.length) throw new Error('No episode plan; run episode planning first')
       let done = 0
       for (const p of plans) {
         if (!p.episodeId) continue

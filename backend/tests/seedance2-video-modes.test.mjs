@@ -8,11 +8,11 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8')
 test('volcengine video adapter only supports Seedance 2.0 models and reference mode only', () => {
   const adapter = read('src/services/adapters/volcengine-video.ts')
 
-  // 模型白名单：仅 doubao-seedance-2-0-* 前缀
+  // Model whitelist: only the doubao-seedance-2-0-* prefix
   assert.match(adapter, /SEEDANCE2_MODEL_PREFIX = 'doubao-seedance-2-0'/)
   assert.match(adapter, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
 
-  // 只保留多模态参考：其他模式分支与历史映射已清理
+  // Only multimodal reference remains: other mode branches and the legacy mapping have been removed
   assert.doesNotMatch(adapter, /mode === 'text'/)
   assert.doesNotMatch(adapter, /mode === 'first_frame'/)
   assert.doesNotMatch(adapter, /mode === 'first_last'/)
@@ -20,17 +20,17 @@ test('volcengine video adapter only supports Seedance 2.0 models and reference m
   assert.doesNotMatch(adapter, /first_frame/)
   assert.doesNotMatch(adapter, /last_frame/)
 
-  // 多模态 content 项角色
+  // Multimodal content item roles
   assert.match(adapter, /role: 'reference_image'/)
   assert.match(adapter, /role: 'reference_video'/)
   assert.match(adapter, /role: 'reference_audio'/)
 
-  // 素材上限 9/3/3、音频需视觉素材约束、至少一个素材或 prompt
+  // Material limits 9/3/3, audio requires visual material, at least one material or prompt
   assert.match(adapter, /REF_LIMITS = \{ images: 9, videos: 3, audios: 3 \}/)
-  assert.match(adapter, /参考音频需要至少 1 个参考图片或视频/)
-  assert.match(adapter, /多模态参考模式需要至少一个参考素材或 prompt/)
+  assert.match(adapter, /参考音频需要至少 1 个参考图片或视频/) // i18n: user-facing
+  assert.match(adapter, /多模态参考模式需要至少一个参考素材或 prompt/) // i18n: user-facing
 
-  // generate_audio 可配置（默认开），时长支持 4-15 秒；分辨率随集固定（480p/720p，默认 720p）
+  // generate_audio configurable (default on), duration 4-15s; resolution fixed per episode (480p/720p, default 720p)
   assert.match(adapter, /generate_audio:\s*record\.generateAudio/)
   assert.match(adapter, /Math\.min\(15, Math\.max\(4, parsed\)\)/)
   assert.match(adapter, /resolution: record\.resolution === '480p' \? '480p' : '720p'/)
@@ -44,7 +44,7 @@ test('video generation service resolves reference media and persists new fields'
   assert.match(service, /referenceVideoUrls: params\.referenceVideoUrls/)
   assert.match(service, /referenceAudioUrls: params\.referenceAudioUrls/)
   assert.match(service, /generateAudio: params\.generateAudio === false \? 0 : 1/)
-  // 默认多模态参考模式
+  // Default multimodal reference mode
   assert.match(service, /referenceMode: params\.referenceMode \|\| 'reference'/)
   assert.doesNotMatch(service, /referenceMode: params\.referenceMode \|\| 'text'/)
   assert.doesNotMatch(service, /referenceMode: params\.referenceMode \|\| 'none'/)
@@ -55,15 +55,15 @@ test('video resolution is fixed per episode, editable, and locked into video tas
   const tasks = read('src/routes/tasks.ts')
   const service = read('src/services/generation.ts')
 
-  // 创建集时固定（默认 720p，仅接受 480p/720p）
+  // Fixed at episode creation (default 720p, only 480p/720p accepted)
   assert.match(episodes, /\['480p', '720p', '1080p'\]\.includes\(body\.resolution\)/)
-  // PUT 可修改，白名单校验
+  // PUT can change it, whitelist validation
   assert.match(episodes, /'status', 'resolution'\]/)
-  assert.match(episodes, /resolution 只支持 480p \/ 720p/)
-  // 视频任务锁定集的分辨率（优先于请求体）
+  assert.match(episodes, /resolution 只支持 480p \/ 720p/) // i18n: user-facing
+  // Video tasks lock in the episode's resolution (takes precedence over the request body)
   assert.match(tasks, /episodeResolution = ep\.resolution/)
   assert.match(tasks, /resolution: episodeResolution \|\| videoBody!\.resolution/)
-  // 服务落入 params 并传给适配器
+  // Service stores it in params and passes it to the adapter
   assert.match(service, /resolution: normalizeStoredVideoResolution\(params\.resolution\)/)
   assert.match(service, /resolution: params\.resolution,/)
 })
@@ -82,21 +82,21 @@ test('upload route exposes validated video and audio endpoints', () => {
 test('tasks route validates reference-mode requirements for video tasks', () => {
   const route = read('src/routes/tasks.ts')
 
-  // 统一任务入口：type 分派 image/video
-  assert.match(route, /type 必须为 image 或 video/)
+  // Unified task entry: type dispatches image/video
+  assert.match(route, /type 必须为 image 或 video/) // i18n: user-facing
   assert.match(route, /generateImage\(\{/)
   assert.match(route, /generateVideo\(\{/)
 
-  // 其他模式的校验已清理
-  assert.doesNotMatch(route, /文生视频模式必须提供 prompt/)
-  assert.doesNotMatch(route, /首帧模式必须提供 first_frame_url/)
-  assert.doesNotMatch(route, /首尾帧模式必须同时提供/)
-  // Wan 3.0 官方入参兼容层会把 input.media 归一到 first_frame_url/last_frame_url 等扁平字段
+  // Validation for the other modes has been removed
+  assert.doesNotMatch(route, /文生视频模式必须提供 prompt/) // i18n: user-facing
+  assert.doesNotMatch(route, /首帧模式必须提供 first_frame_url/) // i18n: user-facing
+  assert.doesNotMatch(route, /首尾帧模式必须同时提供/) // i18n: user-facing
+  // The Wan 3.0 official-param compat layer normalizes input.media into flat fields like first_frame_url/last_frame_url
 
-  // 多模态参考校验并固定 reference 模式
-  assert.match(route, /参考素材超限：图片≤9、视频≤3、音频≤3/)
-  assert.match(route, /参考音频需要至少 1 个参考图片或视频/)
-  assert.match(route, /视频生成需要至少一个参考素材或 prompt/)
+  // Multimodal reference validation, reference mode fixed
+  assert.match(route, /参考素材超限：图片≤9、视频≤3、音频≤3/) // i18n: user-facing
+  assert.match(route, /参考音频需要至少 1 个参考图片或视频/) // i18n: user-facing
+  assert.match(route, /视频生成需要至少一个参考素材或 prompt/) // i18n: user-facing
   assert.match(route, /referenceMode: 'reference'/)
   assert.match(route, /referenceVideoUrls: videoBody!\.reference_video_urls/)
   assert.match(route, /referenceAudioUrls: videoBody!\.reference_audio_urls/)
@@ -108,30 +108,30 @@ test('image/video generation tasks are unified into a single sys_task table', ()
   const sqliteSchema = read('src/db/sqlite-schema.ts')
   const envExample = read('.env.example')
 
-  // sys_task：type 区分 image/video，生成参数收进 params(JSON)
+  // sys_task: type distinguishes image/video, generation params go into params(JSON)
   assert.match(schema, /export const sysTask = sqliteTable\('sys_task'/)
   assert.match(schema, /type: text\('type'\)\.notNull\(\)/)
   assert.match(schema, /params: text\('params'\)/)
   assert.match(schema, /resultUrl: text\('result_url'\)/)
   assert.match(schema, /localPath: text\('local_path'\)/)
 
-  // 旧的 image_generations / video_generations 表定义已移除
+  // The old image_generations / video_generations table definitions have been removed
   assert.doesNotMatch(schema, /imageGenerations/)
   assert.doesNotMatch(schema, /videoGenerations/)
   assert.doesNotMatch(sqliteSchema, /CREATE TABLE IF NOT EXISTS image_generations/)
   assert.doesNotMatch(sqliteSchema, /CREATE TABLE IF NOT EXISTS video_generations/)
 
-  // SQLite DDL（启动时幂等重放）
+  // SQLite DDL (idempotent replay at startup)
   assert.match(sqliteSchema, /CREATE TABLE IF NOT EXISTS sys_task \(/)
   assert.match(sqliteSchema, /type TEXT NOT NULL/)
   assert.match(sqliteSchema, /params TEXT/)
   assert.match(sqliteSchema, /result_url TEXT/)
 
-  // 路由与服务只操作 sys_task（统一 /tasks 入口，type 过滤）
+  // Routes and service only touch sys_task (unified /tasks entry, type filter)
   const tasksRoute = read('src/routes/tasks.ts')
   const service = read('src/services/generation.ts')
   assert.match(tasksRoute, /schema\.sysTask/)
-  // B15: type 过滤下推 SQL（eq(schema.sysTask.type, ...)），不再全表拉内存过滤
+  // B15: type filter pushed down into SQL (eq(schema.sysTask.type, ...)), no longer full-table scan filtered in memory
   assert.match(tasksRoute, /eq\(schema\.sysTask\.type, type\)/)
   assert.match(service, /db\.insert\(schema\.sysTask\)/)
 

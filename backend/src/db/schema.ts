@@ -1,7 +1,8 @@
 /**
  * Drizzle schema - SQLite column mappings.
- * 自 MySQL 迁移：varchar(x)→text（SQLite 不校验长度）、int→integer、
- * boolean→integer boolean mode、时间戳仍为 text 存 ISO 字符串，表/列名不变。
+ * Migrated from MySQL: varchar(x)→text (SQLite does not enforce lengths), int→integer,
+ * boolean→integer boolean mode, timestamps still text storing ISO strings; table/column
+ * names unchanged.
  */
 import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core'
 
@@ -44,7 +45,8 @@ export const episodes = sqliteTable('episodes', {
   deletedAt: text('deleted_at'),
 })
 
-// 小说导入管线：切块（章界优先，~18k 字窗口）→ 逐块大纲 → 分集规划 → 逐集滚动改写
+// Novel import pipeline: chunking (chapter boundaries first, ~18k char windows) → per-chunk
+// outline → episode planning → rolling per-episode rewrite
 export const novelSegments = sqliteTable('novel_segments', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   dramaId: integer('drama_id').notNull(),
@@ -67,7 +69,8 @@ export const novelEpisodePlans = sqliteTable('novel_episode_plans', {
   updatedAt: text('updated_at').notNull(),
 })
 
-// FR-P1-1: 任务事件流（SSE 回放源）；seq 单调递增供 Last-Event-ID 续传
+// FR-P1-1: task event stream (SSE replay source); seq is monotonically increasing for
+// Last-Event-ID resume
 export const sysTaskEvents = sqliteTable('sys_task_events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   taskId: integer('task_id').notNull(),
@@ -75,7 +78,8 @@ export const sysTaskEvents = sqliteTable('sys_task_events', {
   type: text('type').notNull(),
   payload: text('payload'),
   createdAt: text('created_at').notNull(),
-  // v4：Agent 级事件挂 episode 维度（Agent 链路无 sys_task 行，episodeId 归组回放）
+  // v4: agent-level events hang off the episode dimension (the agent chain has no sys_task
+  // row; episodeId groups the replay)
   episodeId: integer('episode_id'),
 })
 
@@ -92,8 +96,9 @@ export const characters = sqliteTable('characters', {
   imageUrl: text('image_url'),
   referenceImages: text('reference_images'),
   seedValue: text('seed_value'),
-  // 角色固定音色（可选，模型相关名如 Kokoro zm_yunjian / Qwen3-TTS Vivian）；
-  // 空值时 video-dub 按角色名 hash 轮换取当前 TTS 模型音色表
+  // fixed character voice (optional; model-specific names like Kokoro zm_yunjian /
+  // Qwen3-TTS Vivian); when empty, video-dub round-robins the current TTS model's voice
+  // table by character-name hash
   voice: text('voice'),
   sortOrder: integer('sort_order'),
   localPath: text('local_path'),
@@ -208,7 +213,7 @@ export const aiServiceConfigs = sqliteTable('ai_service_configs', {
   settings: text('settings'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-  // 注意: 此表无 deleted_at
+  // note: this table has no deleted_at
 })
 
 export const aiServiceProviders = sqliteTable('ai_service_providers', {
@@ -235,10 +240,12 @@ export const stylePresets = sqliteTable('style_presets', {
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
-  // 注意: 此表无 deleted_at（硬删除），value 列有唯一索引（见 sqlite-schema.ts DDL）
+  // note: this table has no deleted_at (hard delete); the value column has a unique index
+  // (see sqlite-schema.ts DDL)
 })
 
-// 统一生成任务表：图片/视频生成共用，type 区分，生成参数存 params(JSON)
+// Unified generation task table: shared by image/video generation, discriminated by type;
+// generation parameters stored in params (JSON)
 export const sysTask = sqliteTable('sys_task', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   type: text('type').notNull(), // image | video | extract
@@ -262,7 +269,8 @@ export const sysTask = sqliteTable('sys_task', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   completedAt: text('completed_at'),
-  // v5 PRD §10.2 度量：重试溯源（重发失败任务时指向原任务 id）
+  // v5 PRD §10.2 metric: retry provenance (points at the original task id when re-dispatching
+  // a failed task)
   retryOf: integer('retry_of'),
 })
 

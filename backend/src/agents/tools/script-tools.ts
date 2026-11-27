@@ -1,6 +1,6 @@
 /**
- * 剧本改写 Agent 工具
- * 模块级单例 — episodeId 通过 RequestContext 按请求注入
+ * Script rewriter Agent tools
+ * Module-level singleton — episodeId is injected per request via RequestContext
  */
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
@@ -42,18 +42,20 @@ const rewriteToScreenplay = createTool({
 
     return {
       source_content: source,
-      instruction: `请将以下内容改写为格式化剧本。
-
-格式规范：
-- 场景头：## S编号 | 内景/外景 · 地点 | 时间段
-- 动作描写：自然段落，不包含镜头语言
-- 对白：角色名：（状态/表情）台词内容
-- 每个场景 30-60 秒内容
-
-${instructions || ''}
-
-【原始内容】
-${source}`,
+      instruction: [
+        '请将以下内容改写为格式化剧本。', // i18n: user-facing (LLM prompt)
+        '',
+        '格式规范：', // i18n: user-facing (LLM prompt)
+        '- 场景头：## S编号 | 内景/外景 · 地点 | 时间段', // i18n: user-facing (LLM prompt)
+        '- 动作描写：自然段落，不包含镜头语言', // i18n: user-facing (LLM prompt)
+        '- 对白：角色名：（状态/表情）台词内容', // i18n: user-facing (LLM prompt)
+        '- 每个场景 30-60 秒内容', // i18n: user-facing (LLM prompt)
+        '',
+        instructions || '',
+        '',
+        '【原始内容】', // i18n: user-facing (LLM prompt)
+        source,
+      ].join('\n'),
     }
   },
 })
@@ -69,7 +71,8 @@ const saveScript = createTool({
     if (!episodeId) return { error: 'Missing episodeId in request context' }
     const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
     if (!ep) return { error: 'Episode not found' }
-    // FR-BIZ-3: 覆写前把旧稿压入历史（保留最近 5 版），防“越改越差无法回退”
+    // FR-BIZ-3: push the old draft into history before overwriting (keep the last 5 versions),
+    // guarding against "cannot roll back after repeated degradations"
     if (ep.scriptContent?.trim()) {
       let history: { content: string, savedAt: string }[] = []
       try { history = JSON.parse(ep.scriptHistory || '[]') || [] } catch { history = [] }

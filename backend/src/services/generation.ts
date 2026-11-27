@@ -1,6 +1,6 @@
 /**
- * 统一生成任务服务 — 图片/视频生成共用 sys_task 表与同一条生命周期：
- * 创建(processing) → 适配器构建请求 → 同步完成或异步轮询 → 下载落盘 → 回写业务表
+ * Unified generation task service — image/video generation share the sys_task table and one lifecycle:
+ * create(processing) → adapter builds the request → sync completion or async polling → download to disk → write back to business tables
  */
 import { db, getInsertId, schema } from '../db/index.js'
 import { and, eq } from 'drizzle-orm'
@@ -12,7 +12,7 @@ import { getImageAdapter, getVideoAdapter } from './adapters/registry'
 import { isMiniMaxH3, isWan22Ti2v5b } from './adapters/fusion-video'
 import { enqueueGpuWork } from './gpu-queue'
 import { appendTaskEvent } from '../utils/task-events'
-// P2: 零超时 dispatcher 模块级单例——每个 fetch new Agent 会各建一个连接池，从不 close
+// P2: module-level singleton zero-timeout dispatcher — each fetch with a new Agent builds its own connection pool and never closes
 const laxDispatcher = new UndiciAgent({ headersTimeout: 0, bodyTimeout: 0 })
 import { ensureCharacterFinalPrompt, ensureSceneFinalPrompt, ensurePropFinalPrompt } from './final-prompt.js'
 import type { AIConfig, ImageProviderAdapter, VideoProviderAdapter } from './adapters/types'
@@ -24,7 +24,7 @@ type TaskType = 'image' | 'video'
 
 const taskLabel = (type: TaskType) => (type === 'image' ? 'ImageTask' : 'VideoTask')
 
-// 轮询节奏：图片 5s×120（上限 10 分钟）；视频 10s×300（上限 60 分钟 wall-clock）
+// Polling cadence: image 5s×120 (max 10 min); video 10s×300 (max 60 min wall-clock)
 const POLL_PROFILES: Record<TaskType, { attempts: number; intervalMs: number; maxDurationMs: number | null }> = {
   image: { attempts: 120, intervalMs: 5000, maxDurationMs: 600_000 },
   video: { attempts: 300, intervalMs: 10_000, maxDurationMs: 3_600_000 },
@@ -42,11 +42,11 @@ interface GenerateImageParams {
   referenceImages?: string[]
   frameType?: string
   configId?: number
-  /** 队列内富化：资产缺最终提示词时，生图前在 GPU 串行队列内跑 prompt_generator 补齐 */
+  /** In-queue enrichment: when an asset lacks a final prompt, run prompt_generator inside the GPU serial queue to fill it in before image generation */
   enrichEpisodeId?: number
   textModel?: string
   textConfigId?: number
-  /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+  /** v5 PRD §10.2: retry provenance — points to the original task id when resending a failed task */
   retryOf?: number
 }
 
@@ -71,19 +71,19 @@ interface GenerateVideoParams {
   seed?: number
   promptExtend?: boolean
   watermark?: boolean
-  /** 画质档（仅 fusion LTX-2.5）：'dev'=高质量单阶段（慢），缺省 distilled=快速 */
+  /** Quality tier (fusion LTX-2.5 only): 'dev' = high-quality single stage (slow), default distilled = fast */
   videoPipeline?: string
   configId?: number
-  /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+  /** v5 PRD §10.2: retry provenance — points to the original task id when resending a failed task */
   retryOf?: number
 }
 
 export async function generateImage(params: GenerateImageParams): Promise<number> {
-  // 指定配置（集锁定）可能已停用/删除/厂商收敛，失效时回退到当前启用配置，避免生成被旧引用卡死
+  // The pinned config (episode lock) may have been disabled/deleted/vendor-merged; fall back to the currently enabled config when invalid so generation is not stuck on a stale reference
   const config = params.configId
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('image')
     : await getActiveConfig('image')
-  if (!config) throw new Error('未配置图片模型，请先到「设置」页添加并启用 AI 服务')
+  if (!config) throw new Error('未配置图片模型，请先到「设置」页添加并启用 AI 服务') // i18n: user-facing
 
   const id = await createTask('image', config, {
     storyboardId: params.storyboardId,
@@ -122,11 +122,11 @@ export async function generateImage(params: GenerateImageParams): Promise<number
 }
 
 export async function generateVideo(params: GenerateVideoParams): Promise<number> {
-  // 指定配置（集锁定）可能已停用/删除/厂商收敛，失效时回退到当前启用配置
+  // The pinned config (episode lock) may have been disabled/deleted/vendor-merged; fall back to the currently enabled config when invalid
   const config = params.configId
     ? (await getConfigById(params.configId)) ?? await getActiveConfig('video')
     : await getActiveConfig('video')
-  if (!config) throw new Error('未配置视频模型，请先到「设置」页添加并启用 AI 服务')
+  if (!config) throw new Error('未配置视频模型，请先到「设置」页添加并启用 AI 服务') // i18n: user-facing
 
   const id = await createTask('video', config, {
     storyboardId: params.storyboardId,
@@ -147,7 +147,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     generateAudio: params.generateAudio === false ? 0 : 1,
     duration: params.duration,
     aspectRatio: params.aspectRatio,
-    // 统一存为项目内部格式，各适配器再转换为官方大小写与枚举。
+    // Stored in the project-internal format; each adapter converts to the official casing and enums.
     resolution: normalizeStoredVideoResolution(params.resolution),
     seed: params.seed,
     promptExtend: params.promptExtend,
@@ -183,7 +183,7 @@ async function createTask(
     propId?: number
     prompt: string
     model?: string | null
-    /** v5 PRD §10.2：重试溯源——重发失败任务时指向原任务 id */
+    /** v5 PRD §10.2: retry provenance — points to the original task id when resending a failed task */
     retryOf?: number
   },
   params: Record<string, unknown>,
@@ -204,32 +204,32 @@ async function createTask(
   return id
 }
 
-// ===== 全局串行执行队列 =====
-// 背景：本地模型（fusion-mlx）无法并行处理多个生成请求（显存互相挤占/排队超时），
-// 且批量生成（角色/场景/道具/分镜）并发提交会互相拖垮。
-// 所有生成任务（图片/视频）统一入队，严格按提交顺序逐一执行。
-// 云端厂商同样受益：避免并发限流。与资产提取共用 gpu-queue（FLUX + Qwen3.5 并发
-// 会 GPU 争用致 Metal command buffer 崩溃 → fusion-mlx SIGTERM 挂死）。
+// ===== Global serial execution queue =====
+// Background: local models (fusion-mlx) cannot process multiple generation requests in parallel (VRAM contention / queue timeouts),
+// and batch generation (characters/scenes/props/storyboards) submitted concurrently drags everything down.
+// All generation tasks (image/video) are queued and executed strictly one by one in submission order.
+// Cloud providers benefit too: avoids concurrency rate limits. Shares gpu-queue with asset extraction
+// (FLUX + Qwen3.5 concurrently → GPU contention crashes the Metal command buffer → fusion-mlx SIGTERM hang).
 function enqueueTask(id: number, type: TaskType, config: AIConfig): void {
   enqueueGpuWork(`${taskLabel(type)}-${id}`, (signal) => processTask(id, config, signal), {
-    // NFR-REL-4: 排队反馈——位置>1 时前端展示「排队中第 N 位」（SSE/轮询可见）
+    // NFR-REL-4: queue feedback — when position > 1 the frontend shows "queued at position N" (visible via SSE/polling)
     onQueued: (position) => {
       if (position > 1) appendTaskEvent(id, 'queued', { position })
     },
   })
     .catch(err => {
-      // R1: 入队失败（队列满/watchdog）也要落终态，任务行不能停在 processing
+      // R1: enqueue failure (queue full/watchdog) must also land a terminal state; the task row must not stay in processing
       logTaskError(taskLabel(type), 'process', { id, error: err.message })
-      failTask(id, `任务执行中断: ${err.message}`).catch(e => logTaskError(taskLabel(type), 'failTask-error', { id, error: e?.message }))
+      failTask(id, `任务执行中断: ${err.message}`).catch(e => logTaskError(taskLabel(type), 'failTask-error', { id, error: e?.message })) // i18n: user-facing
     })
 }
 
-// ===== FR-P0-5a 任务取消（PRD 4.7：取消只在步骤边界生效，不硬杀本地引擎进程）=====
-// 注册表 taskId -> 控制器；abort 后由 fetch 中断 / 轮询下一跳退出完成终态落库。
-// 注册表在终态写回时清理（failTask/cancelTask/completed 回写/孤儿轮询退出）
+// ===== FR-P0-5a task cancellation (PRD 4.7: cancellation takes effect only at step boundaries, never hard-kills the local engine process) =====
+// Registry taskId -> controller; after abort, the fetch interruption / next polling hop exits and lands the terminal state.
+// Registry is cleaned up on terminal-state write-back (failTask/cancelTask/completed write-back/orphan polling exit)
 const activeCancels = new Map<number, AbortController>()
 
-/** 请求取消在途任务；返回是否找到了在途执行（否则由调用方做乐观落库） */
+/** Requests cancellation of an in-flight task; returns whether an in-flight execution was found (otherwise the caller does the optimistic persistence) */
 export function requestTaskCancel(id: number): boolean {
     const ac = activeCancels.get(id)
     if (!ac) return false
@@ -237,7 +237,7 @@ export function requestTaskCancel(id: number): boolean {
     return true
 }
 
-/** 取消终态：乐观条件（仅 processing 可落 cancelled），防覆盖已完成回写（NFR-DATA-1） */
+/** Cancel terminal state: optimistic condition (only processing may land cancelled), prevents overwriting a completed write-back (NFR-DATA-1) */
 export async function cancelTask(id: number, reason: string): Promise<boolean> {
     const res = await db.update(schema.sysTask)
         .set({ status: 'cancelled', errorMsg: reason, completedAt: now(), updatedAt: now() })
@@ -259,15 +259,16 @@ function parseTaskParams(raw: string | null | undefined): Record<string, any> {
   }
 }
 
-/** 检测文本是否含中文/日文假名（FLUX 等文生图模型不识中文，中文段会被忽略导致出图雷同） */
+/** Detects whether text contains Chinese/Japanese kana (FLUX and other text-to-image models do not understand Chinese; Chinese segments get ignored, causing near-identical outputs) */
 function containsChinese(text: string): boolean {
   return /[\u4e00-\u9fff\u3040-\u30ff]/.test(text)
 }
 
-/** fusion-mlx \u56fe\u7247\u6a21\u578b\uff08FLUX.1-dev\uff09\u65e0 ttl_seconds \u4e0d\u4f1a\u81ea\u52a8\u9a71\u9010\uff0c
- *  \u56fe\u751f\u6210\u540e\u5e38\u9a7b ~34GB GPU \u5185\u5b58\uff0c\u4e0e\u540e\u7eed\u8d44\u4ea7\u63d0\u53d6 Qwen3.5 decode \u4e89\u7528 \u2192
- *  Metal command buffer \u5d29\u6e83 \u2192 fusion-mlx SIGTERM\u3002\u56fe\u5b8c\u6210\u540e\u663e\u5f0f\u5378\u8f7d\u3002
- *  \u4ec5\u5bf9 baseUrl \u6307\u5411 fusion-mlx/gateway \uff08:11434/:11432\uff09\u7684 openai \u56fe\u7247\u914d\u7f6e\u751f\u6548\u3002 */
+/** The fusion-mlx image model (FLUX.1-dev) has no ttl_seconds so it is never evicted automatically;
+ *  after image generation it stays resident at ~34GB GPU memory and competes with the subsequent
+ *  asset-extraction Qwen3.5 decode \u2192 Metal command buffer crash \u2192 fusion-mlx SIGTERM. Unload
+ *  explicitly after image completion. Only applies to openai image configs whose baseUrl points
+ *  at fusion-mlx/gateway (:11434/:11432). */
 async function unloadFusionImageModel(config: AIConfig, model: string | null): Promise<void> {
   try {
     const baseUrl = config.baseUrl || ''
@@ -286,10 +287,10 @@ async function unloadFusionImageModel(config: AIConfig, model: string | null): P
   }
 }
 
-/** fusion-mlx 文本模型（Qwen3.5）在视频翻译后被加载常驻，与随后准入的
- *  LTX-2.5（~60GB）内存竞争 → memory guard 直接取消视频任务（503）。
- *  视频翻译完成后显式卸载文本模型，为视频生成腾出内存。
- *  仅对 baseUrl 指向 fusion-mlx/gateway（:11434/:11432）的文本配置生效。 */
+/** The fusion-mlx text model (Qwen3.5) stays resident after video prompt translation and competes for memory
+ *  with the subsequently admitted LTX-2.5 (~60GB) → the memory guard cancels the video task (503).
+ *  After video translation completes, explicitly unload the text model to free memory for video generation.
+ *  Only applies to text configs whose baseUrl points at fusion-mlx/gateway (:11434/:11432). */
 async function unloadFusionTextModel(): Promise<void> {
   try {
     const config = await getActiveConfig('text')
@@ -311,17 +312,19 @@ async function unloadFusionTextModel(): Promise<void> {
 }
 
 /**
- * 生图前把含中文的提示词翻译成英文（走当前文本模型，一次直出）。
- * 失败时返回原文并记警告——翻译只是增强，不阻断生成。
+ * Translates Chinese-containing prompts to English before image generation (via the current text model, one direct call).
+ * On failure returns the original text and logs a warning — translation is only an enhancement, it never blocks generation.
  *
- * Checklist 1107 #2 (prompt-optimizer 吸收)：逐字保留契约 —— 引号内台词/文本、
- * 角色名等锚点必须原样出现在译文里；翻译后逐项校验，缺失即告警并回填原文
- * 锚点，杜绝「台词被意译导致 TTS 配音对不上、@名字锚点失效」这类静默劣化。
+ * Checklist 1107 #2 (prompt-optimizer adoption): verbatim-preservation contract — quoted dialogue/text,
+ * character names and other anchors must appear verbatim in the translation; after translation each anchor is verified,
+ * missing ones warn and re-attach the original anchor text, eliminating silent degradation such as
+ * "paraphrased dialogue breaking TTS dubbing alignment or invalidating @name anchors".
  */
 
-/** 提取必须逐字保留的锚点：中文引号「」/『』与英文引号内的文本 */
+/** Extracts anchors that must be preserved verbatim: text inside Chinese quotes 「」/『』 and English quotes */
 function extractVerbatimAnchors(prompt: string): string[] {
     const anchors: string[] = []
+    // i18n: user-facing
     for (const re of [/[「『]([^「」『』]+)[」』]/g, /"([^"\n]{1,120})"/g]) {
         let m: RegExpExecArray | null
         while ((m = re.exec(prompt)) !== null) {
@@ -332,7 +335,7 @@ function extractVerbatimAnchors(prompt: string): string[] {
     return [...new Set(anchors)]
 }
 
-/** 译文缺失锚点时回填：把丢失的引号片段按原文追加到译文末尾（显式标注） */
+/** Re-attaches lost anchors to the translation: appends missing quoted fragments verbatim at the end (explicitly labeled) */
 function reattachLostAnchors(translated: string, anchors: string[]): { text: string, lost: string[] } {
     const lost = anchors.filter(a => !translated.includes(a))
     if (!lost.length) return { text: translated, lost }
@@ -386,9 +389,9 @@ async function translatePromptToEnglish(prompt: string, taskLabel_: string, id: 
   }
 }
 
-/** 队列内富化：路由建行时用模板提示词的任务，执行前在此补最终提示词。
- *  必须在 GPU 串行队列内执行——队列外并发富化（LLM Agent）与 FLUX 生图曾致
- *  G2 毒死 + fusion-mlx 服务冻结（2026-10-13 08:24/08:47 两轮实证）。 */
+/** In-queue enrichment: tasks created via routing with template prompts get their final prompt filled in here before execution.
+ *  Must run inside the GPU serial queue — out-of-queue concurrent enrichment (LLM Agent) plus FLUX image generation
+ *  previously poisoned G2 and froze the fusion-mlx service (proven twice on 2026-10-13 08:24/08:47). */
 async function enrichImagePromptIfNeeded(
   record: typeof schema.sysTask.$inferSelect,
   params: Record<string, any>,
@@ -435,7 +438,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
   try {
     const [record] = await db.select().from(schema.sysTask).where(eq(schema.sysTask.id, id))
     if (!record) return
-    // 取消/启动清扫后的迟到执行入口在此短路：非 processing 状态不执行（NFR-DATA-1 防幽灵完成）
+    // Late execution entries after cancel/startup sweep short-circuit here: non-processing states do not execute (NFR-DATA-1 anti-ghost-completion)
     if (record.status !== 'processing') {
       console.log(`[SysTask] task ${id} skipped: status=${record.status} before queue execution`)
       return
@@ -446,8 +449,8 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     const type = record.type as TaskType
     const label = taskLabel(type)
     const params = parseTaskParams(record.params)
-    // L7: 配置在执行时重解析——createTask 到实际执行间可能隔几十分钟排队，
-    // 用户中途改 baseUrl/apiKey/切换启用配置后在途批次应打新端点；失效则沿用建任务时快照
+    // L7: config is re-resolved at execution time — dozens of minutes may pass between createTask and actual execution;
+    // if the user changes baseUrl/apiKey or switches the enabled config mid-queue, in-flight batches should hit the new endpoint; fall back to the creation-time snapshot if invalid
     config = params.configId
       ? (await getConfigById(Number(params.configId))) ?? config
       : (await getActiveConfig(type === 'image' ? 'image' : 'video')) ?? config
@@ -464,9 +467,9 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     if (type === 'image') {
       const adapter = await getImageAdapter(config.provider)
       const resolvedReferenceImages = await normalizeReferenceImages(params.referenceImages)
-      // 队列内富化：资产缺最终提示词时先跑 prompt_generator 补齐（与生图严格串行）
+      // In-queue enrichment: when an asset lacks a final prompt, run prompt_generator first (strictly serial with image generation)
       const enrichedPrompt = await enrichImagePromptIfNeeded(record, params, label)
-      // FLUX 等文生图模型不识中文：中文提示词先经文本模型译成英文，否则中文段被忽略导致不同角色出图雷同
+      // FLUX and other text-to-image models do not understand Chinese: Chinese prompts are first translated to English by the text model, otherwise Chinese segments get ignored and different characters render alike
       const effectivePrompt = await translatePromptToEnglish(enrichedPrompt, label, id)
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
@@ -482,9 +485,9 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       const resolvedFirstFrameUrl = await normalizeVideoReferenceUrl(params.firstFrameUrl)
       const resolvedLastFrameUrl = await normalizeVideoReferenceUrl(params.lastFrameUrl)
       const resolvedReferenceImageUrls = await normalizeVideoReferenceUrls(params.referenceImageUrls)
-      // I2V 主体选图（必须在翻译前、用中文原 prompt 解析 @角色名/@图片N）：
-      // 未显式指定条件图时按镜头主体挑参考图作首帧，避免适配器在翻译后
-      // 盲取末张把配角钉成主体（bug：菩提替悟空占据主角机位）。仅 fusion 单条件 I2V 需要。
+      // I2V subject image selection (must run before translation, parsing @characterName/@imageN from the original Chinese prompt):
+      // when no conditional image is specified, pick the reference image matching the shot's subject as first frame, avoiding the adapter
+      // blindly taking the last image after translation and pinning a supporting character as the subject (bug: Puti displaced Wukong from the protagonist slot). Only fusion single-condition I2V needs this.
       const i2vSubjectUrl = !resolvedImageUrl && !resolvedFirstFrameUrl && config.provider === 'fusion'
         ? await resolveI2vSubjectUrl(
           record.storyboardId,
@@ -494,20 +497,20 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
           id,
         )
         : null
-      // 参考视频/音频文件较大，不适合 dataURL 内联，需解析为公网可访问 URL
+      // Reference video/audio files are too large for dataURL inlining; resolve them into publicly accessible URLs
       const resolvedReferenceVideoUrls = resolvePublicMediaUrls(params.referenceVideoUrls, 'video')
       const resolvedReferenceAudioUrls = resolvePublicMediaUrls(params.referenceAudioUrls, 'audio')
       const resolvedReferenceFileUrl = resolvePublicMediaUrl(params.referenceFileUrl, 'file')
-      // fusion LTX-2.5 text encoder (Gemma) 不识中文，中文 prompt 产噪声视频；
-      // 云端中国厂商模型（volcengine/minimax/aliyun）识中文不译。仅 fusion 翻译。
-      // H3（MiniMax 中文模型）亦不译——翻译会加载文本模型与 H3 竞争内存
-      // （128GB 机器 H3 5s 峰值 ~56GB，加文本模型 cache 累积超 120GB ceiling）。
-      // Wan2.2 UMT5 文本编码器原生识中文，亦不译。
+      // fusion LTX-2.5 text encoder (Gemma) does not understand Chinese; Chinese prompts produce noise video;
+      // cloud Chinese-vendor models (volcengine/minimax/aliyun) understand Chinese and skip translation. Only fusion translates.
+      // H3 (MiniMax Chinese model) also skips translation — translating would load the text model and compete with H3 for memory
+      // (on a 128GB machine H3 5s peaks at ~56GB; adding text model cache accumulation exceeds the 120GB ceiling).
+      // Wan2.2 UMT5 text encoder natively understands Chinese, also skips translation.
       const effectiveVideoPrompt = config.provider === 'fusion' && !isMiniMaxH3(record.model || '') && !isWan22Ti2v5b(record.model || '')
         ? await translatePromptToEnglish(record.prompt || '', label, id)
         : record.prompt
-      // 翻译把文本模型（Qwen3.5）载入常驻，与 LTX-2.5 准入竞争内存
-      // → memory guard 取消视频任务（503）。翻译完立即卸载文本模型。
+      // Translation loads the text model (Qwen3.5) resident, competing with LTX-2.5 admission for memory
+      // → the memory guard cancels the video task (503). Unload the text model immediately after translation.
       if (config.provider === 'fusion') await unloadFusionTextModel()
       ;({ url, method, headers, body } = adapter.buildGenerateRequest(config, {
         id: record.id,
@@ -515,7 +518,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
         prompt: effectiveVideoPrompt,
         referenceMode: params.referenceMode,
         imageUrl: resolvedImageUrl,
-        // 主体选图优先于适配器兜底（盲取末张）；显式 firstFrame 仍最高优先
+        // Subject image selection takes priority over the adapter fallback (blind last-image); explicit firstFrame still wins
         firstFrameUrl: resolvedFirstFrameUrl || i2vSubjectUrl,
         lastFrameUrl: resolvedLastFrameUrl,
         referenceImageUrls: resolvedReferenceImageUrls.length ? JSON.stringify(resolvedReferenceImageUrls) : null,
@@ -545,7 +548,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     const isMultipart = body instanceof FormData
     logTaskPayload(label, 'request payload', {
       id, method, url, headers,
-      // multipart 表单（如 OpenAI /v1/images/edits）无法 JSON 化，记录字段摘要
+      // multipart forms (e.g. OpenAI /v1/images/edits) cannot be JSON-serialized; log a field summary
       body: isMultipart ? `[multipart/form-data: ${[...(body as FormData).keys()].join(', ')}]` : body,
     })
 
@@ -553,10 +556,10 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       method,
       headers,
       body: isMultipart ? (body as FormData) : JSON.stringify(body),
-      // 同步接口超时：视频高分辨率长时长（10s@1088x1920，241帧两阶段）实测超 30min，
-      // 统一放宽到 60min（图片任务远短于此，不受影响）；与队列 watchdog abort 联动
+      // Sync API timeout: high-res long-duration video (10s @ 1088x1920, 241 frames two-stage) measured over 30min,
+      // relaxed to 60min across the board (image tasks are far shorter, unaffected); couples with the queue watchdog abort
       signal: AbortSignal.any([AbortSignal.timeout(3_600_000), signal, cancelC.signal].filter((x): x is AbortSignal => Boolean(x))),
-      // 本地模型生成耗时长，解除 undici 默认 300s headers 超时
+      // Local model generation takes long: lift undici's default 300s headers timeout
       dispatcher: laxDispatcher,
     } as any)
 
@@ -576,7 +579,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       }
 
       if (!isAsync && !imageUrl) {
-        // 同步模式但无 URL（Gemini 等返回 base64）
+        // Sync mode but no URL (Gemini et al. return base64)
         const b64 = adapter.extractImageBase64(result)
         if (b64) {
           logTaskProgress(label, 'sync-base64-complete', { id, mimeType: b64.mimeType })
@@ -588,7 +591,7 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
       }
 
       await markPolling(id, taskId)
-      // pollTask 为 fire-and-forget：不加 .catch 会让未处理 rejection 在 node 上进程崩溃
+      // pollTask is fire-and-forget: without .catch an unhandled rejection crashes the node process
       pollTask(record, config, taskId!).catch(err => logTaskError(taskLabel(type), 'poll-crash', { id, taskId, error: err?.message || String(err) }))
       return
     }
@@ -603,13 +606,13 @@ async function processTask(id: number, config: AIConfig, signal?: AbortSignal) {
     }
 
     await markPolling(id, taskId)
-    // fire-and-forget 必须 .catch，否则未处理 rejection 在 node 上进程崩溃
+    // fire-and-forget must .catch, otherwise an unhandled rejection crashes the node process
     pollTask(record, config, taskId!, cancelC.signal).catch(err => logTaskError(label, 'poll-crash', { id, taskId, error: err?.message || String(err) }))
   } catch (err: any) {
     await failTask(id, err.message)
   } finally {
-    // 轮询路径（fire-and-forget）由 pollTask 终态路径清理注册表；同步完成路径在此清理。
-    // 轮询已启动时这里是幂等空操作（pollTask 终态也会删，Map.delete 无害）
+    // Polling path (fire-and-forget) cleans the registry in pollTask's terminal-state path; sync completion cleans here.
+    // When polling already started this is an idempotent no-op (pollTask's terminal state deletes too; Map.delete is harmless)
     activeCancels.delete(id)
   }
 }
@@ -624,7 +627,7 @@ async function markPolling(id: number, taskId: string | undefined) {
 async function failTask(id: number, message: string) {
   logTaskError('SysTask', 'failed', { id, error: message })
   appendTaskEvent(id, 'failed', { error: message.slice(0, 500) })
-  // 乐观条件：仅 processing 可落 failed——取消/清扫后迟到的失败不覆盖终态（NFR-DATA-1）
+  // Optimistic condition: only processing may land failed — late failures after cancel/sweep do not overwrite terminal states (NFR-DATA-1)
   await db.update(schema.sysTask)
     .set({ status: 'failed', errorMsg: message, updatedAt: now() })
     .where(and(eq(schema.sysTask.id, id), eq(schema.sysTask.status, 'processing')))
@@ -642,6 +645,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
 
   for (let i = 0; i < profile.attempts; i++) {
     if (signal?.aborted) {
+      // i18n: user-facing
       await cancelTask(record.id, '用户取消')
       return
     }
@@ -651,14 +655,14 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
     }
     await new Promise(r => setTimeout(r, profile.intervalMs))
     try {
-      // B8: 任务行可能已被用户删除（DELETE /tasks/:id）或重启清理标 failed——
-      // 行已消失则停止孤儿轮询，避免结果写回无主任务
+      // B8: the task row may already have been user-deleted (DELETE /tasks/:id) or marked failed by the restart sweep —
+      // stop orphan polling when the row is gone, so results never write back to an unowned task
       const [fresh] = await db.select({ id: schema.sysTask.id, status: schema.sysTask.status }).from(schema.sysTask).where(eq(schema.sysTask.id, record.id))
       if (!fresh) {
         activeCancels.delete(record.id)
         return
       }
-      // 取消/清扫后停止孤儿轮询：结果不再写回无主任务
+      // Stop orphan polling after cancel/sweep: results no longer write back to an unowned task
       if (fresh.status !== 'processing') {
         activeCancels.delete(record.id)
         return
@@ -682,8 +686,8 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
         dispatcher: laxDispatcher,
       } as any)
       if (!resp.ok) {
-        // 4xx（除 408/429）= 上游终态拒绝（鉴权失败/参数非法/内容审核），重试无意义，
-        // 立即落库失败并携带响应体摘要；5xx/408/429 保持重试
+        // 4xx (except 408/429) = upstream terminal rejection (auth failure/invalid params/content moderation), retrying is pointless:
+        // land the failure immediately with a response-body summary; 5xx/408/429 keep retrying
         if (resp.status >= 400 && resp.status < 500 && resp.status !== 408 && resp.status !== 429) {
           const body = await resp.text().catch(() => '')
           await failTask(record.id, `Generation rejected (HTTP ${resp.status}): ${body.slice(0, 200)}`)
@@ -693,21 +697,21 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
       }
       const result = await resp.json() as any
 
-      // 图片/视频 PollResponse 结构不同，这里统一按 any 取值后按 type 分支
+      // Image/video PollResponse shapes differ: read uniformly as any here, then branch by type
       const pollResp: any = adapter.parsePollResponse(result)
 
       if (pollResp.status === 'completed') {
         if (type === 'image') {
           if (pollResp.imageUrl) {
             logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, imageUrl: pollResp.imageUrl })
-            // A2: 落盘/缩略图/写回在 GPU 队列内串行执行（锁外的并发转码/写库正是
-            // gpu-queue 要避免的资源争用，只是换了资源类型）
+            // A2: disk write/thumb/write-back run serially inside the GPU queue (concurrent transcoding/DB writes
+            // outside the lock are exactly the contention gpu-queue exists to avoid, just with different resources)
             await enqueueGpuWork(`image-complete-${record.id}`, () => handleImageComplete(record, pollResp.imageUrl))
             await unloadFusionImageModel(config, record.model)
             return
           }
           if (adapter.provider === 'gemini') {
-            // Gemini 可能返回 base64
+            // Gemini may return base64
             const b64 = (adapter as ImageProviderAdapter).extractImageBase64(result)
             if (b64) {
               logTaskSuccess(label, 'poll-base64-complete', { id: record.id, taskId, mimeType: b64.mimeType })
@@ -717,9 +721,9 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
             }
           }
         } else if (pollResp.videoUrl) {
-          // fusion-mlx #1254 交接：completed 作业的产物不在 status 响应里，
-          // 'job-output' 占位符 → 解析带鉴权的 /jobs/{id}/output/0 产物 URL。
-          // 该 URL 是临时文件（1800s TTL）且需 Bearer 鉴权，落库走 localPath。
+          // fusion-mlx #1254 handoff: a completed job's artifact is not in the status response —
+          // the 'job-output' placeholder → resolve the authenticated /jobs/{id}/output/0 artifact URL.
+          // That URL is a temp file (1800s TTL) requiring Bearer auth; persistence goes through localPath.
           let videoUrl = pollResp.videoUrl
           let authHeaders: Record<string, string> | undefined
           let allowLoopback = false
@@ -736,11 +740,11 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
             allowLoopback = true
           }
           logTaskSuccess(label, 'poll-complete', { id: record.id, taskId, videoUrl })
-          // A2: 下载/海报帧/TTS 配音/ffmpeg 混流同样入 GPU 串行队列
+          // A2: download/poster frame/TTS dub/ffmpeg muxing likewise enter the GPU serial queue
           await enqueueGpuWork(`video-complete-${record.id}`, () => handleVideoComplete(record, videoUrl, pollResp.duration, authHeaders, allowLoopback))
           return
         }
-        // 上游报告完成但没有产物 URL：终态失败，不让轮询空转到超时
+        // Upstream reported completion without an artifact URL: land terminal failure, do not let polling spin until timeout
         if (pollResp.status === 'completed') {
           await unloadFusionImageModel(config, record.model)
           await failTask(record.id, 'Generation completed but no output URL in poll response')
@@ -748,8 +752,8 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
         }
       }
       if (pollResp.status === 'failed') {
-        // 上游明确失败（如内容审核拦截）属终态：立即落库，不重试不等待超时。
-        // 失败时模型已加载，仍须卸载避免驻留挤占后续提取 Agent
+        // Upstream explicit failure (e.g. content moderation block) is terminal: land immediately, no retry, no timeout wait.
+        // The model is already loaded on failure; still unload to avoid residency squeezing out subsequent extraction Agents
         await unloadFusionImageModel(config, record.model)
         await failTask(record.id, pollResp.error || 'Generation failed')
         return
@@ -764,7 +768,7 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
       logTaskWarn(label, 'poll-retry', { id: record.id, taskId, attempt: i + 1, error: err.message })
     }
   }
-  // 兜底落库自身也可能抛（DB 忙/锁），不让异常逃出 fire-and-forget 调用
+  // The fallback failure write itself may throw (DB busy/locked); do not let exceptions escape the fire-and-forget call
   try {
     await failTask(record.id, 'Timeout: polling attempts exhausted')
   } catch (err: any) {
@@ -773,13 +777,13 @@ async function pollTask(record: SysTaskRecord, config: AIConfig, taskId: string,
 }
 
 async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
-  // L6: 先落 resultUrl——上游签名 URL 短期有效，下载失败时 URL 已在库中可查/可重取，
-  // 否则整个 GPU 生成白跑且无法恢复
+  // L6: persist resultUrl first — upstream signed URLs are short-lived; if the download fails the URL is already queryable/re-fetchable in the DB,
+  // otherwise the whole GPU generation would be wasted and unrecoverable
   await db.update(schema.sysTask)
     .set({ resultUrl: imageUrl, updatedAt: now() })
     .where(eq(schema.sysTask.id, record.id))
   const localPath = await downloadFile(imageUrl, 'images')
-  // 列表页缩略图（前端按命名约定推导地址）——失败只降级，不判死主图
+  // List-page thumbnail (frontend derives the address by naming convention) — failure only degrades, never kills the main image
   try {
     await generateImageThumb(localPath)
   } catch (err: any) {
@@ -787,8 +791,8 @@ async function handleImageComplete(record: SysTaskRecord, imageUrl: string) {
   }
 
   appendTaskEvent(record.id, 'completed', { localPath })
-  // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
-  // 列表接口 JSON.stringify 多 MB base64 会撑爆响应（与视频路径同口径）
+  // data URI (fusion sync return) is already on disk as localPath; never store it verbatim in result_url —
+  // JSON.stringify of multi-MB base64 would blow up the list API response (same policy as the video path)
   const resultUrl = imageUrl.startsWith('data:') ? localPath : imageUrl
   await db.update(schema.sysTask)
     .set({ resultUrl, localPath, status: 'completed', completedAt: now(), updatedAt: now() })
@@ -856,8 +860,8 @@ async function handleImageCompleteBase64(record: SysTaskRecord, base64Data: stri
   await runImageReviewGate(record, localPath)
 }
 
-// 图片完成后回写业务表：分镜(按 frameType)、角色、场景、道具
-/** B25: 写回守卫——目标行在任务创建后又被更新过（如用户手动改图/重传），跳过覆盖防丢失 */
+// Write image results back to business tables after completion: storyboards (by frameType), characters, scenes, props
+/** B25: write-back guard — skip the overwrite when the target row was updated after task creation (e.g. user manually re-generated/re-uploaded), preventing loss */
 async function isStaleTarget(table: any, id: number, taskCreatedAt: string | null): Promise<boolean> {
   if (!id || !taskCreatedAt) return false
   const [row] = await db.select({ updatedAt: table.updatedAt }).from(table).where(eq(table.id, id))
@@ -885,34 +889,34 @@ async function writeBackImageAssets(record: SysTaskRecord, localPath: string) {
 }
 
 async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, duration: number | null | undefined, authHeaders?: Record<string, string>, allowLoopback = false) {
-  // L6: data URI 外的远端 URL 先落库（签名 URL 短期有效，下载失败可查可重取）。
-  // #1254 交接的产物 URL 是临时文件且带鉴权，不存在「重取」——落库占位无妨，
-  // 真相源以 localPath 为准。
+  // L6: persist remote URLs other than data URIs first (signed URLs are short-lived; on download failure they are queryable/re-fetchable).
+  // The #1254-handoff artifact URL is a temp file with auth — no re-fetch exists; a placeholder in the DB is fine,
+  // localPath is the source of truth.
   if (!videoUrl.startsWith('data:')) {
     await db.update(schema.sysTask)
       .set({ resultUrl: videoUrl, updatedAt: now() })
       .where(eq(schema.sysTask.id, record.id))
   }
   const localPath = await downloadFile(videoUrl, 'videos', authHeaders, { allowLoopback })
-  // 海报帧供列表/封面展示，避免前端为显示首帧缓冲整个视频——失败只降级
+  // Poster frame for list/cover display, so the frontend need not buffer the whole video to show the first frame — failure only degrades
   try {
     await extractVideoPoster(localPath)
   } catch (err: any) {
     logTaskWarn('VideoTask', 'poster-failed', { id: record.id, error: err?.message })
   }
-  // issue: LTX-2.5 联合 A/V 仅产出环境底噪，对白缺失——
-  // 分镜提示词含对白时用 TTS 合成配音并混入音轨（失败不阻断主流程）。
-  // 注意：对白必须取中文原 prompt（record.prompt），翻译后的英文无法用于中文 TTS；
-  // params.prompt 不存在（prompt 存任务记录列），此前从这里读导致配音从未触发。
+  // issue: LTX-2.5 joint A/V produces only ambient noise, dialogue is missing —
+  // when the storyboard prompt contains dialogue, synthesize a TTS dub and mix it into the audio track (failure does not block the main flow).
+  // Note: dialogue must come from the original prompt (record.prompt); the translated English cannot feed the Chinese TTS;
+  // params.prompt does not exist (prompt lives in the task record column) — reading from there previously meant dubbing never triggered.
   try {
     const { dubVideoDialogue } = await import('../utils/video-dub.js')
-    // storyboardId 用于查分镜绑定角色名：LLM 常把动作描述夹在 @角色名 与「说」之间
-    // （@孙悟空跪在...说：「」），无已知角色名则同角色多句台词因动作描述不同映射
-    // 到不同 speaker → 不同音色，破坏同角色音色一致性。传角色名精确匹配。
+    // storyboardId looks up the characters bound to the storyboard: LLMs often sandwich action description between
+    // @name and the dialogue marker, and without a known character name multiple lines of the same
+    // character map to different speakers → different voices, breaking per-character voice consistency. Pass names for exact matching.
     await dubVideoDialogue(localPath, record.prompt, record.id, record.storyboardId ?? undefined)
-  } catch { /* 配音失败保持原音轨 */ }
-  // data URI（fusion 同步返回）已落盘为 localPath，不可原样存入 result_url——
-  // 否则 37MB base64 污染 DB 与 API 响应。远端 URL 原样保留（前端 http 判定直连）。
+  } catch { /* dub failure keeps the original audio track */ }
+  // data URI (fusion sync return) is already on disk as localPath; never store it verbatim in result_url —
+  // otherwise 37MB base64 pollutes the DB and API responses. Remote URLs stay verbatim (frontend treats http as direct link).
   const resultUrl = videoUrl.startsWith('data:') ? localPath : videoUrl
   appendTaskEvent(record.id, 'completed', { localPath })
   await db.update(schema.sysTask)
@@ -928,7 +932,7 @@ async function handleVideoComplete(record: SysTaskRecord, videoUrl: string, dura
   }
 }
 
-// ─── 参考素材归一化 ───────────────────────────────────────────────
+// ─── Reference material normalization ───────────────────────────────────────────────
 
 async function normalizeReferenceImages(refs: string[] | null | undefined): Promise<string[]> {
   if (!Array.isArray(refs) || !refs.length) return []
@@ -956,7 +960,7 @@ async function normalizeReferenceImages(refs: string[] | null | undefined): Prom
         return null
       }
     }
-    // 远程 URL：下载压缩为 data URL，保证 multipart 上传（OpenAI edits）/ inline_data（Gemini）都可用
+    // Remote URL: download and compress to a data URL so multipart upload (OpenAI edits) / inline_data (Gemini) both work
     if (/^https?:\/\//.test(value)) {
       try {
         return await fetchImageAsCompressedDataUrl(value, {
@@ -1004,15 +1008,16 @@ async function normalizeVideoReferenceUrls(refs: string[] | null | undefined): P
 }
 
 /**
- * I2V 主体选图：从分镜 video_prompt 的引用标记中解析镜头主体，返回其参考图。
- * 必须在 prompt 翻译前调用——翻译后引用标记会失真（@图片1 → @Image 1、@角色名被改写），
- * 适配器侧只能盲取 referenceImageUrls 末张，多角色镜头会把主体钉在配角图上
- * → 人物身份反转（实测菩提代替悟空出现在主角机位）。
- * 支持两种标记（分镜提示词实际混用）：
- *   @图片N  — referenceImageUrls 的 1-based 下标（前端 getShotReferenceIndexMap 生成）
- *   @角色名 — 分镜绑定角色名（Agent 生成路径），如 @孙悟空 / @须菩提祖师
- * 多主体时取提及次数最多者；并列时优先主角（role 含「主角」），再按首次出现位置。
- * 返回压缩 data URL；无引用/角色无图返回 null（调用方回退适配器兜底逻辑）。
+ * I2V subject image selection: parse the shot's subject from the reference markers in the storyboard
+ * video_prompt and return its reference image. Must run before prompt translation — markers get
+ * mangled by translation (image indexes renamed, character names rewritten), leaving the adapter to
+ * blindly take the last referenceImageUrls entry, which pins the subject to a supporting character's
+ * image in multi-character shots → identity swap (observed: Puti appearing in the protagonist slot
+ * instead of Wukong). Supports two marker kinds (storyboard prompts actually mix both):
+ *   @ImageN — 1-based index into referenceImageUrls (generated by frontend getShotReferenceIndexMap)
+ *   @<character name> — storyboard-bound character name (Agent generation path)
+ * Multiple subjects: pick the most mentioned; ties favor the protagonist (see the role tag check below), then first occurrence.
+ * Returns a compressed data URL; null when there is no reference or the character has no image (caller falls back to the adapter).
  */
 async function resolveI2vSubjectUrl(
   storyboardId: number | null | undefined,
@@ -1023,8 +1028,9 @@ async function resolveI2vSubjectUrl(
 ): Promise<string | null> {
   if (!prompt) return null
 
-  // 1) @图片N 显式编号引用
+  // 1) @ImageN explicit numbered reference
   const idxCounts = new Map<number, number>()
+  // i18n: user-facing — matches agent-produced prompt markers
   for (const m of prompt.matchAll(/@图片(\d+)/g)) {
     const n = Number(m[1])
     if (n >= 1 && n <= rawReferenceUrls.length) idxCounts.set(n, (idxCounts.get(n) ?? 0) + 1)
@@ -1042,7 +1048,7 @@ async function resolveI2vSubjectUrl(
     }
   }
 
-  // 2) @角色名 引用（本分镜绑定的角色，按提及次数→主角优先→首次出现位置排序）
+  // 2) @<character name> references (characters bound to this storyboard; order by mentions → protagonist first → first occurrence)
   if (!storyboardId) return null
   const rows = await db
     .select({ id: schema.characters.id, name: schema.characters.name, role: schema.characters.role, imageUrl: schema.characters.imageUrl, deletedAt: schema.characters.deletedAt })
@@ -1054,13 +1060,14 @@ async function resolveI2vSubjectUrl(
     .map((ch) => {
       const firstPos = prompt.indexOf(`@${ch.name}`)
       const mentions = firstPos < 0 ? 0 : prompt.split(`@${ch.name}`).length - 1
+      // i18n: user-facing — matches the agent-written Chinese role tag
       return { name: ch.name!, imageUrl: ch.imageUrl!, mentions, isProtagonist: (ch.role || '').includes('主角') ? 1 : 0, firstPos }
     })
     .filter((ch) => ch.mentions > 0)
     .sort((a, b) => b.mentions - a.mentions || b.isProtagonist - a.isProtagonist || a.firstPos - b.firstPos)
   const winner = candidates[0]
   if (!winner) {
-    // 老数据兼容：无 @图片N / @角色名 引用时回退参考列表末张（场景图在前、角色图在后约定）
+    // Legacy-data fallback: with no numbered/name references, take the last reference in the list (scene images first, character images last convention)
     for (let i = rawReferenceUrls.length - 1; i >= 0; i--) {
       const u = String(rawReferenceUrls[i] || '').trim()
       if (u) {
@@ -1080,9 +1087,9 @@ async function resolveI2vSubjectUrl(
 }
 
 /**
- * 将参考视频/音频解析为 Seedance API 可访问的 URL。
- * http(s)/dataURL 直通；本地 static 路径需要 PUBLIC_BASE_URL 拼成公网地址，
- * 未配置时抛出可操作的中文错误（落入 catch 写入 error_msg 供前端展示）。
+ * Resolves reference video/audio into URLs accessible by the Seedance API.
+ * http(s)/dataURL pass through; local static paths need PUBLIC_BASE_URL to build a public address.
+ * When unset, throws an actionable error (caught and written into error_msg for frontend display).
  */
 function resolvePublicMediaUrl(value: string | null | undefined, kind: 'video' | 'audio' | 'file'): string | null {
   const raw = String(value || '').trim()
@@ -1091,9 +1098,10 @@ function resolvePublicMediaUrl(value: string | null | undefined, kind: 'video' |
   if (raw.startsWith('static/') || raw.startsWith('/static/')) {
     const base = (process.env.PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
     if (!base) {
+      // i18n: user-facing
       const label = kind === 'video' ? '视频' : kind === 'audio' ? '音频' : '文件'
       throw new Error(
-        `参考${label}为本地路径 ${raw}，但后端未配置 PUBLIC_BASE_URL，上游视频生成 API 无法访问内网地址。` +
+        `参考${label}为本地路径 ${raw}，但后端未配置 PUBLIC_BASE_URL，上游视频生成 API 无法访问内网地址。` + // i18n: user-facing
         `请在 backend/.env 配置 PUBLIC_BASE_URL（如 https://your-domain.com）后重试，或改用公网 URL。`,
       )
     }

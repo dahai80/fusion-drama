@@ -1,11 +1,11 @@
 /**
- * 整本小说导入路由 — 四步管线入口
- *   POST /novel/import   导入并切块（同步，无 LLM）
- *   POST /novel/outline  逐块大纲（后台批处理，幂等续跑）
- *   POST /novel/plan     分集规划（单次 LLM，建 episode 行）
- *   POST /novel/rewrite  全集滚动改写（后台批处理，幂等续跑）
- *   POST /novel/rewrite/:episodeId  单集改写（同步，GPU 队列内）
- *   GET  /novel/status    管线进度（块数/大纲完成数/分集数/任务状态）
+ * Full-novel import routes — entry points of the four-step pipeline
+ *   POST /novel/import   Import and chunk (sync, no LLM)
+ *   POST /novel/outline  Per-chunk outlines (background batch, idempotent resume)
+ *   POST /novel/plan     Episode planning (single LLM call, creates episode rows)
+ *   POST /novel/rewrite  Rolling rewrite of all episodes (background batch, idempotent resume)
+ *   POST /novel/rewrite/:episodeId  Single-episode rewrite (sync, inside the GPU queue)
+ *   GET  /novel/status    Pipeline progress (chunk count / outlines done / episode count / task status)
  */
 import { Hono } from 'hono'
 import { asc, eq } from 'drizzle-orm'
@@ -30,14 +30,14 @@ const NOVEL_IMPORT_MAX = 2_000_000
 // POST /novel/import {drama_id, content, replace?}
 app.post('/import', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
-  if (!body.content || typeof body.content !== 'string') return badRequest(c, 'content 必填')
-  if (body.content.length < 500) return badRequest(c, '小说内容过短（至少 500 字）')
-  if (body.content.length > NOVEL_IMPORT_MAX) return badRequest(c, `小说内容过长（上限 ${NOVEL_IMPORT_MAX} 字）`)
+  if (!body.drama_id) return badRequest(c, 'drama_id is required')
+  if (!body.content || typeof body.content !== 'string') return badRequest(c, 'content is required')
+  if (body.content.length < 500) return badRequest(c, 'Novel content is too short (at least 500 characters)')
+  if (body.content.length > NOVEL_IMPORT_MAX) return badRequest(c, `Novel content is too long (limit ${NOVEL_IMPORT_MAX} characters)`)
   // F-5: reject non-existent drama before doing any work
   const dramaId = Number(body.drama_id)
   const [drama] = await db.select({ id: schema.dramas.id }).from(schema.dramas).where(eq(schema.dramas.id, dramaId)).limit(1)
-  if (!drama) return badRequest(c, `drama 不存在: ${dramaId}`)
+  if (!drama) return badRequest(c, `Drama not found: ${dramaId}`)
   try {
     const result = await importNovel(dramaId, body.content, body.replace !== false)
     return success(c, result)
@@ -49,7 +49,7 @@ app.post('/import', async (c) => {
 // POST /novel/outline {drama_id}
 app.post('/outline', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id is required')
   try {
     await outlineAllSegments(Number(body.drama_id))
     return success(c, { started: true })
@@ -61,7 +61,7 @@ app.post('/outline', async (c) => {
 // POST /novel/plan {drama_id, target_minutes?}
 app.post('/plan', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id is required')
   try {
     const result = await planEpisodesFromOutlines(Number(body.drama_id), Number(body.target_minutes) || 2)
     return success(c, result)
@@ -70,10 +70,10 @@ app.post('/plan', async (c) => {
   }
 })
 
-// POST /novel/rewrite {drama_id}  全集顺序改写（后台）
+// POST /novel/rewrite {drama_id}  sequential rewrite of all episodes (background)
 app.post('/rewrite', async (c) => {
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id is required')
   try {
     const language = await getContentLanguage()
     await rewriteAllEpisodes(Number(body.drama_id), language)
@@ -83,11 +83,11 @@ app.post('/rewrite', async (c) => {
   }
 })
 
-// POST /novel/rewrite/:episodeId {drama_id}  单集改写（同步）
+// POST /novel/rewrite/:episodeId {drama_id}  single-episode rewrite (sync)
 app.post('/rewrite/:episodeId', async (c) => {
   const episodeId = Number(c.req.param('episodeId'))
   const body = await c.req.json()
-  if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  if (!body.drama_id) return badRequest(c, 'drama_id is required')
   try {
     const language = await getContentLanguage()
     const result = await rewriteEpisodeFromNovel(Number(body.drama_id), episodeId, language)
@@ -100,6 +100,7 @@ app.post('/rewrite/:episodeId', async (c) => {
 // GET /novel/status?drama_id=
 app.get('/status', async (c) => {
   const dramaId = Number(c.req.query('drama_id'))
+  // i18n: user-facing
   if (!dramaId) return badRequest(c, 'drama_id 必填')
   const segments = await db.select({ seq: schema.novelSegments.seq, outline: schema.novelSegments.outline })
     .from(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId))

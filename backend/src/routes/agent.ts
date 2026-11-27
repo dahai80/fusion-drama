@@ -1,5 +1,5 @@
 /**
- * Agent 聊天路由 — 非流式 + SSE 流式两个版本
+ * Agent chat routes — non-streaming + SSE streaming versions
  */
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
@@ -20,7 +20,7 @@ import { appendEpisodeEvent } from '../utils/task-events.js'
 
 const app = new Hono()
 
-// Mastra v1.17 的 ToolCallChunk / ToolResultChunk 结构：
+// Mastra v1.17 ToolCallChunk / ToolResultChunk shape:
 // { type: 'tool-call', payload: { toolCallId, toolName, args } }
 // { type: 'tool-result', payload: { toolCallId, toolName, result, isError } }
 function normalizeToolName(entry: any) {
@@ -38,10 +38,11 @@ function normalizeToolResult(entry: any) {
   return typeof result === 'string' ? result : JSON.stringify(result)
 }
 
-// POST /agent/:type/chat — 非流式 Agent 对话
+// POST /agent/:type/chat — non-streaming agent chat
 app.post('/:type/chat', async (c) => {
   const agentType = c.req.param('type')
   if (!validAgentTypes.includes(agentType)) {
+    // i18n: user-facing
     return badRequest(c, `无效的 Agent 类型：${agentType}`)
   }
 
@@ -57,12 +58,14 @@ app.post('/:type/chat', async (c) => {
 
   if (!episode_id || !drama_id) {
     logTaskError('Agent', agentType, { reason: 'missing drama_id or episode_id' })
+    // i18n: user-facing
     return badRequest(c, '需要 drama_id 与 episode_id')
   }
 
   const agent = mastra.getAgent(agentType)
   if (!agent) {
     logTaskError('Agent', agentType, { reason: 'agent not found' })
+    // i18n: user-facing
     return badRequest(c, 'Agent 不存在')
   }
 
@@ -75,13 +78,14 @@ app.post('/:type/chat', async (c) => {
 
   const startTime = performance.now()
 
-  // FR-P1-1: agent_started/agent_finished 事件（episode 维度，SSE 回放；thinking 级
-  // 事件由 instrumentTools 的 tool_call/tool_result 承载）
+  // FR-P1-1: agent_started/agent_finished events (episode-level, SSE replay; thinking-level
+  // events are carried by instrumentTools' tool_call/tool_result)
   void appendEpisodeEvent(episode_id, 'agent_started', { agent: agentType })
 
   try {
-    // ONNX RAG：CPU 向量检索本 drama 的剧本/角色/场景/道具，作为背景块前缀注入用户消息。
-    // 关闭/模型缺失/无索引时 buildRagContextBlock 返回 null，消息原样发送，不阻断主流程
+    // ONNX RAG: CPU vector retrieval over this drama's script/characters/scenes/props, injected
+    // as a background block prefix on the user message. When disabled/model missing/no index,
+    // buildRagContextBlock returns null and the message is sent as-is, never blocking the main flow
     let ragBlock: string | null = null
     if (isRagEnabled()) {
       try {
@@ -90,8 +94,9 @@ app.post('/:type/chat', async (c) => {
         logTaskWarn('Agent', 'rag-context-failed', { dramaId: drama_id, error: e?.message })
       }
     }
-    // 跨会话记忆（fusion-memory）：检索此前会话的偏好/决定注入为记忆块，置于 RAG 块之前。
-    // fm-server 未启/超时返回 null，不阻断
+    // Cross-session memory (fusion-memory): retrieve preferences/decisions from prior sessions
+    // injected as a memory block, placed before the RAG block. Returns null when fm-server is
+    // down or times out, never blocking
     let memoryBlock: string | null = null
     if (isMemoryEnabled()) {
       try {
@@ -104,16 +109,17 @@ app.post('/:type/chat', async (c) => {
     const contextPrefix = [memoryBlock, ragBlock].filter(Boolean).join('\n\n')
     const userContent = contextPrefix ? `${contextPrefix}\n\n${message}` : message
 
-    // Agent 推理打文本模型（Qwen3.5 decode burst），与图片/视频生成共用 GPU 串行队列，
-    // 避免与 LTX-2.5/FLUX 并发争用触发 Metal crash（见 gpu-queue.ts 注释）
+    // Agent inference hits the text model (Qwen3.5 decode burst); it shares the GPU serial queue
+    // with image/video generation to avoid concurrent contention with LTX-2.5/FLUX triggering
+    // Metal crash (see gpu-queue.ts comments)
     const result = await enqueueGpuWork(`Agent-${agentType}`, () => agent.generate(
       [{ role: 'user', content: userContent }],
       { maxSteps: 20, requestContext },
     ))
     void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })
 
-    // 监督层：supervisor prompt 复审 Agent 产出（同一 GPU 串行队列内跑文本模型）。
-    // 审阅失败/关闭时 verdict.degraded=true 原样放行
+    // Supervisor layer: the supervisor prompt re-reviews agent output (text model runs inside
+    // the same GPU serial queue). On review failure/disabled, verdict.degraded=true passes it through unchanged
     let review = null
     if (isSupervisorEnabled()) {
       const verdict = await enqueueGpuWork(`Supervisor-${agentType}`, () =>
@@ -125,7 +131,7 @@ app.post('/:type/chat', async (c) => {
       })
     }
 
-    // 跨会话记忆写入：异步落 fusion-memory，失败仅告警不影响响应
+    // Cross-session memory write: async commit to fusion-memory; failure only warns, never affects the response
     if (isMemoryEnabled() && (result.text || '').trim()) {
       void commitAgentMemory({
         agentType, dramaId: drama_id, episodeId: episode_id,
@@ -138,7 +144,7 @@ app.post('/:type/chat', async (c) => {
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
     logTaskSuccess('Agent', agentType, { elapsedSeconds: elapsed })
 
-    // 收集所有 tool calls 和 results
+    // Collect all tool calls and results
     const toolCalls = result.toolCalls || []
     const toolResults = result.toolResults || []
     const normalizedToolCalls = toolCalls.map((tc: any) => ({
@@ -157,9 +163,10 @@ app.post('/:type/chat', async (c) => {
     })
     logTaskPayload('Agent', `${agentType} tool-results`, normalizedToolResults)
 
-    // script_rewriter 兜底：小模型（Qwen3.5-4B）常生成完整剧本在 text 但不调 save_script，
-    // 直接返回导致 script_content 空。检测 text 以「## S」开头（格式化剧本场景头）且未调
-    // save_script 时自动落库，避免 E2E 断链。
+    // script_rewriter fallback: small models (Qwen3.5-4B) often produce the full screenplay in
+    // text without calling save_script; returning directly leaves script_content empty. When text
+    // starts with "## S" (formatted screenplay scene header) and save_script was not called,
+    // auto-persist to DB to avoid a broken E2E chain.
     if (agentType === 'script_rewriter') {
       const calledSave = normalizedToolCalls.some((tc: any) => tc.toolName === 'save_script' || tc.toolName === 'saveScript')
       const text = (result.text || '').trim()
@@ -186,6 +193,7 @@ app.post('/:type/chat', async (c) => {
     logTaskError('Agent', agentType, { elapsedSeconds: elapsed, error: err.message })
     void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: false, ms: Math.round(performance.now() - startTime), error: String(err.message || '').slice(0, 300) })
     console.error(err.stack || err)
+    // i18n: user-facing
     return badRequest(c, err.message || 'Agent 执行失败')
   }
 })
@@ -193,11 +201,13 @@ app.post('/:type/chat', async (c) => {
 // GET /agent/:type/debug
 app.get('/:type/debug', async (c) => {
   const agentType = c.req.param('type')
+  // i18n: user-facing
   if (!validAgentTypes.includes(agentType)) return badRequest(c, '无效的 Agent 类型')
   return success(c, { agent_type: agentType, valid: true })
 })
 
-// Mastra ChunkType → 前端 SSE 事件（只透出有展示价值的：文本增量/工具调用/工具结果）
+// Mastra ChunkType → frontend SSE events (only surfacing what is worth displaying:
+// text deltas / tool calls / tool results)
 function sseEventFromChunk(chunk: any): { event: string, data: string } | null {
     const p = chunk?.payload || {}
     switch (chunk?.type) {
@@ -212,12 +222,15 @@ function sseEventFromChunk(chunk: any): { event: string, data: string } | null {
     }
 }
 
-// POST /agent/:type/chat/stream — SSE 流式版：中间步骤（工具调用/文本增量）实时推送，
-// done 事件带完整结果（与非流式响应同构：text/toolCalls/toolResults/review）。
-// GPU 串行队列覆盖整个流消费期；监督复审/记忆写入/事件流与非流式版完全一致
+// POST /agent/:type/chat/stream — SSE streaming version: intermediate steps (tool calls/text
+// deltas) pushed in real time; the done event carries the full result (same shape as the
+// non-streaming response: text/toolCalls/toolResults/review).
+// The GPU serial queue covers the entire stream consumption period; supervisor review / memory
+// write / event stream are identical to the non-streaming version
 app.post('/:type/chat/stream', async (c) => {
   const agentType = c.req.param('type')
   if (!validAgentTypes.includes(agentType)) {
+    // i18n: user-facing
     return badRequest(c, `无效的 Agent 类型：${agentType}`)
   }
   const body = await c.req.json()
@@ -225,11 +238,13 @@ app.post('/:type/chat/stream', async (c) => {
   logTaskStart('Agent', `${agentType}(stream)`, { dramaId: drama_id, episodeId: episode_id, message })
   if (!episode_id || !drama_id) {
     logTaskError('Agent', `${agentType}(stream)`, { reason: 'missing drama_id or episode_id' })
+    // i18n: user-facing
     return badRequest(c, '需要 drama_id 与 episode_id')
   }
   const agent = mastra.getAgent(agentType)
   if (!agent) {
     logTaskError('Agent', `${agentType}(stream)`, { reason: 'agent not found' })
+    // i18n: user-facing
     return badRequest(c, 'Agent 不存在')
   }
   const requestContext = buildAgentRequestContext({
@@ -241,7 +256,7 @@ app.post('/:type/chat/stream', async (c) => {
   const startTime = performance.now()
   void appendEpisodeEvent(episode_id, 'agent_started', { agent: agentType })
 
-  // 上下文前缀（跨会话记忆 + RAG）与非流式版一致：记忆在前，用户要求优先
+  // Context prefix (cross-session memory + RAG) matches the non-streaming version: memory first, user content takes priority
   let ragBlock: string | null = null
   if (isRagEnabled()) {
     try {
@@ -296,7 +311,7 @@ app.post('/:type/chat/stream', async (c) => {
       })
       void appendEpisodeEvent(episode_id, 'agent_finished', { agent: agentType, ok: true, ms: Math.round(performance.now() - startTime) })
 
-      // 监督复审 + 记忆写入：与非流式版一致
+      // Supervisor review + memory write: identical to the non-streaming version
       let review = null
       if (isSupervisorEnabled()) {
         const verdict = await enqueueGpuWork(`Supervisor-${agentType}`, () =>
@@ -316,7 +331,7 @@ app.post('/:type/chat/stream', async (c) => {
         })
       }
 
-      // script_rewriter 兜底（同非流式版）：text 形似剧本且未调 save_script 时自动落库
+      // script_rewriter fallback (same as non-streaming): auto-persist when text looks like a screenplay and save_script was not called
       if (agentType === 'script_rewriter') {
         const calledSave = normalizedToolCalls.some((tc: any) => tc.toolName === 'save_script' || tc.toolName === 'saveScript')
         const trimmed = (text || '').trim()

@@ -56,7 +56,7 @@ test('backend removes TTS endpoints and audio-specific schema fields', () => {
   assert.doesNotMatch(schema, /voiceProvider/)
   assert.doesNotMatch(schema, /ttsAudioUrl/)
   assert.doesNotMatch(schema, /aiVoices/)
-  // SQLite DDL（MySQL→SQLite 迁移后的建表源头）同样无音频字段与 ai_voices 表
+  // SQLite DDL (the table-creation source after the MySQL->SQLite migration) likewise has no audio fields and no ai_voices table
   assert.doesNotMatch(sqliteSchema, /audio_config_id/)
   assert.doesNotMatch(sqliteSchema, /voice_style/)
   assert.doesNotMatch(sqliteSchema, /voice_sample_url/)

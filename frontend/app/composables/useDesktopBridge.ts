@@ -1,6 +1,7 @@
 /**
- * 桌面版桥（preload 注入的 window.fusionDesktop）类型声明与安全取值。
- * 非桌面环境（浏览器/服务器部署）返回 null，UI 据此隐藏桌面专属功能。
+ * Desktop bridge (window.fusionDesktop injected by preload) type declarations and safe accessors.
+ * Returns null in non-desktop environments (browser/server deployments); the UI hides
+ * desktop-only features accordingly.
  */
 
 export interface UpdateState {

@@ -9,12 +9,15 @@ test('project creation dialog only asks for title and visual style', () => {
   const page = read('app/pages/index.vue')
   const zh = read('app/locales/zh.json')
 
-  // 文案走 i18n：index.createDialog.*
+  // copy lives in i18n: index.createDialog.*
+  // i18n: user-facing — asserts the zh locale value
   assert.match(zh, /"title": "新建项目"/)
+  // i18n: user-facing — asserts the zh locale value
   assert.match(zh, /"style": "视觉风格"/)
   assert.doesNotMatch(page, /total_episodes/)
+  // i18n: user-facing — asserts the zh copy is absent from the page
   assert.doesNotMatch(page, /计划集数/)
-  // 硬编码风格列表已移除，预设来自 API
+  // hardcoded style list removed; presets come from the API
   assert.doesNotMatch(page, /\['realistic', 'anime'/)
   assert.match(page, /stylePresetAPI/)
   assert.match(page, /stylePresetAPI\.list\(\)/)
@@ -34,7 +37,8 @@ test('settings page manages style presets in a base tab', () => {
   const settings = read('app/pages/settings.vue')
   const zh = read('app/locales/zh.json')
 
-  // 文案走 i18n：settings.tabs.styles
+  // copy lives in i18n: settings.tabs.styles
+  // i18n: user-facing — asserts the zh locale value
   assert.match(zh, /"tabs": \{[\s\S]*?"styles": "风格预设"/)
   assert.match(settings, /Palette/)
   assert.match(settings, /stylePresetAPI/)
@@ -46,11 +50,12 @@ test('settings page manages style presets in a base tab', () => {
   assert.match(settings, /styleToDelete/)
   assert.match(settings, /<ConfirmDialog/)
   assert.match(settings, /loadStylePresets/)
-  // tab 导航只有 baseTabs
+  // tab navigation has only baseTabs
   assert.match(settings, /const baseTabs = computed\(\(\) => \[/)
   assert.doesNotMatch(settings, /advancedTabs/)
-  // 风格 key 编辑时不可修改
+  // the style key is not editable while editing
   assert.match(settings, /:disabled="!!styleEditId"/)
-  // image_prompt_generator 默认提示词副本同步更新
+  // image_prompt_generator default prompt copy kept in sync
+  // i18n: user-facing — asserts the zh copy is absent from the page
   assert.doesNotMatch(settings, /必须包含 "consistent art style"/)
 })

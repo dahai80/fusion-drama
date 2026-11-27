@@ -1,10 +1,11 @@
 /**
- * 主题模式（模块级单例）
- * - 与 i18n.ts 同构：ssr:false，模块顶层读 localStorage 安全
- * - 模块顶层同步写 <html data-theme>，先于首帧执行，避免深色/浅色闪烁
- *   （不能用 app.vue onMounted——首帧之后才执行必闪）
- * - 跟随系统：matchMedia('(prefers-color-scheme: dark)')，Web/桌面（Electron
- *   默认 nativeTheme.themeSource='system'）通用，无需桌面桥
+ * Theme mode (module-level singleton)
+ * - isomorphic with i18n.ts: ssr:false, safe to read localStorage at module top level
+ * - synchronously writes <html data-theme> at module top level, before the first frame,
+ *   avoiding dark/light flicker (app.vue onMounted won't work — it runs after the first
+ *   frame, which always flickers)
+ * - follow system: matchMedia('(prefers-color-scheme: dark)'), works on both web and desktop
+ *   (Electron defaults nativeTheme.themeSource='system'), no desktop bridge needed
  */
 import { computed, readonly, ref, watch, type ComputedRef } from 'vue'
 
@@ -19,14 +20,14 @@ export function readStoredThemeMode(): ThemeMode {
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY)
     if (v && (THEME_MODES as string[]).includes(v)) return v as ThemeMode
-  } catch { /* localStorage 不可用时回退默认 */ }
+  } catch { /* fall back to the default when localStorage is unavailable */ }
   return 'system'
 }
 
 export function persistThemeMode(mode: ThemeMode) {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, mode)
-  } catch { /* 忽略持久化失败 */ }
+  } catch { /* ignore persistence failure */ }
 }
 
 const themeMode = ref<ThemeMode>(readStoredThemeMode())
@@ -51,13 +52,13 @@ if (typeof window !== 'undefined') {
   watch(themeMode, applyTheme)
 }
 
-/** 切换主题模式并持久化（设置页外观卡片与 ThemeToggle 共用） */
+/** Set the theme mode and persist it (shared by the settings appearance card and ThemeToggle) */
 export function setThemeMode(mode: ThemeMode) {
   themeMode.value = mode
   persistThemeMode(mode)
 }
 
-/** light → dark → system 循环（头部快捷按钮用） */
+/** light → dark → system cycle (used by the header quick-toggle button) */
 export function cycleThemeMode() {
   const i = THEME_MODES.indexOf(themeMode.value)
   setThemeMode(THEME_MODES[(i + 1) % THEME_MODES.length])

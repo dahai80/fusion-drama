@@ -1,19 +1,22 @@
 /**
- * FFmpeg 统一配置与可用性探测
+ * FFmpeg unified configuration and availability probing
  *
- * 背景：Windows 上若 node_modules 跨平台拷贝、或 ffmpeg-static postinstall
- * 下载损坏（HTML 错误页被存成 ffmpeg.exe），spawn 非 PE 文件会同步抛
- * EFTYPE；该异常发生在 fluent-ffmpeg 的延迟回调里，外层 try/catch 接不住，
- * 直接崩掉整个 Node 进程。这里在业务调用前主动 spawn -version 探测，
- * 不可用时由业务侧优雅降级（海报帧跳过 / 拼接返回明确错误）。
+ * Background: on Windows, when node_modules is copied across platforms or the
+ * ffmpeg-static postinstall download is corrupted (an HTML error page saved as
+ * ffmpeg.exe), spawning a non-PE file throws EFTYPE synchronously; that exception
+ * happens inside fluent-ffmpeg's delayed callback where the outer try/catch cannot
+ * catch it, crashing the whole Node process. Here we proactively spawn -version to
+ * probe before any business call, and business code degrades gracefully when
+ * unavailable (poster frame skipped / merge returns a clear error).
  */
 import { spawn } from 'child_process'
 import fs from 'fs'
 import ffmpeg from 'fluent-ffmpeg'
 import { createRequire } from 'module'
 
-// ffmpeg-static / ffprobe-static 均为可选依赖：npm 安装时提供内置二进制；
-// 桌面版打包不携带这两个 npm 包（二进制随 resources/bin 分发），缺失时走 FFMPEG_BIN/FFPROBE_BIN
+// ffmpeg-static / ffprobe-static are both optional dependencies: npm install ships the bundled binaries;
+// the desktop build does not carry these two npm packages (binaries ship via resources/bin),
+// falling back to FFMPEG_BIN/FFPROBE_BIN when missing
 const req = createRequire(import.meta.url)
 
 function resolveStatic(moduleName: string): string | null {
@@ -28,13 +31,13 @@ function resolveStatic(moduleName: string): string | null {
 const ffmpegPath = process.env.FFMPEG_BIN || resolveStatic('ffmpeg-static')
 const ffprobePath = process.env.FFPROBE_BIN || resolveStatic('ffprobe-static')
 
-// 系统未安装 ffmpeg 时使用项目内置二进制
+// Use the project's bundled binaries when the system has no ffmpeg
 if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath)
 if (ffprobePath) ffmpeg.setFfprobePath(ffprobePath)
 
 export { ffmpeg }
 
-/** spawn 一次 -version 验证二进制真实可执行（含同步 EFTYPE 兜底） */
+/** Spawns -version once to verify the binary is truly executable (including the synchronous EFTYPE fallback) */
 function probeBinary(binPath: string | null): Promise<boolean> {
   if (!binPath || !fs.existsSync(binPath)) return Promise.resolve(false)
   return new Promise((resolve) => {
@@ -50,7 +53,7 @@ function probeBinary(binPath: string | null): Promise<boolean> {
     try {
       child = spawn(binPath, ['-version'], { stdio: 'ignore', windowsHide: true })
     } catch {
-      // Windows 上 spawn 非 PE 文件（如下载损坏的 ffmpeg.exe）会同步抛 EFTYPE
+      // On Windows, spawning a non-PE file (e.g. a corrupted downloaded ffmpeg.exe) throws EFTYPE synchronously
       finish(false)
       return
     }
@@ -64,11 +67,11 @@ export interface FfmpegSuite {
   ffprobe: boolean
 }
 
-// 成功的探测结果缓存（进程内只探测一次）；失败不缓存，修复二进制后无需重启即可恢复
+// Caches a successful probe result (probed at most once per process); failures are not cached, so recovery after fixing the binary needs no restart
 let okCache: FfmpegSuite | null = null
 let warned = false
 
-/** 探测内置 ffmpeg/ffprobe 是否可用 */
+/** Probes whether the bundled ffmpeg/ffprobe are usable */
 export async function checkFfmpegSuite(): Promise<FfmpegSuite> {
   if (okCache) return okCache
   const [ffmpegOk, ffprobeOk] = await Promise.all([probeBinary(ffmpegPath), probeBinary(ffprobePath)])
@@ -78,9 +81,9 @@ export async function checkFfmpegSuite(): Promise<FfmpegSuite> {
   } else if (!warned) {
     warned = true
     console.warn(
-      `[ffmpeg] 内置二进制不可用 (ffmpeg=${ffmpegOk ? 'ok' : 'FAIL'}, ffprobe=${ffprobeOk ? 'ok' : 'FAIL'})。` +
-      `海报帧提取与视频拼接将跳过/失败。修复：删除 node_modules 后在本机重新 npm install，` +
-      `或设置 FFMPEG_BIN/FFPROBE_BIN 指向有效的可执行文件`
+      `[ffmpeg] bundled binaries unavailable (ffmpeg=${ffmpegOk ? 'ok' : 'FAIL'}, ffprobe=${ffprobeOk ? 'ok' : 'FAIL'}). ` +
+      `Poster frame extraction and video merging will be skipped/fail. Fix: delete node_modules and run npm install again on this machine, ` +
+      `or set FFMPEG_BIN/FFPROBE_BIN to valid executables`
     )
   }
   return suite

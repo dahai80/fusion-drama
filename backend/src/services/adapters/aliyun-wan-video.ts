@@ -1,12 +1,12 @@
 /**
- * 阿里云百炼万相 Wan 3.0 视频生成 Adapter。
+ * Aliyun Bailian Wan 3.0 video generation adapter.
  *
- * 官方协议：
+ * Official protocol:
  * - POST /api/v1/services/aigc/video-generation/video-synthesis
  * - GET  /api/v1/tasks/{task_id}
- * - 仅支持 wan3.0-video-prime / wan3.0-video
- * - 请求体为 { model, input: { prompt, media }, parameters }
- * - 异步响应为 { output: { task_id, task_status }, request_id }
+ * - only wan3.0-video-prime / wan3.0-video are supported
+ * - request body is { model, input: { prompt, media }, parameters }
+ * - async response is { output: { task_id, task_status }, request_id }
  */
 import type {
   AIConfig,
@@ -64,13 +64,16 @@ function validateMediaUrl(type: WanMediaType, url: string) {
   const isImageData = /^data:image\/(?:jpeg|jpg|png|bmp|webp);base64,/i.test(url)
   if (type === 'first_frame' || type === 'last_frame' || type === 'reference_image') {
     if (isWebUrl || isOssUrl || isImageData) return
+    // i18n: user-facing
     throw new Error(`Wan 3.0 ${type} 需要 HTTP(S)/OSS 图片 URL 或官方支持的图片 Base64`)
   }
   if (type === 'link') {
     if (isWebUrl) return
+    // i18n: user-facing
     throw new Error('Wan 3.0 link 仅支持无需登录的 HTTP(S) 公开网页')
   }
   if (isWebUrl || isOssUrl) return
+  // i18n: user-facing
   throw new Error(`Wan 3.0 ${type} 仅支持 HTTP(S) 或 OSS URL`)
 }
 
@@ -93,10 +96,13 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
     const model = cleanUrl(record.model || config.model || DEFAULT_MODEL)
     if (!SUPPORTED_MODELS.has(model)) {
+      // i18n: user-facing
       throw new Error(`Wan 3.0 仅支持 wan3.0-video-prime 或 wan3.0-video，当前: ${model}`)
     }
 
-    // 官方对超过 20000 字符的部分自动截断；同时将项目内部 @图片N 标记转为官方的 图N 引用。
+    // the official API auto-truncates beyond 20000 chars; also rewrites the project's
+    // internal @-image reference markers into the official single-char reference form
+    // i18n: user-facing — marker protocol shared with the LLM prompt text
     const prompt = cleanUrl(record.prompt).replace(/@图片(\d+)/g, '图$1').slice(0, PROMPT_MAX_CHARS)
 
     const refImages = parseUrlArray(record.referenceImageUrls)
@@ -120,6 +126,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
     for (const item of media) validateMediaUrl(item.type, item.url)
 
     if (!prompt && media.length === 0) {
+      // i18n: user-facing
       throw new Error('Wan 3.0 的 input.prompt 和 input.media 至少需要提供一项')
     }
 
@@ -139,6 +146,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
     if (record.seed !== null && record.seed !== undefined) {
       const seed = Number(record.seed)
       if (!Number.isInteger(seed) || (seed !== -1 && (seed < 0 || seed > MAX_SEED))) {
+        // i18n: user-facing
         throw new Error(`Wan 3.0 seed 必须为 -1 或 0~${MAX_SEED} 的整数`)
       }
       parameters.seed = seed
@@ -159,6 +167,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
   parseGenerateResponse(result: any): VideoGenResponse {
     const taskId = result?.output?.task_id
     if (taskId) return { isAsync: true, taskId: String(taskId) }
+    // i18n: user-facing
     throw new Error(errorMessage(result, 'Wan 3.0 响应中缺少 output.task_id'))
   }
 
@@ -180,6 +189,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
         return { status: 'processing' }
       case 'SUCCEEDED':
         if (!output.video_url) {
+          // i18n: user-facing
           return { status: 'failed', error: errorMessage(result, 'Wan 3.0 任务成功但响应中缺少 output.video_url') }
         }
         {
@@ -191,13 +201,17 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
           }
         }
       case 'FAILED':
+        // i18n: user-facing
         return { status: 'failed', error: errorMessage(result, 'Wan 3.0 视频生成失败') }
       case 'CANCELED':
+        // i18n: user-facing
         return { status: 'failed', error: errorMessage(result, 'Wan 3.0 任务已取消') }
       case 'UNKNOWN':
+        // i18n: user-facing
         return { status: 'failed', error: errorMessage(result, 'Wan 3.0 任务不存在或已超过 24 小时查询有效期') }
       default:
         if (result?.code || result?.message || output.code || output.message) {
+          // i18n: user-facing
           return { status: 'failed', error: errorMessage(result, 'Wan 3.0 任务查询失败') }
         }
         return { status: 'processing' }
@@ -219,19 +233,24 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
   }) {
     const { refImages, refVideos, refAudios, firstFrame, lastFrame, file, link } = input
     if (refImages.length > REF_LIMITS.images || refVideos.length > REF_LIMITS.videos || refAudios.length > REF_LIMITS.audios) {
+      // i18n: user-facing
       throw new Error(`Wan 3.0 参考素材超限：图片≤${REF_LIMITS.images}、视频≤${REF_LIMITS.videos}、音频≤${REF_LIMITS.audios}`)
     }
+    // i18n: user-facing
     if (lastFrame && !firstFrame) throw new Error('Wan 3.0 尾帧必须与首帧同时传入')
+    // i18n: user-facing
     if (file && link) throw new Error('Wan 3.0 file 与 link 不能同时传入')
 
     const hasFrameMode = Boolean(firstFrame || lastFrame)
     const hasReferenceMode = Boolean(refImages.length || refVideos.length || refAudios.length || file || link)
     if (hasFrameMode && hasReferenceMode) {
+      // i18n: user-facing
       throw new Error('Wan 3.0 的 first_frame/last_frame 不能与 reference_image/reference_video/reference_audio/file/link 混用')
     }
 
     const total = refImages.length + refVideos.length + refAudios.length + (firstFrame ? 1 : 0)
       + (lastFrame ? 1 : 0) + (file ? 1 : 0) + (link ? 1 : 0)
+    // i18n: user-facing
     if (total > REF_LIMITS.total) throw new Error(`Wan 3.0 input.media 最多 ${REF_LIMITS.total} 项`)
   }
 
@@ -239,6 +258,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
     if (duration === null || duration === undefined) return 5
     const value = Number(duration)
     if (!Number.isInteger(value) || (value !== -1 && (value < 2 || value > 30))) {
+      // i18n: user-facing
       throw new Error('Wan 3.0 duration 必须为 -1 或 2~30 的整数')
     }
     return value
@@ -247,6 +267,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
   private normalizeResolution(resolution?: string | null): string {
     const value = cleanUrl(resolution).toUpperCase() || '1080P'
     if (!VALID_RESOLUTIONS.has(value)) {
+      // i18n: user-facing
       throw new Error('Wan 3.0 resolution 仅支持 480P、720P 或 1080P')
     }
     return value
@@ -255,6 +276,7 @@ export class AliyunWanVideoAdapter implements VideoProviderAdapter {
   private normalizeRatio(ratio?: string | null): string {
     const value = cleanUrl(ratio) || 'adaptive'
     if (!VALID_RATIOS.has(value)) {
+      // i18n: user-facing
       throw new Error('Wan 3.0 ratio 仅支持 adaptive、16:9、4:3、1:1、3:4 或 9:16')
     }
     return value

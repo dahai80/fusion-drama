@@ -64,13 +64,15 @@ test('backend rejects unsupported providers at DB and route boundaries', () => {
   assert.doesNotMatch(ai, /'vidu'/)
   assert.doesNotMatch(ai, /audio:\s*\[/)
   assert.match(ai, /isOfficialProvider/)
-  // 边界校验升级为 isValidProvider：官方清单之外放行 custom:<name> 可编程 provider（仅 image/video）
+  // boundary validation upgraded to isValidProvider: providers outside the official list are
+  // allowed as custom:<name> programmable providers (image/video only)
   assert.match(ai, /isValidProvider\(serviceType,\s*r\.provider\)/)
   assert.match(ai, /isValidProvider\(row\.serviceType as ServiceType,\s*row\.provider\)/)
 
   assert.match(route, /isValidProvider/)
   assert.match(route, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
   assert.match(route, /isValidProvider\(serviceType,\s*provider\)/)
+  // i18n: user-facing — asserts the kept zh error string
   assert.match(route, /不支持的 service_type\/provider/)
 })
 
@@ -82,10 +84,12 @@ test('AI config routes reject unsupported service/provider pairs in create, test
 
   assert.match(createRoute, /if \(!body\.service_type \|\| !body\.provider\)/)
   assert.match(createRoute, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
+  // i18n: user-facing — asserts the kept zh error string
   assert.match(createRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(testRoute, /if \(!body\.service_type \|\| !body\.provider \|\| !body\.base_url\)/)
   assert.match(testRoute, /isValidProvider\(body\.service_type,\s*body\.provider\)/)
+  // i18n: user-facing — asserts the kept zh error string
   assert.match(testRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 
   assert.match(updateRoute, /const serviceType = 'service_type' in body \? body\.service_type : existing\.serviceType/)
@@ -93,6 +97,7 @@ test('AI config routes reject unsupported service/provider pairs in create, test
   assert.doesNotMatch(updateRoute, /body\.service_type \|\| existing\.serviceType/)
   assert.doesNotMatch(updateRoute, /body\.provider \|\| existing\.provider/)
   assert.match(updateRoute, /isValidProvider\(serviceType,\s*provider\)/)
+  // i18n: user-facing — asserts the kept zh error string
   assert.match(updateRoute, /badRequest\(c,\s*'不支持的 service_type\/provider'\)/)
 })
 
@@ -180,13 +185,13 @@ test('new image and video models use their current API shapes', () => {
   assert.match(geminiImage, /response_format/)
   assert.doesNotMatch(geminiImage, /Authorization': `Bearer/)
   assert.match(volcVideo, /doubao-seedance-2-0-mini-260615/)
-  // Seedance 2.0 多模态能力
+  // Seedance 2.0 multimodal capabilities
   assert.match(volcVideo, /SEEDANCE2_MODEL_PREFIX/)
   assert.match(volcVideo, /startsWith\(SEEDANCE2_MODEL_PREFIX\)/)
   assert.match(volcVideo, /reference_video/)
   assert.match(volcVideo, /reference_audio/)
   assert.match(volcVideo, /generate_audio:\s*record\.generateAudio/)
-  // Wan 3.0 使用阿里云百炼官方异步视频生成协议
+  // Wan 3.0 uses Aliyun Bailian's official async video-generation protocol
   assert.match(wanVideo, /wan3\.0-video-prime/)
   assert.match(wanVideo, /wan3\.0-video/)
   assert.match(wanVideo, /\/services\/aigc\/video-generation\/video-synthesis/)

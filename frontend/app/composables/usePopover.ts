@@ -1,13 +1,14 @@
 /**
- * usePopover — 全站统一的浮层定位与生命周期
+ * usePopover — app-wide unified popover positioning and lifecycle
  *
- * 行为规范（所有下拉/菜单强制一致）：
- * - 定位：fixed + getBoundingClientRect，水平按 placement 对齐并钳制视口，
- *   下方空间不足且上方更大时翻转到上方
- * - 滚动（面板自身滚动除外）/ resize → 关闭
- * - Escape → 关闭并把焦点还回触发器
- * - pointerdown outside → 关闭（点击继续生效，不用 backdrop 元素：
- *   backdrop 会盖住触发器导致点触发器关不掉，且要成对维护 z-index）
+ * Behavior contract (enforced identically for all dropdowns/menus):
+ * - positioning: fixed + getBoundingClientRect, aligned horizontally per placement and
+ *   clamped to the viewport; flips above when space below is insufficient and above is larger
+ * - scroll (except the panel's own scrolling) / resize → close
+ * - Escape → close and return focus to the trigger
+ * - pointerdown outside → close (the click still lands; no backdrop element: a backdrop
+ *   covers the trigger so clicking it can't close the popover, and z-index would need
+ *   pair-maintaining)
  */
 import { ref, watch, nextTick, onBeforeUnmount, type CSSProperties, type Ref } from 'vue'
 
@@ -62,7 +63,7 @@ export function usePopover(opts: PopoverOptions = {}): PopoverReturn {
       maxHeight: `${maxHeight}px`,
     }
 
-    // 面板渲染后测真实高度，下方不够且上方更大则翻转
+    // measure the real height after render; flip when below is insufficient and above is larger
     await nextTick()
     const h = panelEl.value?.offsetHeight ?? 0
     const below = window.innerHeight - rect.bottom - margin

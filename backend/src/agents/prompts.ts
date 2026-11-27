@@ -1,12 +1,12 @@
 /**
- * Agent prompt 文件加载 — workspace/prompts/<agent_type>.md
- * 文件格式（参照 SKILL.md 惯例）：
+ * Agent prompt file loader — workspace/prompts/<agent_type>.md
+ * File format (following the SKILL.md convention):
  *   ---
- *   name: 分镜拆解
- *   model: ""        # 可选，覆盖文本模型；空 = 用 AI 服务默认
+ *   name: Storyboard Breakdown
+ *   model: ""        # optional, overrides the text model; empty = use the AI service default
  *   ---
- *   <系统提示词正文>
- * 文件即唯一事实来源；文件缺失时由调用方回退到代码默认值。
+ *   <system prompt body>
+ * The file is the single source of truth; when missing, callers fall back to the code defaults.
  */
 import { skillsManagerWorkspace } from './skills.js'
 
@@ -17,11 +17,11 @@ export interface AgentPromptFile {
 }
 
 const fsm = () => skillsManagerWorkspace.filesystem!
-/** prompt 文件路径；lang 为 en/ja/ko 时返回语言变体（<type>.<lang>.md），zh/空为基础版 */
+/** Prompt file path; when lang is en/ja/ko returns the language variant (<type>.<lang>.md), zh/empty returns the base version */
 export const promptFilePath = (agentType: string, lang?: string | null) =>
   `prompts/${agentType}${lang && lang !== 'zh' ? `.${lang}` : ''}.md`
 
-/** 解析 prompt 文件（frontmatter 仅支持 name/model 两个标量字段，无需 yaml 依赖） */
+/** Parses a prompt file (frontmatter supports only the two scalar fields name/model, no yaml dependency) */
 export function parsePromptFile(raw: string): AgentPromptFile {
   const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/)
   let name = ''
@@ -40,12 +40,12 @@ export function parsePromptFile(raw: string): AgentPromptFile {
   return { name, model, instructions: body.trim() }
 }
 
-/** 序列化为 prompt 文件内容（供保存接口使用） */
+/** Serializes to prompt file content (used by the save endpoint) */
 export function serializePromptFile(file: AgentPromptFile): string {
   return `---\nname: ${file.name}\nmodel: "${file.model}"\n---\n\n${file.instructions.trim()}\n`
 }
 
-/** 读取指定路径的 prompt 文件；文件不存在或解析失败返回 null */
+/** Reads the prompt file at the given path; returns null when missing or unparseable */
 async function readPromptFile(path: string): Promise<AgentPromptFile | null> {
   try {
     if (!await fsm().exists(path)) return null
@@ -57,14 +57,15 @@ async function readPromptFile(path: string): Promise<AgentPromptFile | null> {
   }
 }
 
-/** 读取基础版（中文）prompt 文件 — model 字段永远只从基础版解析，避免多语言文件漂移 */
+/** Reads the base (Chinese) prompt file — the model field is always parsed from the base version only, avoiding multi-language file drift */
 export function loadBasePromptFile(agentType: string): Promise<AgentPromptFile | null> {
   return readPromptFile(promptFilePath(agentType))
 }
 
 /**
- * 读取 Agent 的 prompt 文件；lang 非 zh 时优先语言变体（<type>.<lang>.md），缺失回退基础版。
- * 变体的 model 字段无效：返回时 model 始终取基础版的值。
+ * Reads an Agent's prompt file; when lang is not zh, prefers the language variant (<type>.<lang>.md),
+ * falling back to the base version when missing.
+ * A variant's model field is ignored: the returned model always comes from the base version.
  */
 export async function loadAgentPromptFile(agentType: string, lang?: string | null): Promise<AgentPromptFile | null> {
   const base = await loadBasePromptFile(agentType)

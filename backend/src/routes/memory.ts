@@ -1,5 +1,5 @@
 /**
- * 跨会话记忆路由 — fusion-memory 状态/开关/召回测试
+ * Cross-session memory routes — fusion-memory status/toggle/recall test
  */
 import { Hono } from 'hono'
 import { isMemoryEnabled, setMemoryEnabled } from '../services/app-settings.js'
@@ -22,7 +22,7 @@ app.put('/enabled', async (c) => {
     return success(c, { enabled })
 })
 
-// GET /memory/recall?q=...  召回测试（前端设置页「测试记忆」按钮）
+// GET /memory/recall?q=...  recall test ("Test Memory" button on the settings page)
 app.get('/recall', async (c) => {
     const q = c.req.query('q') || ''
     if (!q.trim()) return success(c, { context: null })

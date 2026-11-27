@@ -1,20 +1,22 @@
 /**
- * MySQL → SQLite 数据导入（启动自动迁移 + CLI 脚本共用核心）
+ * MySQL → SQLite data import (shared core for startup auto-migration + CLI script)
  *
- * 自动迁移触发条件（全部满足）：
- * 1. 未设 MYSQL_AUTO_IMPORT=false
- * 2. 显式配置了 MySQL（DATABASE_URL 或 MYSQL_HOST；纯默认值不触发，避免桌面/新装用户误连）
- * 3. SQLite 业务表为空（style_presets 种子不计）
- * 4. 无完成标记文件 <sqlite>.mysql-imported（导入成功后写入；MySQL 不可达时不写，下次启动重试）
+ * Auto-migration trigger conditions (all must hold):
+ * 1. MYSQL_AUTO_IMPORT is not 'false'
+ * 2. MySQL is explicitly configured (DATABASE_URL or MYSQL_HOST; pure defaults do not trigger,
+ *    avoiding accidental connections for desktop/new installs)
+ * 3. SQLite business tables are empty (style_presets seeds excluded)
+ * 4. No completion marker file <sqlite>.mysql-imported (written on successful import; not written
+ *    when MySQL is unreachable, so the next startup retries)
  *
- * 导入为两段式：先从 MySQL 全量读出到内存，再在单个 SQLite 事务内写入，
- * 任一步失败整体回滚，不留半迁移状态。
+ * Import is two-phase: first read everything from MySQL into memory, then write inside a single
+ * SQLite transaction; any failure rolls back the whole import, leaving no half-migrated state.
  */
 import fs from 'fs'
 import mysql from 'mysql2/promise'
 import type { Database as SqliteDB } from 'better-sqlite3'
 
-/** 依赖序：被引用表先写（SQLite 未开外键时仅为可读性约定，保持导入顺序清晰） */
+/** Dependency order: referenced tables written first (SQLite has no FKs enforced; keeps the import order readable) */
 export const MIGRATE_TABLES = [
   'dramas',
   'characters',
@@ -35,7 +37,7 @@ export const MIGRATE_TABLES = [
   'assets',
 ]
 
-/** MySQL 行 → SQLite 可绑定值（boolean→0/1，undefined→null） */
+/** MySQL row → SQLite bindable value (boolean→0/1, undefined→null) */
 export function sanitize(v: unknown): string | number | bigint | null {
   if (v === undefined || v === null) return null
   if (typeof v === 'boolean') return v ? 1 : 0
@@ -45,8 +47,9 @@ export function sanitize(v: unknown): string | number | bigint | null {
 }
 
 /**
- * 仅在显式配置 MySQL 时返回连接串（DATABASE_URL 或 MYSQL_HOST）。
- * 纯默认值不触发，避免桌面/新装用户误连本机无关 MySQL。
+ * Returns the connection string only when MySQL is explicitly configured (DATABASE_URL or MYSQL_HOST).
+ * Pure defaults never trigger, avoiding accidental connections to an unrelated local MySQL for
+ * desktop/new installs.
  */
 export function mysqlUrlFromEnv(): string | null {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL
@@ -59,7 +62,7 @@ export function mysqlUrlFromEnv(): string | null {
   return `mysql://${user}:${password}@${host}:${port}/${database}`
 }
 
-/** SQLite 业务表是否为空（style_presets 启动种子不计） */
+/** Whether the SQLite business tables are empty (style_presets startup seeds excluded) */
 export function sqliteBusinessRowCount(sqlite: SqliteDB): number {
   return MIGRATE_TABLES
     .filter(t => t !== 'style_presets')
@@ -70,21 +73,22 @@ export function sqliteBusinessRowCount(sqlite: SqliteDB): number {
 }
 
 /**
- * 两段式导入：先全量读出，再单事务写入；行数不一致抛错（事务随之回滚）。
+ * Two-phase import: read everything first, then write in a single transaction; a row-count
+ * mismatch throws (rolling back the transaction).
  */
 export async function importMysqlData(
   pool: mysql.Pool,
   sqlite: SqliteDB,
   log: (msg: string) => void = console.log,
 ): Promise<{ totalSrc: number; totalDst: number }> {
-  // 第一段：读出
+  // Phase 1: read out
   const dump: Record<string, Record<string, unknown>[]> = {}
   for (const table of MIGRATE_TABLES) {
     const [rows] = await pool.query(`SELECT * FROM \`${table}\``)
     dump[table] = rows as Record<string, unknown>[]
   }
 
-  // 第二段：单事务写入
+  // Phase 2: write in a single transaction
   let totalSrc = 0
   let totalDst = 0
   const mismatch: string[] = []
@@ -94,7 +98,7 @@ export async function importMysqlData(
       const data = dump[table]
       const columns = data.length ? Object.keys(data[0]) : null
 
-      // 导入前清空目标表：style_presets 的初始化种子会撞 UNIQUE(value)；重复执行保持幂等
+      // Clear the target table before import: style_presets initial seeds would collide on UNIQUE(value); repeat runs stay idempotent
       if (data.length) {
         sqlite.prepare(`DELETE FROM "${table}"`).run()
       }
@@ -117,13 +121,14 @@ export async function importMysqlData(
   })()
 
   if (mismatch.length) {
-    throw new Error(`行数不一致: ${mismatch.join(', ')}`)
+    throw new Error(`Row count mismatch: ${mismatch.join(', ')}`)
   }
   return { totalSrc, totalDst }
 }
 
 /**
- * 启动时自动迁移（条件见文件头注释）。永不抛出：失败仅告警并回滚，不阻塞服务启动。
+ * Auto-migrate at startup (conditions in the file header comment). Never throws: failures only
+ * warn and roll back, never blocking service startup.
  */
 export async function maybeAutoImportMysql(sqlite: SqliteDB, dbPath: string): Promise<void> {
   const tag = '[mysql-import]'
@@ -135,20 +140,20 @@ export async function maybeAutoImportMysql(sqlite: SqliteDB, dbPath: string): Pr
   const marker = `${dbPath}.mysql-imported`
   if (fs.existsSync(marker)) return
 
-  if (sqliteBusinessRowCount(sqlite) > 0) return // 已有业务数据，静默跳过
+  if (sqliteBusinessRowCount(sqlite) > 0) return // business data already present, skip silently
 
   let pool: mysql.Pool | null = null
   try {
     pool = mysql.createPool({ uri: url, connectionLimit: 4, charset: 'utf8mb4', connectTimeout: 3000 })
     await pool.query('SELECT 1')
   } catch (err) {
-    console.warn(`${tag} 已配置 MySQL 但连接失败（${(err as Error).message}），本次跳过自动迁移，下次启动重试`)
+    console.warn(`${tag} MySQL configured but connection failed (${(err as Error).message}); skipping auto-migration this run, will retry on next startup`)
     await pool?.end().catch(() => {})
     return
   }
 
   try {
-    // MySQL 侧无业务数据 → 写标记，避免每次启动探测
+    // No business data on the MySQL side → write the marker to avoid probing on every startup
     const [rows] = await pool.query('SELECT (SELECT COUNT(*) FROM `dramas`) + (SELECT COUNT(*) FROM `ai_service_configs`) AS n')
     const mysqlRows = Number((rows as { n: number }[])[0]?.n || 0)
     if (mysqlRows === 0) {
@@ -156,19 +161,19 @@ export async function maybeAutoImportMysql(sqlite: SqliteDB, dbPath: string): Pr
       return
     }
 
-    console.log(`${tag} 检测到 MySQL 旧数据（${mysqlRows} 行关键表记录），开始自动迁移到 SQLite…`)
+    console.log(`${tag} detected legacy MySQL data (${mysqlRows} rows in key tables), starting auto-migration to SQLite...`)
     if (fs.existsSync(dbPath)) {
       const backup = `${dbPath}.bak-${Date.now()}`
       fs.copyFileSync(dbPath, backup)
-      console.log(`${tag} 已备份现有库 → ${backup}`)
+      console.log(`${tag} existing database backed up -> ${backup}`)
     }
 
     const { totalSrc, totalDst } = await importMysqlData(pool, sqlite, msg => console.log(`${tag} ${msg}`))
     fs.writeFileSync(marker, `imported ${totalSrc} rows at ${new Date().toISOString()}\n`)
-    console.log(`${tag} 迁移完成 ✓（mysql=${totalSrc} sqlite=${totalDst}）`)
-    console.log(`${tag} 提示：若旧部署的 data/static 媒体文件不在本机，请手动拷贝，否则历史素材将无法访问`)
+    console.log(`${tag} migration complete (mysql=${totalSrc} sqlite=${totalDst})`)
+    console.log(`${tag} note: if the old deployment's data/static media files are not on this machine, copy them manually, otherwise historical assets will be inaccessible`)
   } catch (err) {
-    console.error(`${tag} 自动迁移失败（已回滚，不影响本次启动，下次启动将重试）:`, (err as Error).message)
+    console.error(`${tag} auto-migration failed (rolled back, this startup unaffected, will retry on next startup):`, (err as Error).message)
   } finally {
     await pool.end().catch(() => {})
   }

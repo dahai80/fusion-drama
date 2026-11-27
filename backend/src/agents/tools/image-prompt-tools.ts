@@ -1,12 +1,12 @@
 /**
- * 提示词生成 Agent 工具
- * 模块级单例 — dramaId 通过 RequestContext 按请求注入
+ * Prompt-generator Agent tools
+ * Module-level singletons — dramaId is injected per request via RequestContext
  *
- * Agent 负责创作最终提示词：
- * 1. 角色 → 四视图（character turnaround：正面/45 度侧面/90 度侧面/背面）
- * 2. 场景 → 固定视角 + 前景/中景/后景分层构图
- * 3. 道具 → 白底单品静物（single product shot on pure white background）
- * 工具负责读取资产信息与保存 Agent 产出的最终提示词（保存时注入项目视觉风格）
+ * The Agent authors the final prompts:
+ * 1. Character → four-view turnaround (front / 45° side / 90° side / back)
+ * 2. Scene → fixed camera + foreground/midground/background layered composition
+ * 3. Prop → white-background single-product still life
+ * Tools read asset info and save the Agent's final prompts (project visual style is injected on save)
  */
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
@@ -17,10 +17,11 @@ import { recordPromptHistory } from '../../utils/prompt-history.js'
 import { getDramaStylePrompt } from '../../services/style-preset.js'
 import { getDramaId } from '../context.js'
 
-// ─── 角色提示词 ───────────────────────────────────────
+// ─── Character prompts ───────────────────────────────────────
 
 const readCharacters = createTool({
   id: 'read_characters',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '读取当前剧集中的所有角色信息，用于生成角色四视图最终提示词。',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
@@ -45,10 +46,11 @@ const readCharacters = createTool({
 
 const saveCharacterFinalPrompt = createTool({
   id: 'save_character_final_prompt',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '保存为角色创作的四视图最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     character_id: z.number(),
-    prompt: z.string().describe('角色四视图最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('角色四视图最终提示词（使用会话语言指令指定的目标语言，不含风格词）'), // i18n: user-facing
   }),
   execute: async ({ character_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -73,10 +75,11 @@ const saveCharacterFinalPrompt = createTool({
   },
 })
 
-// ─── 场景提示词 ───────────────────────────────────────
+// ─── Scene prompts ───────────────────────────────────────
 
 const readScenes = createTool({
   id: 'read_scenes',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '读取当前剧集中的所有场景信息，用于生成场景固定视角最终提示词。',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
@@ -100,10 +103,11 @@ const readScenes = createTool({
 
 const saveSceneFinalPrompt = createTool({
   id: 'save_scene_final_prompt',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '保存为场景创作的固定视角（前景/中景/后景）最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     scene_id: z.number(),
-    prompt: z.string().describe('场景固定视角最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('场景固定视角最终提示词（使用会话语言指令指定的目标语言，不含风格词）'), // i18n: user-facing
   }),
   execute: async ({ scene_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
@@ -128,10 +132,11 @@ const saveSceneFinalPrompt = createTool({
   },
 })
 
-// ─── 道具提示词 ───────────────────────────────────────
+// ─── Prop prompts ───────────────────────────────────────
 
 const readProps = createTool({
   id: 'read_props',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '读取当前剧集项目中的所有道具信息，用于生成道具白底单品最终提示词。',
   inputSchema: z.object({}),
   execute: async (_input, context) => {
@@ -154,10 +159,11 @@ const readProps = createTool({
 
 const savePropFinalPrompt = createTool({
   id: 'save_prop_final_prompt',
+  // i18n: user-facing — agent tool description (LLM prompt)
   description: '保存为道具创作的白底单品最终提示词。项目视觉风格会由工具自动拼接，prompt 参数中不要包含风格词。',
   inputSchema: z.object({
     prop_id: z.number(),
-    prompt: z.string().describe('道具白底单品最终提示词（使用会话语言指令指定的目标语言，不含风格词）'),
+    prompt: z.string().describe('道具白底单品最终提示词（使用会话语言指令指定的目标语言，不含风格词）'), // i18n: user-facing
   }),
   execute: async ({ prop_id, prompt }, context) => {
     const dramaId = getDramaId(context?.requestContext)
