@@ -10,35 +10,35 @@ import { runMigrations } from './migrations.js'
 import { maybeAutoImportMysql } from './mysql-import.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// src/db → 上三级为仓库根（与 utils/paths.ts 的推断层级一致）
+// src/db -> three levels up is the repo root (same inference depth as utils/paths.ts)
 const repoRoot = path.resolve(__dirname, '../../..')
 
-// 桌面版由 Electron 主进程注入 SQLITE_PATH（userData 下）；dev 默认仓库根 data/
-// 注意：勿沿用早期遗留 SQLite 库文件名（表名重叠但列不同）
+// Desktop build gets SQLITE_PATH injected by the Electron main process (under userData); dev defaults to data/ at the repo root
+// Note: do not reuse the early legacy SQLite database file name (overlapping table names but different columns)
 export const dbPath = process.env.SQLITE_PATH || path.join(repoRoot, 'data', 'fusion.sqlite3')
 fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
 export const sqlite: Database.Database = new Database(dbPath)
 
-// WAL：生成任务轮询与页面读并发时不互相阻塞；busy_timeout 兜底写锁竞争
+// WAL: generation-task polling and page reads do not block each other under concurrency; busy_timeout backstops write-lock contention
 sqlite.pragma('journal_mode = WAL')
 sqlite.pragma('busy_timeout = 5000')
 sqlite.pragma('synchronous = NORMAL')
 
-/** 启动建表（DDL 幂等重放 + 种子补缺）。SQLite 无连接就绪问题，无需重试 */
+/** Startup schema setup (idempotent DDL replay + seed backfill). SQLite has no connection-readiness issue, no retry needed */
 export function initDb() {
   initSqliteSchema(sqlite)
-  // NFR-OPS-3: user_version 版本化迁移（含 DDL 的迁移前自动备份库文件）
+  // NFR-OPS-3: user_version-based versioned migrations (auto DB-file backup before DDL-changing migrations)
   const applied = runMigrations(sqlite, dbPath)
   if (applied.length > 0) console.log(`[db] schema at v${Number(sqlite.pragma('user_version', { simple: true }) ?? 0)} (${applied.join(', ')})`)
 }
 
 initDb()
 
-// MySQL 老用户一次性自动迁移：仅在显式配置 MySQL + 空库 + 无标记时触发（详见 mysql-import.ts 头注释）
+// One-time automatic migration for legacy MySQL users: triggers only with explicit MySQL config + empty DB + no marker (see mysql-import.ts header)
 await maybeAutoImportMysql(sqlite, dbPath)
 
-/** better-sqlite3 的 lastInsertRowid 可能是 bigint，统一转 number */
+/** better-sqlite3's lastInsertRowid may be a bigint; normalize to number */
 export function getInsertId(result: unknown) {
   const res = result as { lastInsertRowid?: number | bigint } | undefined
   if (res?.lastInsertRowid === undefined || res.lastInsertRowid === null) {

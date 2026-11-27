@@ -1,7 +1,7 @@
 /**
- * FR-P2-4 轮询收敛结构测试：usePolling 统一托管组件内轮询，
- * unmount 自动清理；调用方不得再裸用 setInterval（setTimeout 递归
- * 自终止 tick 不受限）。断言源码文本模式。
+ * FR-P2-4 polling consolidation structure test: usePolling centrally manages in-component
+ * polling with automatic cleanup on unmount; callers must no longer use bare setInterval
+ * (self-terminating recursive setTimeout ticks are unrestricted). Asserts source text patterns.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

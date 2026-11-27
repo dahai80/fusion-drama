@@ -1,15 +1,21 @@
 /**
- * AI 内容语言指令块 — 按 RequestContext 中的目标语言生成，追加到 Agent instructions 末尾
+ * AI content language directive block — generated from the target language in
+ * RequestContext and appended to the end of agent instructions
  *
- * 设计要点：
- * - zh / 未设置时返回空串：默认行为与历史完全一致，零 token 开销
- * - 指令用英文书写（多语言模型遵循度最好），目标语言用原生名标注
- * - 必须自带「最高优先级」声明：桌面版已安装用户的 workspace 模板不会被覆盖
- *   （cpSync force:false），旧 SKILL.md 中的「只输出中文」约束只能靠这里的显式覆盖压制
+ * Design notes:
+ * - Returns an empty string for zh / unset: default behavior stays identical
+ *   to history, zero token overhead
+ * - The directive is written in English (best instruction-following across
+ *   multilingual models); the target language is labeled with its native name
+ * - Must carry its own "highest priority" clause: workspace templates of
+ *   installed desktop users are never overwritten (cpSync force:false), so the
+ *   "output Chinese only" constraint in old SKILL.md files can only be
+ *   suppressed by this explicit override
  */
 
 const LANGUAGE_NATIVE_NAMES: Record<string, string> = {
   en: 'English',
+  // i18n: user-facing — native language names used inside the model directive
   ja: '日本語 (Japanese)',
   ko: '한국어 (Korean)',
 }
@@ -22,6 +28,7 @@ export function buildLanguageDirective(lang?: string | null): string {
     '',
     `ALL user-facing content you produce (scripts, dialogue, extracted fields, storyboard descriptions, atmosphere, image prompts, video prompts, asset names for NEW assets) MUST be written in ${native}.`,
     '',
+    // i18n: user-facing — quotes the legacy Chinese-only constraint text that must be matched verbatim
     'This instruction has the highest priority and OVERRIDES any conflicting language requirement anywhere else in these instructions or skills — including requirements such as "output must be pure Chinese / 只输出中文". Ignore those.',
     '',
     'Exceptions:',

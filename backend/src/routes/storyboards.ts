@@ -62,16 +62,19 @@ async function validateStoryboardBindings(episodeId: number, sceneId: number | n
   const episodePropIds = new Set(propLinks.map(link => link.propId))
 
   if (sceneId != null && !episodeSceneIds.has(sceneId)) {
+    // i18n: user-facing
     throw new Error('scene_id 必须来自当前集已关联场景')
   }
 
   const invalidCharacterIds = (characterIds || []).filter(id => !episodeCharacterIds.has(id))
   if (invalidCharacterIds.length) {
+    // i18n: user-facing
     throw new Error('character_ids 必须来自当前集已关联角色')
   }
 
   const invalidPropIds = (propIds || []).filter(id => !episodePropIds.has(id))
   if (invalidPropIds.length) {
+    // i18n: user-facing
     throw new Error('prop_ids 必须来自当前集已关联道具')
   }
 }
@@ -114,11 +117,13 @@ app.post('/', async (c) => {
   })
 })
 
-// PUT /storyboards/layout — 画布批量保存节点坐标（拖拽结束一次提交，避免 N 次串行 PUT）
-// 必须注册在 /:id 之前，否则 'layout' 会被当作 id 解析
+// PUT /storyboards/layout — batch-save canvas node coordinates (one submit at drag end,
+// avoiding N serial PUTs)
+// Must be registered before /:id, otherwise 'layout' would be parsed as an id
 app.put('/layout', async (c) => {
   const body = await c.req.json()
   const items: Array<{ id: number; canvas_x: number; canvas_y: number }> = Array.isArray(body?.items) ? body.items : []
+  // i18n: user-facing
   if (!items.length) return badRequest(c, 'items 不能为空')
   const ts = now()
   let updated = 0
@@ -142,6 +147,7 @@ app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [storyboard] = await db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id))
+  // i18n: user-facing
   if (!storyboard) return badRequest(c, '镜头不存在')
   logTaskStart('StoryboardAPI', 'update', {
     storyboardId: id,

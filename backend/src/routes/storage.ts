@@ -1,9 +1,10 @@
 /**
- * 存储位置信息路由 — 设置页「存储位置」卡片数据源
+ * Storage location info routes — data source for the "Storage" card on the settings page
  *
- * GET / → 当前模式(desktop/server)、目录路径、磁盘占用（分桶）与剩余空间。
- * 占用计算较重（全目录 walk）：内存缓存 60s TTL + stale-while-revalidate，
- * 过期时立即返回旧值并后台单飞重算（computing 防并发）；首次无值才同步等待。
+ * GET / → current mode (desktop/server), directory paths, disk usage (bucketed) and free space.
+ * Usage computation is heavy (full directory walk): in-memory cache with 60s TTL + stale-while-revalidate.
+ * When expired, the old value is returned immediately and a single background recompute is kicked off
+ * (computing flag prevents concurrency); only the very first call with no value waits synchronously.
  */
 import { Hono } from 'hono'
 import { spawn } from 'child_process'
@@ -37,7 +38,7 @@ async function computeUsage() {
   }
 }
 
-// 启动 10s 后后台预热一次，用户进设置页时大概率已命中缓存
+// Warm up once in the background 10s after startup so users opening the settings page mostly hit the cache
 const warmup = setTimeout(() => { void computeUsage() }, 10_000)
 warmup.unref?.()
 
@@ -46,11 +47,11 @@ app.get('/', async (c) => {
   let usageStale = false
   if (!fresh) {
     if (cache.usage) {
-      // stale-while-revalidate：先回旧值，后台重算
+      // stale-while-revalidate: return the old value first, recompute in the background
       usageStale = true
       void computeUsage()
     } else {
-      // 首次无值，同步等待首算（保证进入页面必有数据）
+      // First call with no value: wait synchronously for the initial computation (guarantees data on page entry)
       await computeUsage()
     }
   }
@@ -68,7 +69,7 @@ app.get('/', async (c) => {
   })
 })
 
-// ===== FR-BIZ-6 服务器版 DB 备份（桌面版恢复/迁移走主进程 migration 桥）=====
+// ===== FR-BIZ-6 server DB backup (desktop restore/migration goes through the main-process migration bridge) =====
 
 const MAX_BACKUPS = 10
 
@@ -76,21 +77,22 @@ function backupDir(): string {
   return path.join(path.dirname(dbPath), 'backups')
 }
 
-/** 立即备份（FR-BIZ-6/NFR-DATA-3）：DB 快照 + storage 目录打包 tar.gz（保留最近 10 份） */
+/** Backup now (FR-BIZ-6/NFR-DATA-3): DB snapshot + storage directory packed as tar.gz (keeps the last 10) */
 app.post('/backup', async (c) => {
   const dir = backupDir()
   fs.mkdirSync(dir, { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  // 步骤 1：VACUUM INTO 快照（WAL 一致性由 SQLite 保证）——快照文件同时是
-  // 步骤 2 tar 的输入，备份失败时留 .sqlite 单库快照兜底（仍是可用备份）
+  // Step 1: VACUUM INTO snapshot (WAL consistency guaranteed by SQLite) — the snapshot file is
+  // also the input for the step-2 tar; if the backup fails, the .sqlite single-file snapshot is
+  // kept as a fallback (still a usable backup)
   const snap = path.join(dir, `manual-${stamp}.sqlite`)
   try {
     sqlite.prepare(`VACUUM INTO '${snap.replace(/'/g, "''")}'`).run()
   } catch (err: any) {
     console.error('[storage] backup snapshot failed:', err?.message)
-    return badRequest(c, `备份失败：${err?.message || '数据库快照写入异常'}`)
+    return badRequest(c, `Backup failed: ${err?.message || 'database snapshot write error'}`)
   }
-  // 步骤 2：DB + static/ 打包 tar.gz（换机恢复=解压 + 按目录摆回，见 README）
+  // Step 2: pack DB + static/ as tar.gz (machine-migration restore = extract + put directories back in place, see README)
   const bundle = path.join(dir, `bundle-${stamp}.tar.gz`)
   const packed = await new Promise<boolean>(resolve => {
     const tar = spawn('tar', ['-czf', bundle, '-C', path.dirname(snap), path.basename(snap), '-C', path.dirname(STORAGE_ROOT), path.basename(STORAGE_ROOT)])
@@ -98,14 +100,14 @@ app.post('/backup', async (c) => {
     tar.on('close', (code) => resolve(code === 0))
   })
   if (packed) {
-    // 全量包成功：单库快照已完成使命，删除避免双份占用
+    // Full bundle succeeded: the single-file snapshot has served its purpose; delete it to avoid double storage
     fs.rmSync(snap, { force: true })
     pruneOldBackups(dir)
     const size = fs.statSync(bundle).size
     console.log(`[storage] manual backup created: ${path.basename(bundle)} (${size} bytes)`)
     return success(c, { file: path.basename(bundle), size, includes: ['database', 'static'] })
   }
-  // tar 不可用（极端精简镜像）：退化为仅 DB 快照，功能可用但不含静态文件
+  // tar unavailable (extremely minimal images): degrade to DB snapshot only — functional but without static files
   pruneOldBackups(dir)
   console.warn(`[storage] tar unavailable, DB-only backup kept: ${path.basename(snap)}`)
   return success(c, { file: path.basename(snap), size: fs.statSync(snap).size, includes: ['database'] })
@@ -116,10 +118,10 @@ app.get('/backups', (c) => {
   let files: string[] = []
   try {
     files = fs.readdirSync(dir).filter(f => f.endsWith('.sqlite') || f.endsWith('.tar.gz')).sort().reverse()
-  } catch { /* 目录不存在 = 无备份 */ }
+  } catch { /* directory missing = no backups */ }
   const items = files.map(f => {
     let size = 0
-    try { size = fs.statSync(path.join(dir, f)).size } catch { /* 文件被清理 */ }
+    try { size = fs.statSync(path.join(dir, f)).size } catch { /* file cleaned up */ }
     return { file: f, size }
   })
   return success(c, items)
@@ -132,7 +134,7 @@ function pruneOldBackups(dir: string) {
       const oldest = files.shift()
       if (oldest) fs.rmSync(path.join(dir, oldest), { force: true })
     }
-  } catch { /* 清理失败不阻断 */ }
+  } catch { /* prune failure is non-blocking */ }
 }
 
 export default app

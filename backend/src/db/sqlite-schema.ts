@@ -1,8 +1,8 @@
 /**
- * SQLite 启动建表 DDL + 种子数据（自 mysql-schema.ts 翻译）
- * - AUTO_INCREMENT → AUTOINCREMENT；删除 ENGINE/CHARSET；TINYINT(1) → INTEGER
- * - MySQL 内联 INDEX 拆为独立 CREATE INDEX IF NOT EXISTS
- * - 种子语句去掉 FROM DUAL（SQLite 非法），幂等语义（WHERE NOT EXISTS）保留
+ * SQLite startup DDL + seed data (translated from mysql-schema.ts)
+ * - AUTO_INCREMENT → AUTOINCREMENT; ENGINE/CHARSET dropped; TINYINT(1) → INTEGER
+ * - MySQL inline INDEX split into standalone CREATE INDEX IF NOT EXISTS
+ * - Seed statements drop FROM DUAL (invalid in SQLite); idempotent semantics (WHERE NOT EXISTS) preserved
  */
 import type Database from 'better-sqlite3'
 
@@ -312,14 +312,14 @@ export const sqliteSchemaStatements = [
     deleted_at TEXT
   )`,
 
-  // 应用级全局设置（key-value，如 AI 内容语言 content_language）
+  // App-level global settings (key-value, e.g. AI content language content_language)
   `CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
 
-  // 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，node:vm 沙箱热注册）
+  // Programmable providers: user-defined image/video adapters (JS code stored in DB, hot-registered in a node:vm sandbox)
   `CREATE TABLE IF NOT EXISTS custom_providers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -330,7 +330,7 @@ export const sqliteSchemaStatements = [
     updated_at TEXT NOT NULL
   )`,
 
-  // ONNX RAG：剧本/角色/场景/道具向量化索引（bge-small-zh CPU 嵌入，top-k 注入 Agent）
+  // ONNX RAG: vectorized index over scripts/characters/scenes/props (bge-small-zh CPU embeddings, top-k injected into agents)
   `CREATE TABLE IF NOT EXISTS rag_chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     drama_id INTEGER NOT NULL,
@@ -356,57 +356,77 @@ export const sqliteSchemaStatements = [
 ]
 
 /**
- * 风格预设种子数据 — value 存入 dramas.style，prompt 注入生图提示词（作为前缀拼接）
+ * Style preset seed data — value is stored into dramas.style, prompt is injected into
+ * image-generation prompts (prepended)
  *
- * prompt 统一按多维结构书写，保证跨模型/跨镜头的风格控制力：
- *   核心媒介与渲染 → 线条/造型 → 上色/材质 → 光影 → 色彩调性 → 背景处理 → 画质锚点 → avoid 禁忌项
+ * Prompts follow a uniform multi-dimensional structure for consistent style control
+ * across models/shots:
+ *   core medium & render → line/shape → color/material → lighting → color tone →
+ *   background treatment → quality anchors → avoid list
  */
 export const stylePresetSeeds = [
   {
+    // i18n: user-facing
     name: '3D 漫剧', value: '3d', sortOrder: 1,
     prompt: 'high-quality 3D CG animation still, modern game-engine cinematic render, Unreal Engine and Pixar grade quality, semi-realistic stylized characters with refined facial features, clean sculpted anatomy, detailed skin shader with subtle subsurface scattering, PBR materials with crisp detailed textures, volumetric cinematic lighting with soft rim light, rich depth of field, polished film color grading, detailed environment art, sharp focus, consistent character design across shots, avoid flat lighting, avoid plastic waxy skin, avoid low-poly blurry look, avoid 2D flat cel shading, avoid anime line art',
+    // i18n: user-facing
     description: '游戏引擎级 3D 渲染，半写实角色，当前短剧主流的 3D 漫剧质感',
   },
   {
+    // i18n: user-facing
     name: '日漫赛璐璐', value: 'anime', sortOrder: 2,
     prompt: 'Japanese TV anime style, clean cel shading with hard-edged shadow shapes, crisp uniform black line art, vivid saturated color palette, expressive large-eyed character design with on-model proportions, detailed hand-painted anime backgrounds, dramatic anime key lighting with screentone highlights, key-visual poster quality, consistent character design across shots, avoid 3D CGI look, avoid painterly soft blending, avoid watercolor texture, avoid photorealism, avoid thick western comic outlines',
+    // i18n: user-facing
     description: '日式赛璐璐动画风格',
   },
   {
+    // i18n: user-facing
     name: '吉卜力手绘', value: 'ghibli', sortOrder: 3,
     prompt: 'Studio Ghibli hand-drawn animation style, soft painterly brushwork with organic hand-crafted line quality, lush warm watercolor painted backgrounds, gentle natural daylight with nostalgic warm glow, muted earthy natural color palette, whimsical cozy storybook atmosphere, subtle film-grain softness, theatrical background art quality, consistent character design across shots, avoid hard cel shading, avoid 3D render look, avoid neon over-saturated colors, avoid sharp digital edges, avoid photorealism',
+    // i18n: user-facing
     description: '吉卜力手绘治愈风',
   },
   {
+    // i18n: user-facing
     name: '水彩绘本', value: 'watercolor', sortOrder: 4,
     prompt: 'delicate watercolor storybook illustration, soft translucent color washes, visible cold-press paper texture, fluid hand-painted brushstrokes with gentle pigment bleeds, light airy atmosphere, harmonious pastel palette, whimsical children book charm, loose expressive edges, consistent character design across shots, avoid bold black outlines, avoid digital airbrush look, avoid harsh contrast, avoid 3D rendering, avoid photorealism',
+    // i18n: user-facing
     description: '水彩插画质感',
   },
   {
+    // i18n: user-facing
     name: '美式漫画', value: 'comic', sortOrder: 5,
     prompt: 'Western graphic-novel comic book style, bold confident black ink outlines, halftone dot shading and screentone gradients, dynamic saturated colors with dramatic contrast, dramatic spotlight lighting, flat graphic print look, sharp inking details, dynamic cinematic composition, consistent character design across shots, avoid painterly soft blending, avoid watercolor washes, avoid photorealistic rendering, avoid 3D CGI look, avoid anime cel shading',
+    // i18n: user-facing
     description: '美式漫画粗线条风格',
   },
   {
+    // i18n: user-facing
     name: '国风 2.5D', value: 'guofeng', sortOrder: 7,
     prompt: 'Chinese guofeng 2.5D illustration style, semi-realistic donghua-quality character art, elegant flowing line work, rich traditional Chinese aesthetic elements, layered ink-wash inspired atmospheric backgrounds, refined silk and fabric textures, soft luminous lighting with gentle haze, sophisticated muted jewel-tone palette, xianxia drama poster quality, consistent character design across shots, avoid flat cel shading, avoid western comic ink style, avoid photorealism, avoid plastic 3D look, avoid modern clothing and props unless specified',
+    // i18n: user-facing
     description: '国风动画/仙侠剧质感，2.5D 半写实',
   },
   {
+    // i18n: user-facing
     name: '韩系网漫', value: 'webtoon', sortOrder: 8,
     prompt: 'Korean webtoon manhwa style, clean digital painting with soft gradient shading, slim elegant character proportions, large expressive eyes with detailed highlights, soft glowing skin rendering, romantic dreamy lighting, modern pastel-to-vivid color palette, detailed fashion and fabric rendering, webtoon key visual quality, consistent character design across shots, avoid heavy black ink outlines, avoid halftone dots, avoid 3D render look, avoid watercolor paper texture, avoid chibi proportions',
+    // i18n: user-facing
     description: '韩国条漫/网漫精致上色风',
   },
   {
+    // i18n: user-facing
     name: '黑白漫画', value: 'noir', sortOrder: 9,
     prompt: 'black and white manga illustration, high-contrast monochrome ink work, dynamic hatching and cross-hatching shading, bold solid blacks with dramatic negative space, screentone gray gradation, expressive confident ink linework, cinematic noir lighting, professional manga page quality, consistent character design across shots, strictly no color, avoid grayscale blur smudging, avoid painterly soft edges, avoid photorealism, avoid 3D render look',
+    // i18n: user-facing
     description: '黑白漫/ Noir 高对比墨水风',
   },
 ]
 
 /**
- * 旧版种子 prompt（v1 一句话风格描述）— 用于内容寻址升级：
- * 仅当库中行的 prompt 仍等于旧种子值（未被用户在设置页编辑过）才覆盖为新 prompt
+ * Legacy seed prompts (v1 one-line style descriptions) — used for content-addressed upgrade:
+ * a row's prompt is only overwritten with the new prompt when it still equals the legacy
+ * seed value (i.e. the user never edited it on the settings page)
  */
 const LEGACY_SEED_PROMPTS: Record<string, string> = {
   '3d': '3D CG animation style, game-engine quality render, semi-realistic stylized characters, refined facial features, detailed materials and textures, cinematic lighting, high detail',
@@ -417,42 +437,47 @@ const LEGACY_SEED_PROMPTS: Record<string, string> = {
 }
 
 /**
- * 已下架的种子预设 — 内容寻址删除：仅当库中行的 prompt 仍是种子原文
- * （未被用户编辑过）才删除；用户改过的同名行视为用户数据保留。
- * live（真人写实）：真人影像过不了平台真人内容审核，下架。
+ * Delisted seed presets — content-addressed removal: a row is deleted only when its prompt
+ * still equals the original seed text (never edited by the user); rows the user modified
+ * with the same value are treated as user data and kept.
+ * live (photorealistic): real-person imagery fails platform real-person content moderation, delisted.
  */
 const REMOVED_SEED_PROMPTS: Record<string, string> = {
   live: 'ultra-realistic cinematic live-action look, professional film photography, natural skin tones with detailed pores and realistic texture, true human anatomy and proportions, shallow depth of field with creamy bokeh, cinematic three-point lighting, subtle film grain, 35mm lens cinematic framing, true-to-life color grading, detailed real-world environments, consistent actor appearance across shots, avoid cartoon or anime features, avoid 3D render look, avoid illustration style, avoid plastic waxy skin, avoid over-smoothing beauty filter',
 }
 
-// INSERT ... SELECT WHERE NOT EXISTS → 幂等：只补缺失行，不覆盖用户编辑
-// （SQLite 无 FROM DUAL，无 FROM 的 SELECT 合法）
+// INSERT ... SELECT WHERE NOT EXISTS → idempotent: only fills missing rows, never overwrites user edits
+// (SQLite has no FROM DUAL; a SELECT without FROM is legal)
 const SEED_SQL = 'INSERT INTO style_presets ("name", "value", "prompt", "description", "sort_order", "is_active", "created_at", "updated_at") SELECT ?, ?, ?, ?, ?, 1, ?, ? WHERE NOT EXISTS (SELECT 1 FROM style_presets WHERE value = ?)'
-// 内容寻址升级：命中旧种子原文才更新（用户在设置页改过的行不动）
+// Content-addressed upgrade: update only when the legacy seed text matches (rows the user
+// edited on the settings page are left untouched)
 const UPGRADE_SQL = 'UPDATE style_presets SET "name" = ?, "prompt" = ?, "description" = ?, "sort_order" = ?, "updated_at" = ? WHERE "value" = ? AND "prompt" = ?'
-// 内容寻址下架：命中下架种子原文才删除
+// Content-addressed delisting: delete only when the delisted seed text matches
 const REMOVE_SQL = 'DELETE FROM style_presets WHERE "value" = ? AND "prompt" = ?'
 
 export function initSqliteSchema(sqlite: Database.Database) {
   for (const statement of sqliteSchemaStatements) {
     sqlite.exec(statement)
   }
-  // 增量迁移：sys_task.episode_id（提取/资产类任务按集归属，聚合面板可见）
+  // Incremental migration: sys_task.episode_id (extraction/asset tasks belong to an episode, visible in aggregate panels)
   const taskCols = sqlite.prepare(`PRAGMA table_info(sys_task)`).all() as { name: string }[]
   if (taskCols.length && !taskCols.some(c => c.name === 'episode_id')) {
     sqlite.exec(`ALTER TABLE sys_task ADD COLUMN episode_id INTEGER`)
-    console.log('🧩 sys_task 已补 episode_id 列')
+    console.log('🧩 sys_task: added missing episode_id column')
   }
-  // 增量迁移：characters.voice（角色固定音色，TTS 配音跨镜头/跨集一致；
-  // 空值由 video-dub 按角色名 hash 轮换取当前 TTS 模型的音色表兜底）
+  // Incremental migration: characters.voice (fixed voice per character, keeps TTS dubbing consistent
+  // across shots/episodes; when empty, video-dub falls back to hashing the character name into the
+  // current TTS model's voice table)
   const charCols = sqlite.prepare(`PRAGMA table_info(characters)`).all() as { name: string }[]
   if (charCols.length && !charCols.some(c => c.name === 'voice')) {
     sqlite.exec(`ALTER TABLE characters ADD COLUMN voice TEXT`)
-    console.log('🧩 characters 已补 voice 列')
+    console.log('🧩 characters: added missing voice column')
   }
-  // B28/B29: 高频过滤列补索引（幂等）。episodes 唯一索引防重复集号：
-  // 前端"新建剧集"双击会插两行同号 episode（B22），唯一索引是最后防线。
-  // 已有重复数据的旧库创建会失败——捕获后跳过，不阻断启动。
+  // B28/B29: add indexes on high-frequency filter columns (idempotent). The unique index on
+  // episodes guards against duplicate episode numbers: a double-click on the frontend "new
+  // episode" button can insert two same-numbered episode rows (B22); the unique index is the
+  // last line of defense. Creating it fails on legacy DBs that already contain duplicates —
+  // catch and skip, do not block startup.
   for (const stmt of [
     `CREATE INDEX IF NOT EXISTS idx_sys_task_episode_id ON sys_task (episode_id)`,
     `CREATE INDEX IF NOT EXISTS idx_sys_task_status ON sys_task (status)`,
@@ -467,7 +492,7 @@ export function initSqliteSchema(sqlite: Database.Database) {
     try {
       sqlite.exec(stmt)
     } catch (err: any) {
-      console.warn(`⚠️ 索引创建跳过: ${err?.message}`)
+      console.warn(`⚠️ index creation skipped: ${err?.message}`)
     }
   }
   const insertSeed = sqlite.prepare(SEED_SQL)
@@ -479,11 +504,11 @@ export function initSqliteSchema(sqlite: Database.Database) {
     const legacyPrompt = LEGACY_SEED_PROMPTS[s.value]
     if (legacyPrompt) {
       const res = upgradeSeed.run(s.name, s.prompt, s.description, s.sortOrder, ts, s.value, legacyPrompt)
-      if (res.changes > 0) console.log(`🎨 风格预设「${s.name}」已升级为结构化提示词`)
+      if (res.changes > 0) console.log(`🎨 style preset "${s.name}" upgraded to structured prompt`)
     }
   }
   for (const [value, prompt] of Object.entries(REMOVED_SEED_PROMPTS)) {
     const res = removeSeed.run(value, prompt)
-    if (res.changes > 0) console.log(`🗑️ 风格预设「${value}」已下架`)
+    if (res.changes > 0) console.log(`🗑️ style preset "${value}" delisted`)
   }
 }

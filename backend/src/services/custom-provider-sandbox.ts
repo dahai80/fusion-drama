@@ -1,9 +1,9 @@
 /**
- * 可编程 Provider 沙箱 — node:vm 求值用户自定义适配器代码
+ * Programmable provider sandbox — evaluates user-defined adapter code via node:vm
  *
- * 纯模块（无 DB 依赖）：求值 / 校验 / 方法包装。DB 读写与缓存见 custom-providers.ts。
- * 沙箱限制：无 require/process/fs/Buffer/global；提供 console/fetch/URL/URLSearchParams。
- * 模块求值同步执行带 5s 超时熔断；适配器方法在生成管线中按需调用。
+ * Pure module (no DB dependency): evaluation / validation / method wrapping. DB read/write and caching live in custom-providers.ts.
+ * Sandbox limits: no require/process/fs/Buffer/global; provides console/fetch/URL/URLSearchParams.
+ * Module evaluation runs synchronously with a 5s timeout circuit breaker; adapter methods are called on demand in the generation pipeline.
  *
  * Audit 1107 F-9 trust statement: node:vm is NOT a security boundary. Host-realm
  * values reachable from user code (e.g. an object's .constructor.constructor)
@@ -19,13 +19,13 @@ const EVAL_TIMEOUT_MS = 5000
 /** Audit 1107 F-9: cap adapter source size — a 50MB "adapter" is abuse, not code */
 const MAX_CODE_BYTES = 256 * 1024
 
-/** 适配器必须导出的方法集合（与 adapters/types.ts 接口一一对应） */
+/** Method set every adapter must export (maps 1:1 to the adapters/types.ts interfaces) */
 const REQUIRED_EXPORTS = {
     image: ['buildGenerateRequest', 'parseGenerateResponse', 'buildPollRequest', 'parsePollResponse', 'extractImageUrl', 'extractImageBase64'],
     video: ['buildGenerateRequest', 'parseGenerateResponse', 'buildPollRequest', 'parsePollResponse', 'extractVideoUrl'],
 } as const
 
-/** 沙箱内 console：统一前缀落主进程日志，便于定位自定义代码问题 */
+/** In-sandbox console: logs to the main process with a unified prefix, making custom-code issues easier to locate */
 function sandboxConsole(name: string) {
     const prefix = `[custom-provider:${name}]`
     return {
@@ -36,8 +36,8 @@ function sandboxConsole(name: string) {
 }
 
 /**
- * 沙箱求值自定义适配器代码，返回其导出对象。
- * 用户代码约定：`module.exports = { buildGenerateRequest(...) {...}, ... }`
+ * Evaluates custom adapter code in the sandbox and returns its exports object.
+ * User code convention: `module.exports = { buildGenerateRequest(...) {...}, ... }`
  */
 export function evaluateCustomProviderCode(code: string, name: string): Record<string, any> {
     if (Buffer.byteLength(code, 'utf8') > MAX_CODE_BYTES) {
@@ -66,22 +66,24 @@ export function evaluateCustomProviderCode(code: string, name: string): Record<s
     script.runInContext(context, { timeout: EVAL_TIMEOUT_MS })
     const mod = sandbox.module.exports
     if (!mod || typeof mod !== 'object' || Object.keys(mod).length === 0) {
+        // i18n: user-facing
         throw new Error(`自定义 provider "${name}" 未导出对象：代码末尾需要 module.exports = { ... }`)
     }
     return mod
 }
 
-/** 校验导出对象满足对应类型的适配器接口，返回必需方法名列表 */
+/** Validates the exports object satisfies the adapter interface for the given type; returns the required method names */
 export function validateCustomProviderExports(mod: Record<string, any>, type: string): readonly string[] {
     const fns = (REQUIRED_EXPORTS as Record<string, readonly string[]>)[type] ?? []
     const missing = fns.filter(fn => typeof mod[fn] !== 'function')
     if (missing.length) {
+        // i18n: user-facing
         throw new Error(`自定义 provider 缺少必需方法: ${missing.join(', ')}`)
     }
     return fns
 }
 
-/** 方法调用统一包装：报错带 provider 名，便于在任务日志中定位 */
+/** Unified method-call wrapper: errors carry the provider name so failures are easier to locate in task logs */
 export function wrapAdapterMethods(mod: Record<string, any>, fns: readonly string[], name: string): Record<string, any> {
     const wrapped: Record<string, any> = {}
     for (const fn of fns) {
@@ -89,6 +91,7 @@ export function wrapAdapterMethods(mod: Record<string, any>, fns: readonly strin
             try {
                 return mod[fn](...args)
             } catch (err: any) {
+                // i18n: user-facing
                 throw new Error(`自定义 provider "${name}" ${fn}() 执行失败: ${err.message}`)
             }
         }

@@ -9,17 +9,17 @@ test('agent SSE streaming route: streamSSE + delta/tool events + done payload sh
     const route = read('src/routes/agent.ts')
     assert.match(route, /import \{ streamSSE \} from 'hono\/streaming'/)
     assert.match(route, /app\.post\('\/:type\/chat\/stream'/)
-    // Mastra chunk 映射：文本增量/工具调用/工具结果各成独立 SSE 事件
+    // Mastra chunk mapping: text deltas / tool calls / tool results each as separate SSE events
     assert.match(route, /case 'text-delta':/)
     assert.match(route, /case 'tool-call':/)
     assert.match(route, /case 'tool-result':/)
-    // done 事件负载与非流式响应同构（前端 run 复用同一套 review/toast 逻辑）
+    // done event payload is shape-identical to the non-streaming response (frontend run reuses the same review/toast logic)
     assert.match(route, /event: 'done', data: JSON\.stringify\(\{\s*type: 'done', text: text \|\| ''/)
-    // 失败路径必须显式发 error 事件，不能静默断流
+    // Failure paths must send an explicit error event, never silently break the stream
     assert.match(route, /event: 'error', data: JSON\.stringify\(\{ type: 'error', message/)
-    // GPU 串行队列必须覆盖流消费期（本地模型不能与图片/视频生成并发）
+    // The GPU serial queue must span the stream consumption window (local models cannot run concurrently with image/video generation)
     assert.match(route, /enqueueGpuWork\(`Agent-\$\{agentType\}`, async \(\) => \{/)
-    // 监督复审/记忆写入/事件流与非流式版一致
+    // Supervisor review / memory commit / event stream identical to the non-streaming version
     assert.match(route, /Supervisor-\$\{agentType\}/)
     assert.match(route, /commitAgentMemory\(/)
 })
@@ -27,12 +27,12 @@ test('agent SSE streaming route: streamSSE + delta/tool events + done payload sh
 test('frontend useAgent consumes the stream endpoint and surfaces live deltas', () => {
     const composable = read('../frontend/app/composables/useAgent.ts')
     assert.match(composable, /\/agent\/\$\{type\}\/chat\/stream/)
-    // SSE 事件解析：delta 累积 + tool 记录 + done 收敛 + error 抛出
+    // SSE event parsing: delta accumulation + tool records + done convergence + error throw
     assert.match(composable, /event === 'delta'/)
     assert.match(composable, /event === 'tool'/)
     assert.match(composable, /event === 'done'/)
     assert.match(composable, /event === 'error'/)
-    // 流式状态暴露给 AgentStreamPanel
+    // Streaming state exposed to AgentStreamPanel
     assert.match(composable, /const streamText = ref\(''\)/)
     assert.match(composable, /const streamTools = ref<string\[\]>\(\[\]\)/)
     assert.match(composable, /return \{ running, runningType, run, streamText, streamTools \}/)
@@ -42,7 +42,7 @@ test('frontend useAgent consumes the stream endpoint and surfaces live deltas', 
     assert.match(panel, /streamText/)
     assert.match(panel, /streamTools/)
 
-    // episode.vue 三处 Agent 调用全部走流式 run（prompt_generator 不得再直打非流式接口）
+    // All three Agent call sites in episode.vue use the streaming run (prompt_generator must no longer hit the non-streaming endpoint)
     const page = read('../frontend/app/views/drama/episode.vue')
     assert.match(page, /runAgent\('script_rewriter'/)
     assert.match(page, /runAgent\('storyboard_breaker'/)
@@ -53,15 +53,15 @@ test('frontend useAgent consumes the stream endpoint and surfaces live deltas', 
 
 test('desktop main process bootstraps fm-server with graceful degrade', () => {
     const main = read('../desktop/src/main.ts')
-    // 先探活复用已跑实例，再从候选路径拉起
+    // Probe and reuse a running instance first, then spawn from candidate paths
     assert.match(main, /async function probeFmServer\(/)
     assert.match(main, /function fmServerBinCandidates\(\)/)
     assert.match(main, /async function ensureFmServer\(\)/)
-    // 自举不阻塞开窗（拉起失败记忆降级，窗口照常）
+    // Bootstrap does not block window opening (spawn failure degrades memory, window opens anyway)
     assert.match(main, /void ensureFmServer\(\)/)
-    // 退出时回收子进程
+    // Child process reaped on exit
     assert.match(main, /stopFmServer\(\)/)
-    // 打包资源 + dev 机 fusion-memory 构建产物两个候选
+    // Two candidates: packaged resources + dev machine's fusion-memory build output
     assert.match(main, /fusion-memory', 'target', 'release'/)
 
     const prep = read('../desktop/scripts/prepare-resources.mjs')

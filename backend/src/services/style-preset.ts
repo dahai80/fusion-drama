@@ -1,11 +1,11 @@
 /**
- * 风格预设服务 — 将项目绑定的视觉风格解析为英文提示词片段
- * dramas.style 存 style_presets.value；查不到/已停用时返回空串（调用方走兜底）
+ * Style preset service — resolves the drama-bound visual style into an English prompt fragment
+ * dramas.style stores style_presets.value; returns '' when missing/disabled (callers fall back)
  */
 import { and, eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 
-/** 查询项目绑定的风格预设英文提示词片段；查不到返回 '' */
+/** Return the drama-bound style preset's English prompt fragment; '' when not found */
 export async function getDramaStylePrompt(dramaId: number | null | undefined): Promise<string> {
   if (!dramaId) return ''
   const [drama] = await db.select().from(schema.dramas).where(eq(schema.dramas.id, dramaId))

@@ -57,7 +57,7 @@ test('workbench removes legacy light panels from the main production surface', (
 
 test('settings page removes the legacy quick setup recommendation cards', () => {
   assert.doesNotMatch(settingsPage, /Quick Setup/)
-  assert.doesNotMatch(settingsPage, /官方推荐配置/)
+  assert.doesNotMatch(settingsPage, /官方推荐配置/) // i18n: user-facing (removed-template guard)
   assert.doesNotMatch(settingsPage, /officialPresetCards/)
   assert.doesNotMatch(settingsPage, /\.preset-card\s*\{/)
   assert.doesNotMatch(settingsPage, /background:\s*rgba\(255,255,255,0\.82\)/)

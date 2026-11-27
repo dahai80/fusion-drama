@@ -1,6 +1,7 @@
 /**
- * 存储迁移全局状态（模块级单例）。
- * MigrateOverlay 据此渲染全屏遮罩；迁移由设置页触发，进度经 preload 订阅回填。
+ * Storage-migration global state (module-level singleton).
+ * MigrateOverlay renders the fullscreen overlay from this; the migration is triggered by the
+ * settings page and progress is fed back via a preload subscription.
  */
 import { reactive } from 'vue'
 import { i18n } from './i18n'
@@ -19,7 +20,8 @@ const state = reactive<MigrateState>({
   message: '',
 })
 
-// 渲染/调用时经 i18n.global.t 求值，语言切换即时生效（不能模块级常量固化）
+// evaluated via i18n.global.t at render/call time so a language switch applies immediately
+// (never bake it into a module-level constant)
 function phaseText(phase: string): string {
   const t = i18n.global.t
   const keys: Record<string, string> = {

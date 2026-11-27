@@ -1,10 +1,13 @@
 /**
- * 统一语言切换：UI 语言 = AI 内容语言，同一个开关。
+ * Unified language switching: UI language = AI content language, one switch.
  *
- * 两处入口（顶栏 LocaleSwitcher / 设置页通用 tab）都走 confirmUnifiedLanguage：
- * 1. 弹独立确认弹窗（挂 body，说明影响：界面 + AI 内容 + 刷新）
- * 2. 确认后：写后端 content_language → 切 vue-i18n locale → 短暂提示 → location.reload()
- *    （整页重载让所有组件干净重建，避免深嵌组件依赖 watch 的时序问题）
+ * Both entry points (top-bar LocaleSwitcher / settings general tab) go through
+ * confirmUnifiedLanguage:
+ * 1. show a standalone confirm dialog (mounted on body, explaining the impact: UI + AI
+ *    content + refresh)
+ * 2. after confirmation: write backend content_language → switch the vue-i18n locale →
+ *    brief toast → location.reload() (a full page reload rebuilds every component cleanly,
+ *    avoiding ordering issues in deeply nested components that rely on watch)
  */
 import { createApp, h, ref } from 'vue'
 import { i18n, setUiLocale, type UiLocale } from '~/composables/i18n'
@@ -13,7 +16,7 @@ import LanguageSwitchDialog from '~/components/LanguageSwitchDialog.vue'
 
 let pending: { resolve: (ok: boolean) => void } | null = null
 
-/** 弹确认框；resolve(true) = 用户确认切换 */
+/** Show the confirm dialog; resolve(true) = the user confirmed the switch */
 function confirmDialog(lang: UiLocale): Promise<boolean> {
   return new Promise((resolve) => {
     const langNameKeys = { zh: 'langNameZh', en: 'langNameEn', ja: 'langNameJa', ko: 'langNameKo' }
@@ -48,7 +51,7 @@ function confirmDialog(lang: UiLocale): Promise<boolean> {
 
 let switching = false
 
-/** 入口：先弹确认框，确认后执行统一切换并刷新 */
+/** Entry point: confirm dialog first, then perform the unified switch and refresh */
 export async function confirmUnifiedLanguage(lang: UiLocale) {
   if (switching || pending) return
   const ok = await confirmDialog(lang)
@@ -56,11 +59,11 @@ export async function confirmUnifiedLanguage(lang: UiLocale) {
   switching = true
   try {
     await settingsAPI.setContentLanguage(lang)
-  } catch { /* 后端失败不阻断界面切换 */ }
+  } catch { /* a backend failure does not block the UI switch */ }
   setUiLocale(lang)
   try {
     const { toast } = await import('vue-sonner')
     toast.info(i18n.global.t('components.langSwitch.refreshing'), { duration: 1200 })
-  } catch { /* 提示失败不阻断 */ }
+  } catch { /* toast failure does not block */ }
   setTimeout(() => location.reload(), 1000)
 }

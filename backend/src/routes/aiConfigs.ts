@@ -8,22 +8,25 @@ import { isCustomProvider, customProviderName } from '../services/custom-provide
 import { and, eq } from 'drizzle-orm'
 
 /**
- * custom:<name> 配置合法性：对应 custom_providers 行须存在、启用且类型匹配，
- * 避免生图/生视频时才发现 provider 缺失
+ * custom:<name> config validity: the corresponding custom_providers row must exist, be enabled,
+ * and match the service type — so a missing provider is caught up front instead of at
+ * image/video generation time
  */
 async function assertCustomProviderUsable(serviceType: string, provider: string) {
   if (!isCustomProvider(provider)) return
   const name = customProviderName(provider.toLowerCase())
   const [row] = await db.select().from(schema.customProviders)
     .where(and(eq(schema.customProviders.name, name), eq(schema.customProviders.type, serviceType)))
+  // i18n: user-facing
   if (!row) throw new Error(`自定义 provider "${name}" 不存在（类型 ${serviceType}）`)
+  // i18n: user-facing
   if (!row.enabled) throw new Error(`自定义 provider "${name}" 已停用，请先在设置中启用`)
 }
 import { redactUrl, logTaskError, logTaskProgress, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
 
-/** 归一化 temperature 入参：null=未设置；合法值 0~2；非法抛错 */
+/** Normalize the temperature input: null = unset; valid range 0~2; invalid values throw */
 function normalizeTemperature(v: any): number | null {
   if (v === null || v === undefined || v === '') return null
   const n = Number(v)
@@ -31,7 +34,7 @@ function normalizeTemperature(v: any): number | null {
   return n
 }
 
-/** 把 settings JSON 中的 temperature 透出为顶层字段，便于前端直接读写 */
+/** Surface the temperature inside the settings JSON as a top-level field for easy frontend read/write */
 function withParsedFields(r: any, { mask = false } = {}) {
   const parsed: Record<string, any> = {
     ...toSnakeCase(r),
@@ -39,14 +42,15 @@ function withParsedFields(r: any, { mask = false } = {}) {
     temperature: parseConfigTemperature(r.settings),
   }
   if (mask) {
-    // 明文 key 永不出后端：响应只带尾 4 位 + has_key；编辑留空 = 保留原 key
+    // The plaintext key never leaves the backend: responses carry only the last 4 digits + has_key;
+    // leaving the edit field empty = keep the original key
     parsed.api_key = r.apiKey ? `••••${r.apiKey.slice(-4)}` : ''
     parsed.has_key = !!r.apiKey
   }
   return parsed
 }
 
-/** model 列表解析守卫：脏数据（"null"/非数组）不得毒化 getActiveConfig */
+/** model list parse guard: dirty data ("null"/non-array) must not poison getActiveConfig */
 function safeParseModels(raw: any): any[] {
   try {
     const v = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -77,9 +81,11 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   const m = model || ''
 
   if (p === 'gemini') {
-    // 探针统一走 generateContent:文本运行时(AI SDK)走的就是它,官方与中转站都支持;
-    // interactions 端点很多中转站未配置,探它会误报 500。
-    // 用最小合法请求体而非空体——空体在部分中转站会触发上游认证失败的误报
+    // Probes uniformly use generateContent: it is what the text runtime (AI SDK) uses, and both
+    // official and relay hosts support it; many relays do not configure the interactions endpoint,
+    // so probing it would falsely report 500.
+    // Use a minimal valid request body rather than an empty one — an empty body triggers false
+    // upstream auth-failure reports on some relays
     const modelName = m || 'gemini-3.1-pro-preview'
     const url = new URL(joinProviderUrl(baseUrl, '/v1beta', `/models/${modelName}:generateContent`))
     if (apiKey) url.searchParams.set('key', apiKey)
@@ -115,7 +121,7 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   }
 
   if (p === 'minimax') {
-    // MiniMax 仅提供视频服务，空请求体探测鉴权/端点连通性
+    // MiniMax only offers video; probe auth/endpoint reachability with an empty request body
     return {
       method: 'POST',
       url: joinProviderUrl(baseUrl, '/v2', '/video_generation'),
@@ -125,7 +131,8 @@ function buildProbe(serviceType: string, provider: string, baseUrl: string, mode
   }
 
   if (p === 'aliyun') {
-    // Wan 3.0 仅支持异步提交；空请求体不会创建计费任务，仅用于验证地域端点与鉴权是否可达。
+    // Wan 3.0 only supports async submission; an empty request body creates no billed task and
+    // is used only to verify that the regional endpoint and auth are reachable.
     return {
       method: 'POST',
       url: joinProviderUrl(baseUrl, '/api/v1', '/services/aigc/video-generation/video-synthesis'),
@@ -160,11 +167,15 @@ app.post('/', async (c) => {
   const body = await c.req.json()
   const ts = now()
 
-  // 验证必填字段
+  // Validate required fields
+  // i18n: user-facing
   if (!body.service_type || !body.provider) {
+    // i18n: user-facing
     return badRequest(c, '需要 service_type 与 provider')
   }
+  // i18n: user-facing
   if (!isValidProvider(body.service_type, body.provider)) {
+    // i18n: user-facing
     return badRequest(c, '不支持的 service_type/provider')
   }
   try {
@@ -178,12 +189,15 @@ app.post('/', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
+      // i18n: user-facing
       return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
     }
   }
 
   const modelList = body.model ?? []
+  // i18n: user-facing
   if (!Array.isArray(modelList) || !modelList.every((m: any) => typeof m === 'string')) {
+    // i18n: user-facing
     return badRequest(c, 'model 须为字符串数组')
   }
 
@@ -210,18 +224,24 @@ app.post('/', async (c) => {
 // POST /ai-configs/test
 app.post('/test', async (c) => {
   const body = await c.req.json()
+  // i18n: user-facing
   if (!body.service_type || !body.provider || !body.base_url) {
+    // i18n: user-facing
     return badRequest(c, '需要 service_type、provider 与 base_url')
   }
+  // i18n: user-facing
   if (!isValidProvider(body.service_type, body.provider)) {
+    // i18n: user-facing
     return badRequest(c, '不支持的 service_type/provider')
   }
 
-  // F1/B11 掩码联动：GET /ai-configs 返回掩码 key，前端测已存配置时拿回传明文 key 不可行——
-  // 传 config_id 时按 id 用库存 key 探测（body.api_key 忽略）
+  // F1/B11 mask coordination: GET /ai-configs returns a masked key, so when the frontend tests
+  // a saved config it cannot send back a plaintext key — when config_id is passed, probe using
+  // the stored key looked up by id (body.api_key is ignored)
   let apiKey = body.api_key
   if (body.config_id) {
     const [row] = await db.select().from(schema.aiServiceConfigs).where(eq(schema.aiServiceConfigs.id, Number(body.config_id)))
+    // i18n: user-facing
     if (!row) return badRequest(c, '配置不存在')
     if (row.apiKey) apiKey = row.apiKey
   }
@@ -251,8 +271,11 @@ app.post('/test', async (c) => {
       status_text: resp.statusText,
       method: probe.method,
       url: probeUrl,
+      // i18n: user-facing
       message: reachable
+        // i18n: user-facing
         ? (resp.ok ? '端点可访问，认证与路径基本正常' : '端点已响应，请根据状态码判断认证或路径是否正确')
+        // i18n: user-facing
         : '端点未按预期响应，请检查 Base URL 和代理前缀',
       response_preview: text.slice(0, 240),
     }
@@ -281,6 +304,7 @@ app.post('/test', async (c) => {
       reachable: false,
       method: probe.method,
       url: probeUrl,
+      // i18n: user-facing
       message: error.message || '请求失败',
       response_preview: '',
     })
@@ -304,7 +328,9 @@ app.put('/:id', async (c) => {
 
   const serviceType = 'service_type' in body ? body.service_type : existing.serviceType
   const provider = 'provider' in body ? body.provider : existing.provider
+  // i18n: user-facing
   if (!isValidProvider(serviceType, provider)) {
+    // i18n: user-facing
     return badRequest(c, '不支持的 service_type/provider')
   }
   try {
@@ -319,11 +345,13 @@ app.put('/:id', async (c) => {
   if ('provider' in body) updates.provider = body.provider
   if ('name' in body) updates.name = body.name
   if ('base_url' in body) updates.baseUrl = body.base_url
-  // 空值 = 保留原 key（明文已不出后端，编辑框留空即保留）
+  // Empty value = keep the original key (plaintext never leaves the backend; an empty edit field keeps it)
   if ('api_key' in body) updates.apiKey = body.api_key ? body.api_key : existing.apiKey
-  // model 必须是字符串数组：脏数据（null 等）会毒化 getActiveConfig 打断整条生成管线
+  // model must be a string array: dirty data (null etc.) would poison getActiveConfig and break the whole generation pipeline
   if ('model' in body) {
+    // i18n: user-facing
     if (!Array.isArray(body.model) || !body.model.every((m: any) => typeof m === 'string')) {
+      // i18n: user-facing
       return badRequest(c, 'model 须为字符串数组')
     }
     updates.model = JSON.stringify(body.model)
@@ -335,9 +363,10 @@ app.put('/:id', async (c) => {
     try {
       temperature = normalizeTemperature(body.temperature)
     } catch {
+      // i18n: user-facing
       return badRequest(c, 'temperature 须为 0 到 2 之间的数字')
     }
-    // 与已有 settings 合并，清空的 temperature 从 JSON 中移除
+    // Merge with existing settings; a cleared temperature is removed from the JSON
     let settings: Record<string, any> = {}
     try { settings = existing.settings ? JSON.parse(existing.settings) : {} } catch { settings = {} }
     if (temperature === null) delete settings.temperature

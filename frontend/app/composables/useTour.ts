@@ -1,11 +1,12 @@
 /**
- * 应用内引导漫游（driver.js）— 轻量方案
+ * In-app onboarding tour (driver.js) — lightweight approach
  *
- * - 各页面定义步骤（selector + i18n 文案 key），经 startTour() 启动
- * - 「看过」标记存服务端 app_settings（tours_seen）：桌面端每次启动端口随机，
- *   localStorage 随 origin 失效，故落库；localStorage 仅作离线兜底缓存
- * - 首次自动弹、帮助按钮随时重看；跳过/完成都算看过
- * - 主题样式沿用设计 token（火焰橙 accent），见 app.vue 内 .driver-theme 覆写
+ * - Each page defines steps (selector + i18n copy keys), started via startTour()
+ * - The "seen" flag is persisted server-side in app_settings (tours_seen): the desktop build
+ *   gets a random port on every launch, so localStorage dies with the origin — hence the DB;
+ *   localStorage is only an offline fallback cache
+ * - Auto-opens on first visit, help button replays anytime; skip/finish both count as seen
+ * - Theme styles reuse the design tokens (flame-orange accent), see the .driver-theme override in app.vue
  */
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
@@ -25,8 +26,9 @@ function writeLocal(ids: string[]) {
 }
 
 /**
- * 从服务端拉取已看过的 tour id，与本地缓存取并集（保留升级前 localStorage 里的标记）。
- * 由客户端插件在应用启动时调用；autoTour 在 onMounted 后延迟数百 ms 触发，此时已就绪。
+ * Fetches seen tour ids from the server and unions them with the local cache (preserving
+ * pre-upgrade marks in localStorage). Called by the client plugin at app startup; autoTour
+ * fires a few hundred ms after onMounted, by which time hydration is done.
  */
 export function hydrateTours(): Promise<void> {
   if (hydratePromise) return hydratePromise
@@ -53,7 +55,7 @@ export function markTourSeen(id: string) {
   if (seenSet.has(id)) return
   seenSet.add(id)
   writeLocal([...seenSet])
-  // 落库（fire-and-forget）；未水合时先合并服务端数据避免覆盖其他页面已标记的 tour
+  // Persist (fire-and-forget); when not yet hydrated, merge server data first to avoid overwriting tours marked by other pages
   void (async () => {
     try {
       if (!hydrated) await hydrateTours()
@@ -63,12 +65,12 @@ export function markTourSeen(id: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seen: [...seenSet] }),
       })
-    } catch { /* 服务端不可达时 localStorage 已兜底 */ }
+    } catch { /* localStorage already covers the unreachable-server case */ }
   })()
 }
 
 export interface TourStep {
-  element: string            // CSS selector；'#__nuxt' 等兜底表示居中弹窗（无高亮）
+  element: string            // CSS selector; '#__nuxt' and similar fallbacks mean a centered popover (no highlight)
   titleKey: string           // i18n key
   descKey: string            // i18n key
   popoverSide?: 'top' | 'bottom' | 'left' | 'right'
@@ -76,8 +78,8 @@ export interface TourStep {
 }
 
 /**
- * 启动一段引导。t 为 useI18n 的翻译函数。
- * 返回是否真正启动（元素缺失或步骤为空时静默跳过）。
+ * Starts one tour. t is the useI18n translate function.
+ * Returns whether the tour actually started (silently skipped when elements are missing or steps are empty).
  */
 export function startTour(id: string, steps: TourStep[], t: (key: string) => string): boolean {
   const usable = steps.filter(s => s.element === '#__nuxt' || document.querySelector(s.element))
@@ -107,7 +109,7 @@ export function startTour(id: string, steps: TourStep[], t: (key: string) => str
   return true
 }
 
-/** 首次进入自动引导：看过或元素未就绪则跳过 */
+/** First-visit auto tour: skipped when already seen or elements are not ready */
 export function autoTour(id: string, steps: TourStep[], t: (key: string) => string) {
   if (tourSeen(id)) return
   startTour(id, steps, t)

@@ -1,17 +1,19 @@
 /**
- * MiniMax H3 视频生成 Adapter
- * 端点: POST /v2/video_generation -> { task_id }
- * 轮询: GET  /v2/query/video_generation/{task_id} -> { task: { status, content.url, error } }
+ * MiniMax H3 video generation adapter
+ * Endpoint: POST /v2/video_generation -> { task_id }
+ * Polling:  GET  /v2/query/video_generation/{task_id} -> { task: { status, content.url, error } }
  *
- * 仅支持 MiniMax-H3 系列模型。content[] 多模态结构:
- * - text           提示词（必填，≤7000 字符）
- * - image_url      role: first_frame / last_frame / reference_image（参考图 ≤9）
- * - video_url      role: reference_video（≤3）
- * - audio_url      参考音频（≤3），混合总数 ≤12
+ * Only MiniMax-H3 series models are supported. content[] multimodal structure:
+ * - text           prompt (required, <=7000 chars)
+ * - image_url      role: first_frame / last_frame / reference_image (up to 9 ref images)
+ * - video_url      role: reference_video (up to 3)
+ * - audio_url      reference audio (up to 3), mixed total <= 12
  *
- * 注意:
- * - 文生视频 ratio 必填且不能为 adaptive；有首帧图（图生视频）时恒为 adaptive，省略 ratio
- * - H3 原生音画同步生成，官方文档无独立 generate_audio 开关，该字段忽略
+ * Notes:
+ * - t2v ratio is required and cannot be adaptive; with a first frame (i2v) it is always
+ *   adaptive and ratio is omitted
+ * - H3 generates audio+video natively in sync; the official docs have no separate
+ *   generate_audio switch, so the field is ignored
  */
 import type {
   VideoProviderAdapter,
@@ -23,16 +25,16 @@ import type {
 } from './types'
 import { joinProviderUrl } from './url'
 
-/** 仅支持 MiniMax-H3 系列（前缀匹配，兼容未来 H3.x 变体） */
+/** Only MiniMax-H3 series supported (prefix match, tolerant of future H3.x variants) */
 const H3_MODEL_PREFIX = 'minimax-h3'
 const DEFAULT_MODEL = 'MiniMax-H3'
 
-/** 多模态参考素材上限：图片 9、视频 3、音频 3，混合总数 12 */
+/** Multimodal reference limits: 9 images, 3 videos, 3 audios, mixed total 12 */
 const REF_LIMITS = { images: 9, videos: 3, audios: 3, total: 12 } as const
 
 const PROMPT_MAX_CHARS = 7000
 
-/** MiniMax 支持的宽高比 */
+/** Aspect ratios supported by MiniMax */
 const VALID_RATIOS = new Set(['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'])
 
 function parseUrlArray(raw?: string | null): string[] {
@@ -51,6 +53,7 @@ export class MiniMaxVideoAdapter implements VideoProviderAdapter {
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
     const model = record.model || config.model || DEFAULT_MODEL
     if (!model.toLowerCase().startsWith(H3_MODEL_PREFIX)) {
+      // i18n: user-facing
       throw new Error(`仅支持 MiniMax H3 系列模型（MiniMax-H3*），当前: ${model}`)
     }
 
@@ -61,13 +64,16 @@ export class MiniMaxVideoAdapter implements VideoProviderAdapter {
     const firstFrame = (record.firstFrameUrl || record.imageUrl || '').trim()
     const lastFrame = (record.lastFrameUrl || '').trim()
 
+    // i18n: user-facing
     if (!prompt) throw new Error('MiniMax H3 要求必须提供提示词（text content）')
     if (prompt.length > PROMPT_MAX_CHARS) {
+      // i18n: user-facing
       throw new Error(`提示词超长：MiniMax H3 上限 ${PROMPT_MAX_CHARS} 字符，当前 ${prompt.length}`)
     }
 
     const totalRefs = refImages.length + refVideos.length + refAudios.length + (firstFrame ? 1 : 0) + (lastFrame ? 1 : 0)
     if (refImages.length > REF_LIMITS.images || refVideos.length > REF_LIMITS.videos || refAudios.length > REF_LIMITS.audios || totalRefs > REF_LIMITS.total) {
+      // i18n: user-facing
       throw new Error(`参考素材超限：图片≤${REF_LIMITS.images}、视频≤${REF_LIMITS.videos}、音频≤${REF_LIMITS.audios}、总数≤${REF_LIMITS.total}`)
     }
 
@@ -91,7 +97,7 @@ export class MiniMaxVideoAdapter implements VideoProviderAdapter {
       resolution: this.normalizeResolution(record.resolution),
     }
 
-    // 图生视频（有首帧）ratio 恒为 adaptive，省略；文生视频 ratio 必填
+    // i2v (with first frame) always uses adaptive ratio and omits it; t2v ratio is required
     if (!firstFrame) {
       const ratio = (record.aspectRatio || '').trim()
       body.ratio = VALID_RATIOS.has(ratio) ? ratio : '16:9'
@@ -131,7 +137,7 @@ export class MiniMaxVideoAdapter implements VideoProviderAdapter {
   }
 
   parsePollResponse(result: any): VideoPollResponse {
-    // 官方响应为 { task: { status, content: { url }, error } }，兼容顶层平铺
+    // Official response is { task: { status, content: { url }, error } }; tolerate a flat top-level shape
     const task = result.task && typeof result.task === 'object' ? result.task : result
     const status = task.status
 
@@ -158,11 +164,11 @@ export class MiniMaxVideoAdapter implements VideoProviderAdapter {
   private normalizeDuration(duration?: number | null): number {
     const parsed = Math.round(Number(duration || 5))
     if (!Number.isFinite(parsed)) return 5
-    // MiniMax H3 支持 4-15 秒
+    // MiniMax H3 supports 4-15 seconds
     return Math.min(15, Math.max(4, parsed))
   }
 
-  /** MiniMax 仅 768P / 2K 两档；项目侧 480p/720p 统一归到 768P，1080p/2K 归到 2K */
+  /** MiniMax only has 768P / 2K tiers; project-side 480p/720p map to 768P, 1080p/2K map to 2K */
   private normalizeResolution(resolution?: string | null): string {
     const r = (resolution || '').toLowerCase()
     if (r === '2k' || r === '1080p') return '2K'

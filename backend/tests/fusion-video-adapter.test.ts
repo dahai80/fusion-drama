@@ -13,6 +13,7 @@ const config = {
 test('fusion request hits sync endpoint with 16:9 768 short edge', () => {
   const request = adapter.buildGenerateRequest(config, {
     id: 1,
+    // i18n: user-facing — Chinese prompt fixture
     prompt: '女孩走进房间',
     duration: 5,
   })
@@ -20,17 +21,17 @@ test('fusion request hits sync endpoint with 16:9 768 short edge', () => {
   assert.equal(request.url, 'http://127.0.0.1:11434/v1/videos/generate')
   assert.equal(request.method, 'POST')
   assert.equal(request.headers.Authorization, 'Bearer test-key-123')
-  // fusion-mlx #978: temporal upsampler 已移除，输出帧数 = num_frames。
-  // 5s → 目标 120 帧 → 最近 8k+1 = 121
+  // fusion-mlx #978: temporal upsampler removed, output frames = num_frames.
+  // 5s → target 120 frames → nearest 8k+1 = 121
   assert.equal(request.body.num_frames, 121)
-  // 短边 768（1088 VAE decode 12min+ OOM，收口 768：1344x768 实测 159.9s 安全）
+  // short edge 768 (1088 VAE decode 12min+ OOM; capped at 768: 1344x768 measured 159.9s safe)
   assert.equal(request.body.width, 1344)
   assert.equal(request.body.height, 768)
   assert.equal(request.body.fps, 24)
   assert.equal(request.body.response_format, 'b64_json')
   assert.equal(request.body.seed, undefined)
   assert.equal(request.body.image, undefined)
-  // LTX-2.5 distilled 管线自带 cfg，不覆盖
+  // LTX-2.5 distilled pipeline ships its own cfg, not overridden
   assert.equal(request.body.cfg_scale, undefined)
   assert.equal(request.body.num_inference_steps, undefined)
 })
@@ -39,15 +40,16 @@ test('fusion LTX-2.5 frame mapping: 8k+1, cap 10s', () => {
   const frames = (duration?: number | null) =>
     adapter.buildGenerateRequest(config, { id: 2, prompt: 'x', duration }).body.num_frames
 
-  // 输出帧数 = num_frames（8k+1），直接按目标时长请求。
-  // VAE OOM 保护：短边 768，上限 10s（241帧峰值 ~110GB 贴 128GB 水位）
+  // output frames = num_frames (8k+1), requested directly from the target duration.
+  // VAE OOM protection: short edge 768, cap 10s (241-frame peak ~110GB, close to the
+  // 128GB waterline)
   assert.equal(frames(2), 49)    // 2s → 48+1
   assert.equal(frames(3), 73)    // 3s → 72+1
   assert.equal(frames(4), 97)    // 4s → 96+1
   assert.equal(frames(5), 121)   // 5s → 120+1
-  assert.equal(frames(8), 193)   // 8s → 192+1（≤10s 不截断）
-  assert.equal(frames(15), 241)  // 截断 10s → 240+1
-  assert.equal(frames(null), 121) // 默认 5s
+  assert.equal(frames(8), 193)   // 8s → 192+1 (≤10s, not truncated)
+  assert.equal(frames(15), 241)  // truncated at 10s → 240+1
+  assert.equal(frames(null), 121) // default 5s
 })
 
 test('fusion LTX-2.5 respects aspect ratio at 768 short edge', () => {
@@ -56,11 +58,11 @@ test('fusion LTX-2.5 respects aspect ratio at 768 short edge', () => {
     return [body.width, body.height]
   }
 
-  // 短边 768；长边按宽高比 64 最近对齐
+  // short edge 768; long edge 64-aligned to the aspect ratio
   assert.deepEqual(dims('16:9'), [1344, 768])   // 768*16/9≈1365 -> round 1344
   assert.deepEqual(dims('9:16'), [768, 1344])
   assert.deepEqual(dims('1:1'), [768, 768])
-  // 4:3 长边 768*4/3=1024 -> 64-align = 1024
+  // 4:3 long edge 768*4/3=1024 -> 64-align = 1024
   assert.deepEqual(dims('4:3'), [1024, 768])
   assert.deepEqual(dims(null), [1344, 768])
 })
@@ -85,13 +87,13 @@ test('fusion parses sync b64 response and rejects empty data', () => {
     data: [{ url: 'http://127.0.0.1:11434/static/out.mp4' }],
   }), { isAsync: false, videoUrl: 'http://127.0.0.1:11434/static/out.mp4' })
 
-  assert.throws(() => adapter.parseGenerateResponse({ data: [] }), /缺少 data\[0\]/)
+  assert.throws(() => adapter.parseGenerateResponse({ data: [] }), /missing data\[0\]/)
 })
 
-// ─── #1254 交接：同步窗口 600s 耗尽 → 202 job 交接 + 轮询认领 ───
+// ─── #1254 handoff: 600s sync window exhausted → 202 job handoff + poll-based claim ───
 
 test('fusion parses 202 video_job_pending handoff as async task', () => {
-  // 上游 videos_routes.py TimeoutError 分支的确切响应形态
+  // exact response shape of the upstream videos_routes.py TimeoutError branch
   assert.deepEqual(adapter.parseGenerateResponse({
     error: {
       message: 'Video generation still in progress; poll GET /v1/videos/jobs/e21b or fetch output',
@@ -118,23 +120,23 @@ test('fusion job output request targets /output/{index} with auth', () => {
 })
 
 test('fusion parses job poll responses across lifecycle', () => {
-  // running/queued → processing（继续轮询）
+  // running/queued → processing (keep polling)
   assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'running', progress: 0.8 }),
     { status: 'processing' })
   assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'queued' }),
     { status: 'processing' })
-  // 上游偶发在轮询响应里回 202 形态
+  // upstream occasionally replies with the 202 shape inside poll responses
   assert.deepEqual(adapter.parsePollResponse({ error: { code: 'video_job_pending' } }),
     { status: 'processing' })
-  // completed → 占位符，宿主据此走 buildJobOutputRequest 下载
+  // completed → placeholder; the host downloads via buildJobOutputRequest
   assert.deepEqual(adapter.parsePollResponse({ job_id: 'j', status: 'completed', progress: 1.0 }),
     { status: 'completed', videoUrl: 'job-output' })
-  // failed/cancelled → 终态失败
+  // failed/cancelled → terminal failure
   assert.deepEqual(adapter.parsePollResponse({ status: 'failed', error: 'OOM' }),
     { status: 'failed', error: 'OOM' })
   assert.deepEqual(adapter.parsePollResponse({ status: 'cancelled' }),
-    { status: 'failed', error: '视频作业 cancelled' })
-  // 作业被 prune/重启丢失（404 detail）→ 无法恢复
+    { status: 'failed', error: 'Video job cancelled' })
+  // job pruned/lost on restart (404 detail) → unrecoverable
   assert.equal(adapter.parsePollResponse({ detail: "Video job 'xxx' not found" }).status, 'failed')
 })
 
@@ -149,6 +151,7 @@ const h3Config = { ...config, model: 'models--ddalcu--MiniMax-H3-FL2VA-MLX-Serve
 test('fusion H3 sends quantize=dit8_te4 + turbo LoRA + 4 steps, no audio', () => {
   const request = adapter.buildGenerateRequest(h3Config, {
     id: 20,
+    // i18n: user-facing — Chinese prompt fixture
     prompt: '山间日出',
     duration: 5,
   })
@@ -220,6 +223,7 @@ const wanConfig = { ...config, model: 'Anes1032--Wan2.2-TI2V-5B-mlx-q8' }
 test('fusion Wan5B uses 544 short edge + 4k+1 frames, cap 10s', () => {
   const request = adapter.buildGenerateRequest(wanConfig, {
     id: 30,
+    // i18n: user-facing — Chinese prompt fixture
     prompt: '孙悟空腾云驾雾',
     duration: 5,
     aspectRatio: '16:9',

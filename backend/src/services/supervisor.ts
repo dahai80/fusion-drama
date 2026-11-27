@@ -1,8 +1,8 @@
 /**
- * Agent 监督层 — 执行 Agent 产出后由 supervisor prompt 复审一遍
- * （决策/执行/监督三层中的监督环：执行 Agent 生成 → 审阅 Agent 判定质量）。
- * 审阅用同一文本模型 + workspace/prompts/supervisor.md 提示词（4 语言），
- * 返回结构化判定 { pass, issues[], summary }；任何失败降级 pass-through 不阻断主流程。
+ * Agent supervisor layer — after Agent output is executed, the supervisor prompt reviews it once more
+ * (the supervision loop of the decision/execution/supervision three layers: execution Agent generates → review Agent judges quality).
+ * Review uses the same text model + the workspace/prompts/supervisor.md prompt (4 languages),
+ * and returns a structured verdict { pass, issues[], summary }; any failure degrades to pass-through without blocking the main flow.
  */
 import { loadAgentPromptFile } from '../agents/prompts.js'
 import { getContentLanguage } from './app-settings.js'
@@ -13,13 +13,13 @@ export interface ReviewVerdict {
     pass: boolean
     issues: string[]
     summary: string
-    /** true = 审阅链路本身失败（无配置/模型报错/解析失败），降级放行 */
+    /** true = the review chain itself failed (no config/model error/parse failure); degrades to pass-through */
     degraded: boolean
 }
 
 const DEGRADED: ReviewVerdict = { pass: true, issues: [], summary: '', degraded: true }
 
-// 小模型输出 JSON 稳定性差：先剥 ```json 围栏再找首个 { 到最后一个 }
+// Small models emit unstable JSON: strip json code fences first, then take the first { to the last }
 function extractVerdictJson(text: string): any | null {
     const stripped = text.replace(/```(?:json)?/g, '').trim()
     const start = stripped.indexOf('{')
@@ -29,8 +29,8 @@ function extractVerdictJson(text: string): any | null {
 }
 
 /**
- * 复审 Agent 产出。调用方应置于 GPU 串行队列内（文本模型 decode 与生图/生视频互斥）。
- * agentType 用于审阅提示词里按 Agent 类型对齐检查重点。
+ * Reviews Agent output. Callers should place this inside the GPU serial queue (text model decode is mutually exclusive with image/video generation).
+ * agentType aligns the review focus by Agent type in the review prompt.
  */
 export async function reviewAgentOutput(agentType: string, userMessage: string, agentOutput: string): Promise<ReviewVerdict> {
     if (!agentOutput.trim()) return DEGRADED
@@ -42,12 +42,13 @@ export async function reviewAgentOutput(agentType: string, userMessage: string, 
     const lang = getContentLanguage()
     const promptFile = await loadAgentPromptFile('supervisor', lang)
     const systemPrompt = promptFile?.instructions
+        // i18n: user-facing
         || '你是创作质量监督员。复审 Agent 输出，只回复 JSON：{"pass": true/false, "issues": ["问题"], "summary": "一句话结论"}'
 
     const userPayload = [
-        `Agent 类型：${agentType}`,
-        `用户要求：${userMessage.slice(0, 2000)}`,
-        'Agent 输出：',
+        `Agent 类型：${agentType}`, // i18n: user-facing
+        `用户要求：${userMessage.slice(0, 2000)}`, // i18n: user-facing
+        'Agent 输出：', // i18n: user-facing
         agentOutput.slice(0, 8000),
     ].join('\n')
 

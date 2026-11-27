@@ -1,15 +1,16 @@
 const BASE = '/api/v1'
 
-// dev 判定：仅开发模式打 API 日志（生产控制台不泄露请求体/路由）
+// dev flag: API logging only in dev mode (production console never leaks request bodies/routes)
 const isDev = import.meta.dev ?? false
 
-// F8: 默认 30s 超时，POST 120s（ai-configs/test 探测真实 provider 可达分钟级）；
-// 后端挂死时按钮不再永久 pending
+// F8: 30s default timeout, 120s for POST (ai-configs/test probes a real provider and can take minutes);
+// a hung backend no longer leaves buttons pending forever
 const DEFAULT_TIMEOUT = 30_000
 const POST_TIMEOUT = 120_000
 
-// FR-P0-1: 服务器 token 模式（FUSION_API_TOKEN）下前端鉴权——token 存 localStorage
-// （XSS 面与 cookie 方案同级但免 CSRF），设置页可配置；未配置时不带头（本地/桌面模式）
+// FR-P0-1: frontend auth in server token mode (FUSION_API_TOKEN) — token stored in localStorage
+// (same XSS surface as the cookie approach but CSRF-free), configurable on the settings page;
+// no header when unset (local/desktop mode)
 function authHeaders(): Record<string, string> {
   const token = (typeof localStorage !== 'undefined' && localStorage.getItem('FUSION_API_TOKEN')) || ''
   return token ? { Authorization: `Bearer ${token}` } : {}
@@ -28,7 +29,7 @@ async function req<T = any>(method: string, path: string, body?: any, timeoutMs?
 
   try {
     const resp = await fetch(`${BASE}${path}`, opts)
-    // F8: envelope 容错——502/504 HTML 等非 JSON 响应不再抛裸 SyntaxError
+    // F8: envelope tolerance — non-JSON responses like 502/504 HTML no longer throw a bare SyntaxError
     let json: any = null
     try { json = await resp.json() } catch { /* non-JSON body */ }
     const ms = Math.round(performance.now() - start)
@@ -42,6 +43,7 @@ async function req<T = any>(method: string, path: string, body?: any, timeoutMs?
     if (isDev) console.log(`%c[API] %c${method} ${path} %c${resp.status} %c${ms}ms`, 'color:#888', 'color:#66bb6a', 'color:#66bb6a;font-weight:bold', 'color:#888')
     return json?.data ?? json
   } catch (err: any) {
+    // i18n: user-facing
     if (err.name === 'TimeoutError') throw new Error('请求超时，请检查服务是否可用')
     if (isDev && !err.message?.match(/^(HTTP )?\d{3}$/)) {
       const ms = Math.round(performance.now() - start)
@@ -63,11 +65,11 @@ export const dramaAPI = {
   get: (id: number) => api.get(`/dramas/${id}`),
   create: (data: any) => api.post('/dramas', data),
   update: (id: number, data: any) => api.put(`/dramas/${id}`, data),
-  // 后端要求删除二次确认（FR-P0-1/FR-BIZ-1）：confirm=true 级联软删剧集
+  // Backend requires delete confirmation (FR-P0-1/FR-BIZ-1): confirm=true cascades a soft delete of the episode
   del: (id: number) => api.del(`/dramas/${id}?confirm=true`),
 }
 
-// 整本小说导入管线：切块 → 大纲 → 分集规划 → 逐集滚动改写
+// Whole-novel import pipeline: chunking -> outlines -> episode planning -> per-episode rolling rewrite
 export const novelAPI = {
   import: (dramaId: number, content: string, replace = true) =>
     api.post('/novel/import', { drama_id: dramaId, content, replace }, 300_000),
@@ -127,7 +129,7 @@ export const propAPI = {
   generateImage: (id: number, episodeId: number, model?: string, configId?: number, textModel?: string, textConfigId?: number) => api.post(`/props/${id}/generate-image`, { episode_id: episodeId, model: model || undefined, config_id: configId || undefined, text_model: textModel || undefined, text_config_id: textConfigId || undefined }),
 }
 
-// 统一生成任务（图片/视频）：POST 带 type 字段，列表按 type 过滤
+// Unified generation tasks (image/video): POST carries a type field, list filters by type
 export const taskAPI = {
   generate: (d: any) => api.post('/tasks', d),
   get: (id: number) => api.get(`/tasks/${id}`),
@@ -139,9 +141,9 @@ export const taskAPI = {
     if (params?.storyboard_id) query.set('storyboard_id', String(params.storyboard_id))
     return api.get(`/tasks${query.size ? `?${query.toString()}` : ''}`)
   },
-  // 按集聚合生成任务（sys_task + video_merges）
+  // Per-episode aggregated generation tasks (sys_task + video_merges)
   listByEpisode: (episodeId: number) => api.get<{ tasks: any[]; merges: any[] }>(`/episodes/${episodeId}/generation-tasks`),
-  // NFR-REL-4 队列深度（排队反馈）；PRD §10.2 重试成功率度量
+  // NFR-REL-4 queue depth (queuing feedback); PRD §10.2 retry success rate metric
   queueDepth: () => api.get<{ depth: number }>('/tasks/queue'),
   retryStats: () => api.get<{ retries: number; retrySucceeded: number; retrySuccessRate: number | null; failedTasksTotal: number; failedTasksRetried: number }>('/tasks/retry-stats'),
 }
@@ -178,7 +180,7 @@ export const aiConfigAPI = {
   test: (d: any) => api.post('/ai-configs/test', d),
 }
 
-// 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，沙箱热注册）
+// Programmable providers: user-defined image/video adapters (JS code stored in DB, hot-registered in a sandbox)
 export const customProviderAPI = {
   list: () => api.get<any[]>('/custom-providers'),
   get: (id: number) => api.get(`/custom-providers/${id}`),
@@ -189,7 +191,7 @@ export const customProviderAPI = {
   testById: (id: number, d?: any) => api.post(`/custom-providers/${id}/test`, d || {}),
 }
 
-// ONNX RAG：本地向量检索（bge-small CPU），Agent 对话自动注入剧本/角色/场景/道具上下文
+// ONNX RAG: local vector retrieval (bge-small CPU); agent chat auto-injects script/character/scene/prop context
 export const ragAPI = {
   status: () => api.get<any>('/rag/status'),
   setEnabled: (enabled: boolean) => api.put('/rag/enabled', { enabled }),
@@ -208,7 +210,7 @@ export const supervisorAPI = {
   setEnabled: (enabled: boolean) => api.put('/supervisor/enabled', { enabled }),
 }
 
-// lang 缺省/为 zh 时读写基础版（不带 query，保持原请求形态）
+// When lang is unset or zh, read/write the base version (no query param, preserving the original request shape)
 const langQ = (lang?: string) => (lang && lang !== 'zh' ? `?lang=${lang}` : '')
 
 export const promptAPI = {
@@ -235,7 +237,7 @@ export const stylePresetAPI = {
 
 export const storageAPI = {
   info: () => api.get('/storage'),
-  // FR-BIZ-6: 服务器版 DB 手动备份（保留最近 10 份）
+  // FR-BIZ-6: manual DB backup for server deployments (last 10 kept)
   createBackup: () => api.post('/storage/backup', {}, 300_000),
   listBackups: () => api.get('/storage/backups'),
 }
@@ -245,7 +247,7 @@ export const settingsAPI = {
   setContentLanguage: (language: string) => api.put('/settings/content-language', { language }),
 }
 
-// 服务器/Docker 部署的版本检查与更新（桌面版走 useDesktopBridge，不用此 API）
+// Version check and update for server/Docker deployments (desktop uses useDesktopBridge instead of this API)
 export const serverUpdateAPI = {
   state: () => api.get('/server-update/state'),
   check: () => api.post('/server-update/check'),

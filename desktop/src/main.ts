@@ -1,12 +1,15 @@
 /**
- * Electron 主进程 — 桌面壳
+ * Electron main process — desktop shell
  *
- * 职责：读存储配置 → 取空闲端口 → 准备 userData 目录（数据 + workspace 模板）→
- * utilityProcess.fork 拉起后端（esbuild bundle）→ 轮询健康检查 → 开窗口。
- * 后端与窗口同源（http://127.0.0.1:<port>），前端全部相对路径，无 CORS 问题。
+ * Responsibilities: read storage config -> acquire a free port -> prepare the userData
+ * directory (data + workspace template) -> utilityProcess.fork the backend (esbuild bundle)
+ * -> poll health checks -> open the window.
+ * Backend and window share the same origin (http://127.0.0.1:<port>); the frontend uses
+ * relative paths exclusively, so there is no CORS problem.
  *
- * 后端可重启（startBackend）：存储位置迁移 = 停后端 → 搬文件 → 换 currentDataDir →
- * 重启后端（见 migrate.ts）；backendRestarting 期间抑制「异常退出」弹窗。
+ * The backend is restartable (startBackend): storage location migration = stop backend ->
+ * move files -> swap currentDataDir -> restart backend (see migrate.ts); while
+ * backendRestarting, the "abnormal exit" dialog is suppressed.
  */
 import { app, BrowserWindow, dialog, ipcMain, shell, utilityProcess } from 'electron'
 import type { UtilityProcess } from 'electron'
@@ -20,15 +23,15 @@ import * as os from 'os'
 import { registerMigrationIpc } from './migrate'
 import { registerUpdater, markQuitting } from './updater'
 
-// 主进程打 CJS 产物，__dirname 天然可用（import.meta.url 在 CJS 下为 undefined）
+// Main process builds to CJS, so __dirname is naturally available (import.meta.url is undefined under CJS)
 declare const __dirname: string
-// desktop/dist → desktop 根
+// desktop/dist -> desktop root
 const DESKTOP_ROOT = path.resolve(__dirname, '..')
-// dev 模式下仓库各目录
+// Repository directories in dev mode
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..')
 const BACKEND_BUNDLE = path.join(DESKTOP_ROOT, 'build', 'backend.mjs')
 
-/** workspace 模板版本：内置模板更新时递增，触发向用户目录补缺失文件 */
+/** Workspace template version: bumped when the bundled template updates, triggering a top-up of missing files in the user directory */
 const TEMPLATE_VERSION = '4'
 const STORAGE_CONFIG_FILE = 'storage-config.json'
 
@@ -38,18 +41,20 @@ let quitting = false
 let backendRestarting = false
 let backendPort = 0
 let currentDataDir = ''
-// R4: 后端 crash 自动重启（指数退避），连续 3 次失败才放弃——一次未捕获异常不再带崩整个 GUI
+// R4: auto-restart the backend on crash (exponential backoff), give up only after 3 consecutive
+// failures — a single uncaught exception no longer takes the whole GUI down
 let backendRestartAttempts = 0
 
-// userData 显式按模式区分：打包版 / dev 版互不干扰（数据库、上传文件、单实例锁均隔离），
-// 不依赖 package.json 命名（打包后与 dev 同名会导致单实例锁误杀）
+// userData is explicitly separated by mode: packaged / dev builds stay independent (database,
+// uploaded files, and single-instance lock are all isolated); we do not rely on package.json
+// naming (a packaged build with the same name as dev would make the single-instance lock kill the wrong instance)
 app.setPath('userData', path.join(
   app.getPath('appData'),
   app.isPackaged ? 'FusionDrama' : 'FusionDrama-Dev',
 ))
 
 if (!app.requestSingleInstanceLock()) {
-  // 双开会抢 SQLite 写锁；让已有实例聚焦窗口即可
+  // Two instances would fight over the SQLite write lock; just let the existing instance focus its window
   app.quit()
 } else {
   app.on('second-instance', () => {
@@ -58,7 +63,7 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow.focus()
     }
   })
-  // utilityProcess 要求 app ready 之后才能创建
+  // utilityProcess can only be created after app ready
   app.whenReady().then(bootstrap)
 }
 
@@ -85,18 +90,21 @@ async function waitHealthy(port: number, timeoutMs = 15000): Promise<void> {
     }
     await new Promise(r => setTimeout(r, 300))
   }
+  // i18n: user-facing
   throw new Error(`后端启动超时: ${String(lastErr)}`)
 }
 
-// ---- 存储配置（userData/storage-config.json，必须在数据目录之外） ----
+// ---- Storage config (userData/storage-config.json; must live outside the data directory) ----
 
 function storageConfigPath(): string {
   return path.join(app.getPath('userData'), STORAGE_CONFIG_FILE)
 }
 
 /**
- * 读存储配置，返回当前数据目录。容错链：文件不存在→默认；解析失败/非法→warn+默认
- * （不改写坏文件，保留现场）；目录创建失败（盘不在/权限）→warn+默认。永不阻断启动。
+ * Reads the storage config and returns the current data directory. Fault-tolerance chain:
+ * file missing -> default; parse failure/invalid -> warn + default (the broken file is left
+ * untouched to preserve the scene); directory creation failure (disk absent/permissions) ->
+ * warn + default. Never blocks startup.
  */
 function loadStorageConfig(): string {
   const fallback = path.join(app.getPath('userData'), 'data')
@@ -105,16 +113,16 @@ function loadStorageConfig(): string {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
     const dir = parsed?.dataDir
-    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('dataDir 非绝对路径')
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('dataDir is not an absolute path')
     fs.mkdirSync(dir, { recursive: true })
     return dir
   } catch (err) {
-    console.warn(`[main] ${STORAGE_CONFIG_FILE} 读取失败，回退默认数据目录: ${(err as Error).message}`)
+    console.warn(`[main] failed to read ${STORAGE_CONFIG_FILE}, falling back to default data directory: ${(err as Error).message}`)
     return fallback
   }
 }
 
-/** 原子写存储配置（tmp + rename）；仅迁移成功路径调用 */
+/** Atomically writes the storage config (tmp + rename); called only from the migration success path */
 export function writeStorageConfig(dataDir: string): void {
   const file = storageConfigPath()
   const tmp = `${file}.tmp`
@@ -122,22 +130,23 @@ export function writeStorageConfig(dataDir: string): void {
   fs.renameSync(tmp, file)
 }
 
-/** win32 路径比较统一小写 */
+/** Lowercases paths for win32 comparisons */
 export function normCase(p: string): string {
   return process.platform === 'win32' ? p.toLowerCase() : p
 }
 
-// ---- workspace 模板 ----
+// ---- Workspace template ----
 
 /**
- * workspace 模板升级（checklist 1107 #6：哈希三方合并）：
- * - 首启动（无版本标记）→ 全量补拷（force:false，绝不覆盖）
- * - 版本升级 → 逐文件判定：
- *     目标与新版相同 → 跳过
- *     目标与「上次部署基线」相同（用户没改过）→ 用新版覆盖
- *     目标被用户改过 → 保留用户版，新版落为 <file>.new
- *   基线存 .template-hashes（上次部署后每个文件的 sha256）
- * 修复了旧行为的两个缺陷：skills 永不更新（修复到不了用户）、prompts 无脑覆盖（毁用户编辑）
+ * Workspace template upgrade (checklist 1107 #6: hash-based three-way merge):
+ * - First launch (no version marker) -> top-up copy of everything (force:false, never overwrite)
+ * - Version upgrade -> per-file decision:
+ *     destination identical to new version -> skip
+ *     destination identical to "last deployed baseline" (user never edited it) -> overwrite with new version
+ *     destination edited by the user -> keep the user version; new version lands as <file>.new
+ *   The baseline lives in .template-hashes (sha256 of every file after the last deployment)
+ * Fixes two defects of the old behavior: skills never updated (fixes never reached users),
+ * prompts blindly overwritten (destroying user edits)
  */
 function syncWorkspaceTemplate(templateDir: string, destDir: string) {
   const marker = path.join(destDir, '.template-version')
@@ -195,13 +204,13 @@ function syncWorkspaceTemplate(templateDir: string, destDir: string) {
 }
 
 function resolveResourceDir(): string {
-  // 打包后在 resources/（extraResources）；dev 直指仓库目录
+  // Under resources/ when packaged (extraResources); dev points straight at the repo directory
   return app.isPackaged ? process.resourcesPath : REPO_ROOT
 }
 
-// ---- 后端进程（可重启） ----
+// ---- Backend process (restartable) ----
 
-/** 停后端并等待退出（kill 后等 exit 事件，5s 超时补刀）；置 backendRestarting 抑制致命弹窗 */
+/** Stops the backend and waits for exit (kill, then wait for the exit event, 5s timeout force-kill); sets backendRestarting to suppress the fatal dialog */
 function stopBackend(): Promise<void> {
   return new Promise((resolve) => {
     const cur = backend
@@ -222,9 +231,9 @@ function startBackend(): void {
     ...process.env,
     PORT: String(backendPort),
     FUSION_DESKTOP: '1',
-    // 桌面版后端只听回环：端口选择 TOCTOU 窗口 + 局域网可达面一起收掉
+    // Desktop backend binds loopback only: closes both the port-selection TOCTOU window and the LAN-reachable surface
     FUSION_BIND_HOST: '127.0.0.1',
-    // 数据目录单一来源：重启/迁移后只需改 currentDataDir
+    // Single source of truth for the data directory: after restart/migration only currentDataDir changes
     FUSION_DATA_DIR: currentDataDir,
     SQLITE_PATH: path.join(currentDataDir, 'fusion.sqlite3'),
     WORKSPACE_PATH: currentWorkspaceDir,
@@ -242,7 +251,7 @@ function startBackend(): void {
     stdio: 'pipe',
   })
   console.log(`[main] backend forked from ${BACKEND_BUNDLE}`)
-  // D9: 后端实际绑定端口可能因端口抢占降级为临时端口，监听回传消息同步给所有使用方
+  // D9: the backend's actual bound port may degrade to an ephemeral port on preemption; the listening report message syncs it to all consumers
   backend.on('message', (msg: { type?: string, port?: number }) => {
     if (msg?.type === 'backend-port' && typeof msg.port === 'number' && msg.port !== backendPort) {
       console.log(`[main] backend reported actual port ${msg.port} (requested ${backendPort})`)
@@ -253,10 +262,11 @@ function startBackend(): void {
   backend.stderr?.on('data', chunk => process.stderr.write(`[backend] ${chunk}`))
   backend.on('exit', code => {
     backend = null
-    // 迁移/重启期间的退出是预期行为，由调用方接管
+    // Exits during migration/restart are expected and handled by the caller
     if (!quitting && !backendRestarting) {
       backendRestartAttempts += 1
       if (backendRestartAttempts > 3) {
+        // i18n: user-facing
         dialog.showErrorBox('Fuse 短剧', `后台服务多次异常退出（code ${code}），应用即将关闭。请重新启动。`)
         app.quit()
         return
@@ -270,21 +280,21 @@ function startBackend(): void {
           await waitHealthy(backendPort, 30_000)
           backendRestartAttempts = 0
           console.log('[main] backend restarted healthy')
-          // 窗口还开着就重载到新端口页面（后端可能因端口抢占换了端口，D9 IPC 已同步 backendPort）
+          // Reload to the new port page while the window is still open (the backend may have switched ports due to preemption; D9 IPC already synced backendPort)
           if (mainWindow) await mainWindow.loadURL(`http://127.0.0.1:${backendPort}`)
         } catch (err) {
           console.error('[main] backend restart failed:', err)
-          // 失败走 exit 事件递归计数，连续 3 次后弹窗退出
+          // Failures recurse through the exit event counter; the dialog quits the app after 3 consecutive failures
         }
       }, delay)
     }
   })
 }
 
-// ---- fm-server（跨会话记忆，可选自举） ----
-// 桌面版自动拉起 fusion-memory：已在跑（手动/集群）直接复用；否则从打包资源
-// （bin/fm-server）或 dev 机 fusion-memory 构建产物拉起。二进制缺失/拉起失败
-// 一律优雅降级——记忆功能 off，设置页显示离线，不影响主流程
+// ---- fm-server (cross-session memory, optional bootstrap) ----
+// The desktop shell auto-starts fusion-memory: if already running (manual/cluster), reuse it; otherwise spawn it from
+// packaged resources (bin/fm-server) or the dev machine's fusion-memory build output. Missing binary / spawn failure
+// always degrades gracefully — memory feature off, settings page shows offline, main flow unaffected.
 let fmServerProc: ReturnType<typeof spawn> | null = null
 
 async function probeFmServer(timeoutMs = 2000): Promise<boolean> {
@@ -319,7 +329,7 @@ async function ensureFmServer(): Promise<void> {
             console.log(`[main] fm-server exited (code ${code})`)
             fmServerProc = null
         })
-        // 启动等待（ sled 打开 + HTTP 监听，本机秒级；给 15s 上限）
+        // Startup wait (sled open + HTTP listen, seconds locally; 15s cap)
         for (let i = 0; i < 30; i++) {
             if (await probeFmServer(1000)) {
                 console.log('[main] fm-server healthy, cross-session memory available')
@@ -342,12 +352,13 @@ function stopFmServer(): void {
     }
 }
 
-// ---- 窗口 ----
+// ---- Window ----
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    // i18n: user-facing
     title: 'Fuse 短剧',
     show: false,
     webPreferences: {
@@ -355,16 +366,16 @@ function createWindow() {
     },
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
-  // 页面标题自带产品名，避免文件路径兜底标题
+  // The page title already carries the product name; prevent fallback to a file-path title
   mainWindow.on('page-title-updated', e => e.preventDefault())
   mainWindow.on('closed', () => { mainWindow = null })
-  // 外链一律交给系统浏览器：应用内不弹新窗（如设置页「前往 bench.dpdns.org 获取 Key」）
+  // External links always go to the system browser: no new in-app windows (e.g. the settings page "visit bench.dpdns.org to get a Key")
   const isAppUrl = (url: string) => url.startsWith(`http://127.0.0.1:${backendPort}`)
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url) && !isAppUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
-  // 主窗口意外导航到外部地址时同样拦下并转浏览器
+  // Intercept and redirect to the browser when the main window unexpectedly navigates to an external address
   mainWindow.webContents.on('will-navigate', (e, url) => {
     if (isAppUrl(url)) return
     e.preventDefault()
@@ -373,7 +384,7 @@ function createWindow() {
   return mainWindow.loadURL(`http://127.0.0.1:${backendPort}`)
 }
 
-// ---- 启动 ----
+// ---- Bootstrap ----
 
 let currentWorkspaceDir = ''
 let currentFrontendDist = ''
@@ -384,7 +395,7 @@ async function bootstrap() {
     const userData = app.getPath('userData')
     console.log(`[main] port=${backendPort} userData=${userData}`)
 
-    // 存储配置最先读（决定数据目录）；配置损坏时回退默认且不阻断启动
+    // Storage config is read first (decides the data directory); on a broken config fall back to the default without blocking startup
     currentDataDir = loadStorageConfig()
     fs.mkdirSync(currentDataDir, { recursive: true })
 
@@ -405,19 +416,20 @@ async function bootstrap() {
     await waitHealthy(backendPort)
     backendRestartAttempts = 0
     console.log('[main] backend healthy, opening window')
-    // fm-server 自举不阻塞开窗：拉起慢/失败时窗口照常，记忆优雅降级
+    // fm-server bootstrap does not block window opening: on slow/failed spawn the window opens anyway and memory degrades gracefully
     void ensureFmServer()
     await createWindow()
   } catch (err) {
-    console.error('[main] 启动失败:', err)
+    console.error('[main] bootstrap failed:', err)
+    // i18n: user-facing
     dialog.showErrorBox('Fuse 短剧', `启动失败：\n${(err as Error)?.message || err}`)
     app.quit()
   }
 }
 
-// ---- IPC：存储位置 ----
+// ---- IPC: storage location ----
 
-/** 可写探针 */
+/** Writability probe */
 async function assertWritable(dir: string): Promise<void> {
   const probe = path.join(dir, `.fusion-probe-${Date.now()}`)
   await fsp.writeFile(probe, 'probe')
@@ -425,23 +437,29 @@ async function assertWritable(dir: string): Promise<void> {
 }
 
 ipcMain.handle('fusion:pick-directory', async () => {
+  // i18n: user-facing
   if (!mainWindow) return { ok: false, error: '窗口未就绪' }
   const res = await dialog.showOpenDialog(mainWindow, {
+    // i18n: user-facing
     title: '选择数据存储目录',
     properties: ['openDirectory', 'createDirectory'],
   })
   if (res.canceled || !res.filePaths[0]) return { ok: false, canceled: true }
   const target = path.resolve(res.filePaths[0])
 
-  // 轻校验（完整校验在迁移引擎 start-migration 时重新执行）
+  // Light validation (full validation re-runs in the migration engine at start-migration time)
   const a = normCase(path.resolve(currentDataDir))
   const b = normCase(target)
+  // i18n: user-facing
   if (b === a) return { ok: false, error: '不能选择当前数据目录' }
+  // i18n: user-facing
   if (b.startsWith(a + path.sep)) return { ok: false, error: '目标目录在当前数据目录内部' }
+  // i18n: user-facing
   if (a.startsWith(b + path.sep)) return { ok: false, error: '目标目录是当前数据目录的上级目录' }
   try {
     await assertWritable(target)
   } catch {
+    // i18n: user-facing
     return { ok: false, error: '目标目录不可写' }
   }
 
@@ -449,11 +467,11 @@ ipcMain.handle('fusion:pick-directory', async () => {
   try {
     const st = await fsp.statfs(target)
     freeBytes = st.bavail * st.bsize
-  } catch { /* statfs 不可用时跳过剩余空间展示 */ }
+  } catch { /* statfs unavailable: skip the free-space display */ }
   return { ok: true, path: target, freeBytes }
 })
 
-// 存储迁移 IPC（校验/搬移/重启序列见 migrate.ts）
+// Storage migration IPC (validation/move/restart sequence in migrate.ts)
 const migrationDeps = {
   getWindow: () => mainWindow,
   getDataDir: () => currentDataDir,

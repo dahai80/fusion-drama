@@ -1,14 +1,15 @@
 /**
- * fusion-mlx 本地视频生成 Adapter
- * 端点: /v1/videos/generate（同步阻塞，返回 base64 data URI）
- * 模型: dgrauet--ltx-2.5-mlx-q8 等 fusion-mlx 加载的本地视频模型
+ * fusion-mlx local video generation adapter
+ * Endpoint: /v1/videos/generate (synchronous blocking, returns base64 data URI)
+ * Models: dgrauet--ltx-2.5-mlx-q8 and other local video models loaded by fusion-mlx
  *
- * 协议特点：正常同步响应为 { data: [{ b64_json | url }] }，无任务轮询。
- * #1254 交接：上游同步窗口 _SYNC_VIDEO_WAIT_SECONDS=600s 耗尽而作业仍在跑时，
- * 返回 202 + { error: { code: "video_job_pending", job_id } }——作业已 shield
- * 在服务端继续执行，客户端经 GET /v1/videos/jobs/{job_id} 轮询，完成后从
- * /v1/videos/jobs/{job_id}/output/0 取回成品（须 Bearer 鉴权；作业终态 1800s
- * TTL 后被 prune 连临时文件回收）。isAsync=true 走 generation.ts 的 pollTask。
+ * Protocol notes: a normal synchronous response is { data: [{ b64_json | url }] }, no task polling.
+ * #1254 handoff: when the upstream sync window _SYNC_VIDEO_WAIT_SECONDS=600s is exhausted
+ * while the job is still running, it returns 202 + { error: { code: "video_job_pending", job_id } } —
+ * the job is shielded and keeps running server-side; the client polls GET /v1/videos/jobs/{job_id},
+ * then fetches the artifact from /v1/videos/jobs/{job_id}/output/0 (Bearer auth required; the job
+ * is pruned along with its temp files 1800s TTL after reaching a terminal state).
+ * isAsync=true goes through generation.ts pollTask.
  */
 import type {
   VideoProviderAdapter,
@@ -20,76 +21,85 @@ import type {
 } from './types'
 import { joinProviderUrl } from './url'
 
-/** LTX-2.5 帧数换算。fusion-mlx #978 起 temporal upsampler 已从 distilled 管线移除：
- *  输出帧数 = num_frames（不再有 16T-7 双倍放大），直接按目标时长请求 8k+1 帧。
- *  （旧管线按 16T-7 反推 latent 周期的逻辑随 upsampler 一并作废。）
+/** LTX-2.5 frame count conversion. Since fusion-mlx #978 the temporal upsampler has been
+ *  removed from the distilled pipeline: output frames = num_frames (no more 16T-7 double
+ *  amplification), so request 8k+1 frames directly for the target duration.
+ *  (The old pipeline logic that back-derived the latent period from 16T-7 is obsolete
+ *  along with the upsampler.)
  *
- *  VAE OOM 保护（issue #945）：上游已落地 temporal-only tiling（tiling="auto"，
- *  >65 帧自动分块解码），时长上限放宽到 15s。 */
+ *  VAE OOM protection (issue #945): upstream landed temporal-only tiling (tiling="auto",
+ *  auto chunked decode above 65 frames), so the duration cap is relaxed to 15s. */
 function numFramesForDuration(duration?: number | null, maxSeconds = 15): number {
   const fps = 24
   const seconds = Math.min(maxSeconds, Math.max(2, Math.round(Number(duration || 5))))
   const target = seconds * fps
-  // num_frames 约束 %8==1：取最近 8k+1
+  // num_frames constraint %8==1: round to nearest 8k+1
   return Math.max(9, Math.round((target - 1) / 8) * 8 + 1)
 }
 
-/** 尺寸按 64 对齐（最近取整）：Stage1 = 目标尺寸/2 须为 32 的倍数。
- *  sigma 修复后不再需要 floor 保守，round 到最近 64 倍数更贴近目标比例。 */
+/** Dimensions aligned to 64 (nearest): Stage1 = target size / 2 must be a multiple of 32.
+ *  After the sigma fix the conservative floor is no longer needed; rounding to the nearest
+ *  multiple of 64 stays closer to the target aspect ratio. */
 function alignDim(value: number, fallback: number): number {
   const v = Math.round(Number(value) || fallback)
   const clamped = Math.min(1920, Math.max(576, v))
   return Math.round(clamped / 64) * 64
 }
 
-/** LTX-2.5 两阶段 distilled：Stage1 半分辨率生成 → latent 2x 上采样 → Stage2 精化。
- *  短边基准 768（1344x768 实测 159.9s/121帧/5.04s，峰值 64.76GB 安全）。
- *  1088 短边（1920x1088）VAE decode 12min+ 且 OOM（114GB > 112GB 水位）——
- *  128GB 机器不可行，收口 768。质量经实证可接受（帧 diff avg 正常区间）。 */
+/** LTX-2.5 two-stage distilled: Stage1 half-resolution generation → latent 2x upsample → Stage2 refine.
+ *  Short-edge baseline 768 (measured 1344x768: 159.9s / 121 frames / 5.04s, peak 64.76GB, safe).
+ *  1088 short edge (1920x1088) VAE decode takes 12min+ and OOMs (114GB > 112GB watermark) —
+ *  not viable on a 128GB machine, so it is capped at 768. Quality verified acceptable
+ *  (frame diff avg within normal range). */
 const SHORT_EDGE_BASE_LTX25 = 768
 
-/** MiniMax-H3：33B Omni-Transformer。短边 576（16:9 → 1024x576）。
- *  实测：768 短边（1344x768）token 数 6552+，10 步即 OOM（MLX cache 累积超 120GB）；
- *  576 短边（1024x576）spatial tokens=2304（同 768x768），10 步 107s 完成 1.17s 输出。
- *  dim_divisibility=16，576/16=36 满足约束。 */
+/** MiniMax-H3: 33B Omni-Transformer. Short edge 576 (16:9 → 1024x576).
+ *  Measured: 768 short edge (1344x768) token count 6552+, OOMs at 10 steps (MLX cache
+ *  accumulation exceeds 120GB); 576 short edge (1024x576) spatial tokens=2304 (same as
+ *  768x768), 10 steps finish 1.17s output in 107s. dim_divisibility=16, 576/16=36 satisfies it. */
 const SHORT_EDGE_BASE_H3 = 576
 
-/** Wan2.2-TI2V-5B：短边 544（16:9 → 960×544）。原生 720P（1280×704）在
- *  MLX 侧 seq=18480 超过 FUSION_WAN2_Q8_FP32_SEQ(16384) 阈值，q8 注意力走
- *  fp32 慢路径：~95s/步、40 步 ~60min/3.4s 片段且触发 memory enforcer 硬压力
- *  （fusion-mlx #1208）。544 短边 seq=10710 走 bf16 快路径：实测 525s 完成
- *  81 帧 3.375s 输出。上游修复 #1208 后可回升 704。 */
+/** Wan2.2-TI2V-5B: short edge 544 (16:9 → 960×544). Native 720P (1280×704) on the MLX side
+ *  has seq=18480 exceeding the FUSION_WAN2_Q8_FP32_SEQ(16384) threshold, so q8 attention
+ *  takes the fp32 slow path: ~95s/step, 40 steps ~60min for a 3.4s clip, and triggers
+ *  memory enforcer hard pressure (fusion-mlx #1208). 544 short edge seq=10710 takes the
+ *  bf16 fast path: measured 525s for an 81-frame 3.375s output. Can rise back to 704
+ *  after upstream fixes #1208. */
 const SHORT_EDGE_BASE_WAN5B = 544
 
-/** 判定是否为 MiniMax-H3（33B Omni-Transformer，fl2va/i2va/l2va）。
- *  H3 路由独立于 LTX：需 quantize=dit8_te4（61GB）否则 144GB OOM（128GB 机器）；
- *  无 8k+1 帧约束（1..361）；joint audio 与 fl2va image 互斥 → 走 TTS dub。 */
+/** Detect MiniMax-H3 (33B Omni-Transformer, fl2va/i2va/l2va).
+ *  H3 routing is independent of LTX: requires quantize=dit8_te4 (61GB) or 144GB OOM on a
+ *  128GB machine; no 8k+1 frame constraint (1..361); joint audio is mutually exclusive
+ *  with fl2va image → TTS dub instead. */
 export function isMiniMaxH3(model: string): boolean {
   const m = model.toLowerCase()
   return m.includes('minimax') || m.includes('h3-fl2va') || m.includes('h3-ref2va')
     || m.includes('minimax-h3') || m.includes('minimax_h3')
 }
 
-/** 判定是否为 Wan2.2-TI2V-5B（阿里 5B compact DiT + Wan2.2-VAE 16×16×4 高压缩）。
- *  T2V/I2V 统一单模型（A14B 是 T2V/I2V 两个独立模型，不含 ti2v 不误伤）。
- *  UMT5 文本编码器原生识中文（generation.ts 据此跳过翻译）；
- *  帧约束 (nf-1)%4==0（fusion-mlx wan2 constraints）；无联合音频。 */
+/** Detect Wan2.2-TI2V-5B (Alibaba 5B compact DiT + Wan2.2-VAE 16×16×4 high compression).
+ *  Single unified model for T2V/I2V (A14B ships as two separate T2V/I2V models; excluding
+ *  ti2v avoids false matches).
+ *  The UMT5 text encoder natively understands Chinese (generation.ts skips translation
+ *  accordingly); frame constraint (nf-1)%4==0 (fusion-mlx wan2 constraints); no joint audio. */
 export function isWan22Ti2v5b(model: string): boolean {
   const m = model.toLowerCase()
   return m.includes('ti2v') && m.includes('5b')
 }
 
-/** MiniMax-H3 帧数换算：无 8k+1 约束（H3 接受 1..361 帧），直接 duration*fps。
- *  上限 5s（120帧）：8 步实测 2s/3s/4s/5s 全通过，6s(144f) MLX cache 累积
- *  超 120GB ceiling 被 memory guard 取消。5s=773s 耗时，峰值 ~56GB 安全。 */
+/** MiniMax-H3 frame count conversion: no 8k+1 constraint (H3 accepts 1..361 frames),
+ *  so duration*fps directly.
+ *  Cap 5s (120 frames): 8 steps measured 2s/3s/4s/5s all pass; 6s (144f) MLX cache
+ *  accumulation exceeds the 120GB ceiling and gets cancelled by the memory guard.
+ *  5s takes 773s, peak ~56GB, safe. */
 function numFramesForDurationH3(duration?: number | null, maxSeconds = 5): number {
   const fps = 24
   const seconds = Math.min(maxSeconds, Math.max(1, Math.round(Number(duration || 5))))
   return Math.max(25, seconds * fps)
 }
 
-/** Wan2.2-TI2V-5B 帧数换算：约束 (nf-1)%4==0（Wan2.2-VAE 时间 stride 4），
- *  4k+1 直算（81=3.4s / 121=5s / 241=10s）。 */
+/** Wan2.2-TI2V-5B frame count conversion: constraint (nf-1)%4==0 (Wan2.2-VAE temporal
+ *  stride 4), computed directly as 4k+1 (81=3.4s / 121=5s / 241=10s). */
 function numFramesForDurationWan(duration?: number | null, maxSeconds = 10): number {
   const fps = 24
   const seconds = Math.min(maxSeconds, Math.max(2, Math.round(Number(duration || 5))))
@@ -97,15 +107,16 @@ function numFramesForDurationWan(duration?: number | null, maxSeconds = 10): num
   return Math.max(9, Math.round((target - 1) / 4) * 4 + 1)
 }
 
-/** 剥离 prompt 中的台词引语（「…」/『…』/ "…"）。
- *  台词由 TTS 配音（video-dub）单独合成进音轨；留在视频 prompt 里会被
- *  LTX 当作字幕渲染成画面内嵌乱码文字（实测 "Diciple speek only truth..."）。
- *  只删引语本体，保留动作描述（如「祖师说：」两侧的镜头指令）。 */
+/** Strip quoted dialogue lines (「…」/『…』/ "...") from the prompt.
+ *  Dialogue is synthesized into the audio track separately by TTS dubbing (video-dub);
+ *  leaving it in the video prompt makes LTX render it as burned-in garbled subtitle
+ *  text (observed "Diciple speek only truth...").
+ *  Only the quote itself is removed; surrounding action/camera descriptions are kept. */
 function stripDialogue(prompt: string): string {
   return prompt
     .replace(/[「『][^」』]*[」』]/g, '')
     .replace(/"[^"]{2,}"/g, '')
-    .replace(/[，,、]\s*(?=[，,、\n]|$)/g, '') // 清理删除后残留的连续标点
+    .replace(/[，,、]\s*(?=[，,、\n]|$)/g, '') // clean up leftover consecutive punctuation
     .replace(/[ \t]+$/gm, '')
 }
 
@@ -114,27 +125,32 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
 
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
     const model = record.model || config.model
-    if (!model) throw new Error('未指定视频模型')
+    if (!model) throw new Error('Video model not specified')
 
     const prompt = (record.prompt || '').trim()
-    if (!prompt) throw new Error('视频生成需要 prompt')
+    if (!prompt) throw new Error('Video generation requires a prompt')
 
-    // 参考图：本地模型仅支持单张首帧（ltx 后端不支持 i2v 时由服务端 422 提示）。
-    // FR-BIZ-2a 首帧选图唯一化：条件图由宿主（generation.ts resolveI2vSubjectUrl）
-    // 统一解析后经 firstFrameUrl 传入——@图片N/@角色名 主体挑选、末张兜底都在宿主，
-    // 适配器不再持有第二份选图实现；显式 firstFrameUrl/imageUrl 仍最高优先。
+    // Reference image: local models only support a single first frame (the ltx backend
+    // returns a 422 when i2v is unsupported).
+    // FR-BIZ-2a first-frame image selection unification: the conditioning image is resolved
+    // by the host (generation.ts resolveI2vSubjectUrl) and passed in via firstFrameUrl —
+    // @imageN/@character subject picking and last-image fallback both live in the host;
+    // the adapter no longer keeps a second selection implementation. Explicit
+    // firstFrameUrl/imageUrl still take highest priority.
     const firstFrame = record.firstFrameUrl || record.imageUrl
 
     const h3 = isMiniMaxH3(model)
     const wan5b = isWan22Ti2v5b(model)
-    // H3 短边 576（resolution "768p" 口径）；LTX-2.5 768；Wan 5B 544。
+    // H3 short edge 576 (in "768p" resolution terms); LTX-2.5 768; Wan 5B 544.
     const shortEdgeBase = h3
       ? SHORT_EDGE_BASE_H3
       : (wan5b ? SHORT_EDGE_BASE_WAN5B : SHORT_EDGE_BASE_LTX25)
 
-    // 尺寸必须显式指定：不传时 fusion 默认 768x512，Stage1 仅 384x256 发糊。
-    // 短边锁 base（LTX-2.5=768 / H3=576 / Wan5B=544）；长边按宽高比推算 64 对齐
-    // （64 是 16 的倍数，满足 H3 dim_divisibility=16 与 LTX 32 约束）。
+    // Dimensions must be explicit: when omitted fusion defaults to 768x512 and Stage1
+    // renders a blurry 384x256.
+    // Lock short edge to base (LTX-2.5=768 / H3=576 / Wan5B=544); derive the long edge from
+    // the aspect ratio aligned to 64 (64 is a multiple of 16, satisfying H3
+    // dim_divisibility=16 and the LTX 32 constraint).
     const ar = record.aspectRatio
     const [aw, ah] = ar ? String(ar).split(':').map(Number) : [16, 9]
     let shortEdge = shortEdgeBase
@@ -157,19 +173,20 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       }
     }
 
-    // VAE OOM / 时长保护：
-    // LTX-2.5 上限 10s（241帧峰值 ~110GB 贴 128GB 水位）。
-    // H3 上限 5s（120帧）：8 步实测 2s/3s/4s/5s 全通过（峰值 ~56GB），
-    // 6s(144f) MLX cache 累积超 120GB ceiling 被 memory guard 取消。
-    // Wan2.2-TI2V-5B 上限 10s（241帧；16×16×4 高压缩 VAE latent 极小，
-    // 5B 去噪 + 分块解码内存远低于 LTX-2.5，待实测确认后可放宽）。
+    // VAE OOM / duration protection:
+    // LTX-2.5 cap 10s (241 frames peak ~110GB, close to the 128GB watermark).
+    // H3 cap 5s (120 frames): 8 steps measured 2s/3s/4s/5s all pass (peak ~56GB);
+    // 6s (144f) MLX cache accumulation exceeds the 120GB ceiling and gets cancelled
+    // by the memory guard.
+    // Wan2.2-TI2V-5B cap 10s (241 frames; the 16×16×4 high-compression VAE latent is tiny,
+    // 5B denoise + chunked decode use far less memory than LTX-2.5; relax after verification).
     const maxSeconds = h3 ? 5 : 10
     const requested = Number(record.duration) || 5
     if (requested > maxSeconds) {
       console.warn(
-        `[fusion-video] ${h3 ? 'H3' : wan5b ? 'Wan5B' : 'LTX-2.5'}(短边${shortEdge})` +
-        `时长${requested}s 超安全上限${maxSeconds}s，截断为 ${maxSeconds}s。` +
-        `分镜拆解侧应控制单镜 ≤${maxSeconds}s`,
+        `[fusion-video] ${h3 ? 'H3' : wan5b ? 'Wan5B' : 'LTX-2.5'}(short edge ${shortEdge})` +
+        ` duration ${requested}s exceeds the safe cap ${maxSeconds}s, truncating to ${maxSeconds}s.` +
+        ` Storyboard breakdown should keep each shot ≤${maxSeconds}s`,
       )
     }
     body.num_frames = h3
@@ -178,42 +195,44 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
         ? numFramesForDurationWan(record.duration, maxSeconds)
         : numFramesForDuration(record.duration, maxSeconds)
 
-    // 画质档（可选 dev）：22B bf16 单阶段全分辨率（20 步 CFG=4，质量最佳，
-    // 实测 ~1600s/41f）；缺省走 distilled（8/3 步，~80s）。
-    // #995 后 dev 同样支持联合 A/V，audio 由下方 generateAudio 映射统一处理。
-    // H3 / Wan5B 无 dev/distilled pipeline 概念，跳过。
+    // Quality tier (optional dev): 22B bf16 single-stage full resolution (20 steps CFG=4,
+    // best quality, measured ~1600s/41f); default is distilled (8/3 steps, ~80s).
+    // Since #995 dev also supports joint A/V; audio is mapped uniformly by generateAudio below.
+    // H3 / Wan5B have no dev/distilled pipeline concept, skip.
     if (!h3 && !wan5b && record.videoPipeline === 'dev') {
       body.pipeline = 'dev'
       body.num_inference_steps = 20
       body.cfg_scale = 4.0
     }
 
-    // MiniMax-H3 33B：必须 quantize=dit8_te4（DiT 8-bit + TE 4-bit ≈61GB），
-    // 否则 bf16 全量 144GB > 128GB 机器 → OOM crash（10/10 任务失败根因）。
-    // Turbo 前历史：steps=8（8 步实测可跑 5s 峰值 ~56GB；20 步在 step 16 处
-    // cache 超 120GB 被取消；10 步限 1s）。
-    // 不传 audio（fl2va image 与 joint audio 互斥 generate.py:843；
-    // 台词配音走 TTS dub 独立管线）。
+    // MiniMax-H3 33B: must use quantize=dit8_te4 (DiT 8-bit + TE 4-bit ≈61GB), otherwise
+    // bf16 full weights 144GB > 128GB machine → OOM crash (root cause of 10/10 task failures).
+    // Pre-Turbo history: steps=8 (8 steps measured can run 5s at peak ~56GB; 20 steps get
+    // cancelled at step 16 when cache exceeds 120GB; 10 steps limited to 1s).
+    // No audio (fl2va image is mutually exclusive with joint audio, generate.py:843;
+    // dialogue dubbing uses the separate TTS dub pipeline).
     if (h3) {
       body.quantize = 'dit8_te4'
-      // Turbo LoRA（#1212/#1213）：模型根目录 turbo_lora.safetensors 运行时
-      // 旁路挂载（259 模块），4 步采样实测 313.6s vs 8 步 838s（2.67x，
-      // 1024×576/120f 同规格）。fusion-mlx 缺该文件会 400 显式报错（不静默降质）。
+      // Turbo LoRA (#1212/#1213): turbo_lora.safetensors at the model root is side-loaded
+      // at runtime (module 259); 4-step sampling measured 313.6s vs 838s at 8 steps (2.67x,
+      // same spec 1024×576/120f). fusion-mlx returns an explicit 400 if the file is missing
+      // (no silent quality downgrade).
       body.num_inference_steps = 4
       body.turbo = true
     }
 
-    // 音频（LTX-2.5 联合 A/V，distilled/dev 均支持）：generateAudio 缺省开
-    // （createTask 侧 false 才存 0）；H3 / Wan5B 无联合音频支路，不传。
-    // H3 joint audio(t2va-av) 与 fl2va image 互斥（generate.py:843），且
-    // t2va-av 管线 UNVERIFIED（generate.py:160）→ H3 永远不传 audio，
-    // 台词配音统一走 TTS dub（video-dub）独立管线。
-    // LTX-2.5 有首帧时亦关闭（fl2va image 与 joint audio 互斥，上游硬校验）。
+    // Audio (LTX-2.5 joint A/V, supported by both distilled/dev): generateAudio defaults on
+    // (only createTask side false stores 0); H3 / Wan5B have no joint audio branch, omit it.
+    // H3 joint audio (t2va-av) is mutually exclusive with fl2va image (generate.py:843), and
+    // the t2va-av pipeline is UNVERIFIED (generate.py:160) → H3 never sends audio;
+    // dialogue dubbing uniformly uses the separate TTS dub (video-dub) pipeline.
+    // LTX-2.5 also disables it when a first frame is present (fl2va image is mutually
+    // exclusive with joint audio, upstream hard validation).
     if (!h3 && !wan5b && record.generateAudio) {
       if (firstFrame) {
         console.warn(
-          `[fusion-video] 首帧 I2V 与联合音频互斥（上游硬校验），自动关闭 audio。` +
-          `台词配音仍由 TTS 管线生成`,
+          `[fusion-video] First-frame I2V is mutually exclusive with joint audio (upstream hard validation), disabling audio automatically.` +
+          ` Dialogue dubbing is still generated by the TTS pipeline`,
         )
       } else {
         body.audio = true
@@ -224,8 +243,10 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
       body.seed = Number(record.seed)
     }
     if (firstFrame) body.image = firstFrame
-    // H3 fl2va：last_frame_image 作末帧条件（l2va）；与首帧 image 联合即 fl2va。
-    // 仅 H3 支持末帧锚定（LTX-2.5 后端不接受 last_frame_image）。
+    // H3 fl2va: last_frame_image as the end-frame condition (l2va); combined with the first
+    // frame image it becomes fl2va.
+    // Only H3 supports end-frame anchoring (the LTX-2.5 backend does not accept
+    // last_frame_image).
     if (h3 && record.lastFrameUrl) {
       body.last_frame_image = record.lastFrameUrl
     }
@@ -242,24 +263,26 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
   }
 
   parseGenerateResponse(result: any): VideoGenResponse {
-    // #1254 交接：同步窗口 600s 耗尽而作业仍在跑 → 202 { error: { code:
-    // "video_job_pending", job_id } }。作业在服务端 shield 继续跑，转轮询。
+    // #1254 handoff: sync window of 600s exhausted while the job is still running →
+    // 202 { error: { code: "video_job_pending", job_id } }. The job keeps running shielded
+    // server-side; switch to polling.
     const pendingJobId = result?.error?.job_id
       ?? (result?.error?.code === 'video_job_pending' ? result?.error?.job_id : null)
     if (pendingJobId) {
       return { isAsync: true, taskId: String(pendingJobId) }
     }
     const item = result?.data?.[0]
-    if (!item) throw new Error('fusion-mlx 视频响应缺少 data[0]')
+    if (!item) throw new Error('fusion-mlx video response missing data[0]')
     const videoUrl = item.url || (item.b64_json ? `data:video/mp4;base64,${item.b64_json}` : null)
-    if (!videoUrl) throw new Error('fusion-mlx 视频响应无 url/b64_json')
-    // 同步完成：直接返回 data URI（downloadFile 支持 data URI 落盘）
+    if (!videoUrl) throw new Error('fusion-mlx video response has no url/b64_json')
+    // Synchronous completion: return the data URI directly (downloadFile supports writing
+    // data URIs to disk)
     return { isAsync: false, videoUrl }
   }
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
-    // #1254 交接后的作业轮询：GET /v1/videos/jobs/{job_id}
-    // （ queued/running → processing；completed → 宿主从 buildJobOutputRequest 取产物）
+    // Job polling after the #1254 handoff: GET /v1/videos/jobs/{job_id}
+    // (queued/running → processing; completed → host fetches the artifact via buildJobOutputRequest)
     return {
       url: joinProviderUrl(config.baseUrl, '/v1', `/videos/jobs/${taskId}`),
       method: 'GET',
@@ -268,9 +291,9 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     }
   }
 
-  /** 交接作业完成后的产物请求：GET /v1/videos/jobs/{job_id}/output/0
-   *  （FileResponse 流式回传 mp4，需 Bearer 鉴权）。generation.ts 收到
-   *  videoUrl='job-output' 占位时改用本方法发起下载。 */
+  /** Artifact request after a handed-off job completes: GET /v1/videos/jobs/{job_id}/output/0
+   *  (FileResponse streams the mp4 back, Bearer auth required). When generation.ts receives
+   *  the videoUrl='job-output' placeholder it uses this method to start the download. */
   buildJobOutputRequest(config: AIConfig, taskId: string, index = 0): ProviderRequest {
     return {
       url: joinProviderUrl(config.baseUrl, '/v1', `/videos/jobs/${taskId}/output/${index}`),
@@ -284,18 +307,19 @@ export class FusionVideoAdapter implements VideoProviderAdapter {
     if (result?.error?.code === 'video_job_pending') {
       return { status: 'processing' }
     }
-    // 已终态又被 404（prune/重启丢失）：无法恢复，终态失败
+    // Already terminal but answered with 404 (lost to prune/restart): unrecoverable, fail terminally
     if (result?.detail && String(result.detail).includes('not found')) {
-      return { status: 'failed', error: `fusion-mlx 视频作业已丢失: ${result.detail}` }
+      return { status: 'failed', error: `fusion-mlx video job lost: ${result.detail}` }
     }
     switch (result?.status) {
       case 'completed':
-        // 产物本体不在 status 响应里（在 /output/{index}），用占位符让宿主走
-        // buildJobOutputRequest 下载；output_files 数量可 >1（多输出极少见，取首个）
+        // The artifact itself is not in the status response (it lives at /output/{index});
+        // use a placeholder so the host downloads via buildJobOutputRequest. output_files
+        // count can be >1 (multiple outputs are rare, take the first)
         return { status: 'completed', videoUrl: 'job-output' }
       case 'failed':
       case 'cancelled':
-        return { status: 'failed', error: result?.error || `视频作业 ${result?.status}` }
+        return { status: 'failed', error: result?.error || `Video job ${result?.status}` }
       default:
         return { status: 'processing' }
     }

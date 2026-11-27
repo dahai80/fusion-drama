@@ -1,14 +1,16 @@
 /**
- * 任务事件流（FR-P1-1）— SSE 事件的落库与读取
+ * Task event stream (FR-P1-1) — persisting and reading SSE events
  *
- * 事件写 sys_task_events（seq 单调递增，SSE Last-Event-ID 续传游标）。
- * 追加失败只 warn 不阻断主流程（事件流是增强，不是关键路径）。
+ * Events are written to sys_task_events (seq monotonically increasing, used as the
+ * SSE Last-Event-ID resume cursor).
+ * Append failures only warn and never block the main flow (the event stream is an
+ * enhancement, not the critical path).
  */
 import { and, asc, eq, gt, sql } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { now } from './response.js'
 
-/** 追加一条任务事件；失败不抛出（不阻断生成主流程） */
+/** Appends one task event; failures do not throw (never blocks the generation main flow) */
 export async function appendTaskEvent(taskId: number, type: string, payload?: Record<string, unknown>): Promise<void> {
     try {
         const [row] = await db.select({ maxSeq: sql<number>`COALESCE(MAX(${schema.sysTaskEvents.seq}), 0)` })
@@ -28,10 +30,12 @@ export async function appendTaskEvent(taskId: number, type: string, payload?: Re
 }
 
 /**
- * FR-P1-1 补齐：Agent 级事件（agent_started/tool_call/tool_result/agent_finished）——
- * Agent 链路（提取/分镜/提示词/对话）没有 sys_task 行，事件以 episodeId 归组。
- * taskId 传 0 占位（列 NOT NULL 约束保留，语义=非任务事件）。episode 维度 seq
- * 用自增 id 保证单调，读取按 id 排序。
+ * FR-P1-1 completion: Agent-level events (agent_started/tool_call/tool_result/agent_finished) —
+ * Agent flows (extraction/storyboard/prompt/dialogue) have no sys_task row, so events are
+ * grouped by episodeId.
+ * taskId is passed as 0 as a placeholder (the NOT NULL column constraint is kept; semantics
+ * = non-task event). Episode-dimension seq monotonicity relies on the auto-increment id,
+ * and reads sort by id.
  */
 export async function appendEpisodeEvent(episodeId: number, type: string, payload?: Record<string, unknown>): Promise<void> {
     try {
@@ -48,7 +52,7 @@ export async function appendEpisodeEvent(episodeId: number, type: string, payloa
     }
 }
 
-/** 回放某剧集最近的 Agent 事件（afterId 游标，SSE 续传） */
+/** Replays recent Agent events for an episode (afterId cursor, SSE resume) */
 export async function readEpisodeEvents(episodeId: number, afterId = 0, limit = 100) {
     return db.select().from(schema.sysTaskEvents)
         .where(and(eq(schema.sysTaskEvents.episodeId, episodeId), gt(schema.sysTaskEvents.id, afterId)))
@@ -56,7 +60,7 @@ export async function readEpisodeEvents(episodeId: number, afterId = 0, limit = 
         .limit(limit)
 }
 
-/** 回放某任务 seq > afterSeq 的事件（SSE Last-Event-ID 续传） */
+/** Replays events with seq > afterSeq for a task (SSE Last-Event-ID resume) */
 export async function readTaskEvents(taskId: number, afterSeq = 0, limit = 100) {
     return db.select().from(schema.sysTaskEvents)
         .where(and(eq(schema.sysTaskEvents.taskId, taskId), gt(schema.sysTaskEvents.seq, afterSeq)))
@@ -64,7 +68,7 @@ export async function readTaskEvents(taskId: number, afterSeq = 0, limit = 100) 
         .limit(limit)
 }
 
-/** SSE data 行：事件全量序列化（含 seq/createdAt，前端可直接渲染；episode 事件以 id 作 seq） */
+/** SSE data line: fully serializes the event (including seq/createdAt so the frontend can render directly; episode events use id as seq) */
 export function formatTaskEvent(e: { id?: number, seq: number, type: string, payload: string | null, createdAt: string | null }): string {
     let payload: unknown = null
     if (e.payload) {

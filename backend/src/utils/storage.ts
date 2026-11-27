@@ -1,5 +1,5 @@
 /**
- * 文件存储工具 — 下载远程文件到本地
+ * File storage utilities — downloading remote files to local storage
  */
 import fs from 'fs'
 import path from 'path'
@@ -10,7 +10,7 @@ import { v4 as uuid } from 'uuid'
 import { STORAGE_ROOT } from './paths.js'
 
 /**
- * 下载远程文件到本地存储
+ * Downloads a remote file to local storage
  */
 export async function downloadFile(
   url: string,
@@ -21,7 +21,7 @@ export async function downloadFile(
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
-  // data URI（如本地模型同步返回的 data:video/mp4;base64,...）直接解码落盘
+  // data URI (e.g. data:video/mp4;base64,... synchronously returned by local models) is decoded straight to disk
   // Audit 1107 F-10: cap decoded size — a hostile/huge data URI must not buffer
   // unbounded bytes into memory (decoded cap mirrors MAX_DOWNLOAD_BYTES below)
   if (url.startsWith('data:')) {
@@ -51,14 +51,16 @@ export async function downloadFile(
     await assertPublicHttpUrl(url)
   }
 
-  // 带超时 + 流式落盘：无超时的 fetch 会在 GPU 串行锁内无限挂起，
-  // arrayBuffer 全量缓冲会把 37MB+ 视频整段拉进内存
+  // Timeout + streaming to disk: a fetch without a timeout would hang forever inside
+  // the GPU serial lock, and buffering the whole arrayBuffer pulls a 37MB+ video
+  // entirely into memory
   const resp = await fetch(url, { headers: authHeaders, signal: AbortSignal.timeout(5 * 60_000) })
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
   if (!resp.body) throw new Error('Download failed: empty body')
 
-  // Content-Type 先行：部分产物端点 URL 无扩展名（fusion-mlx /jobs/{id}/output/0
-  // 是 FileResponse 裸路径），URL 推断会落到 .bin
+  // Content-Type takes priority: some artifact endpoint URLs have no extension
+  // (fusion-mlx /jobs/{id}/output/0 is a bare FileResponse path), URL inference
+  // would fall back to .bin
   const ext = extFromContentType(resp.headers.get('content-type')) || getExtFromUrl(url)
   const filename = `${uuid()}${ext}`
   const filePath = path.join(dir, filename)
@@ -80,12 +82,12 @@ export async function downloadFile(
     reader.releaseLock()
   }
 
-  // 返回相对路径（供 API 返回给前端）
+  // Returns the relative path (for the API to return to the frontend)
   return `static/${subDir}/${filename}`
 }
 
 /**
- * 保存上传的文件
+ * Saves an uploaded file
  */
 export async function saveUploadedFile(data: ArrayBuffer, subDir: string, originalName: string): Promise<string> {
   const dir = path.join(STORAGE_ROOT, subDir)
@@ -108,14 +110,14 @@ function getExtFromUrl(url: string): string {
   return '.bin'
 }
 
-/** 响应 Content-Type → 扩展名（URL 无扩展名的产物端点兜底） */
+/** Response Content-Type → extension (fallback for artifact endpoints whose URL has no extension) */
 function extFromContentType(contentType: string | null): string | null {
   if (!contentType) return null
   const mime = contentType.split(';')[0].trim().toLowerCase()
   return mimeTypeExt(mime)
 }
 
-/** 常见 MIME 类型 → 文件扩展名（data URI 落盘用） */
+/** Common MIME type → file extension (used for writing data URIs to disk) */
 function mimeTypeExt(mime: string): string | null {
   const map: Record<string, string> = {
     'video/mp4': '.mp4',
@@ -129,10 +131,12 @@ function mimeTypeExt(mime: string): string | null {
 }
 
 /**
- * 获取本地文件的绝对路径 — 强制包含在存储根内，拒绝路径穿越
- * （path.join 会静默归一化 `..`，客户端可控的相对路径必须 resolve 后校验）
+ * Gets the absolute path of a local file — forced to stay inside the storage root,
+ * rejecting path traversal
+ * (path.join silently normalizes `..`; client-controlled relative paths must be
+ * resolved first and then validated)
  */
-/** R2: 删除存储产物（jail 断言防越界）。业务表可能仍引用同一路径，调用方先确认无引用 */
+/** R2: deletes a stored artifact (jail assertion prevents path escape). Business tables may still reference the same path; callers must confirm no references first */
 export function deleteStoredFile(relativePath: string): boolean {
   try {
     const root = path.resolve(STORAGE_ROOT)
@@ -156,7 +160,7 @@ export function getAbsolutePath(relativePath: string): string {
   return path.join(STORAGE_ROOT, relativePath)
 }
 
-/** 同 getAbsolutePath，但 resolve 后断言结果落在数据根内，穿越即抛错 */
+/** Same as getAbsolutePath, but asserts after resolve that the result stays inside the data root, throwing on traversal */
 export function getContainedAbsolutePath(relativePath: string): string {
   const abs = getAbsolutePath(relativePath)
   const resolved = path.resolve(abs)
@@ -168,14 +172,14 @@ export function getContainedAbsolutePath(relativePath: string): string {
 }
 
 /**
- * 保存 Base64 编码的图片数据到本地存储
- * 用于 Gemini 等只返回 base64 数据的厂商
+ * Saves Base64-encoded image data to local storage
+ * Used for vendors like Gemini that only return base64 data
  */
 export async function saveBase64Image(base64Data: string, mimeType: string, subDir: string): Promise<string> {
   const dir = path.join(STORAGE_ROOT, subDir)
   fs.mkdirSync(dir, { recursive: true })
 
-  // 从 mimeType 推断文件扩展名
+  // Infers the file extension from mimeType
   const ext = mimeTypeToExt(mimeType)
   const filename = `${uuid()}${ext}`
   const filePath = path.join(dir, filename)
@@ -186,14 +190,15 @@ export async function saveBase64Image(base64Data: string, mimeType: string, subD
   return `static/${subDir}/${filename}`
 }
 
-/** 由图片相对路径推导缩略图路径：static/images/x.png → static/images/x_thumb.webp */
+/** Derives the thumbnail path from an image's relative path: static/images/x.png → static/images/x_thumb.webp */
 export function thumbPathFor(relativePath: string): string {
   return relativePath.replace(/\.[^./]+$/, '_thumb.webp')
 }
 
 /**
- * 为已落盘图片生成列表页缩略图（宽 400 WebP，与原图同目录）。
- * 失败（文件损坏/格式异常等）返回 null，不阻断主流程。
+ * Generates a list-page thumbnail for an already-stored image (width 400 WebP, same
+ * directory as the original).
+ * Returns null on failure (corrupted file / unsupported format etc.) without blocking the main flow.
  */
 export async function generateImageThumb(relativePath: string): Promise<string | null> {
   try {
@@ -205,7 +210,7 @@ export async function generateImageThumb(relativePath: string): Promise<string |
       .toFile(getAbsolutePath(thumbRel))
     return thumbRel
   } catch (err) {
-    console.warn(`[storage] 缩略图生成失败 ${relativePath}:`, (err as Error).message)
+    console.warn(`[storage] thumbnail generation failed ${relativePath}:`, (err as Error).message)
     return null
   }
 }
@@ -230,11 +235,15 @@ export async function readImageAsCompressedDataUrl(
 }
 
 /**
- * 下载远程图片并压缩为 data URL（远程参考图归一化，供 multipart/base64 上传类厂商使用）
- * 内网/链路本地地址一律拒绝 — 客户端可控 URL 的服务端 fetch 是 SSRF 原语
+ * Downloads a remote image and compresses it into a data URL (normalizes remote
+ * reference images, used for multipart/base64 upload style vendors)
+ * Private/link-local addresses are always refused — a server-side fetch of a
+ * client-controlled URL is an SSRF primitive
  */
-// B21: 参考图压缩结果 LRU 缓存——同一批参考图跨任务反复下载+sharp 压缩纯浪费
-// （uuid 命名的 /static 内容不可变，缓存键 = url+压缩参数）。仅缓存成功结果，失败不缓存。
+// B21: LRU cache of compressed reference image results — re-downloading and re-compressing
+// the same set of reference images across tasks with sharp is pure waste (uuid-named
+// /static content is immutable; cache key = url + compression params). Only successful
+// results are cached; failures are not.
 const REF_IMAGE_CACHE_MAX = 32
 const refImageCache = new Map<string, string>()
 
@@ -249,20 +258,20 @@ export async function fetchImageAsCompressedDataUrl(
   const cacheKey = `${url}|${options.maxWidth ?? 768}|${options.maxHeight ?? 768}|${options.quality ?? 68}`
   const cached = refImageCache.get(cacheKey)
   if (cached) {
-    // Map 插入序即 LRU：命中后重插尾部刷新
+    // Map insertion order acts as LRU: re-insert at the tail on hit to refresh
     refImageCache.delete(cacheKey)
     refImageCache.set(cacheKey, cached)
     return cached
   }
   assertPublicHttpUrl(url)
   const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
-  if (!resp.ok) throw new Error(`下载参考图失败: HTTP ${resp.status}`)
-  // P5: 响应体 20MB 上限——Content-Length 预检 + 实际读取后复检，防超大响应解码炸内存
+  if (!resp.ok) throw new Error(`Failed to download reference image: HTTP ${resp.status}`)
+  // P5: 20MB response body cap — Content-Length precheck + recheck after actually reading, preventing oversized responses from blowing up memory during decode
   const REF_FETCH_MAX = 20 * 1024 * 1024
   const declared = Number(resp.headers.get('content-length') || 0)
-  if (declared > REF_FETCH_MAX) throw new Error(`参考图过大: ${Math.round(declared / 1024 / 1024)}MB`)
+  if (declared > REF_FETCH_MAX) throw new Error(`Reference image too large: ${Math.round(declared / 1024 / 1024)}MB`)
   const buf = Buffer.from(await resp.arrayBuffer())
-  if (buf.length > REF_FETCH_MAX) throw new Error(`参考图过大: ${Math.round(buf.length / 1024 / 1024)}MB`)
+  if (buf.length > REF_FETCH_MAX) throw new Error(`Reference image too large: ${Math.round(buf.length / 1024 / 1024)}MB`)
   const dataUrl = await compressImageAsDataUrl(buf, options)
   refImageCache.set(cacheKey, dataUrl)
   while (refImageCache.size > REF_IMAGE_CACHE_MAX) {
@@ -271,14 +280,14 @@ export async function fetchImageAsCompressedDataUrl(
   return dataUrl
 }
 
-/** SSRF 防护：仅允许 http(s)，且解析出的全部地址不在私网/链路本地/回环段 */
+/** SSRF guard: only http(s) allowed, and every resolved address must not fall in private/link-local/loopback ranges */
 export async function assertPublicHttpUrl(rawUrl: string): Promise<void> {
   const u = new URL(rawUrl)
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw new Error(`Unsupported URL scheme: ${u.protocol}`)
   }
   const hostname = u.hostname
-  // 字面量 IP 直接判段；域名解析后逐地址判段（防 DNS rebinding 首跳）
+  // IP literals are range-checked directly; domains are resolved and each address range-checked (guards the first hop of DNS rebinding)
   const addresses = isIpLiteral(hostname)
     ? [hostname]
     : await dns.promises.lookup(hostname, { all: true }).then(rs => rs.map(r => r.address))
@@ -323,7 +332,7 @@ function isPrivateAddress(addr: string): boolean {
   return false
 }
 
-/** sharp 输入 → 压缩 JPEG data URL（本地路径与远程下载共享同一压缩管线） */
+/** sharp input → compressed JPEG data URL (local paths and remote downloads share the same compression pipeline) */
 async function compressImageAsDataUrl(
   input: string | Buffer,
   options: {

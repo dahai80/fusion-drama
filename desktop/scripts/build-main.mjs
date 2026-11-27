@@ -1,6 +1,6 @@
 /**
- * esbuild 打包 Electron 主进程与 preload — desktop/src → desktop/dist/
- * main.ts → dist/main.js（package.json main 入口）；preload.ts → dist/preload.js
+ * esbuild bundling for the Electron main process and preload — desktop/src → desktop/dist/
+ * main.ts → dist/main.js (package.json main entry); preload.ts → dist/preload.js
  */
 import { build } from 'esbuild'
 import path from 'path'

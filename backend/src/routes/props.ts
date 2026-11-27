@@ -9,13 +9,15 @@ import { ensurePropFinalPrompt } from '../services/final-prompt.js'
 import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
-// 道具图：白底单品静物，方形画布
+// Prop image: white-background single-product still life, square canvas
 const PROP_IMAGE_SIZE = '1024x1024'
 
-// POST /props — 手动新增道具（传入 episode_id 时关联到该集）
+// POST /props — manually create a prop (when episode_id is passed, bind it to that episode)
 app.post('/', async (c) => {
   const body = await c.req.json()
+  // i18n: user-facing
   if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  // i18n: user-facing
   if (!body.name?.trim()) return badRequest(c, '名称必填')
   const ts = now()
   const res = await db.insert(schema.props).values({
@@ -38,14 +40,14 @@ app.post('/', async (c) => {
   return created(c, toSnakeCase(row))
 })
 
-// DELETE /props/:id — 软删除
+// DELETE /props/:id — soft delete
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   await db.update(schema.props).set({ deletedAt: now(), updatedAt: now() }).where(eq(schema.props.id, id))
   return success(c)
 })
 
-// PUT /props/:id — 更新道具（物品外貌/类型/最终提示词）
+// PUT /props/:id — update a prop (appearance/type/final prompt)
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
@@ -53,23 +55,24 @@ app.put('/:id', async (c) => {
   if (body.name !== undefined) updates.name = body.name
   if (body.type !== undefined) updates.type = body.type
   if (body.description !== undefined) updates.description = body.description
-  // 用户上传道具图：直接写入图片地址与本地路径
+  // User-uploaded prop image: write the image URL and local path directly
   if (body.image_url !== undefined) updates.imageUrl = body.image_url
   else if (body.imageUrl !== undefined) updates.imageUrl = body.imageUrl
   if (body.local_path !== undefined) updates.localPath = body.local_path
   else if (body.localPath !== undefined) updates.localPath = body.localPath
-  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
+  // When the final prompt is edited manually the passed value wins; when absent keep the original (editing info no longer auto-clears it)
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
-  // E7: 定义字段变更使 finalPrompt 缓存失效——无失效触发会让用户改了设定仍生成旧人设图；
-  // 显式传 final_prompt 仍以传入值为准
+  // E7: definition-field changes invalidate the finalPrompt cache — without an invalidation trigger,
+  // users who change a prop's definition would still generate the old image;
+  // an explicit final_prompt still takes precedence
   const definesChanged = ['name', 'type', 'description'].some((k) => updates[k] !== undefined)
   if (definesChanged && body.final_prompt === undefined && body.finalPrompt === undefined) updates.finalPrompt = null
   await db.update(schema.props).set(updates).where(eq(schema.props.id, id))
   return success(c)
 })
 
-/** 本地兜底提示词：白底单品，不掺杂其他元素 */
+/** Local fallback prompt: white-background single product, no other elements */
 function propImagePrompt(prop: typeof schema.props.$inferSelect, stylePrompt = '') {
   return [
     stylePrompt || '',
@@ -83,46 +86,53 @@ function propImagePrompt(prop: typeof schema.props.$inferSelect, stylePrompt = '
   ].filter(Boolean).join(', ')
 }
 
-// POST /props/:id/generate-prompt — 独立生成/重新生成白底单品最终提示词（不生图）
+// POST /props/:id/generate-prompt — generate/regenerate the white-background final prompt standalone (no image generation)
 app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [prop] = await db.select().from(schema.props).where(eq(schema.props.id, id))
+  // i18n: user-facing
   if (!prop) return badRequest(c, '道具不存在')
+  // i18n: user-facing
   if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
+  // i18n: user-facing
   if (!ep) return badRequest(c, '剧集不存在')
 
   logTaskStart('FinalPrompt', 'prop-generate', { propId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensurePropFinalPrompt(prop, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'prop-generate', { propId: id, error: 'agent returned empty prompt' })
+    // i18n: user-facing
     return badRequest(c, '最终提示词生成失败，请重试')
   }
   logTaskSuccess('FinalPrompt', 'prop-generate', { propId: id })
   return success(c, { final_prompt: finalPrompt })
 })
 
-// POST /props/:id/generate-image — 生成道具白底单品图
+// POST /props/:id/generate-image — generate the prop's white-background product image
 app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [prop] = await db.select().from(schema.props).where(eq(schema.props.id, id))
+  // i18n: user-facing
   if (!prop) return badRequest(c, '道具不存在')
+  // i18n: user-facing
   if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
+  // i18n: user-facing
   if (!ep) return badRequest(c, '剧集不存在')
 
-  // 去重：该道具已有进行中的图片任务则跳过——批量点击是逐道具并发请求，连点会重复建任务
+  // Dedup: skip when the prop already has an in-flight image task — batch clicks fire per-prop concurrent requests, and rapid clicking would create duplicate tasks
   const [dup] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask)
     .where(and(eq(schema.sysTask.propId, id), eq(schema.sysTask.status, 'processing')))
     .limit(1)
   if (dup) return success(c, { image_generation_id: dup.id, skipped: true })
 
-  // 建行前置：缓存 finalPrompt 或模板拼接立即入队（任务面板即刻可见）；
-  // 无缓存时由下方后台富化补齐，赶在串行队列执行前更新任务 prompt。
+  // Row-first: the cached finalPrompt or template-composed prompt enqueues immediately (visible in the task panel at once);
+  // without a cache, the background enrichment below fills it in, updating the task prompt before the serial queue executes.
   const stylePrompt = await getDramaStylePrompt(prop.dramaId)
   const prompt = prop.finalPrompt || propImagePrompt(prop, stylePrompt)
   try {
@@ -130,7 +140,7 @@ app.post('/:id/generate-image', async (c) => {
     const genId = await generateImage({
       propId: id, dramaId: prop.dramaId, prompt, model: body.model, size: PROP_IMAGE_SIZE,
       configId: body.config_id ?? ep.imageConfigId ?? undefined,
-      // 无缓存提示词时由队列内 enrichImagePromptIfNeeded 在生图前补齐（与生图严格串行）
+      // Without a cached prompt, enrichImagePromptIfNeeded fills it in inside the queue before generation (strictly serial with generation)
       enrichEpisodeId: prop.finalPrompt ? undefined : ep.id,
       textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
     })

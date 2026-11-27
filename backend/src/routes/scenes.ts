@@ -9,10 +9,12 @@ import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger
 
 const app = new Hono()
 
-// POST /scenes — 手动新增场景（传入 episode_id 时关联到该集）
+// POST /scenes — manually add a scene (linked to the episode when episode_id is passed)
 app.post('/', async (c) => {
   const body = await c.req.json()
+  // i18n: user-facing
   if (!body.drama_id) return badRequest(c, 'drama_id 必填')
+  // i18n: user-facing
   if (!body.location?.trim()) return badRequest(c, '地点必填')
   const ts = now()
   const res = await db.insert(schema.scenes).values({
@@ -48,7 +50,7 @@ app.put('/:id', async (c) => {
   if (body.prompt !== undefined) updates.prompt = body.prompt
   if (body.description !== undefined) updates.prompt = body.description
   if (body.lighting !== undefined) updates.lighting = body.lighting
-  // 用户上传场景图：直接写入图片地址与本地路径
+  // User-uploaded scene image: write the image URL and local path directly
   const uploadedImage = body.image_url ?? body.imageUrl
   if (uploadedImage !== undefined) {
     updates.imageUrl = uploadedImage
@@ -56,11 +58,13 @@ app.put('/:id', async (c) => {
   }
   if (body.local_path !== undefined) updates.localPath = body.local_path
   else if (body.localPath !== undefined) updates.localPath = body.localPath
-  // 手动编辑最终提示词时以传入值为准；未传入则保留原值（修改信息时不再自动置空）
+  // When the final prompt is manually edited, the passed value wins; when absent keep the
+  // original (editing info no longer auto-clears it)
   if (body.final_prompt !== undefined) updates.finalPrompt = body.final_prompt || null
   else if (body.finalPrompt !== undefined) updates.finalPrompt = body.finalPrompt || null
-  // E7: 定义字段变更使 finalPrompt 缓存失效——无失效触发会让用户改了设定仍生成旧人设图；
-  // 显式传 final_prompt 仍以传入值为准
+  // E7: changes to definition fields invalidate the finalPrompt cache — without an invalidation
+  // trigger the user would change the setting yet still generate the old character art;
+  // an explicitly passed final_prompt still wins
   const definesChanged = ['location', 'time', 'prompt', 'lighting'].some((k) => updates[k] !== undefined)
   if (definesChanged && body.final_prompt === undefined && body.finalPrompt === undefined) updates.finalPrompt = null
   await db.update(schema.scenes).set(updates).where(eq(schema.scenes.id, id))
@@ -72,27 +76,38 @@ app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
+  // i18n: user-facing
   if (!scene) return badRequest(c, '场景不存在')
+  // i18n: user-facing
   if (!body.episode_id) return badRequest(c, 'episode_id 必填')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
+  // i18n: user-facing
   if (!ep) return badRequest(c, '剧集不存在')
 
-  // 去重：该场景已有进行中的图片任务则跳过——批量点击是逐场景并发请求，连点会重复建任务
+  // Dedup: skip when the scene already has a running image task — batch clicks fire per-scene
+  // concurrent requests and double clicks would create duplicate tasks
   const [dup] = await db.select({ id: schema.sysTask.id }).from(schema.sysTask)
     .where(and(eq(schema.sysTask.sceneId, id), eq(schema.sysTask.status, 'processing')))
     .limit(1)
   if (dup) return success(c, { image_generation_id: dup.id, skipped: true })
 
-  // 建行前置：缓存 finalPrompt 或模板拼接立即入队（任务面板即刻可见）；
-  // 无缓存时由下方后台富化补齐，赶在串行队列执行前更新任务 prompt。
+  // Pre-enqueue: a cached finalPrompt or the template fallback joins the queue immediately
+  // (visible in the task panel right away); without a cache the background enrichment below
+  // backfills in time, updating the task prompt before the serial queue executes it.
   const stylePrompt = await getDramaStylePrompt(scene.dramaId)
-  // 回退拼接也要守住无人物约束：场景描述(prompt)可能含人物活动，直接拼会让人混进图里
+  // The fallback concat must also preserve the no-people constraint: the scene description
+  // (prompt) may contain character activity, and concatenating it directly would let people
+  // sneak into the image
+  // i18n: user-facing
   const prompt = scene.finalPrompt || [
     stylePrompt || '',
     scene.location,
     scene.time || '',
+    // i18n: user-facing
     scene.prompt || '高质量场景',
+    // i18n: user-facing
     scene.lighting || '电影感光影',
+    // i18n: user-facing
     '画面中没有任何人物，空场景，只有场景本身',
   ].filter(Boolean).join(', ')
   try {
@@ -101,7 +116,8 @@ app.post('/:id/generate-image', async (c) => {
     const genId = await generateImage({
       sceneId: id, dramaId: scene.dramaId, prompt, model: body.model,
       configId: body.config_id ?? ep.imageConfigId ?? undefined,
-      // 无缓存提示词时由队列内 enrichImagePromptIfNeeded 在生图前补齐（与生图严格串行）
+      // Without a cached prompt, enrichImagePromptIfNeeded backfills inside the queue before
+      // image generation (strictly serialized with generation)
       enrichEpisodeId: scene.finalPrompt ? undefined : ep.id,
       textModel: body.text_model, textConfigId: body.text_config_id ?? undefined,
     })
@@ -114,28 +130,32 @@ app.post('/:id/generate-image', async (c) => {
   }
 })
 
-// POST /scenes/:id/generate-prompt — 独立生成/重新生成固定视角最终提示词（不生图）
+// POST /scenes/:id/generate-prompt — standalone generate/regenerate of the fixed-view final prompt (no image)
 app.post('/:id/generate-prompt', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, id))
+  // i18n: user-facing
   if (!scene) return badRequest(c, '场景不存在')
+  // i18n: user-facing
   if (!body.episode_id) return badRequest(c, 'episode_id 必填')
 
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id)))
+  // i18n: user-facing
   if (!ep) return badRequest(c, '剧集不存在')
 
   logTaskStart('FinalPrompt', 'scene-generate', { sceneId: id, episodeId: ep.id, force: !!body.force })
   const finalPrompt = await ensureSceneFinalPrompt(scene, ep.id, !!body.force, { model: body.text_model, configId: body.text_config_id ?? undefined })
   if (!finalPrompt) {
     logTaskError('FinalPrompt', 'scene-generate', { sceneId: id, error: 'agent returned empty prompt' })
+    // i18n: user-facing
     return badRequest(c, '最终提示词生成失败，请重试')
   }
   logTaskSuccess('FinalPrompt', 'scene-generate', { sceneId: id })
   return success(c, { final_prompt: finalPrompt })
 })
 
-// DELETE /scenes/:id — 软删除（保留历史生成记录）
+// DELETE /scenes/:id — soft delete (historical generation records preserved)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   await db.update(schema.scenes).set({ deletedAt: now(), updatedAt: now() }).where(eq(schema.scenes.id, id))

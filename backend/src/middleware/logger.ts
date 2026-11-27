@@ -22,14 +22,14 @@ function formatTime(): string {
 }
 
 /**
- * 全局日志中间件 — 打印请求方法/路径/状态/耗时/请求体
+ * Global logging middleware — prints request method/path/status/duration/body
  */
 export const requestLogger: MiddlewareHandler = async (c, next) => {
   const method = c.req.method
   const path = c.req.path
   const start = performance.now()
 
-  // 打印请求
+  // log the request
   const time = formatTime()
   let bodyInfo = ''
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -38,10 +38,12 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
       const isJson = ct.startsWith('application/json')
       const sensitive = path.includes('/ai-configs')
       if (sensitive) {
-        // ai-configs body 带 api_key，明文进日志是泄漏面（task-logger 有脱敏层，这里不走 body 预览）
+        // ai-configs bodies carry api_key; plaintext in logs is a leak surface (task-logger
+        // has a redaction layer, body preview is skipped here)
         bodyInfo = `\n  ${colors.dim}body: <redacted>${colors.reset}`
       } else if (isJson && path !== '/tasks') {
-        // 仅 JSON body 截取预览：multipart 大文件全量 clone 纯耗内存（50MB 视频 = 双份缓冲）
+        // preview only for JSON bodies: fully cloning multipart large files just wastes
+        // memory (a 50MB video = double buffering)
         const clone = c.req.raw.clone()
         const text = await clone.text()
         if (text) {
@@ -63,7 +65,7 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
 }
 
 /**
- * 全局错误处理 — 捕获未处理异常，打印完整堆栈
+ * Global error handler — catches unhandled exceptions and prints the full stack
  */
 export const errorHandler: MiddlewareHandler = async (c, next) => {
   try {
@@ -72,7 +74,8 @@ export const errorHandler: MiddlewareHandler = async (c, next) => {
     const status = err.status || 500
     console.error(`${colors.red}[ERROR]${colors.reset} ${c.req.method} ${c.req.path}`)
     console.error(err.stack || err.message || err)
-    // 内部错误文案不外传（含上游响应 body 的 message 会把内部路径/服务暴露给客户端）
+    // internal error text is never sent to clients (messages containing upstream response
+    // bodies would expose internal paths/services to the client)
     return c.json({ code: status, message: 'Internal Server Error' }, status)
   }
 }

@@ -2,12 +2,13 @@ import { toast } from 'vue-sonner'
 import { toastError } from './useToast'
 import { i18n } from './i18n'
 
-// L8: agent 多步对话（maxSteps 20 + 本地模型）远超 useApi POST 默认 120s，给独立上限
+// L8: agent multi-step chat (maxSteps 20 + local models) far exceeds useApi POST's default 120s, so a separate cap
 const AGENT_TIMEOUT_MS = 30 * 60_000
 
 const BASE = '/api/v1'
 
-// 全局流式状态（单 agent 实例运行，全局唯一即可）：episode.vue 的 AgentStreamPanel 订阅
+// Global stream state (a single agent instance runs at a time, so one global set suffices):
+// subscribed by AgentStreamPanel in episode.vue
 const streamText = ref('')
 const streamTools = ref<string[]>([])
 
@@ -20,9 +21,11 @@ export function useAgent() {
   const running = ref(false)
   const runningType = ref<string | null>(null)
 
-  // SSE 流式版：delta 增量入 streamText，tool/tool_result 入 streamTools，
-  // done 事件 resolve（语义与旧非流式一致：onDone 在完整结果落地后触发）
-  // 返回 done 事件负载（text/toolCalls/review），失败返回 null——调用方需要区分成败时用返回值
+  // SSE streaming version: delta chunks append to streamText, tool/tool_result append to streamTools,
+  // done event resolves (same semantics as the old non-streaming version: onDone fires once the full
+  // result has landed)
+  // Returns the done event payload (text/toolCalls/review), null on failure — callers distinguishing
+  // success from failure use the return value
   async function run(type: string, msg: string, dramaId: number, episodeId: number, onDone?: () => void, model?: string, configId?: number) {
     if (running.value) { toast.warning(i18n.global.t('composables.agent.busy')); return null }
     running.value = true
@@ -54,7 +57,7 @@ export function useAgent() {
         const { done, value } = await reader.read()
         if (done) break
         buf += decoder.decode(value, { stream: true })
-        // SSE 事件以空行分隔；逐块解析已完整的事件
+        // SSE events are separated by blank lines; parse each completed block
         let sep: number
         while ((sep = buf.indexOf('\n\n')) >= 0) {
           const block = buf.slice(0, sep)
@@ -67,7 +70,7 @@ export function useAgent() {
           }
           if (!data) continue
           let payload: any = null
-          try { payload = JSON.parse(data) } catch { /* 跳过坏块 */ }
+          try { payload = JSON.parse(data) } catch { /* skip malformed block */ }
           if (event === 'delta' && payload?.text) {
               streamText.value += payload.text
           } else if (event === 'tool' && payload?.toolName) {
@@ -77,12 +80,13 @@ export function useAgent() {
           } else if (event === 'done') {
               doneData = payload
           } else if (event === 'error') {
+              // i18n: user-facing
               throw new Error(payload?.message || 'Agent 流式执行失败')
           }
         }
       }
       toast.success(i18n.global.t('composables.agent.done'))
-      // 监督层判定：不通过时把问题清单顶给用户（通过/降级不额外打扰）
+      // Supervisor review: when it fails, surface the issue list to the user (pass/degraded stay quiet)
       const review = doneData?.review
       if (review && review.pass === false) {
         const issues = Array.isArray(review.issues) && review.issues.length

@@ -37,6 +37,7 @@ test('settings page exposes official provider templates only', () => {
   assert.doesNotMatch(settingsPage, /https:\/\/dashscope\.aliyuncs\.com/)
   assert.doesNotMatch(settingsPage, /https:\/\/api\.vidu\.com/)
   assert.doesNotMatch(settingsPage, /\['ali'|'ali',|, 'ali'\]/)
+  // i18n: user-facing — asserts the zh quick-config label in the page
   assert.match(settingsPage, /Fuse快捷配置/)
   assert.match(settingsPage, /https:\/\/bench\.dpdns\.org/)
   assert.match(settingsPage, /applyFusionQuickConfig/)

@@ -13,14 +13,14 @@ import {
 
 const app = new Hono()
 
-/** name 规范：小写字母/数字/中划线，作为 provider 标识 `custom:<name>` 的组成部分 */
+/** name spec: lowercase letters/digits/hyphens, part of the provider id `custom:<name>` */
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 function parseType(v: any): 'image' | 'video' | null {
     return v === 'image' || v === 'video' ? v : null
 }
 
-// GET /custom-providers — 列表（不含代码全文，编辑时单独取）
+// GET /custom-providers — list (no full code; fetched separately for editing)
 app.get('/', async (c) => {
     const rows = await db.select().from(schema.customProviders)
     const parsed = rows.map(r => ({
@@ -31,7 +31,7 @@ app.get('/', async (c) => {
     return success(c, parsed)
 })
 
-// GET /custom-providers/:id — 单条（编辑用，含代码全文）
+// GET /custom-providers/:id — single entry (for editing, includes full code)
 app.get('/:id', async (c) => {
     const id = Number(c.req.param('id'))
     const [row] = await db.select().from(schema.customProviders)
@@ -40,28 +40,28 @@ app.get('/:id', async (c) => {
     return success(c, toSnakeCase(row))
 })
 
-// POST /custom-providers — 创建（代码即时求值校验，坏代码不落库）
+// POST /custom-providers — create (code evaluated/validated on the fly; bad code is never persisted)
 app.post('/', async (c) => {
     const body = await c.req.json()
     const name = String(body.name || '').trim().toLowerCase()
     const type = parseType(body.type)
     const code = String(body.code || '')
     if (!NAME_RE.test(name)) {
-        return badRequest(c, 'name 须为小写字母/数字/中划线（≤64 字符）')
+        return badRequest(c, 'name must be lowercase letters/digits/hyphens (<=64 characters)')
     }
-    if (!type) return badRequest(c, 'type 须为 image 或 video')
-    if (!code.trim()) return badRequest(c, 'code 不能为空')
+    if (!type) return badRequest(c, 'type must be image or video')
+    if (!code.trim()) return badRequest(c, 'code must not be empty')
 
     const [dup] = await db.select().from(schema.customProviders)
         .where(eq(schema.customProviders.name, name))
-    if (dup) return badRequest(c, `自定义 provider "${name}" 已存在`)
+    if (dup) return badRequest(c, `Custom provider "${name}" already exists`)
 
     try {
         const mod = evaluateCustomProviderCode(code, name)
         validateCustomProviderExports(mod, type)
     } catch (err: any) {
         logTaskError('CustomProvider', 'create-validate-failed', { name, error: err.message })
-        return badRequest(c, `代码校验失败: ${err.message}`)
+        return badRequest(c, `Code validation failed: ${err.message}`)
     }
 
     const ts = now()
@@ -78,7 +78,7 @@ app.post('/', async (c) => {
     return created(c, { id, name, type })
 })
 
-// PUT /custom-providers/:id — 更新（代码变更即时校验 + 缓存失效）
+// PUT /custom-providers/:id — update (code changes validated on the fly + cache invalidation)
 app.put('/:id', async (c) => {
     const id = Number(c.req.param('id'))
     const body = await c.req.json()
@@ -88,18 +88,18 @@ app.put('/:id', async (c) => {
 
     const updates: Record<string, any> = { updatedAt: now() }
     const type = 'type' in body ? parseType(body.type) : (existing.type as 'image' | 'video')
-    if ('type' in body && !type) return badRequest(c, 'type 须为 image 或 video')
+    if ('type' in body && !type) return badRequest(c, 'type must be image or video')
     if (type) updates.type = type
 
     if ('code' in body) {
         const code = String(body.code || '')
-        if (!code.trim()) return badRequest(c, 'code 不能为空')
+        if (!code.trim()) return badRequest(c, 'code must not be empty')
         try {
             const mod = evaluateCustomProviderCode(code, existing.name)
             validateCustomProviderExports(mod, type || existing.type)
         } catch (err: any) {
             logTaskError('CustomProvider', 'update-validate-failed', { id, error: err.message })
-            return badRequest(c, `代码校验失败: ${err.message}`)
+            return badRequest(c, `Code validation failed: ${err.message}`)
         }
         updates.code = code
     }
@@ -112,7 +112,7 @@ app.put('/:id', async (c) => {
     return success(c)
 })
 
-// DELETE /custom-providers/:id — 删除（引用它的 AI 配置由用户自行清理）
+// DELETE /custom-providers/:id — delete (AI configs referencing it are cleaned up by the user)
 app.delete('/:id', async (c) => {
     const id = Number(c.req.param('id'))
     const [existing] = await db.select().from(schema.customProviders)
@@ -123,14 +123,14 @@ app.delete('/:id', async (c) => {
     return success(c)
 })
 
-// POST /custom-providers/test — 干跑（未保存草稿）：求值 + 校验 + 样例请求构建
-// 固定路由必须挂在 /:id 之前（Hono 按注册顺序匹配）
+// POST /custom-providers/test — dry run (unsaved draft): evaluate + validate + sample request build
+// Fixed routes must be registered before /:id (Hono matches in registration order)
 app.post('/test', async (c) => {
     const body = await c.req.json()
     const type = parseType(body.type)
-    if (!type) return badRequest(c, 'type 须为 image 或 video')
+    if (!type) return badRequest(c, 'type must be image or video')
     const code = String(body.code || '')
-    if (!code.trim()) return badRequest(c, 'code 不能为空')
+    if (!code.trim()) return badRequest(c, 'code must not be empty')
     const name = String(body.name || 'draft').trim().toLowerCase()
     try {
         const result = await dryRunCustomProvider({
@@ -151,7 +151,7 @@ app.post('/test', async (c) => {
     }
 })
 
-// POST /custom-providers/:id/test — 已存条目干跑（按 id 取代码）
+// POST /custom-providers/:id/test — dry run of a saved entry (code fetched by id)
 app.post('/:id/test', async (c) => {
     const id = Number(c.req.param('id'))
     const [row] = await db.select().from(schema.customProviders)

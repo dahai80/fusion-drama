@@ -1,5 +1,5 @@
 /**
- * 服务器 / Docker 部署的版本检查与更新路由（桌面版更新走 Electron 桥，不经此路由）
+ * Version check and update routes for server / Docker deployments (desktop updates go through the Electron bridge, not this route)
  */
 import { Hono } from 'hono'
 import { getServerUpdateState, checkServerUpdate, triggerWatchtowerUpdate } from '../services/server-update.js'
@@ -7,13 +7,13 @@ import { success, badRequest } from '../utils/response.js'
 
 const app = new Hono()
 
-// GET /state — 当前版本 + 更新模式 + 上次检查结果
+// GET /state — current version + update mode + last check result
 app.get('/state', (c) => success(c, getServerUpdateState()))
 
-// POST /check — 拉取发布清单比较版本
+// POST /check — fetch the release feed and compare versions
 app.post('/check', async (c) => success(c, await checkServerUpdate()))
 
-// POST /apply — 触发 Watchtower 拉新镜像并重建本容器（仅 watchtower 模式可用）
+// POST /apply — trigger Watchtower to pull a new image and recreate this container (watchtower mode only)
 app.post('/apply', async (c) => {
   try {
     await triggerWatchtowerUpdate()

@@ -21,10 +21,15 @@ test('frontend API client no longer exposes TTS or voice endpoints', () => {
 
 test('episode workbench removes all role voice assignment controls', () => {
   assert.doesNotMatch(episodePage, /voice_assigner/)
+  // i18n: user-facing — asserts the zh copy is absent from the page
   assert.doesNotMatch(episodePage, /AI 匹配声音/)
+  // i18n: user-facing
   assert.doesNotMatch(episodePage, /批量试听/)
+  // i18n: user-facing
   assert.doesNotMatch(episodePage, /角色音色/)
+  // i18n: user-facing
   assert.doesNotMatch(episodePage, /已配音色/)
+  // i18n: user-facing
   assert.doesNotMatch(episodePage, /待音色/)
   assert.doesNotMatch(episodePage, /asset-detail-voice-panel/)
   assert.doesNotMatch(episodePage, /updateCharVoice/)
@@ -37,10 +42,13 @@ test('episode workbench removes all role voice assignment controls', () => {
 test('project and settings pages remove audio service configuration', () => {
   assert.doesNotMatch(dramaPage, /audio_config_id/)
   assert.doesNotMatch(dramaPage, /audioConfigs/)
+  // i18n: user-facing — asserts the zh copy is absent from the page
   assert.doesNotMatch(dramaPage, /音频/)
   assert.doesNotMatch(settingsPage, /voice_assigner/)
-  assert.doesNotMatch(settingsPage, /音色分配/)
+  // i18n: user-facing
+assert.doesNotMatch(settingsPage, /音色分配/)
   assert.doesNotMatch(settingsPage, /serviceTypes[\s\S]*audio/)
+  // i18n: user-facing
   assert.doesNotMatch(settingsPage, /音频/)
   assert.doesNotMatch(settingsPage, /speech-2\.8-hd/)
 })

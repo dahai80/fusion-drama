@@ -12,10 +12,10 @@ const composeServicePath = new URL('../src/services/ffmpeg-compose.ts', import.m
 test('episode merge uses generated videos directly without requiring compose output', () => {
   assert.doesNotMatch(mergeService, /Only composed storyboards can be merged/)
   assert.match(mergeService, /sb\.videoUrl\s*\|\|\s*sb\.composedVideoUrl/)
-  // 允许部分拼接：按镜号顺序拼接已生成镜头，全部缺失才报错
-  assert.match(mergeService, /允许部分拼接/)
+  // Allow partial merge: concatenate generated shots in shot-number order, error only when all are missing
+  assert.match(mergeService, /Allow partial merge/)
   assert.match(mergeService, /clips\.length === 0/)
-  // 拼接前校验本地文件真实存在（DB video_url 可能指向已清理文件）
+  // Verify the local file really exists before merging (DB video_url may point at an already-cleaned file)
   assert.match(mergeService, /missing\.length > 0/)
 })
 

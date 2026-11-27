@@ -8,7 +8,7 @@ const app = new Hono()
 
 const VALUE_PATTERN = /^[a-z0-9][a-z0-9-]*$/
 
-// GET /style-presets — 默认只返回启用项，?all=1 返回全部
+// GET /style-presets — returns active items only by default; ?all=1 returns all
 app.get('/', async (c) => {
   const all = c.req.query('all') === '1'
   const rows = await db.select().from(schema.stylePresets)
@@ -17,18 +17,18 @@ app.get('/', async (c) => {
   return success(c, filtered.map(r => toSnakeCase(r)))
 })
 
-// POST /style-presets — 新增风格预设
+// POST /style-presets — create a style preset
 app.post('/', async (c) => {
   const body = await c.req.json()
-  if (!body.name?.trim()) return badRequest(c, '风格名称必填')
-  if (!body.value?.trim()) return badRequest(c, '风格 key 必填')
-  if (!VALUE_PATTERN.test(body.value.trim())) return badRequest(c, '风格 key 仅支持小写字母、数字、中划线')
-  if (!body.prompt?.trim()) return badRequest(c, '提示词片段必填')
+  if (!body.name?.trim()) return badRequest(c, 'name is required')
+  if (!body.value?.trim()) return badRequest(c, 'style key is required')
+  if (!VALUE_PATTERN.test(body.value.trim())) return badRequest(c, 'style key only supports lowercase letters, digits, and hyphens')
+  if (!body.prompt?.trim()) return badRequest(c, 'prompt snippet is required')
 
   const value = body.value.trim()
   const [dup] = await db.select().from(schema.stylePresets)
     .where(eq(schema.stylePresets.value, value))
-  if (dup) return badRequest(c, '风格 key 已存在')
+  if (dup) return badRequest(c, 'style key already exists')
 
   const ts = now()
   const res = await db.insert(schema.stylePresets).values({
@@ -46,13 +46,13 @@ app.post('/', async (c) => {
   return created(c, toSnakeCase(row))
 })
 
-// PUT /style-presets/:id — 更新（value 创建后不可修改）
+// PUT /style-presets/:id — update (value is immutable after creation)
 app.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const [row] = await db.select().from(schema.stylePresets)
     .where(eq(schema.stylePresets.id, id))
-  if (!row) return notFound(c, '风格预设不存在')
+  if (!row) return notFound(c, 'Style preset not found')
 
   const updates: Record<string, any> = { updatedAt: now() }
   if (body.name !== undefined) updates.name = String(body.name).trim()
@@ -70,7 +70,7 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
-// DELETE /style-presets/:id — 硬删除（已使用此风格的项目保留 key，无害）
+// DELETE /style-presets/:id — hard delete (projects already using this style keep the key; harmless)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   await db.delete(schema.stylePresets).where(eq(schema.stylePresets.id, id))

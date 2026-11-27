@@ -1,12 +1,13 @@
 /**
- * esbuild 打包后端 — backend/src → desktop/build/backend.mjs（单文件 ESM）
+ * esbuild bundling of the backend — backend/src -> desktop/build/backend.mjs (single-file ESM)
  *
- * - format esm：backend 顶层 await initDb() 要求 ESM
- * - external 四件套：sharp / better-sqlite3（原生模块，electron-builder 按
- *   Electron ABI 重编并 asarUnpack）、ffmpeg-static / ffprobe-static（postinstall
- *   下载的二进制，且 ffmpeg.ts 经 createRequire 动态引入，无法静态打包）
- * - banner 注入 createRequire：externals 在 ESM 产物里经 require 解析到
- *   desktop/node_modules（与主应用同 ABI 的副本）
+ * - format esm: the backend's top-level await initDb() requires ESM
+ * - external four-pack: sharp / better-sqlite3 (native modules, rebuilt by electron-builder
+ *   against the Electron ABI and asarUnpacked), ffmpeg-static / ffprobe-static (binaries
+ *   downloaded by postinstall; ffmpeg.ts loads them via createRequire at runtime, so they
+ *   cannot be statically bundled)
+ * - banner injects createRequire: externals resolve via require inside the ESM output to
+ *   desktop/node_modules (the copy sharing the main app's ABI)
  */
 import { build } from 'esbuild'
 import path from 'path'
@@ -24,14 +25,15 @@ await build({
   sourcemap: true,
   external: ['sharp', 'better-sqlite3', 'ffmpeg-static', 'ffprobe-static', '@huggingface/transformers', 'onnxruntime-node', 'onnxruntime-web', '@huggingface/tokenizers'],
   banner: {
-    // esbuild 打 CJS→ESM 不垫片 __dirname/__filename/require（fluent-ffmpeg 等依赖），
-    // 在产物顶层统一注入；__dirname 指向 build/ 目录，仅 presets 等未用到的模块相对路径受影响
+    // esbuild's CJS->ESM conversion does not shim __dirname/__filename/require (fluent-ffmpeg and
+    // other deps), so inject them at the top of the output; __dirname points at build/, affecting
+    // only relative paths in unused modules such as presets
     js: [
       `import { createRequire as __hbCreateRequire } from 'module'`,
       `import __hbPath from 'path'`,
       `import { fileURLToPath as __hbFileURLToPath } from 'url'`,
       `const require = __hbCreateRequire(import.meta.url)`,
-      // 用 var：esbuild 对部分 CJS 依赖也会生成 var __filename，重复声明合法
+      // var on purpose: esbuild also emits var __filename for some CJS deps; duplicate declaration stays legal
       `var __filename = __hbFileURLToPath(import.meta.url)`,
       `var __dirname = __hbPath.dirname(__filename)`,
     ].join('\n'),

@@ -15,46 +15,46 @@ test('episode card exposes a delete action', () => {
   assert.match(page, /<ConfirmDialog/)
   assert.match(page, /async function confirmDelEpisode\(\)/)
   assert.match(page, /await episodeAPI\.del\(ep\.id\)/)
-  // 不使用浏览器原生确认弹窗
+  // The native browser confirm dialog is not used
   assert.doesNotMatch(page, /[^D]confirm\(/)
 })
 
 test('drama detail hosts the asset library as a main tab', () => {
   const page = read('app/views/drama/detail.vue')
 
-  // 主 Tab：剧集列表 / 素材库（素材库不再是独立路由页）
+  // Main tabs: episode list / asset library (the asset library is no longer a standalone route page)
   assert.match(page, /activeTab === 'assets'/)
   assert.match(page, /function switchToAssets\(\)/)
   assert.match(page, /t\('detail\.tabs\.assets'\)/)
-  // 不再跳转独立 assets 路由
+  // No longer navigates to a standalone assets route
   assert.doesNotMatch(page, /\/drama\/\$\{drama\.id\}\/assets/)
 })
 
 test('episode status is manually marked, not derived from script content', () => {
   const page = read('app/views/drama/detail.vue')
 
-  // 手动状态：选项 + 下拉标记 + 持久化到 episodes.status
+  // Manual status: options + dropdown marker + persistence into episodes.status
   assert.match(page, /const epStatusOptions = computed\(\(\) => \(\[/)
   assert.match(page, /function epStatus\(ep\) \{ return ep\.status \|\| 'draft' \}/)
   assert.match(page, /async function setEpisodeStatus\(ep, status\)/)
   assert.match(page, /episodeAPI\.update\(ep\.id, \{ status/)
   assert.match(page, /epStatusMenuId/)
-  // 自动推算已移除
+  // Derived status removed
   assert.doesNotMatch(page, /hasScript/)
-  assert.doesNotMatch(page, /已完成剧本/)
-  assert.doesNotMatch(page, /待编写/)
+  assert.doesNotMatch(page, /已完成剧本/) // i18n: user-facing (removed-template guard)
+  assert.doesNotMatch(page, /待编写/) // i18n: user-facing (removed-template guard)
 })
 
 test('asset library tab lists grouped materials with viewer', () => {
   const page = read('app/views/drama/detail.vue')
 
-  // 数据源：项目详情内嵌资产（drama.characters/scenes/props）按类型分组
+  // Data source: assets embedded in the drama detail (drama.characters/scenes/props), grouped by type
   assert.match(page, /for \(const c of d\.characters \|\| \[\]\) list\.push/)
   assert.match(page, /const assetGroups = computed\(\(\) => \{/)
-  // 全部 / 角色 / 场景 / 道具 筛选
+  // All / characters / scenes / props filters
   assert.match(page, /assetTab = ref\('all'\)/)
   assert.match(page, /const assetTabs = computed\(\(\) => \(\[/)
-  // 网格卡片 + 预览
+  // Grid cards + preview
   assert.match(page, /:class="\['card', 'asset-card'/)
   assert.match(page, /openAssetViewer\(m\)/)
 })

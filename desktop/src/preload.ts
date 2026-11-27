@@ -1,28 +1,28 @@
 /**
- * preload — 渲染进程安全桥
- * 暴露 window.fusionDesktop：目录选择、迁移触发、迁移进度订阅。
- * contextIsolation 默认开启，仅经 contextBridge 暴露白名单方法。
+ * preload — renderer-process security bridge
+ * Exposes window.fusionDesktop: directory picker, migration trigger, migration progress subscription.
+ * contextIsolation is on by default; only whitelisted methods are exposed via contextBridge.
  */
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('fusionDesktop', {
-  /** 弹原生目录选择框；返回 { ok, path?, freeBytes?, error?, canceled? } */
+  /** Opens the native directory picker; returns { ok, path?, freeBytes?, error?, canceled? } */
   pickDirectory: () => ipcRenderer.invoke('fusion:pick-directory'),
-  /** 触发存储迁移；返回 { ok } 或 reject（错误信息见进度事件/异常） */
+  /** Triggers storage migration; returns { ok } or rejects (error details in progress events/exceptions) */
   startMigration: (opts: { targetDir: string, migrateFiles: boolean }) =>
     ipcRenderer.invoke('fusion:start-migration', opts),
-  /** 订阅迁移进度；返回取消订阅函数 */
+  /** Subscribes to migration progress; returns an unsubscribe function */
   onMigrateProgress: (cb: (progress: { phase: string, copiedBytes?: number, totalBytes?: number, message?: string }) => void) => {
     const listener = (_event: unknown, progress: Parameters<typeof cb>[0]) => cb(progress)
     ipcRenderer.on('fusion:migrate-progress', listener)
     return () => ipcRenderer.removeListener('fusion:migrate-progress', listener)
   },
-  // ---- 应用内更新 ----
+  // ---- In-app update ----
   getUpdateState: () => ipcRenderer.invoke('fusion:update-state'),
   checkUpdate: () => ipcRenderer.invoke('fusion:update-check'),
   downloadUpdate: () => ipcRenderer.invoke('fusion:update-download'),
   applyUpdate: () => ipcRenderer.invoke('fusion:update-apply'),
-  /** 订阅更新下载进度（0-100）；返回取消订阅函数 */
+  /** Subscribes to update download progress (0-100); returns an unsubscribe function */
   onUpdateProgress: (cb: (percent: number) => void) => {
     const listener = (_event: unknown, percent: number) => cb(percent)
     ipcRenderer.on('fusion:update-progress', listener)

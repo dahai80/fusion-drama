@@ -1,9 +1,10 @@
 /**
- * Schema 迁移器（NFR-OPS-3）— PRAGMA user_version 版本化迁移
+ * Schema migrator (NFR-OPS-3) — PRAGMA user_version versioned migrations
  *
- * 取代散落的手工 ALTER：后续加列/加表一律在 MIGRATIONS 数组追加条目，启动时按版本号
- * 顺序执行。每条含 DDL 的迁移执行前自动 VACUUM INTO 备份库文件到 <db目录>/backups/
- * （保留最近 10 份），升级失败或列缺失时可直接回滚恢复。
+ * Replaces scattered manual ALTERs: any future column/table addition appends an entry to the
+ * MIGRATIONS array, executed in version order at startup. Each migration containing DDL is
+ * preceded by an automatic VACUUM INTO backup of the db file to <db dir>/backups/ (last 10
+ * kept), so a failed upgrade or missing column can be rolled back directly.
  */
 import fs from 'fs'
 import path from 'path'
@@ -12,20 +13,20 @@ import type Database from 'better-sqlite3'
 export interface Migration {
     version: number
     name: string
-    /** 要执行的 SQL（多条按顺序 exec）；纯标记版本可为空数组 */
+    /** SQL to execute (multiple statements exec in order); marker-only versions may use an empty array */
     statements: string[]
 }
 
 export const MIGRATIONS: Migration[] = [
-    // v1 基线：历史库的建表一直走 sqlite-schema.ts 幂等重放，此处仅开始记录版本号
+    // v1 baseline: legacy DBs always created tables via sqlite-schema.ts idempotent replay; this only starts version tracking
     { version: 1, name: 'baseline', statements: [] },
 
-    // v2 FR-BIZ-3 剧本版本保留：覆写前保留历史稿（JSON 数组，最近 5 版）
+    // v2 FR-BIZ-3 script version history: keep prior drafts before overwriting (JSON array, last 5 versions)
     { version: 2, name: 'script-history', statements: [
         'ALTER TABLE episodes ADD COLUMN script_history TEXT',
     ] },
 
-    // v3 FR-P1-1 任务事件流（画布乐观锁随画布 UI 立项再做，见 docs/opti-plan-1015.md 决策记录）
+    // v3 FR-P1-1 task event stream (canvas optimistic locking deferred until the canvas UI is scoped; see docs/opti-plan-1015.md decision record)
     { version: 3, name: 'task-events', statements: [
         `CREATE TABLE IF NOT EXISTS sys_task_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,20 +39,21 @@ export const MIGRATIONS: Migration[] = [
         'CREATE INDEX IF NOT EXISTS idx_sys_task_events_task_id ON sys_task_events (task_id, seq)',
     ] },
 
-    // v4 FR-P1-1 补齐：Agent 级事件（thinking/tool_call/tool_result）挂在 episode 维度——
-    // Agent 链路（提取/分镜/提示词）没有 sys_task 行，事件以 episodeId 归组回放
+    // v4 FR-P1-1 follow-up: agent-level events (thinking/tool_call/tool_result) hang off the episode
+    // dimension — agent chains (extraction/storyboard/prompt) have no sys_task row, events replay
+    // grouped by episodeId
     { version: 4, name: 'task-events-episode-dim', statements: [
         'ALTER TABLE sys_task_events ADD COLUMN episode_id INTEGER',
         'CREATE INDEX IF NOT EXISTS idx_sys_task_events_episode_id ON sys_task_events (episode_id, id)',
     ] },
 
-    // v5 PRD §10.2 度量：重试溯源——重发失败任务时带 retry_of（原任务 id），
-    // 聚合接口统计「失败后重试成功率」（成功=retry_of 链上出现 completed）
+    // v5 PRD §10.2 metric: retry provenance — re-submitting a failed task carries retry_of (original task id);
+    // the aggregate endpoint computes the "post-failure retry success rate" (success = a completed on the retry_of chain)
     { version: 5, name: 'task-retry-of', statements: [
         'ALTER TABLE sys_task ADD COLUMN retry_of INTEGER',
     ] },
 
-    // v6 可编程 provider：用户自定义图片/视频适配器（JS 代码存 DB，node:vm 沙箱热注册）
+    // v6 programmable providers: user-defined image/video adapters (JS code stored in DB, hot-registered in a node:vm sandbox)
     { version: 6, name: 'custom-providers', statements: [
         `CREATE TABLE IF NOT EXISTS custom_providers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +66,7 @@ export const MIGRATIONS: Migration[] = [
         )`,
     ] },
 
-    // v7 ONNX RAG：剧本/角色/场景/道具向量化索引（bge-small-zh CPU 嵌入，top-k 注入 Agent）
+    // v7 ONNX RAG: vectorized index over scripts/characters/scenes/props (bge-small-zh CPU embeddings, top-k injected into agents)
     { version: 7, name: 'rag-chunks', statements: [
         `CREATE TABLE IF NOT EXISTS rag_chunks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +80,7 @@ export const MIGRATIONS: Migration[] = [
         'CREATE INDEX IF NOT EXISTS idx_rag_chunks_drama_id ON rag_chunks (drama_id)',
     ] },
 
-    // v8 无限画布：分镜节点在画布上的坐标（NULL = 未摆放，前端按分镜序号自动布局）
+    // v8 infinite canvas: storyboard node coordinates on the canvas (NULL = not placed; frontend auto-lays out by storyboard number)
     { version: 8, name: 'storyboard-canvas', statements: [
         'ALTER TABLE storyboards ADD COLUMN canvas_x REAL',
         'ALTER TABLE storyboards ADD COLUMN canvas_y REAL',
@@ -87,7 +89,7 @@ export const MIGRATIONS: Migration[] = [
 
 const MAX_BACKUPS = 10
 
-/** 取当前 user_version */
+/** Read the current user_version */
 export function currentVersion(sqlite: Database.Database): number {
     return Number(sqlite.pragma('user_version', { simple: true }) ?? 0)
 }
@@ -101,10 +103,10 @@ function pruneBackups(dir: string) {
             const oldest = files.shift()
             if (oldest) fs.rmSync(path.join(dir, oldest), { force: true })
         }
-    } catch { /* 备份清理失败不阻断迁移 */ }
+    } catch { /* backup pruning failure must not block migrations */ }
 }
 
-/** 执行所有未应用的迁移；返回本次应用的版本名列表（用于日志/健康检查展示） */
+/** Run all unapplied migrations; returns the version names applied this run (for logs/health-check display) */
 export function runMigrations(sqlite: Database.Database, dbPath: string): string[] {
     const applied: string[] = []
     const current = currentVersion(sqlite)
@@ -113,7 +115,7 @@ export function runMigrations(sqlite: Database.Database, dbPath: string): string
 
     const backupDir = path.join(path.dirname(dbPath), 'backups')
     for (const m of pending) {
-        // 含 DDL 的迁移执行前自动备份（VACUUM INTO 要求目标文件不存在）
+        // Auto-backup before migrations containing DDL (VACUUM INTO requires the target file not to exist)
         if (m.statements.length > 0) {
             fs.mkdirSync(backupDir, { recursive: true })
             const stamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -122,7 +124,7 @@ export function runMigrations(sqlite: Database.Database, dbPath: string): string
                 sqlite.prepare(`VACUUM INTO '${backupFile.replace(/'/g, "''")}'`).run()
                 console.log(`[migrate] backed up db to ${backupFile}`)
             } catch (err) {
-                // 备份失败不阻断迁移（DDL 本身幂等/可重放），但必须大声说
+                // Backup failure does not block migration (DDL is idempotent/replayable), but it must be loud
                 console.error(`[migrate] backup failed before v${m.version}:`, (err as Error).message)
             }
             pruneBackups(backupDir)

@@ -1,17 +1,18 @@
 /**
- * 安全中间件 — API 鉴权 + CSRF 防护
+ * Security middleware — API auth + CSRF protection
  *
- * 鉴权：FUSION_API_TOKEN 设置后，/api/v1 下除 /health 外全部要求
- * `Authorization: Bearer <token>`。未设置时保持无鉴权（单机 localhost 模式），
- * 服务器/Docker 部署必须设置（docker-compose 已透传）。
+ * Auth: once FUSION_API_TOKEN is set, everything under /api/v1 except /health requires
+ * `Authorization: Bearer <token>`. When unset it stays unauthenticated (single-machine
+ * localhost mode); server/Docker deployments must set it (docker-compose passes it through).
  *
- * CSRF：浏览器 simple request（text/plain 表单等）不触发 preflight，CORS 拦不住
- * 副作用；对写方法强制 Content-Type 白名单，堵掉这条路径。
+ * CSRF: browser simple requests (text/plain forms etc.) skip preflight, so CORS cannot stop
+ * their side effects; mutating methods get a Content-Type allowlist to close that path.
  */
 import type { MiddlewareHandler } from 'hono'
 
-// 每请求读 env：index.ts 启动闸可先生成 token 再回写 env（P3 首启自动生成），
-// 模块加载期快照会固化空值导致自动生成的 token 不生效
+// Read env per request: the index.ts startup gate may generate a token and write it back to env
+// first (P3 first-start auto-generation); a module-load-time snapshot would freeze an empty
+// value and the auto-generated token would never take effect
 const apiToken = () => process.env.FUSION_API_TOKEN || ''
 
 /**
@@ -31,7 +32,7 @@ export function hasValidApiToken(c: { req: { header(n: string): string | undefin
   return false
 }
 
-/** Bearer token 鉴权（token 未配置时直接放行） */
+/** Bearer token auth (passes through when no token is configured) */
 export const requireApiToken: MiddlewareHandler = async (c, next) => {
   const API_TOKEN = apiToken()
   if (!API_TOKEN) return next()
@@ -44,11 +45,11 @@ export const requireApiToken: MiddlewareHandler = async (c, next) => {
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 const ALLOWED_CT = ['application/json', 'multipart/form-data']
 
-/** 写方法 Content-Type 白名单 — 拒绝 text/plain 等可绕过 preflight 的 simple request */
+/** Content-Type allowlist for mutating methods — rejects text/plain etc. simple requests that bypass preflight */
 export const requireSafeContentType: MiddlewareHandler = async (c, next) => {
   if (!MUTATING.has(c.req.method)) return next()
   const ct = (c.req.header('Content-Type') || '').toLowerCase()
-  // 无 body 的请求（Content-Type 缺失）放行（DELETE 等）
+  // Body-less requests (missing Content-Type) pass through (DELETE etc.)
   if (!ct) return next()
   if (ALLOWED_CT.some(a => ct.startsWith(a))) return next()
   console.warn(`[auth] rejected content-type "${ct}" on ${c.req.method} ${c.req.path}`)

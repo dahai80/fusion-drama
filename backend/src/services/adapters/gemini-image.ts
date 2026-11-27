@@ -1,8 +1,8 @@
 /**
- * Gemini 图片生成 Adapter
- * 认证: URL Query 参数 ?key= 或 Header x-goog-api-key
- * 请求: Google REST 风格的 contents[].parts[] 结构
- * 响应: base64 编码在 inlineData.data 中，无 URL
+ * Gemini image generation adapter
+ * auth: URL query param ?key= or header x-goog-api-key
+ * request: Google REST-style contents[].parts[] structure
+ * response: base64 payload in inlineData.data, no URL
  */
 import type {
   ImageProviderAdapter,
@@ -19,10 +19,12 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   provider = 'gemini'
 
   buildGenerateRequest(config: AIConfig, record: ImageGenerationRecord): ProviderRequest {
-    // Gemini 模型名格式: "models/gemini-3-pro-image" 或直接 "gemini-3-pro-image"
+    // Gemini model name formats: "models/gemini-3-pro-image" or plain "gemini-3-pro-image"
     const modelName = record.model || config.model || 'gemini-3-pro-image'
-    // interactions 端点仅官方 API 可用;中转站(new-api 类)普遍未配置该端点类型,
-    // 会报 "endpointType=GEMINI_INTERACTIONS 未启用",此类端点回退到 generateContent 分支
+    // the interactions endpoint exists only on the official API; relay proxies (new-api
+    // style) generally do not configure that endpoint type and report
+    // i18n: user-facing — quotes the upstream error message text
+// "endpointType=GEMINI_INTERACTIONS 未启用" — those fall back to the generateContent branch
     const isGemini3Image = /gemini-3.*image/.test(modelName)
     const isOfficialHost = /generativelanguage\.googleapis\.com/.test(config.baseUrl || '')
 
@@ -48,7 +50,7 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
 
     const model = modelName.startsWith('models/') ? modelName : `models/${modelName}`
 
-    // Google REST 风格请求体
+    // Google REST-style request body
     const parts: any[] = []
     if (record.referenceImages) {
       try {
@@ -75,14 +77,15 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       generationConfig: {
         responseModalities: ['IMAGE', 'TEXT'],
         imageConfig: {
-          // 解析 size 如 "1920x1080" -> aspectRatio
+          // parse size like "1920x1080" -> aspectRatio
           aspectRatio: this.parseAspectRatio(record.size),
           imageSize: this.parseImageSize(record.size),
         },
       },
     }
 
-    // key 仅走 header（x-goog-api-key）：query 传 key 会在代理/网关访问日志留痕
+    // key goes in the header only (x-goog-api-key): a query-param key would leave traces in
+    // proxy/gateway access logs
     const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/${model}:generateContent`))
 
     return {
@@ -113,8 +116,9 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
       return { isAsync: false, imageUrl: undefined }
     }
 
-    // 仅显式 task_id 视为异步任务：中转站常回普通 result.id（非 poll 端点 id），
-    // 误判会 GET /{id} 空转整个轮询窗口后假超时
+    // only an explicit task_id counts as an async task: relay proxies often return a plain
+    // result.id (not a poll-endpoint id); misjudging would GET /{id} idle through the whole
+    // polling window and then fake-timeout
     if (result.task_id) {
       return { isAsync: true, taskId: result.task_id }
     }
@@ -126,12 +130,12 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   }
 
   parsePollResponse(result: any): ImagePollResponse {
-    // Gemini 是同步的，通常不会走到这里
+    // Gemini is synchronous; this is normally never reached
     return { status: 'completed' }
   }
 
   buildPollRequest(config: AIConfig, taskId: string): ProviderRequest {
-    // Gemini 不需要轮询，但实现接口以保持一致
+    // Gemini does not poll, but the interface is implemented for consistency
     const url = new URL(joinProviderUrl(config.baseUrl, '/v1beta', `/${taskId}`))
     return {
       url: url.toString(),

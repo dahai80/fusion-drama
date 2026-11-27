@@ -1,7 +1,7 @@
 /**
- * PRD 优化落地（docs/opti-plan-1015.md）结构测试：
- * 断言源码文本模式，锁住 M1/M2/M4 批次的关键行为锚点。
- * 重构源码破坏断言时改测试，别改源码（项目规则）。
+ * PRD optimization landing (docs/opti-plan-1015.md) structure tests:
+ * Asserts source text patterns, locking in the key behavior anchors of the M1/M2/M4 batches.
+ * When a refactor breaks assertions, change the test, not the source (project rule).
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -23,14 +23,14 @@ test('FR-P0-5a: task cancel — registry + optimistic terminal write', () => {
     assert.match(gen, /const activeCancels = new Map<number, AbortController>\(\)/)
     assert.match(gen, /export function requestTaskCancel/)
     assert.match(gen, /export async function cancelTask/)
-    // 取消终态乐观条件：仅 processing 可落 cancelled
+    // Cancel terminal-state optimistic condition: only processing may become cancelled
     assert.match(gen, /status: 'cancelled'[^]*?eq\(schema\.sysTask\.status, 'processing'\)/)
-    // failTask 乐观条件
+    // failTask optimistic condition
     assert.match(gen, /async function failTask[^]*?eq\(schema\.sysTask\.status, 'processing'\)/)
-    // completed 回写乐观条件（3 处防幽灵完成）
+    // completed write-back optimistic conditions (3 spots against ghost completions)
     const completedCount = (gen.match(/status: 'completed'[^]*?eq\(schema\.sysTask\.status, 'processing'\)/g) || []).length
     assert.ok(completedCount >= 3, `completed optimistic guards: ${completedCount}`)
-    // 执行入口短路：非 processing 不执行
+    // Execution-entry short-circuit: non-processing records do not execute
     assert.match(gen, /record\.status !== 'processing'/)
 })
 
@@ -43,18 +43,18 @@ test('FR-P0-5a: cancel route exists with terminal-state guard', () => {
 
 test('FR-P0-5b: merge reentry guard', () => {
     const s = read('services/ffmpeg-merge.ts')
-    assert.match(s, /该剧集已有进行中的拼接任务/)
+    assert.match(s, /该剧集已有进行中的拼接任务/) // i18n: user-facing
     assert.match(s, /eq\(schema\.videoMerges\.status, 'processing'\)/)
 })
 
 test('FR-P0-1b/BIZ-1: destructive deletes require confirm + cascade', () => {
     const dramas = read('routes/dramas.ts')
-    assert.match(dramas, /confirm=true（query 或 body）/)
+    assert.match(dramas, /confirm=true（query 或 body）/) // i18n: user-facing
     assert.match(dramas, /cascadeDeleteDrama\(id\)/)
     const episodes = read('routes/episodes.ts')
-    assert.match(episodes, /confirm=true（query 或 body）/)
+    assert.match(episodes, /confirm=true（query 或 body）/) // i18n: user-facing
     assert.match(episodes, /cascadeDeleteEpisode\(id\)/)
-    // 级联清理落在 utils/cascade.ts：DB 行删除 + 产物文件删除（jail 断言）
+    // Cascade cleanup lives in utils/cascade.ts: DB row deletion + artifact file deletion (jail assertions)
     const cascade = read('utils/cascade.ts')
     assert.match(cascade, /export async function cascadeDeleteDrama/)
     assert.match(cascade, /export async function cascadeDeleteEpisode/)
@@ -94,7 +94,7 @@ test('FR-BIZ-3: script history keep-5 + rollback endpoint', () => {
     assert.match(tool, /while \(history\.length > 5\) history\.shift\(\)/)
     const ep = read('routes/episodes.ts')
     assert.match(ep, /rollback-script/)
-    assert.match(ep, /手动覆写剧本同样保留历史稿/)
+    assert.match(ep, /manual script overwrites also keep a history draft/)
 })
 
 test('FR-BIZ-2a: first-frame selection owned by host only', () => {
@@ -145,7 +145,7 @@ test('FR-BIZ-6 gap: backup bundles DB + storage (tar.gz)', () => {
     assert.match(s, /bundle-\$\{stamp\}\.tar\.gz/)
     assert.match(s, /STORAGE_ROOT/)
     assert.match(s, /includes: \['database', 'static'\]/)
-    // tar 不可用时退化为仅 DB 快照（不 hard fail）
+    // Falls back to a DB-only snapshot when tar is unavailable (no hard failure)
     assert.match(s, /DB-only backup kept/)
 })
 

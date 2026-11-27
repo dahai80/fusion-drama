@@ -1,6 +1,6 @@
 /**
- * Agent 请求上下文 — 通过 Mastra RequestContext 按请求注入
- * 路由层 build → generate({ requestContext }) → 工具 execute 内读取
+ * Agent request context — injected per request via Mastra RequestContext
+ * Built by the route layer → generate({ requestContext }) → read inside tool execute
  */
 import { RequestContext } from '@mastra/core/request-context'
 import { getContentLanguage, type ContentLanguage } from '../services/app-settings.js'
@@ -10,7 +10,7 @@ export interface AgentRequestContextValues {
   dramaId: number
   modelOverride?: string
   textConfigId?: number
-  /** AI 内容语言；缺省时读全局设置（app_settings.content_language） */
+  /** AI content language; falls back to the global setting (app_settings.content_language) when absent */
   language?: ContentLanguage
 }
 
@@ -20,8 +20,8 @@ export function buildAgentRequestContext(values: AgentRequestContextValues): Req
   rc.set('dramaId', values.dramaId)
   if (values.modelOverride) rc.set('modelOverride', values.modelOverride)
   if (values.textConfigId) rc.set('textConfigId', values.textConfigId)
-  // 语言在构建处统一解析：4 条链路（chat/提取/图片提示词/视频提示词）都经过这里，
-  // 全局设置一处生效；显式传入 values.language 可按请求覆盖
+  // Language is resolved once at build time: all 4 paths (chat/extraction/image prompts/video prompts) go through here,
+  // so the global setting takes effect in a single place; pass values.language explicitly to override per request
   rc.set('language', values.language ?? getContentLanguage())
   return rc
 }
@@ -36,13 +36,13 @@ export function getDramaId(requestContext: RequestContext | undefined): number |
   return typeof v === 'number' ? v : null
 }
 
-/** 读取请求上下文中的内容语言；未设置返回 null（调用方按 zh 处理） */
+/** Read the content language from the request context; returns null when unset (callers treat it as zh) */
 export function getContentLanguageFromRC(requestContext: RequestContext | undefined): ContentLanguage | null {
   const v = requestContext?.get('language' as never)
   return typeof v === 'string' && v ? (v as ContentLanguage) : null
 }
 
-/** H6: 工具层通用上下文守卫——两份逐字复制的 requireIds 收敛于此（原文件保留 wrapper 调用点） */
+/** H6: shared tool-layer context guard — the two verbatim copies of requireIds converge here (original files keep wrapper call sites) */
 export function requireAgentIds(
   episodeId: number | null | undefined,
   dramaId: number | null | undefined,

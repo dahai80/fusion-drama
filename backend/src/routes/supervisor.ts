@@ -1,5 +1,5 @@
 /**
- * Agent 监督层路由 — 开关/状态
+ * Agent supervisor routes — toggle/status
  */
 import { Hono } from 'hono'
 import { isSupervisorEnabled, setSupervisorEnabled } from '../services/app-settings.js'

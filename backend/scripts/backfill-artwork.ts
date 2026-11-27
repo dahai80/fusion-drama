@@ -1,12 +1,13 @@
 /**
- * 存量文件回填脚本 — 为历史生成的图片/视频补生成缩略图和海报帧
+ * Backfill script for existing files — generates missing thumbnails and poster frames
+ * for historically produced images/videos
  *
- * 用法：cd backend && npx tsx scripts/backfill-artwork.ts
+ * Usage: cd backend && npx tsx scripts/backfill-artwork.ts
  *
- * 扫描 data/static 下：
- *   images/  → 为缺少 *_thumb.webp 的图片生成缩略图（宽 400 WebP）
- *   videos/、merged/ → 为缺少 *_poster.jpg 的视频抽取海报帧
- * 已存在的跳过，可重复执行。
+ * Scans under data/static:
+ *   images/  -> generates thumbnails (400px-wide WebP) for images missing *_thumb.webp
+ *   videos/, merged/ -> extracts poster frames for videos missing *_poster.jpg
+ * Existing outputs are skipped; safe to re-run.
  */
 import fs from 'fs'
 import path from 'path'
@@ -35,7 +36,7 @@ async function backfillImages(subDir: string) {
     if (ok) console.log(`  thumb ✓ ${rel}`)
     else console.warn(`  thumb ✗ ${rel}`)
   }
-  console.log(`[${subDir}] 缩略图：新生成 ${done}，已存在 ${skipped}，失败 ${failed}`)
+  console.log(`[${subDir}] thumbnails: generated ${done}, already existed ${skipped}, failed ${failed}`)
 }
 
 async function backfillVideos(subDir: string) {
@@ -50,11 +51,11 @@ async function backfillVideos(subDir: string) {
     if (ok) console.log(`  poster ✓ ${rel}`)
     else console.warn(`  poster ✗ ${rel}`)
   }
-  console.log(`[${subDir}] 海报帧：新生成 ${done}，已存在 ${skipped}，失败 ${failed}`)
+  console.log(`[${subDir}] posters: generated ${done}, already existed ${skipped}, failed ${failed}`)
 }
 
-console.log(`回填目录：${STORAGE_ROOT}`)
+console.log(`backfill root: ${STORAGE_ROOT}`)
 await backfillImages('images')
 await backfillVideos('videos')
 await backfillVideos('merged')
-console.log('回填完成')
+console.log('backfill complete')

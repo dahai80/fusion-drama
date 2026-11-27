@@ -1,10 +1,12 @@
 /**
- * FR-BIZ-1 级联清理 — drama/episode 硬删除时收集并清理 DB 行 + storage 文件。
+ * FR-BIZ-1 cascade cleanup — collects and cleans DB rows + storage files on drama/episode hard delete.
  *
- * PRD：删除需二次确认并级联清理资产文件与任务记录（DB 行+storage 文件+
- * sys_task），删除后不可恢复要明示。入口路由已做 confirm 校验，这里只管
- * 级联本身。文件删除全部走 deleteStoredFile（jail 断言防越界），收集阶段
- * 返回计数与文件清单供响应/日志审计。
+ * PRD: deletion requires a second confirmation and cascading cleanup of asset files and
+ * task records (DB rows + storage files + sys_task); irreversibility after deletion must
+ * be stated explicitly. The entry route already performs the confirm check; this module
+ * only handles the cascade itself. All file deletions go through deleteStoredFile (jail
+ * assertion prevents path escapes); the collection phase returns counts and a file list
+ * for response/log auditing.
  */
 import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
@@ -15,7 +17,7 @@ export interface CascadeResult {
     files: { deleted: number, kept: number, keptList: string[] }
 }
 
-/** 收集行内的产物路径（null/外链 http 不算本地文件） */
+/** Collects artifact paths from rows (null / external http links do not count as local files) */
 function localPathsOf(rows: Record<string, any>[], keys: string[]): string[] {
     const out: string[] = []
     for (const r of rows) {
@@ -27,9 +29,9 @@ function localPathsOf(rows: Record<string, any>[], keys: string[]): string[] {
     return [...new Set(out)]
 }
 
-/** 批量删文件：仍被未删行引用的保留（防悬空引用他人产物），返回删除/保留统计 */
+/** Batch file deletion: keeps files still referenced by surviving rows (prevents dangling references to other owners' artifacts), returns delete/keep stats */
 async function deleteFiles(paths: string[], keepIfReferencedBy: 'none'): Promise<CascadeResult['files']> {
-    // 引用检查：除本次级联将删的行外，任何业务表仍指向该路径则保留
+    // Reference check: if any business table still points at the path (other than rows this cascade will delete), keep it
     const keptList: string[] = []
     let deleted = 0
     for (const p of paths) {
@@ -55,10 +57,11 @@ async function deleteFiles(paths: string[], keepIfReferencedBy: 'none'): Promise
 }
 
 /**
- * Drama 硬删除级联：episodes → storyboards → 关联表（episode_characters/
- * scenes/props）→ 该 drama 的 characters/scenes/props → sys_task →
- * video_merges → sys_task_events → storage 文件。
- * 先删行后删文件（行删完后引用检查只剩跨 drama 引用这一种保留情形）。
+ * Drama hard-delete cascade: episodes → storyboards → join tables (episode_characters/
+ * scenes/props) → this drama's characters/scenes/props → sys_task → video_merges →
+ * sys_task_events → storage files.
+ * Rows are deleted before files (once rows are gone, the reference check only has the
+ * cross-drama reference case left as a keep condition).
  */
 export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult> {
     const eps = await db.select().from(schema.episodes).where(eq(schema.episodes.dramaId, dramaId))
@@ -81,7 +84,7 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
     const tasks = await db.select().from(schema.sysTask).where(eq(schema.sysTask.dramaId, dramaId))
     const merges = await db.select().from(schema.videoMerges).where(eq(schema.videoMerges.dramaId, dramaId))
 
-    // 文件清单（删行前收集）
+    // File list (collected before deleting rows)
     const files = [
         ...localPathsOf(chars, ['imageUrl', 'localPath']),
         ...localPathsOf(scenes, ['imageUrl', 'localPath']),
@@ -91,7 +94,7 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
         ...localPathsOf(eps, ['videoUrl']),
     ]
 
-    // DB 行删除（子表先删）
+    // DB row deletion (child tables first)
     const rows: Record<string, number> = {}
     if (sbIds.length) rows.storyboards = (await db.delete(schema.storyboards).where(inArray(schema.storyboards.id, sbIds))).changes ?? 0
     if (epIds.length) {
@@ -117,7 +120,7 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
     )).changes ?? 0
     // RAG chunks are drama-anchored knowledge base rows
     rows.rag_chunks = (await db.delete(schema.ragChunks).where(eq(schema.ragChunks.dramaId, dramaId))).changes ?? 0
-    // 小说导入管线产物随剧清理（novel_segments / novel_episode_plans 均以 drama_id 锚定）
+    // Novel import pipeline artifacts are cleaned with the drama (novel_segments / novel_episode_plans are both anchored by drama_id)
     rows.novel_segments = (await db.delete(schema.novelSegments).where(eq(schema.novelSegments.dramaId, dramaId))).changes ?? 0
     rows.novel_episode_plans = (await db.delete(schema.novelEpisodePlans).where(eq(schema.novelEpisodePlans.dramaId, dramaId))).changes ?? 0
     rows.prompt_history = (await db.delete(schema.promptHistory).where(eq(schema.promptHistory.dramaId, dramaId))).changes ?? 0
@@ -129,8 +132,9 @@ export async function cascadeDeleteDrama(dramaId: number): Promise<CascadeResult
 }
 
 /**
- * Episode 硬删除级联：storyboards + 关联表 + 该集 sys_task/video_merges +
- * 产物文件。drama 级资产（characters/scenes/props）不动——归剧集所有。
+ * Episode hard-delete cascade: storyboards + join tables + the episode's sys_task/video_merges
+ * + artifact files. Drama-level assets (characters/scenes/props) are untouched — they belong
+ * to the drama, not the episode.
  */
 export async function cascadeDeleteEpisode(episodeId: number): Promise<CascadeResult> {
     const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))

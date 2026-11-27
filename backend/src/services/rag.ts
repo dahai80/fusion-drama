@@ -1,11 +1,13 @@
 /**
- * ONNX RAG — 本地向量检索，给 Agent 注入剧本/角色/场景/道具上下文
+ * ONNX RAG — local vector retrieval, injects script/character/scene/prop context into agents
  *
- * 嵌入模型 bge-small-zh-v1.5（ONNX，CPU 推理，onnxruntime-node），
- * 模型经 HF 镜像（HF_MIRROR，默认 hf-mirror.com）下载到 DATA_ROOT/models/embeddings。
- * CPU 嵌入不占 GPU —— 与 fusion-mlx 的 FLUX/LTX/H3 无内存争用。
+ * Embedding model bge-small-zh-v1.5 (ONNX, CPU inference, onnxruntime-node);
+ * the model is downloaded via the HF mirror (HF_MIRROR, default hf-mirror.com) to
+ * DATA_ROOT/models/embeddings. CPU embeddings do not touch the GPU — no memory
+ * contention with fusion-mlx's FLUX/LTX/H3.
  *
- * 检索失败（模型缺失/下载失败/无索引）一律静默降级为无上下文，不阻断 Agent 主流程。
+ * Retrieval failures (model missing / download failed / no index) always degrade
+ * silently to no-context and never block the agent's main flow.
  */
 import path from 'path'
 import { and, eq, isNull } from 'drizzle-orm'
@@ -20,21 +22,25 @@ const SCRIPT_CHUNK_SIZE = 700
 const SCRIPT_CHUNK_OVERLAP = 100
 const TOP_K = 5
 
-// transformers.js 懒加载：首次用到才 import（启动零开销，桌面版离线时不受影响）
+// transformers.js lazy load: import only on first use (zero startup cost; desktop
+// offline mode unaffected)
 let extractorPromise: Promise<any> | null = null
-// 最近一次加载失败原因（状态接口透出，弱网环境静默失效可在设置页看到根因）
+// Most recent load failure reason (surfaced by the status endpoint so silent failures
+// on weak networks have a visible root cause in the settings page)
 let lastLoadError: string | null = null
 
 async function getExtractor(): Promise<any> {
     if (!extractorPromise) {
         extractorPromise = (async () => {
             const { pipeline, env } = await import('@huggingface/transformers')
-            // 模型缓存本地化 + 走镜像站下载（国内网络 hf.co 直连不可达）
+            // localize the model cache + download via the mirror site (hf.co is unreachable
+            // on direct connections from CN networks)
             env.cacheDir = path.join(DATA_ROOT, 'models', 'embeddings')
             env.remoteHost = process.env.HF_MIRROR || 'https://hf-mirror.com'
             logTaskProgress('RAG', 'model-loading', { model: EMBED_MODEL, cacheDir: env.cacheDir })
-            // 镜像站偶发连接超时（实测 hf-mirror 10s undici connect timeout），
-            // 重试 3 次缓解；已缓存的模型文件不触发网络请求
+            // mirror site occasionally hits connect timeouts (observed hf-mirror 10s undici
+            // connect timeout); retry 3 times to mitigate; cached model files make no
+            // network requests
             let extractor: any = null
             let lastErr: any = null
             for (let attempt = 1; attempt <= 3; attempt++) {
@@ -55,7 +61,7 @@ async function getExtractor(): Promise<any> {
             logTaskSuccess('RAG', 'model-loaded', { model: EMBED_MODEL })
             return extractor
         })().catch(err => {
-            // 加载失败后允许重试（下次调用重新走加载），但必须大声记录
+            // allow retry after a load failure (next call re-triggers loading), but log loudly
             extractorPromise = null
             lastLoadError = String(err?.message || err).slice(0, 300)
             throw err
@@ -64,12 +70,12 @@ async function getExtractor(): Promise<any> {
     return extractorPromise
 }
 
-/** 是否已可用（模型已成功加载过）——状态接口用，不触发加载 */
+/** Whether RAG is ready (model successfully loaded at least once) — for the status endpoint, never triggers loading */
 export function isRagModelLoaded(): boolean {
     return extractorPromise !== null
 }
 
-/** 嵌入文本数组，返回 L2 归一化向量（bge 系列用 CLS pooling） */
+/** Embed an array of texts, returning L2-normalized vectors (bge family uses CLS pooling) */
 async function embedTexts(texts: string[]): Promise<number[][]> {
     const extractor = await getExtractor()
     const out = await extractor(texts, { pooling: 'cls', normalize: true })
@@ -88,7 +94,7 @@ interface ChunkInput {
     content: string
 }
 
-/** 剧本按段落滑窗切块：短剧本整块，长剧本 700 字窗口 100 字重叠 */
+/** Sliding-window chunking for scripts: short scripts stay whole; long ones use a 700-char window with 100-char overlap */
 function chunkScript(script: string): string[] {
     const text = script.trim()
     if (!text) return []
@@ -101,7 +107,7 @@ function chunkScript(script: string): string[] {
     return chunks
 }
 
-/** 收集一个 drama 的全部可检索内容 */
+/** Collect all retrievable content for one drama */
 async function collectDramaChunks(dramaId: number): Promise<ChunkInput[]> {
     const chunks: ChunkInput[] = []
 
@@ -110,6 +116,7 @@ async function collectDramaChunks(dramaId: number): Promise<ChunkInput[]> {
     for (const ep of episodes) {
         const script = ep.scriptContent || ep.content || ''
         for (const piece of chunkScript(script)) {
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             chunks.push({ kind: 'script', title: `第${ep.episodeNumber}集 ${ep.title}`, content: piece })
         }
     }
@@ -118,11 +125,16 @@ async function collectDramaChunks(dramaId: number): Promise<ChunkInput[]> {
         .where(and(eq(schema.characters.dramaId, dramaId), isNull(schema.characters.deletedAt)))
     for (const ch of characters) {
         const parts = [
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             ch.role ? `角色定位：${ch.role}` : '',
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             ch.description ? `简介：${ch.description}` : '',
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             ch.appearance ? `外貌：${ch.appearance}` : '',
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             ch.personality ? `性格：${ch.personality}` : '',
         ].filter(Boolean).join('\n')
+        // i18n: user-facing — chunk labels feed the zh embedding model and agent context
         if (parts) chunks.push({ kind: 'character', title: ch.name, content: `角色「${ch.name}」\n${parts}` })
     }
 
@@ -130,11 +142,16 @@ async function collectDramaChunks(dramaId: number): Promise<ChunkInput[]> {
         .where(and(eq(schema.scenes.dramaId, dramaId), isNull(schema.scenes.deletedAt)))
     for (const sc of scenes) {
         const parts = [
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             `地点：${sc.location}`,
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             `时间：${sc.time}`,
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             sc.lighting ? `光线：${sc.lighting}` : '',
+            // i18n: user-facing — chunk labels feed the zh embedding model and agent context
             `画面：${sc.prompt}`,
         ].filter(Boolean).join('\n')
+        // i18n: user-facing — chunk labels feed the zh embedding model and agent context
         chunks.push({ kind: 'scene', title: sc.location, content: `场景「${sc.location}」\n${parts}` })
     }
 
@@ -142,13 +159,14 @@ async function collectDramaChunks(dramaId: number): Promise<ChunkInput[]> {
         .where(and(eq(schema.props.dramaId, dramaId), isNull(schema.props.deletedAt)))
     for (const p of props) {
         const desc = p.description || ''
+        // i18n: user-facing — chunk labels feed the zh embedding model and agent context
         if (desc) chunks.push({ kind: 'prop', title: p.name, content: `道具「${p.name}」\n${desc}` })
     }
 
     return chunks
 }
 
-/** 全量重建一个 drama 的向量索引（旧索引先删） */
+/** Fully rebuild one drama's vector index (old index deleted first) */
 export async function indexDrama(dramaId: number): Promise<number> {
     logTaskStart('RAG', 'index-drama', { dramaId })
     const chunks = await collectDramaChunks(dramaId)
@@ -157,7 +175,7 @@ export async function indexDrama(dramaId: number): Promise<number> {
         logTaskProgress('RAG', 'index-drama-empty', { dramaId })
         return 0
     }
-    // 分批嵌入（bge-small CPU 单批 32 条以内稳定）
+    // embed in batches (bge-small on CPU is stable up to 32 items per batch)
     const ts = now()
     const rows: any[] = []
     for (let i = 0; i < chunks.length; i += 32) {
@@ -177,7 +195,7 @@ export async function indexDrama(dramaId: number): Promise<number> {
     return rows.length
 }
 
-/** drama 无索引且已有剧本内容时自动建索引（首次 Agent 对话触发，秒级） */
+/** Auto-build the index when a drama has none but has script content (triggered on first agent chat, takes seconds) */
 async function ensureIndexed(dramaId: number): Promise<void> {
     const existing = await db.select({ id: schema.ragChunks.id }).from(schema.ragChunks)
         .where(eq(schema.ragChunks.dramaId, dramaId)).limit(1)
@@ -191,7 +209,7 @@ async function ensureIndexed(dramaId: number): Promise<void> {
 function cosine(a: number[], b: number[]): number {
     let dot = 0
     for (let i = 0; i < a.length; i++) dot += a[i] * b[i]
-    return dot // 双方已 L2 归一化，点积即余弦
+    return dot // both vectors are L2-normalized, so the dot product is the cosine
 }
 
 export interface RagHit {
@@ -201,7 +219,7 @@ export interface RagHit {
     score: number
 }
 
-/** 检索 top-k 相关块；失败返回 null（调用方静默降级） */
+/** Retrieve the top-k relevant chunks; returns null on failure (callers degrade silently) */
 export async function searchDrama(dramaId: number, query: string, topK = TOP_K): Promise<RagHit[] | null> {
     const q = query.trim()
     if (!q) return null
@@ -228,7 +246,7 @@ export async function searchDrama(dramaId: number, query: string, topK = TOP_K):
     }
 }
 
-/** 组装注入 Agent 用户消息的上下文块；不可用时返回 null（消息原样发送） */
+/** Assemble the context block injected into the agent's user message; returns null when unavailable (message sent as-is) */
 export async function buildRagContextBlock(dramaId: number, query: string): Promise<string | null> {
     const hits = await searchDrama(dramaId, query)
     if (!hits || hits.length === 0) return null
@@ -236,10 +254,11 @@ export async function buildRagContextBlock(dramaId: number, query: string): Prom
         const label = h.title ? `${h.kind} · ${h.title}` : h.kind
         return `【${label}】\n${h.content}`
     })
+    // i18n: user-facing — LLM-facing context preamble, Chinese keeps agent behavior stable
     return `以下是从本项目资料库检索到的相关背景（供参考，与用户要求冲突时以用户要求为准）：\n\n${sections.join('\n\n')}`
 }
 
-/** 状态接口数据：模型加载状态 + 最近加载失败原因 + 各 drama 索引量 */
+/** Status endpoint payload: model load state + most recent load failure reason + per-drama index counts */
 export async function ragStatus(): Promise<{
     model: string
     modelLoaded: boolean

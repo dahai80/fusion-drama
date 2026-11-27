@@ -16,8 +16,9 @@ export default defineNuxtConfig({
     appManifest: false,
   },
   hooks: {
-    // 动态路由页面统一放在 app/views/ 手动注册，避免文件路径中出现 [id] 方括号
-    // （方括号路径在 git/shell 中需转义，且部分部署环境不兼容）。URL 保持不变。
+    // Dynamic route pages are registered manually under app/views/ to avoid [id] brackets
+    // in file paths (bracketed paths need escaping in git/shell and break some deploy
+    // environments). URLs stay unchanged.
     'pages:extend'(pages) {
       pages.push(
         {
@@ -36,6 +37,7 @@ export default defineNuxtConfig({
   app: {
     baseURL: shellBase,
     head: {
+      // i18n: user-facing
       title: 'Fuse 短剧',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
       link: [

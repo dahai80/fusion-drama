@@ -15,17 +15,17 @@ test('custom providers table shipped in migration v6 and drizzle schema', () => 
 })
 
 test('custom:<name> providers flow through adapter registry and config validation', () => {
-    // 注册表：custom: 前缀委托到可编程 provider 服务（图片/视频都覆盖）
+    // Registry: the custom: prefix delegates to the programmable provider service (covers both image/video)
     const registry = read('src/services/adapters/registry.ts')
     assert.match(registry, /isCustomProvider\(provider\)\) return getCustomImageAdapter/)
     assert.match(registry, /isCustomProvider\(provider\)\) return getCustomVideoAdapter/)
 
-    // 生成管线等待异步 adapter 解析（custom 需查 DB）
+    // Generation pipeline awaits the async adapter resolution (custom requires a DB lookup)
     const generation = read('src/services/generation.ts')
     assert.match(generation, /await getImageAdapter\(config\.provider\)/)
     assert.match(generation, /await getVideoAdapter\(config\.provider\)/)
 
-    // 配置合法性：custom: 前缀放行（仅 image/video），官方清单不变
+    // Config validity: the custom: prefix is allowed (image/video only); official list unchanged
     const ai = read('src/services/ai.ts')
     assert.match(ai, /export function isValidProvider/)
     assert.match(ai, /startsWith\('custom:'\)/)
@@ -34,7 +34,7 @@ test('custom:<name> providers flow through adapter registry and config validatio
 
 test('custom provider sandbox isolation is configured (runtime behavior in custom-provider-sandbox.test.ts)', () => {
     const sandbox = read('src/services/custom-provider-sandbox.ts')
-    // 沙箱上下文不含 require/process/fs/Buffer；eval 有超时熔断
+    // Sandbox context excludes require/process/fs/Buffer; eval has a timeout fuse
     assert.match(sandbox, /EVAL_TIMEOUT_MS = 5000/)
     assert.match(sandbox, /\{ timeout: EVAL_TIMEOUT_MS \}/)
     assert.doesNotMatch(sandbox, /require:/)

@@ -19,32 +19,40 @@ const app = new Hono()
 // POST /episodes — Create a new episode
 app.post('/', async (c) => {
   const body = await c.req.json()
+  // i18n: user-facing
   if (!body.drama_id) return badRequest(c, 'drama_id 必填')
 
-  // 图片/视频配置：显式传入优先，缺省时自动锁定当前启用的最高优先级官方配置
+  // image/video configs: explicit values win; otherwise auto-lock onto the currently
+  // enabled highest-priority official config
   const imageConfigId = body.image_config_id ?? await getActiveConfigId('image')
   const videoConfigId = body.video_config_id ?? await getActiveConfigId('video')
+  // i18n: user-facing
   if (!imageConfigId) return badRequest(c, '未找到启用的图片生成配置，请先在设置中心添加')
+  // i18n: user-facing
   if (!videoConfigId) return badRequest(c, '未找到启用的视频生成配置，请先在设置中心添加')
   const ts = now()
 
-  // Get next episode number（忽略已软删的集，删除中间集后新集号可复用空位之后的最大值）
+  // Get next episode number (soft-deleted episodes are ignored; after deleting a middle
+  // episode a new one may reuse the max number after the freed slot)
   const existing = await db.select().from(schema.episodes)
     .where(and(eq(schema.episodes.dramaId, body.drama_id), isNull(schema.episodes.deletedAt)))
     .orderBy(schema.episodes.episodeNumber)
   const nextNum = existing.length ? Math.max(...existing.map(e => e.episodeNumber)) + 1 : 1
 
-  // B22: 唯一索引兜底 + 冲突重试——并发双击同 drama 同时算出同 nextNum 时，
-  // 后到者撞 uq_episodes_drama_number，重试 nextNum+1 而非 500
+  // B22: unique-index backstop + conflict retry — when concurrent double-clicks on the
+  // same drama both compute the same nextNum, the later one hits uq_episodes_drama_number
+  // and retries with nextNum+1 instead of 500
   let res
   try {
     res = await db.insert(schema.episodes).values({
       dramaId: body.drama_id,
       episodeNumber: nextNum,
+      // i18n: user-facing — default episode title shown in the product
       title: body.title || `第${nextNum}集`,
       imageConfigId,
       videoConfigId,
-      // 视频分辨率在创建集时固定（480p/720p/1080p），后续可通过 PUT 修改；各视频适配器再映射为厂商档位
+      // video resolution is fixed at episode creation (480p/720p/1080p), changeable later
+      // via PUT; each video adapter maps it to vendor-specific tiers
       resolution: ['480p', '720p', '1080p'].includes(body.resolution) ? body.resolution : '720p',
       createdAt: ts,
       updatedAt: ts,
@@ -55,6 +63,7 @@ app.post('/', async (c) => {
     res = await db.insert(schema.episodes).values({
       dramaId: body.drama_id,
       episodeNumber: nextNum + 1,
+      // i18n: user-facing — default episode title shown in the product
       title: body.title || `第${nextNum + 1}集`,
       imageConfigId,
       videoConfigId,
@@ -86,8 +95,10 @@ app.put('/:id', async (c) => {
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
   }
+  // i18n: user-facing
   if (Object.keys(updates).length === 0) return badRequest(c, '没有可更新的字段')
   if ('resolution' in updates && !['480p', '720p', '1080p'].includes(updates.resolution)) {
+    // i18n: user-facing
     return badRequest(c, 'resolution 只支持 480p / 720p / 1080p')
   }
 
@@ -95,7 +106,7 @@ app.put('/:id', async (c) => {
   const drizzleUpdates: Record<string, any> = { updatedAt: now() }
   if ('content' in updates) drizzleUpdates.content = updates.content
   if ('script_content' in updates) {
-    // FR-BIZ-3: 手动覆写剧本同样保留历史稿（与 Agent 覆写同语义）
+    // FR-BIZ-3: manual script overwrites also keep a history draft (same semantics as agent overwrites)
     const [cur] = await db.select({ scriptContent: schema.episodes.scriptContent }).from(schema.episodes).where(eq(schema.episodes.id, id))
     if (cur?.scriptContent?.trim() && cur.scriptContent !== updates.script_content) {
       let history: { content: string, savedAt: string }[] = []
@@ -113,7 +124,8 @@ app.put('/:id', async (c) => {
 
   await db.update(schema.episodes).set(drizzleUpdates).where(eq(schema.episodes.id, id))
 
-  // ONNX RAG：剧本内容变更后异步重建该剧的向量索引（失败不阻断保存；CPU 嵌入秒级）
+  // ONNX RAG: rebuild the drama's vector index asynchronously after script content changes
+  // (failure does not block the save; CPU embedding takes seconds)
   if (('script_content' in updates || 'content' in updates) && isRagEnabled()) {
     const [ep] = await db.select({ dramaId: schema.episodes.dramaId }).from(schema.episodes).where(eq(schema.episodes.id, id))
     if (ep?.dramaId) {
@@ -125,30 +137,36 @@ app.put('/:id', async (c) => {
   return success(c)
 })
 
-// DELETE /episodes/:id - 硬删除（不可恢复）
-// FR-P0-1/FR-BIZ-1: 删除需显式二次确认；级联清理该集分镜/任务/拼接记录（DB 行
-// + storage 文件）；drama 级资产（characters/scenes/props）归剧集所有不动。
-// 在途生成任务随行删除（任务与产物同亡，无孤儿 processing）
+// DELETE /episodes/:id - hard delete (unrecoverable)
+// FR-P0-1/FR-BIZ-1: deletion requires explicit double confirmation; cascades cleanup of the
+// episode's storyboards/tasks/merge records (DB rows + storage files); drama-level assets
+// (characters/scenes/props) are drama-owned and untouched.
+// In-flight generation tasks are deleted along with it (tasks die with their artifacts, no
+// orphan processing rows)
 app.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep || ep.deletedAt) return notFound(c, '剧集不存在')
   const bodyConfirm = await c.req.json().then((b: any) => b?.confirm === true).catch(() => false)
   if (c.req.query('confirm') !== 'true' && !bodyConfirm) {
+    // i18n: user-facing
     return badRequest(c, '删除剧集需要二次确认：请携带 confirm=true（query 或 body）重试。此操作不可恢复，将级联删除该集分镜与生成产物')
   }
   const result = await cascadeDeleteEpisode(id)
   return success(c, { cascaded: result.rows, files: result.files })
 })
 
-// POST /episodes/:id/rollback-script — 回退上一版剧本（FR-BIZ-3）
+// POST /episodes/:id/rollback-script — roll back to the previous script version (FR-BIZ-3)
 app.post('/:id/rollback-script', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
   let history: { content: string, savedAt: string }[] = []
   try { history = JSON.parse(ep.scriptHistory || '[]') || [] } catch { history = [] }
   const last = history[history.length - 1]
+  // i18n: user-facing
   if (!last) return badRequest(c, '没有可回退的历史版本')
   history.pop()
   await db.update(schema.episodes)
@@ -194,38 +212,45 @@ app.get('/:id/props', async (c) => {
   return success(c, toSnakeCaseArray(result))
 })
 
-// POST /episodes/:id/extract — 异步提取资产（target: characters | scenes | props），立即返回，前端轮询状态
+// POST /episodes/:id/extract — async asset extraction (target: characters | scenes | props);
+// returns immediately, frontend polls for status
 app.post('/:id/extract', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
   const target = body.target as ExtractTarget
+  // i18n: user-facing
   if (!EXTRACT_TARGETS.includes(target)) return badRequest(c, 'target 必须是 characters / scenes / props')
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
   const started = await startExtraction(ep.id, ep.dramaId, target, { model: body.model || undefined, configId: body.config_id ?? undefined })
   return success(c, { target, status: 'running', already_running: !started })
 })
 
-// GET /episodes/:id/extract-status — 查询三类资产提取任务状态
+// GET /episodes/:id/extract-status — query the status of the three asset-extraction task kinds
 app.get('/:id/extract-status', async (c) => {
   const id = Number(c.req.param('id'))
   return success(c, await getExtractionStatus(id))
 })
 
-// POST /episodes/:id/storyboard-breakdown — 异步分镜拆解（直接 LLM，绕过 Mastra Agent），立即返回
+// POST /episodes/:id/storyboard-breakdown — async storyboard breakdown (direct LLM call,
+// bypassing the Mastra agent); returns immediately
 app.post('/:id/storyboard-breakdown', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
   await startStoryboardBreakdown(ep.id, ep.dramaId)
   return success(c, { status: 'running' })
 })
 
-// POST /episodes/:id/generate-video-prompts — 异步批量为缺少视频提示词的分镜生成（立即返回，前端轮询状态）
+// POST /episodes/:id/generate-video-prompts — async batch generation for storyboards missing
+// video prompts (returns immediately, frontend polls for status)
 app.post('/:id/generate-video-prompts', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json().catch(() => ({}))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
   const storyboardIds = Array.isArray(body.storyboard_ids)
     ? body.storyboard_ids.map(Number).filter((n: number) => Number.isInteger(n) && n > 0)
@@ -236,7 +261,7 @@ app.post('/:id/generate-video-prompts', async (c) => {
   return success(c, { status: 'running', total: result.total })
 })
 
-// GET /episodes/:id/video-prompts-status — 查询批量视频提示词任务状态
+// GET /episodes/:id/video-prompts-status — query the batch video-prompt task status
 app.get('/:id/video-prompts-status', async (c) => {
   const id = Number(c.req.param('id'))
   return success(c, await getVideoPromptBatchStatus(id))
@@ -290,12 +315,14 @@ app.get('/:episode_id/storyboards', async (c) => {
   })))
 })
 
-// GET /episodes/:id/pipeline-status — 流水线进度
-// GET /episodes/:id/generation-tasks — 按集聚合 sys_task + video_merges
-// sys_task 无 episode_id,通过 storyboard/scene/character/prop 关联键归属到当前集
+// GET /episodes/:id/pipeline-status — pipeline progress
+// GET /episodes/:id/generation-tasks — aggregate sys_task + video_merges for one episode
+// sys_task has no episode_id; rows are attributed to the current episode via the
+// storyboard/scene/character/prop association keys
 app.get('/:id/generation-tasks', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
 
   const sbs = await db.select().from(schema.storyboards).where(eq(schema.storyboards.episodeId, episodeId))
@@ -303,7 +330,7 @@ app.get('/:id/generation-tasks', async (c) => {
 
   const epScenes = await db.select().from(schema.episodeScenes).where(eq(schema.episodeScenes.episodeId, episodeId))
   const sceneIds = new Set(epScenes.map(r => r.sceneId))
-  // 兼容 scenes.episodeId 直挂的旧数据
+  // tolerate legacy data attached directly via scenes.episodeId
   const directScenes = await db.select().from(schema.scenes).where(eq(schema.scenes.episodeId, episodeId))
   directScenes.forEach(s => sceneIds.add(s.id))
 
@@ -338,6 +365,7 @@ app.get('/:id/generation-tasks', async (c) => {
 app.get('/:id/pipeline-status', async (c) => {
   const episodeId = Number(c.req.param('id'))
   const [ep] = await db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId))
+  // i18n: user-facing
   if (!ep) return notFound(c, '剧集不存在')
 
   const chars = await db.select().from(schema.characters).where(eq(schema.characters.dramaId, ep.dramaId))
@@ -369,12 +397,14 @@ app.get('/:id/pipeline-status', async (c) => {
   })
 })
 
-// GET /episodes/:id/events — Agent 级事件流 SSE（FR-P1-1 补齐）
-// 回放历史 + tail 跟踪；tail 期间收到 agent_finished(ok) 后短暂静默即 end（Agent
-// 链路无 sys_task 终态行，以最后一条 agent_finished 作为流结束信号）
+// GET /episodes/:id/events — agent-level event stream SSE (FR-P1-1 completion)
+// Replays history + tail-follows; during tail, after receiving agent_finished(ok) a short
+// quiet window ends the stream (the agent chain has no sys_task terminal row, so the last
+// agent_finished acts as the stream-end signal)
 app.get('/:id/events', async (c) => {
   const id = Number(c.req.param('id'))
   const [ep] = await db.select({ id: schema.episodes.id }).from(schema.episodes).where(eq(schema.episodes.id, id))
+  // i18n: user-facing
   if (!ep) return badRequest(c, '剧集不存在')
 
   const lastId = Number(c.req.header('Last-Event-ID') || c.req.query('lastEventId') || 0)
@@ -383,7 +413,7 @@ app.get('/:id/events', async (c) => {
     let open = true
     stream.onAbort(() => { open = false })
 
-    // 阶段 1：回放历史事件（Last-Event-ID 续传 / 重连补发）
+    // Phase 1: replay historical events (Last-Event-ID resume / reconnect backfill)
     for (;;) {
       const events = await readEpisodeEvents(id, cursor)
       for (const e of events) {
@@ -393,8 +423,9 @@ app.get('/:id/events', async (c) => {
       if (events.length < 100) break
     }
 
-    // 阶段 2：tail 跟踪。agent_finished(ok=true) 后再等 3s 静默（补发收尾事件）即 end；
-    // 无 finished 信号则长尾跟踪（客户端断开即止）
+    // Phase 2: tail-follow. After agent_finished(ok=true), wait 3s of quiet (backfilling
+    // final events) then end; without a finished signal, tail indefinitely (ends when the
+    // client disconnects)
     let finished = false
     let quietSince: number | null = null
     for (;;) {

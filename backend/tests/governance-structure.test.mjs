@@ -7,16 +7,16 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8')
 
 test('cross-session memory service targets fusion-memory with project namespace and fails open', () => {
     const svc = read('src/services/agent-memory.ts')
-    // fm-server 默认地址 + 密钥共享文件
+    // fm-server default address + shared key file
     assert.match(svc, /FUSION_MEMORY_URL \|\| 'http:\/\/127\.0\.0\.1:11435'/)
     assert.match(svc, /\.fusion-memory', 'api_key'/)
-    // project 命名空间隔离：不污染其他 fusion-* 应用记忆
+    // project namespace isolation: does not pollute other fusion-* app memories
     assert.match(svc, /const NAMESPACE = 'project'/)
     assert.match(svc, /const NAMESPACE_KEY = 'fusion-drama'/)
-    // fail-open：RPC 失败一律 null/仅告警
+    // fail-open: RPC failure always yields null / warns only
     assert.match(svc, /rpc-unreachable/)
     assert.match(svc, /return null/)
-    // 检索走 issue 契约 memory.retrieve_context
+    // Retrieval goes through the issue-contract memory.retrieve_context
     assert.match(svc, /'memory\.retrieve_context'/)
 })
 
@@ -25,9 +25,9 @@ test('agent chat injects memory block before rag and commits turn after generate
     assert.match(agent, /isMemoryEnabled\(\)/)
     assert.match(agent, /retrieveMemoryContext\(message\)/)
     assert.match(agent, /memory-context-injected/)
-    // 记忆块在前、RAG 块在后，同一前缀拼接
+    // Memory block first, RAG block after, joined under the same prefix
     assert.match(agent, /\[memoryBlock, ragBlock\]\.filter\(Boolean\)\.join\('\\n\\n'\)/)
-    // 对话后异步写入（void 不 await，失败仅告警）
+    // Asynchronous write after the chat (void, not awaited; failure only warns)
     assert.match(agent, /void commitAgentMemory\(\{/)
     assert.match(agent, /memory-commit-skipped/)
 
@@ -41,7 +41,7 @@ test('supervisor review runs after generate on the gpu queue and degrades open',
     assert.match(agent, /isSupervisorEnabled\(\)/)
     assert.match(agent, /enqueueGpuWork\(`Supervisor-\$\{agentType\}`/)
     assert.match(agent, /reviewAgentOutput\(agentType, message, result\.text \|\| ''\)/)
-    // 判定随响应返回 + 事件流留痕
+    // Verdict returned with the response + audit trail in the event stream
     assert.match(agent, /agent_reviewed/)
     assert.match(agent, /review,/)
 

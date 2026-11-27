@@ -1,6 +1,7 @@
 /**
- * 厂商图标 — 双主题本地托管（app/public/icons/{light,dark}/）
- * resolvedTheme 是模块级 computed，模板中调用本函数会随主题切换响应式更新
+ * Provider icons — locally hosted for both themes (app/public/icons/{light,dark}/)
+ * resolvedTheme is a module-level computed, so calling these helpers in templates
+ * reactively updates when the theme switches
  */
 import { resolvedTheme } from '~/composables/useTheme'
 
@@ -14,7 +15,7 @@ const FILENAMES: Record<string, string> = {
   doubao: 'doubao-color.png',
   moonshot: 'kimi-color.png',
   qwen: 'qwen-color.png',
-  aliyun: 'qwen-color.png',  // 阿里云 Wan 系列与 Qwen 同属阿里，共用图标
+  aliyun: 'qwen-color.png',  // Alibaba Cloud's Wan series and Qwen are both Alibaba; they share an icon
   zhipu: 'zhipu-color.png',
   xai: 'grok.png',
   xiaomi: 'xiaomi-color.png',
@@ -23,17 +24,19 @@ const FILENAMES: Record<string, string> = {
   midjourney: 'midjourney.png',
 }
 
-/** provider → 当前主题下的图标 URL；未知厂商返回 undefined（调用方回退字母徽标） */
+/** provider -> icon URL under the current theme; unknown providers return undefined (callers fall back to a letter badge) */
 export function providerIconUrl(provider?: string | null): string | undefined {
   const file = FILENAMES[(provider || '').toLowerCase()]
   return file ? `/icons/${resolvedTheme.value}/${file}` : undefined
 }
 
 /**
- * 模型名 → 厂商推断（按优先级从上到下，命中即返回）。
- * 场景：配置走 openai 兼容网关（provider=openai）但模型实为 deepseek/gemini 等，
- * 此时图标应按模型名而非 provider 展示。
- * 不含 doubao/seedance：它们由 volcengine 服务，provider 图标更准确。
+ * Model name -> provider inference (top-to-bottom by priority; first hit wins).
+ * Scenario: the config goes through an openai-compatible gateway (provider=openai) but the
+ * model is actually deepseek/gemini etc.; the icon should then follow the model name, not the
+ * provider.
+ * doubao/seedance are deliberately absent: they are served by volcengine, whose provider icon
+ * is more accurate.
  */
 const MODEL_PROVIDER_HINTS: [RegExp, string][] = [
   [/deepseek/i, 'deepseek'],
@@ -46,7 +49,7 @@ const MODEL_PROVIDER_HINTS: [RegExp, string][] = [
   [/^(gpt|chatgpt|o[1-9])/i, 'openai'],
 ]
 
-/** 模型感知的图标：模型名可识别厂商时优先，否则回退 provider */
+/** Model-aware icon: prefer the provider inferred from the model name, fall back to the provider */
 export function modelIconUrl(provider?: string | null, model?: string | null): string | undefined {
   const m = model || ''
   for (const [re, p] of MODEL_PROVIDER_HINTS) {

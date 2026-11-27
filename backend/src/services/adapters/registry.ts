@@ -1,7 +1,7 @@
 /**
- * Provider Adapter 注册表
- * 根据 provider 名称返回对应的 Adapter 实例；
- * `custom:<name>` 前缀走可编程 provider（DB 存 JS 代码，node:vm 沙箱热注册）
+ * Provider adapter registry.
+ * Returns the adapter instance for a provider name; the `custom:<name>` prefix routes to
+ * programmable providers (JS code stored in the DB, hot-registered in a node:vm sandbox).
  */
 import { OpenAIImageAdapter } from './openai-image'
 import { GeminiImageAdapter } from './gemini-image'
@@ -13,14 +13,14 @@ import { FusionVideoAdapter } from './fusion-video'
 import type { ImageProviderAdapter, VideoProviderAdapter } from './types'
 import { isCustomProvider, getCustomImageAdapter, getCustomVideoAdapter } from '../custom-providers'
 
-// 图片 Adapter 注册表
+// Image adapter registry
 export const imageAdapters: Record<string, ImageProviderAdapter> = {
   openai: new OpenAIImageAdapter(),
   gemini: new GeminiImageAdapter(),
   volcengine: new VolcEngineImageAdapter(),
 }
 
-// 视频 Adapter 注册表
+// Video adapter registry
 export const videoAdapters: Record<string, VideoProviderAdapter> = {
   volcengine: new VolcEngineVideoAdapter(),
   minimax: new MiniMaxVideoAdapter(),
@@ -29,9 +29,9 @@ export const videoAdapters: Record<string, VideoProviderAdapter> = {
 }
 
 /**
- * 获取图片 Adapter
- * @param provider 厂商名称（内置名或 custom:<name>）
- * @returns 对应的 Adapter（custom 需查 DB，故为异步）
+ * Gets the image adapter
+ * @param provider vendor name (built-in name or custom:<name>)
+ * @returns the matching adapter (custom requires a DB lookup, hence async)
  */
 export async function getImageAdapter(provider: string): Promise<ImageProviderAdapter> {
   if (isCustomProvider(provider)) return getCustomImageAdapter(provider.toLowerCase())
@@ -41,9 +41,9 @@ export async function getImageAdapter(provider: string): Promise<ImageProviderAd
 }
 
 /**
- * 获取视频 Adapter
- * @param provider 厂商名称（内置名或 custom:<name>）
- * @returns 对应的 Adapter（custom 需查 DB，故为异步）
+ * Gets the video adapter
+ * @param provider vendor name (built-in name or custom:<name>)
+ * @returns the matching adapter (custom requires a DB lookup, hence async)
  */
 export async function getVideoAdapter(provider: string): Promise<VideoProviderAdapter> {
   if (isCustomProvider(provider)) return getCustomVideoAdapter(provider.toLowerCase())

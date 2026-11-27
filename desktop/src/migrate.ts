@@ -1,10 +1,11 @@
 /**
- * 存储迁移引擎（主进程）
+ * Storage migration engine (main process)
  *
- * 序列：validate → stop backend → move → write config → restart backend → done
- * 铁律：copy 校验通过前绝不删旧目录；配置搬完才写；任何失败回滚并以旧目录拉起后端。
+ * Sequence: validate -> stop backend -> move -> write config -> restart backend -> done
+ * Iron rule: never delete the old directory before the copy verification passes; write
+ * config only after files are moved; on any failure roll back and start the backend from the old directory.
  *
- * 进度经 IPC 'fusion:migrate-progress' 推送（80ms 节流，done/error 必发）。
+ * Progress is pushed via IPC 'fusion:migrate-progress' (80ms throttle; done/error always sent).
  */
 import { app, dialog, ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
@@ -18,11 +19,11 @@ export interface MigrationDeps {
   setDataDir(dir: string): void
   getPort(): number
   isBackendAlive(): boolean
-  /** 停后端并等待退出（内部置 backendRestarting 抑制致命弹窗） */
+  /** Stops the backend and waits for exit (sets backendRestarting internally to suppress the fatal dialog) */
   stopBackend(): Promise<void>
   startBackend(): void
   waitHealthy(port: number, timeoutMs: number): Promise<void>
-  /** 后端生命周期告一段落（已 healthy 或已恢复）时复位标志 */
+  /** Resets the flag once the backend lifecycle settles (healthy again or recovered) */
   markRestartingFalse(): void
   writeConfig(dataDir: string): void
   configPath(): string
@@ -48,7 +49,7 @@ export function registerMigrationIpc(deps: MigrationDeps): void {
   })
 }
 
-// ---- 进度推送（80ms 节流，done/error 必发） ----
+// ---- Progress push (80ms throttle; done/error always sent) ----
 
 function makeReporter(getWindow: () => BrowserWindow | null) {
   let lastSent = 0
@@ -60,14 +61,14 @@ function makeReporter(getWindow: () => BrowserWindow | null) {
   }
 }
 
-// ---- 校验 ----
+// ---- Validation ----
 
 async function sameVolume(a: string, b: string): Promise<boolean> {
   try {
     const [sa, sb] = await Promise.all([fsp.statfs(a), fsp.statfs(b)])
     return sa.dev === sb.dev
   } catch {
-    return false // 判定不了按跨卷（走逐文件 copy，更稳妥）
+    return false // undeterminable counts as cross-volume (per-file copy is the safer route)
   }
 }
 
@@ -76,27 +77,33 @@ async function validateTarget(deps: MigrationDeps, target: string, currentDir: s
   if (!targetStat) {
     await fsp.mkdir(target, { recursive: true })
   } else if (!targetStat.isDirectory()) {
+    // i18n: user-facing
     throw new Error('目标路径不是目录')
   } else {
     const children = await fsp.readdir(target)
+    // i18n: user-facing
     if (children.length > 0) throw new Error('目标目录必须为空')
   }
 
-  // 可写探针
+  // Writability probe
   const probe = path.join(target, `.fusion-probe-${Date.now()}`)
   await fsp.writeFile(probe, 'probe')
   await fsp.rm(probe)
 
-  // 路径关系（win32 大小写不敏感）
+  // Path relationships (win32 is case-insensitive)
   const a = deps.normCase(path.resolve(currentDir))
   const b = deps.normCase(path.resolve(target))
+  // i18n: user-facing
   if (b === a) throw new Error('不能选择当前数据目录')
+  // i18n: user-facing
   if (b.startsWith(a + path.sep)) throw new Error('目标目录在当前数据目录内部')
+  // i18n: user-facing
   if (a.startsWith(b + path.sep)) throw new Error('目标目录是当前数据目录的上级目录')
   const userData = deps.normCase(path.resolve(path.dirname(currentDir))) // <userData>
+  // i18n: user-facing
   if (b === userData || a.startsWith(b + path.sep)) throw new Error('不能选择应用数据目录及其上级目录')
 
-  // 待搬总量（跨卷空间校验 + 迁移进度共用）
+  // Total size to move (shared by cross-volume space check and migration progress)
   let totalBytes = 0
   const collect = async (dir: string): Promise<void> => {
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => [])
@@ -111,20 +118,21 @@ async function validateTarget(deps: MigrationDeps, target: string, currentDir: s
   }
   await collect(currentDir)
 
-  // 跨卷空间校验（同卷 rename 不占额外空间，跳过）
+  // Cross-volume space check (same-volume rename costs no extra space; skipped)
   if (!(await sameVolume(currentDir, target))) {
     const st = await fsp.statfs(target)
     const free = st.bavail * st.bsize
     if (free < totalBytes * 1.05) {
       const needGb = ((totalBytes * 1.05) / 1024 ** 3).toFixed(1)
       const freeGb = (free / 1024 ** 3).toFixed(1)
+      // i18n: user-facing
       throw new Error(`目标磁盘空间不足：需要约 ${needGb} GB，剩余 ${freeGb} GB`)
     }
   }
   return totalBytes
 }
 
-// ---- 搬移 ----
+// ---- Move ----
 
 async function collectFileList(dir: string, base = dir, out: FileEntry[] = []): Promise<FileEntry[]> {
   const entries = await fsp.readdir(dir, { withFileTypes: true })
@@ -145,8 +153,9 @@ interface FileEntry {
 }
 
 /**
- * 搬移数据目录内容。铁律：复核通过前绝不删旧目录。
- * 同卷：逐顶层条目 rename（EXDEV 兜底转逐文件 copy）；跨卷：清单 copy + 字节复核 + 删旧。
+ * Moves the data directory contents. Iron rule: never delete the old directory before re-verification passes.
+ * Same volume: rename top-level entries one by one (fall back to per-file copy on EXDEV);
+ * cross volume: manifest copy + byte re-verification + delete old.
  */
 async function moveData(
   oldDir: string,
@@ -172,7 +181,7 @@ async function moveData(
     return
   }
 
-  // 跨卷：全量清单 → 逐文件 copy → 字节复核 → 删旧
+  // Cross volume: full manifest -> per-file copy -> byte re-verification -> delete old
   const files = await collectFileList(oldDir)
   const totalBytes = files.reduce((s, f) => s + f.size, 0)
   let copied = 0
@@ -183,16 +192,17 @@ async function moveData(
     copied += f.size
     report({ phase: 'moving', copiedBytes: copied, totalBytes })
   }
-  // 字节复核
+  // Byte re-verification
   const copiedFiles = await collectFileList(newDir)
   const copiedTotal = copiedFiles.reduce((s, f) => s + f.size, 0)
   if (copiedFiles.length !== files.length || copiedTotal !== totalBytes) {
+    // i18n: user-facing
     throw new Error(`迁移校验失败：文件数 ${copiedFiles.length}/${files.length}，字节 ${copiedTotal}/${totalBytes}`)
   }
   await fsp.rm(oldDir, { recursive: true, force: true })
 }
 
-/** rename 遇 EXDEV 时对个别顶层条目退化为跨卷 copy（少见路径，进度从简） */
+/** Falls back to cross-volume copy for individual top-level entries when rename hits EXDEV (rare path; simplified progress) */
 async function copyAcross(sources: string[], oldDir: string, newDir: string, report: (p: MigrateProgress, force?: boolean) => void): Promise<void> {
   let total = 0
   const files: string[] = []
@@ -211,7 +221,7 @@ async function copyAcross(sources: string[], oldDir: string, newDir: string, rep
   }
 }
 
-// ---- 主流程 ----
+// ---- Main flow ----
 
 export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): Promise<void> {
   const report = makeReporter(deps.getWindow)
@@ -235,7 +245,8 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
       await fsp.mkdir(target, { recursive: true })
     }
 
-    // 配置在文件搬完后才写；写失败回滚为旧值（或删除 = 回默认目录）
+    // Config is written only after files are moved; on write failure roll back to the old
+    // value (or delete = back to the default directory)
     report({ phase: 'config' }, true)
     const configExisted = fs.existsSync(deps.configPath())
     const oldConfigRaw = configExisted ? fs.readFileSync(deps.configPath(), 'utf8') : null
@@ -257,7 +268,8 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
     const message = (err as Error)?.message || String(err)
     report({ phase: 'error', message }, true)
 
-    // 恢复：后端应处于运行态；恢复失败则明确退出应用，不留僵尸窗口
+    // Recovery: the backend should be running; if recovery fails, exit the app explicitly
+    // and leave no zombie window behind
     if (backendWasAlive && !deps.isBackendAlive()) {
       deps.setDataDir(oldDir)
       try {
@@ -265,7 +277,8 @@ export async function runMigration(deps: MigrationDeps, opts: MigrateOptions): P
         await deps.waitHealthy(deps.getPort(), 20_000)
         deps.markRestartingFalse()
       } catch (recoverErr) {
-        console.error('[migrate] 恢复后端失败:', recoverErr)
+        console.error('[migrate] failed to recover backend:', recoverErr)
+        // i18n: user-facing
         dialog.showErrorBox('Fuse 短剧', `存储迁移失败且恢复后台服务失败，应用即将关闭。\n原始错误：${message}`)
         app.quit()
         return
